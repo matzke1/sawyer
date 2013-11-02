@@ -7,7 +7,7 @@ Features
 --------
 
 + *Familiar API:* Sawyer uses C++ paradigms for printing messages,
-  namely the STL `std::ostream` insertion operators, mani pulators, etc. 
+  namely the STL `std::ostream` insertion operators, manipulators, etc. 
 
 + *Ease of use:* All STL `std::ostream` insertion operators (`<<`) and
    manipulators work as expected, so no need to write any new functions

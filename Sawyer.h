@@ -2,6 +2,7 @@
 #define Sawyer_H
 
 #include <cassert>
+#include <cstdlib>
 #include <map>
 #include <ostream>
 #include <set>
@@ -105,6 +106,7 @@ enum MessageImportance {
     N_LEVELS            /**< Number of distinct importance levels. */
 };
 
+/** Colors used by sinks that support color. */
 enum MessageColor {
     COLOR_BLACK         = 0,    // the values are important: they are the ANSI foreground and background color offsets
     COLOR_RED           = 1,
@@ -120,30 +122,108 @@ enum MessageColor {
 /** Convert a message importance to a string. */
 std::string stringifyMessageImportance(MessageImportance imp);
 
-static const unsigned NO_STREAM = (unsigned)-1;
+typedef unsigned MessageId;
+static const MessageId NO_MESSAGE = (unsigned)-1;
 
 // Used internally
 struct MessageProps {
     MessageProps()
-        : stream_id(NO_STREAM),
-          interrupt_string("...\n"), cleanup_string("\n"),
-          use_color(false), fgcolor(COLOR_DEFAULT), bgcolor(COLOR_DEFAULT), color_attr(0) {}
-    explicit MessageProps(unsigned stream_id)
-        : stream_id(stream_id),
-          interrupt_string("...\n"), cleanup_string("\n"),
+        : indentation(0), interrupt_string("...\n"), terminate_string("\n"), destroy_string("\n"),
           use_color(false), fgcolor(COLOR_DEFAULT), bgcolor(COLOR_DEFAULT), color_attr(0) {}
     bool has_color() const { return fgcolor!=COLOR_DEFAULT || bgcolor!=COLOR_DEFAULT || color_attr!=0; }
     void set_color(MessageImportance);  // set color properties based on importance
-    unsigned stream_id;                 // stream that created message
+    size_t indentation;                 // indentation level
     std::string interrupt_string;       // string to print at the end of an interrupted partial message
-    std::string cleanup_string;         // how to terminate a partial message when a stream is destroyed
+    std::string terminate_string;       // string to print for end of message
+    std::string destroy_string;         // text to print to partial message when its stream is destroyed
     bool use_color;                     // use the following ANSI colors?
     MessageColor fgcolor;               // foreground color
     MessageColor bgcolor;               // background color
     int color_attr;                     // zero, or ANSI color attribute (bold, reverse, etc).
 };
 
+class Message {
+    MessageId id_;                      // unique message ID
+    MessageProps props_;                //
+    std::string prefix_;                // message prefix string
+    std::string body_;                  // message body (no linefeeds)
+    bool complete_;                     // message has been completed (a linefeed has been inserted, but is not in body_)
+    size_t body_nprinted_;              // number of characters of the message body that have been emitted by the sink
+    static MessageId next_id_;
+public:
+    Message()
+        : id_(next_id_++), complete_(false), body_nprinted_(0) {}
 
+    explicit Message(const MessageProps &mprops)
+        : id_(next_id_++), props_(mprops), complete_(false), body_nprinted_(0) {}
+
+    void reset(const MessageProps &p) { // new message created in place
+        id_ = next_id_++;
+        props_ = p;
+        prefix_ = body_ = "";
+        complete_ = false;
+        body_nprinted_ = 0;
+    }
+
+    void transfer_from(Message &other) {
+        id_ = other.id_;                        other.id_ = next_id_++;
+        props_ = other.props_;
+        prefix_ = other.prefix_;
+        body_ = other.body_;                    other.body_ = "";
+        complete_ = other.complete_;            other.complete_ = false;
+        body_nprinted_ = other.body_nprinted_;  other.body_nprinted_ = 0;
+    }
+    
+private: // messages are not copyable
+    Message& operator=(const Message&) { abort(); }
+    Message(const Message&) { abort(); }
+
+public:
+    /** Unique message ID. */
+    MessageId id() const { return id_; }
+
+    /** Returns true if the message has an empty body. */
+    bool empty() const { return body_.empty(); }
+
+    /** Message properties.
+     * @{ */
+    const MessageProps& props() const { return props_; }
+    MessageProps& props() { return props_; }
+    /** @} */
+
+    /** Returns true if part of this message has not been emitted yet. */
+    bool pending() const { return body_nprinted_ < body_.size(); }
+
+    /** Number of characters of the body that have been emitted already.
+     * @{ */
+    size_t nprinted() const { return body_nprinted_; }
+    void nprinted(size_t n) { body_nprinted_ = n; }
+    /** @} */
+
+    /** Marke entire body as having been emitted. */
+    void printed() { body_nprinted_ = body_.size(); }
+
+    /** Messge prefix.
+     * @{ */
+    const std::string& prefix() const { return prefix_; }
+    void prefix(const std::string &s) { prefix_ = s; }
+    /** @} */
+
+    /** Message body. */
+    const std::string& body() const { return body_; }
+
+    /** Append to message body.
+     * @{ */
+    void append(char c);
+    void append(const std::string &s);
+    /** @} */
+
+    /** Returns true if a message body is partial.  Empty messages are partial messages. */
+    bool is_partial() const { return !complete_; }
+
+    /** Returns true if a message is complete. Empty messages are not complete. */
+    bool is_complete() const { return complete_; }
+};
 
 /*******************************************************************************************************************************
  *                                      Message prefixes
@@ -175,9 +255,20 @@ public:
 private:
     void init();
 };
+
+/** A message prefix class that produces empty prefixes. */
+class MessageEmptyPrefix: public MessagePrefix {
+public:
+    virtual std::string operator()(const MessageProps&, const std::string &facility_name, MessageImportance) /*override*/ {
+        return "";
+    }
+};
     
 /** Default message prefix. See MessagePrefix for details. */
 extern MessagePrefix default_prefix;
+
+/** Empty message prefix. */
+extern MessageEmptyPrefix empty_prefix;
 
 
 /*******************************************************************************************************************************
@@ -191,42 +282,27 @@ extern MessagePrefix default_prefix;
  *  indentation, buffering, etc.). */
 class MessageSink {
 protected:
-    size_t indent_level_;
-    MessageProps prev_mesg_;
+    size_t indentation_;                // Indentation level for new messages
+    MessageId prev_mid_;                // ID of previously emitted partial message, or NO_MESSAGE
+    MessageProps prev_mprops_;          // Properties of previous partial message if prev_mid_!=NO_MESSAGE
 public:
-    MessageSink(): indent_level_(0) {}
+    MessageSink(): indentation_(0), prev_mid_(NO_MESSAGE) {}
     virtual ~MessageSink() {}
 
-    /** Output (part of) a message.  The @p stream_id is the identification number for the stream that produced the
-     * message. The @p full_line is always the full text of the (partial) message including any message prefix. The @p
-     * new_stuff is the offset within @p full_line for the part of the message that hasn't been emitted yet. */
-    virtual void output(const MessageProps&, const std::string &full_line, size_t new_stuff) = 0;
+    /** Emit (part of) a message. */
+    virtual void emit(Message&) = 0;
 
-    /** Increase indentation.  Increases the indentation level by @p delta and returns the old indentation level. The delta is
-     *  the indentation level, rather than the number of characters by which to indent, and must be non-negative.  A delta of
-     *  zero simply returns the current indentation level without changing it. */
-    size_t indent(size_t delta) { size_t retval=indent_level_; indent_level_+=delta; return retval; }
+    /** Indentation level.
+     * @{ */
+    size_t indentation() const { return indentation_; }
+    void indentation(size_t level) { indentation_=level; }
+    /** @} */
 
-    /** Set indentation level.  The indentation level is set as specified. The @p new_level is the indentation level rather
-     * than the number of characters by which to indent. */
-    void indent_to(size_t new_level) { indent_level_=new_level; }
-
-    /** Transfers ownership of the previous output to a new message stream.  This method is called for user code like:
-     * @code
-     *  MessageStream m1(log[DEBUG] <<"partial message");
-     *  ...
-     *  m1 <<" finishing message\n";
-     * @endcode
-     *
-     * It is necessary to transfer the ownership of "partial message" from log[DEBUG] where it was originally generated, to
-     * "m1" where it will ultimately be completed. */
-    void transfer_ownership(unsigned id) { if (prev_mesg_.stream_id!=NO_STREAM) prev_mesg_.stream_id = id; }
-
-    /** Update message properties if necessary. The update occurs only if the specified properties are for the same message
-     *  stream as the previous output. */
-    void save_mprops(const MessageProps &newprops) {
-        if (newprops.stream_id==prev_mesg_.stream_id)
-            prev_mesg_ = newprops;
+    /** Update partial message properties if necessary. The update occurs only if the sink has just emitted (via emit()) a
+     *  partial message with the same message ID as that specified here. */
+    void save_mprops(MessageId mid, const MessageProps &mprops) {
+        if (prev_mid_==mid)
+            prev_mprops_ = mprops;
     }
 
     /** Adjust the default message properties. For instance, a sink that supports color output might initialize the default
@@ -234,22 +310,27 @@ public:
     virtual void adjust_mprops(MessageProps &adjustable) {};
 };
 
+
+
 /** Discards all messages.  This isn't usually used since messages are emitted or not based on whether MessageStream used to
  * construct the message is enabled or disabled. */
 class MessageNullSink: public MessageSink {
 public:
-    virtual void output(const MessageProps&, const std::string &full_line, size_t new_stuff) /*override*/ {}
+    virtual void emit(Message&) /*override*/ {}
 };
+
+
 
 /** Sends messages to an STL std::ostream. */
 class MessageFileSink: public MessageSink {
     std::ostream &ostream_;             // STL stream where output goes
     bool need_linefeed_;                // was the last character of output a linefeed?
     bool use_color_;                    // has color capability using ANSI escape sequences?
+    static const size_t indent_width_ = 2;
 public:
     explicit MessageFileSink(std::ostream &ostream, bool use_color=false)
         : ostream_(ostream), need_linefeed_(false), use_color_(use_color) {}
-    virtual void output(const MessageProps&, const std::string &full_line, size_t new_stuff) /*override*/;
+    virtual void emit(Message&) /*override*/;
     virtual void adjust_mprops(MessageProps&) /*override*/;
 
     /** Whether color output is enabled.
@@ -262,7 +343,7 @@ public:
 /** Sink that sends messages to standard error. */
 extern MessageFileSink merr;
 
-/** Sink that sends messages to standard output. */
+
 extern MessageFileSink mout;
 
 /** Sink that always discards its output. */
@@ -279,50 +360,42 @@ class MessageStream;
 // Only used internally
 class MessageStreamBuf: public std::streambuf {
     friend class MessageStream;
-    std::string name_;
-    MessageImportance importance_;
-    MessagePrefix *prefix_;
-    MessageSink *sink_;
-    bool enabled_;
-    MessageProps mesg_props_;           // properties of the current message
-    MessageProps dflt_mesg_props_;      // properties to initialize current message properties
-    std::string buf_;                   // oustanding partial message
-    size_t new_stuff_;                  // offset into buf_ for stuff that hasn't been emitted yet
-    static unsigned next_id_;
-    static const size_t indent_width_ = 2;
+    std::string name_;                  // name of the software facility
+    MessageImportance importance_;      // importance for all messages generated here
+    MessagePrefix *prefix_;             // format the prefix for each message
+    MessageSink *sink_;                 // where these messages go
+    bool enabled_;                      // should messages be emitted?
+    Message mesg_;                      // current message
+    MessageProps dflt_mprops_;          // default properties to initialize current message properties
 
 protected:
-    MessageStreamBuf()
-        : importance_(FATAL), prefix_(&default_prefix), sink_(&merr), enabled_(false), new_stuff_(0) {
-        sink_->adjust_mprops(dflt_mesg_props_);
+    MessageStreamBuf(): importance_(INFO), prefix_(NULL), sink_(NULL), enabled_(false) {}
+
+    MessageStreamBuf(const std::string name, MessageImportance imp, MessagePrefix *prefix, MessageSink *sink)
+        : name_(name), importance_(imp), prefix_(prefix), sink_(sink), enabled_(true) {
+        assert(sink!=NULL);
+        dflt_mprops_.set_color(imp);
+        sink_->adjust_mprops(dflt_mprops_);
+        mesg_.reset(dflt_mprops_);
+        
     }
 
-    MessageStreamBuf(const std::string name, MessageImportance imp, MessagePrefix &p=default_prefix,
-                     MessageSink &sink=merr)
-        : name_(name), importance_(imp), prefix_(&p), sink_(&sink), enabled_(true),
-          dflt_mesg_props_(next_id_++), new_stuff_(0) {
-        dflt_mesg_props_.set_color(imp);
-        sink_->adjust_mprops(dflt_mesg_props_);
-        mesg_props_ = dflt_mesg_props_;
-    }
-
-    // New stream buf has same settings as old one except it has a new ID number. The new stream does not inherit any partial
-    // message from the old stream.
+    // Copies an existing stream without copying that stream's partial message (if any)
     MessageStreamBuf(const MessageStreamBuf &other)
         : name_(other.name_), importance_(other.importance_), prefix_(other.prefix_), sink_(other.sink_),
-          enabled_(other.enabled_), mesg_props_(other.dflt_mesg_props_/*yes*/), dflt_mesg_props_(other.dflt_mesg_props_),
-          new_stuff_(0) {
-        mesg_props_.stream_id = dflt_mesg_props_.stream_id = next_id_++;
+          enabled_(other.enabled_), dflt_mprops_(other.dflt_mprops_) {
+        mesg_.reset(dflt_mprops_);
     }
+
+    // Copies an existing stream without copying that stream's partial message (if any)
     MessageStreamBuf& operator=(const MessageStreamBuf &other) {
         name_ = other.name_;
         importance_ = other.importance_;
         prefix_ = other.prefix_;
         sink_ = other.sink_;
         enabled_ = other.enabled_;
-        mesg_props_ = other.dflt_mesg_props_; /*yes*/
-        dflt_mesg_props_ = other.dflt_mesg_props_;
-        mesg_props_.stream_id = dflt_mesg_props_.stream_id = next_id_++;
+        dflt_mprops_ = other.dflt_mprops_;
+        mesg_.reset(dflt_mprops_);
         return *this;
     }
 
@@ -331,10 +404,17 @@ protected:
     virtual int_type overflow(int_type c = traits_type::eof()) /*override*/;
 
 private:
-    void clear() { buf_=""; new_stuff_=0; }
+    // Cancel any current partial message without attempting to undo anything that was emitted already
+    void cancel() { mesg_.reset(dflt_mprops_); }
+
+    // Move a partial message from another stream.
     void transfer_ownership(MessageStreamBuf &other);
+
+    // Called during destruction to terminate partial message
     void finish();
 };
+
+
 
 /** Constructs, formats, and conditionally emits a stream of messages.  Although this is the type of object upon which most
  *  operations are performed, the user seldom explicitly instantiates a MessageStream--the preferred way to create streams is
@@ -347,10 +427,9 @@ public:
      *  destroyed until after this MessageStream is destroyed. */ 
     explicit MessageStream(const std::string facility_name, MessageImportance importance,
                            MessagePrefix &prefix=default_prefix, MessageSink &sink=merr)
-        : std::ostream(&streambuf_), streambuf_(facility_name, importance, prefix, sink) {}
+        : std::ostream(&streambuf_), streambuf_(facility_name, importance, &prefix, &sink) {}
 
-    /** Copy constructor. The new message stream has the same name, importance, prefix, sink and enabled state as @p other, but
-     * is given its own buffer. Any outstanding partial message in @p other is not inherited by this stream. */
+    /** Copy constructor. The new message stream is like the specified one, but does not have any outstanding partial message. */
     MessageStream(MessageStream &other): std::ostream(&streambuf_), streambuf_(other.streambuf_) {}
 
     /** Message ownership transfer.  The API supports the following style of partial message completion:
@@ -368,7 +447,7 @@ public:
     MessageStream(std::ostream &s): std::ostream(&streambuf_) {
         MessageStream *other = dynamic_cast<MessageStream*>(&s);
         assert(other!=NULL);
-        streambuf_ = other->streambuf_; // creates a new stream_id
+        streambuf_ = other->streambuf_; // doesn't copy partial message
         streambuf_.transfer_ownership(other->streambuf_);
     }
 
@@ -400,50 +479,46 @@ public:
     void disable() { enable(false); }
     /** @} */
 
-    /** Indent the stream.   The stream indentation level is adjusted and the old indentation level is returned.  A stream that
-     *  is indented inserts additional white space between the message prefix and the message text.  Although indentation is
-     *  adjusted on a per-stream basis and the stream is where the indentation is applied, the actual indentation level is a
-     *  property of the MessageSink. Therefore, all messages streams using the same sink are affected.
+    /** Indentation level.  A stream that is indented inserts additional white space between the message prefix and the message
+     *  text.  Although indentation is adjusted on a per-stream basis and the stream is where the indentation is applied, the
+     *  actual indentation level is a property of the MessageSink. Therefore, all messages streams using the same sink are
+     *  affected.
      *
-     *  Users seldom use this method directly since it requires careful programming to restore the indentation in the presence
-     *  of non-local exits from scopes where the indentation was indented to be in effect (e.g., exceptions). A more useful
-     *  interface is the MessageIndenter class. */
-    size_t indent(size_t delta=1) { return streambuf_.sink_->indent(delta); }
+     *  Users seldom use this method to change the indentation since it requires careful programming to restore the old
+     *  indentation in the presence of non-local exits from scopes where the indentation was indented to be in effect (e.g.,
+     *  exceptions). A more useful interface is the MessageIndenter class.
+     * @{ */
+    size_t indentation() const { return streambuf_.sink_->indentation(); }
+    void indentation(size_t level) { streambuf_.sink_->indentation(level); }
+    /** @} */
 
-    /** Indent the stream. Set indentation to the specified level. See also, indent(). */
-    void indent_to(size_t n) { streambuf_.sink_->indent_to(n); }
-
-    /** Pretend that the last partial message didn't happen. If part of the message was already printed then the output might
-     *  get messed up.  Use with care.  See Progress.h for example usage. */
-    void clear() {
-        streambuf_.clear();
-        streambuf_.mesg_props_ = streambuf_.dflt_mesg_props_;
-        streambuf_.sink_->save_mprops(MessageProps());
-    }
-
-    /** Partial message termination string.  This string is printed when a partial message is interrupted by some other
+    /** Partial message interrupt string.  This string is printed when a partial message is interrupted by some other
      *  message and should include any necessary line termination. The default is "...\n". */
     void interrupt_string(const std::string &s, bool as_dflt=true) {
-        streambuf_.mesg_props_.interrupt_string = s;
-        streambuf_.sink_->save_mprops(streambuf_.mesg_props_);
+        streambuf_.mesg_.props().interrupt_string = s;
+        streambuf_.sink_->save_mprops(streambuf_.mesg_.id(), streambuf_.mesg_.props());
         if (as_dflt)
-            streambuf_.dflt_mesg_props_.interrupt_string = s;
+            streambuf_.dflt_mprops_.interrupt_string = s;
     }
 
-    /** How to finish up a partial message when this message stream is destroyed. */
-    void cleanup_string(const std::string &s, bool as_dflt=true) {
-        streambuf_.mesg_props_.cleanup_string = s;
-        streambuf_.sink_->save_mprops(streambuf_.mesg_props_);
+    /** Message termination string.  This string is printed when a message is finished. The default is "\n". */
+    void terminate_string(const std::string &s, bool as_dflt=true) {
+        streambuf_.mesg_.props().terminate_string = s;
+        streambuf_.sink_->save_mprops(streambuf_.mesg_.id(), streambuf_.mesg_.props());
         if (as_dflt)
-            streambuf_.dflt_mesg_props_.cleanup_string = s;
+            streambuf_.dflt_mprops_.terminate_string = s;
+    }
+
+    /** How to finish up a partial message when this message stream is destroyed. Should include message termination. */
+    void destroy_string(const std::string &s, bool as_dflt=true) {
+        streambuf_.mesg_.props().destroy_string = s;
+        streambuf_.sink_->save_mprops(streambuf_.mesg_.id(), streambuf_.mesg_.props());
+        if (as_dflt)
+            streambuf_.dflt_mprops_.destroy_string = s;
     }
 
     /** Returns a pointer to the message sink. */
     MessageSink *sink() const { return streambuf_.sink_; }
-    
-private:
-    // Used internally to transfer ownership of a message to a different stream
-    void transfer(unsigned old_id, unsigned new_id);
 };
 
 
@@ -452,19 +527,19 @@ private:
  *                                      Manipulators
  *******************************************************************************************************************************/
 
-/** Change partial message termination string.  Changes the string that will be printed for the current message if it is
- *  interrupted by another message.  The setting persists until the end of the current message, at which time the default is
- *  restored.   The default can be changed with MessageStream::interrupt_string(). */
-struct pterm {
-    explicit pterm(const std::string &s): s(s) {}
+/** Manipulator to change the partial message interrupt string.  Changes the string that will be printed for the current
+ *  message if it is interrupted by another message.  The setting persists until the end of the current message, at which time
+ *  the default is restored.   The default can be changed with MessageStream::interrupt_string(). */
+struct pint {
+    explicit pint(const std::string &s): s(s) {}
     std::string s;
 };
 
-std::ostream& operator<<(std::ostream&, const pterm&);
+std::ostream& operator<<(std::ostream&, const pint&);
 
-/** Change partial message cleanup string. Changes the string that will be printed for the current message if it's message
- *  stream is destroyed without completing the message. The setting persists until the end of the current message, at which
- *  time the default is restored.  The default can be changed with MessageStream::cleanup_string(). */
+/** Manipulator to change the partial message destruction string. Changes the string that will be printed for the current
+ *  message if its message stream is destroyed without completing the message. The setting persists until the end of the
+ *  current message, at which time the default is restored.  The default can be changed with MessageStream::cleanup_string(). */
 struct pdest {
     explicit pdest(const std::string &s): s(s) {}
     std::string s;
@@ -480,8 +555,8 @@ std::ostream& operator<<(std::ostream&, const pdest&);
 
 /** Indent messages for the duration of the enclosing scope.  All messages emitted to the same MessageSink are subsequently
  *  indented one additional level. The increment remains in effect until this object is canceled or destroyed. Using a message
- *  indenter is more convenient that using the MessageStream::indent() method because there is no need to manually restore the
- *  previous indentation in the presence of non-local exits from the scope (return, break, throw goto, etc).
+ *  indenter is more convenient that using the MessageStream::indentation() method because there is no need to manually restore
+ *  the previous indentation in the presence of non-local exits from the scope (return, break, throw goto, etc).
  *
  *  Example usage:
  * @code
@@ -504,7 +579,8 @@ public:
     explicit MessageIndenter(std::ostream &s): canceled_(false) {
         stream_ = dynamic_cast<MessageStream*>(&s);
         assert(stream_!=NULL);
-        old_level_ = stream_->indent();
+        old_level_ = stream_->indentation();
+        stream_->indentation(old_level_+1);
     }
 
     ~MessageIndenter() {
@@ -516,7 +592,7 @@ public:
      *  statement. See class documentation for details. */
     MessageStream& cancel() {
         if (!canceled_) {
-            stream_->indent_to(old_level_);
+            stream_->indentation(old_level_);
             canceled_ = true;
         }
         return *stream_;

@@ -9,14 +9,20 @@
 
 namespace Sawyer {
 
+MessageId Message::next_id_ = 0;
 struct timeval MessagePrefix::epoch_;
 std::string MessagePrefix::exename_;
-unsigned MessageStreamBuf::next_id_ = 0;
 MessagePrefix default_prefix;
 MessageFileSink merr(std::cerr, isatty(2));
 MessageFileSink mout(std::cout, isatty(1));
 MessageNullSink mnull;
 MessageFacility log("");
+
+
+
+/*******************************************************************************************************************************
+ *                                      Messages
+ *******************************************************************************************************************************/
 
 std::string
 stringifyMessageImportance(MessageImportance imp)
@@ -60,6 +66,30 @@ MessageProps::set_color(MessageImportance imp)
     }
 #endif
 }
+
+void
+Message::append(char c)
+{
+    if ('\n'==c) {
+        complete_ = true;
+    } else {
+        assert(!complete_);
+        body_ += c;
+    }
+}
+
+void
+Message::append(const std::string &s)
+{
+    for (size_t i=0; i<s.size(); ++i)
+        append(s[i]);
+}
+
+
+
+/*******************************************************************************************************************************
+ *                                      Message prefixes
+ *******************************************************************************************************************************/
 
 void
 MessagePrefix::init()
@@ -119,6 +149,12 @@ MessagePrefix::operator()(const MessageProps &props, const std::string &facility
     return ss.str();
 }
 
+
+
+/*******************************************************************************************************************************
+ *                                      Message sinks
+ *******************************************************************************************************************************/
+
 void
 MessageFileSink::adjust_mprops(MessageProps &mprops)
 {
@@ -126,54 +162,64 @@ MessageFileSink::adjust_mprops(MessageProps &mprops)
 }
 
 void
-MessageFileSink::output(const MessageProps &mesg, const std::string &full_line, size_t new_stuff)
+MessageFileSink::emit(Message &mesg)
 {
-    assert(new_stuff<=full_line.size());
-    if (new_stuff < full_line.size()) {
-        if (prev_mesg_.stream_id!=NO_STREAM && prev_mesg_.stream_id!=mesg.stream_id) {
-            if (need_linefeed_)
-                ostream_ <<prev_mesg_.interrupt_string;
-            ostream_ <<full_line; // includes the new_stuff
-        } else {
-            ostream_ <<full_line.substr(new_stuff);
-        }
-        prev_mesg_ = mesg;
-        need_linefeed_ = '\n'!=full_line[full_line.size()-1];
+    // Interrupt a previous partial message?
+    if (prev_mid_!=NO_MESSAGE && mesg.id()!=prev_mid_) {
+        ostream_ <<prev_mprops_.interrupt_string;
+        prev_mid_ = NO_MESSAGE;
+    }
+
+    // Emit this message
+    if (prev_mid_!=mesg.id()) {
+        ostream_ <<mesg.prefix() <<std::string(mesg.props().indentation*indent_width_, ' ') <<mesg.body();
+    } else {
+        ostream_ <<mesg.body().substr(mesg.nprinted());
+    }
+    mesg.printed();
+
+    // Save properties for partial message for later calls.
+    if (mesg.is_partial()) {
+        prev_mid_ = mesg.id();
+        prev_mprops_ = mesg.props();
+    } else {
+        ostream_ <<mesg.props().terminate_string;
+        prev_mid_ = NO_MESSAGE;
     }
 }
 
-void
-MessageStreamBuf::finish() 
-{
-    if (!buf_.empty() && enabled_) {
-        size_t newstuff = buf_.size();
-        buf_ += mesg_props_.cleanup_string;
-        sink_->output(mesg_props_, buf_, newstuff);
-    }
-}
+
+
+/*******************************************************************************************************************************
+ *                                      Message streams
+ *******************************************************************************************************************************/
 
 std::streamsize
 MessageStreamBuf::xsputn(const char *s, std::streamsize &n)
 {
     assert(n>0);
-    assert(new_stuff_ <= buf_.size());
     for (std::streamsize i=0; i<n; ++i) {
-        if (buf_.empty())
-            buf_ = (*prefix_)(mesg_props_, name_, importance_) + std::string(sink_->indent(0)*indent_width_, ' ');
 
-        buf_.push_back(s[i]);
+        // First letter of a message sets its indentation and prefix.
+        if (mesg_.empty() && prefix_) {
+            mesg_.props().indentation = sink_->indentation();
+            mesg_.prefix((*prefix_)(mesg_.props(), name_, importance_));
+        }
+        mesg_.append(s[i]);
+
+        // A linefeed marks the end of a message, but isn't actually part of its body.  The MessageSink is free to use whatever
+        // termination it needs.
         if ('\n'==s[i]) {
             if (enabled_)
-                sink_->output(mesg_props_, buf_, new_stuff_);
-            buf_ = "";
-            new_stuff_ = 0;
-            mesg_props_ = dflt_mesg_props_;
+                sink_->emit(mesg_);      // full message output
+            mesg_.reset(dflt_mprops_);
         }
     }
-    if (!buf_.empty() && enabled_) {
-        sink_->output(mesg_props_, buf_, new_stuff_);
-        new_stuff_ = buf_.size();
-    }
+
+    // Emit partial message, however the sink wants to handle that.
+    if (enabled_ && !mesg_.empty())
+        sink_->emit(mesg_);
+
     return n;
 }
 
@@ -188,14 +234,27 @@ MessageStreamBuf::overflow(int_type c)
 }
 
 void
+MessageStreamBuf::finish() 
+{
+    if (enabled_ && !mesg_.empty() && mesg_.is_partial()) {
+        mesg_.append(mesg_.props().destroy_string);
+        sink_->emit(mesg_);
+        mesg_.reset(dflt_mprops_);
+    }
+}
+
+void
 MessageStreamBuf::transfer_ownership(MessageStreamBuf &other)
 {
-    buf_ = other.buf_; other.buf_ = "";
-    new_stuff_ = other.new_stuff_; other.new_stuff_ = 0;
-    mesg_props_ = other.mesg_props_;
-    mesg_props_.stream_id = dflt_mesg_props_.stream_id;
-    sink_->transfer_ownership(mesg_props_.stream_id);
+    assert(sink_ == other.sink_);
+    mesg_.transfer_from(other.mesg_);
 }
+
+
+
+/*******************************************************************************************************************************
+ *                                      Message facilities
+ *******************************************************************************************************************************/
 
 void
 MessageFacility::init(const std::string &name, MessagePrefix &prefix, MessageSink &sink)
@@ -259,7 +318,13 @@ MessageFacilities::enable(MessageImportance imp, bool b)
         fi->second->get(imp).enable(b);
 }
 
-std::ostream& operator<<(std::ostream &o, const pterm &m)
+
+
+/*******************************************************************************************************************************
+ *                                      Manipulators
+ *******************************************************************************************************************************/
+
+std::ostream& operator<<(std::ostream &o, const pint &m)
 {
     MessageStream *mstream = dynamic_cast<MessageStream*>(&o);
     assert(mstream!=NULL);
@@ -271,7 +336,7 @@ std::ostream& operator<<(std::ostream &o, const pdest &m)
 {
     MessageStream *mstream = dynamic_cast<MessageStream*>(&o);
     assert(mstream!=NULL);
-    mstream->cleanup_string(m.s, false);
+    mstream->destroy_string(m.s, false);
     return o;
 }
 

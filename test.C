@@ -114,11 +114,11 @@ void test7()
     banner("test7 - interference");
     MessageFacility log("test7");
     log[DEBUG] <<"d1";
-    log[TRACE] <<"t1" <<pterm(" (interrupted)\n");
+    log[TRACE] <<"t1" <<pint(" (interrupted)\n");
     log[WHERE] <<"w1";
     
     log[DEBUG] <<" d2";
-    log[TRACE] <<" t2" <<pterm("...\n");
+    log[TRACE] <<" t2" <<pint("...\n");
     log[WHERE] <<" w2";
 
     log[DEBUG] <<" d_end\n";
@@ -207,23 +207,8 @@ void test11()
 void test12() 
 {
     banner("test12 - user-defined sink");
-
-    struct Prefix: MessagePrefix {
-        std::string operator()(const MessageProps&, const std::string&, MessageImportance) /*override*/ {
-            return "";
-        }
-    } prefix;
-
-    struct Sink: MessageFileSink {
-        Sink(): MessageFileSink(std::cerr) {}
-        void output(const MessageProps &mesg, const std::string &full_line, size_t new_stuff) /*override*/ {
-            MessageFileSink::output(mesg, full_line, new_stuff);
-            MessageFileSink::output(mesg, full_line, new_stuff);
-        }
-    } sink;
-
-    MessageFacility log("test12", prefix, sink);
-    log[DEBUG] <<"This message should be emitted twice\n";
+    MessageFacility log("test12");
+    log[ERROR] <<"THIS TEST IS NOT IMPLEMENTED YET\n";
 }
 
 // temporary enable

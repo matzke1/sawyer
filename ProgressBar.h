@@ -140,10 +140,12 @@ ProgressBar<T>::use_ansi(bool b)
 {
     if (!b) {
         mstream_.interrupt_string("\n");
-        mstream_.cleanup_string("\n");
+        mstream_.destroy_string("\n");
+        mstream_.terminate_string("\n");
     } else {
-        mstream_.interrupt_string("\r\033[K");
-        mstream_.cleanup_string("\r\033[K");
+        mstream_.interrupt_string("\r\033[K"); // clear line
+        mstream_.destroy_string("\r\033[K");
+        mstream_.terminate_string("\r\033[K");
     }
     use_ansi_ = b;
 }
@@ -178,9 +180,7 @@ void
 ProgressBar<T>::enable(bool b)
 {
     if (mstream_.enabled() && !b) {
-        mstream_ <<" DISABLED";
-        mstream_ <<(use_ansi_?"\r\033[K":"\n");
-        mstream_.clear();
+        mstream_ <<"\n";
         mstream_.disable();
     } else if (!mstream_.enabled() && b) {
         mstream_.enable();
@@ -213,9 +213,8 @@ template <typename T>
 void
 ProgressBar<T>::update()
 {
-    // Redraw the whole message.
-    mstream_ <<(use_ansi_?"\r":"\n");
-    mstream_.clear();
+    // Complete previous message (empty messages aren't printed)
+    mstream_ <<"\n";
 
     // Percent complete
     if (show_percent_) {
@@ -228,15 +227,15 @@ ProgressBar<T>::update()
         mstream_ <<endchar_lt_;
     size_t barsz = round(ratio()*width_);
     if (use_ansi_)
-        mstream_ <<"\033[7m"; // green background to match INFO level color
+        mstream_ <<"\033[7m"; // invert
     mstream_ <<std::string(barsz, barchar_lt_);
     if (use_ansi_)
-        mstream_ <<"\033[m";
+        mstream_ <<"\033[m"; // reset
     mstream_ <<std::string(width_-barsz, barchar_rt_);
     if (endchar_rt_)
         mstream_ <<endchar_rt_;
     if (use_ansi_)
-        mstream_ <<"\033[K";
+        mstream_ <<"\033[K"; // clear to end of line
 
     update_value_ = value_;
 }
