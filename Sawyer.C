@@ -164,6 +164,10 @@ MessageFileSink::adjust_mprops(MessageProps &mprops)
 void
 MessageFileSink::emit(Message &mesg)
 {
+    // Do not print messages with an empty body
+    if (mesg.empty())
+        return;
+
     // Interrupt a previous partial message?
     if (prev_mid_!=NO_MESSAGE && mesg.id()!=prev_mid_) {
         ostream_ <<prev_mprops_.interrupt_string;

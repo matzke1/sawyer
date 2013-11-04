@@ -12,10 +12,11 @@ void test1()
     int total = 200;
     ProgressBar<int> progress("test1", total);
 
+    log[WARN] <<"about to do some long work\n";
     for (int i=0; i<total; ++i, ++progress) {
         nanosleep(&delay, NULL); // represents substantial work
         if (i==total/2)
-            log[DEBUG] <<"about half way\n";
+            log[WARN] <<"about half way\n";
     }
 
     // flash it a couple times to check that enable/disable work
@@ -24,7 +25,7 @@ void test1()
     sleep(1);
     progress.enable();
     sleep(1);
-    
+    log[INFO] <<"all done\n";
 }
 
 int main()
