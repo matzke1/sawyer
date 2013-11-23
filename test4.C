@@ -38,7 +38,10 @@ int main(int argc, char *argv[])
     // Register the message facilities so they can be controlled as a group.  Note
     // that "message facility 3" is not a valid name for the control language, so we
     // need to provide a different name (if you don't, you'll get an std::logic_error
-    // thrown to describe the problem).
+    // thrown to describe the problem).  Alternatively, the insert_and_adjust() method
+    // can be used so that each inserted facility's streams are enabled/disabled based
+    // on the settings of the log_facilities (we don't need to do that here because
+    // we're about to adjust them all anyway).
     MessageFacilities log_facilities;
     log_facilities.insert(mf1);
     log_facilities.insert(mf2);

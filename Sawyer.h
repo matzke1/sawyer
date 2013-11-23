@@ -726,22 +726,59 @@ extern MessageFacility log;
  *                                      Facilities
  *******************************************************************************************************************************/
 
-/** Collection of facilities. Allows all facilities to be configured collectively, such as from command-line parsing. */
+/** Collection of facilities.
+ *
+ *  A MessageFacilities collection of MessageFacility objects allows its members to be configured collectively, such as from
+ *  command-line parsing.  Each stream can be enabled/disabled individually, a member MessageFacility can be enabled/disabled
+ *  as a whole, or specific importance levels can be enabled/disabled across the entire selection.
+ *
+ *  Whenever a MessageFacility object is enabled as a whole, the current set of enabled importance levels is used.  This set is
+ *  maintained automatically: when the first MessageFacility object is inserted, its enabled importance levels initialize the
+ *  default set.  Whenever a message importance level is enabled or diabled via the version of enable() or disable() that take
+ *  a MessageImportance argument, the set is adjusted. */
 class MessageFacilities {
-    typedef std::map<std::string, MessageFacility*> FacilityMap;
+public:
     typedef std::set<MessageImportance> ImportanceSet;
+private:
+    typedef std::map<std::string, MessageFacility*> FacilityMap;
     FacilityMap facilities_;
     ImportanceSet impset_;
+    bool impset_initialized_;
 public:
+    MessageFacilities() {
+        // Initialize impset_ for the sake of insert_and_adjust(), but do not consider it to be truly initialized until after
+        // a MessageFacility is inserted.
+        impset_.insert(WARN);
+        impset_.insert(ERROR);
+        impset_.insert(FATAL);
+        impset_initialized_ = false;
+    }
+
+    /** Return the set of default-enabled message importances. See class documentation for details. */
+    const ImportanceSet& impset();
+
+    /** Add or remove a default importance level. The specified level is inserted or removed from the set of default enabled
+     *  importance levels without affecting any member MessageFacility objects.  Calling this function also prevents the first
+     *  insert() from initializing the set of default importance levels. See class documentation for details. */
+    void impset(MessageImportance, bool enabled);
+
     /** Register a facility so it can be controlled as part of a collection of facilities.  The optional @p name is the
-     *  FACILITY_TERM string of the control language for the inserted @p facility, and defaults to the facility's name.  The
+     *  FACILITY_NAME string of the control language for the inserted @p facility, and defaults to the facility's name.  The
      *  name consists of one or more symbols separated by '::', or '.' and often corresponds to the source code component that
      *  it serves.  Names are case-sensitive in the control language.  No two facilities in the same MessageFacilities object
      *  can have the same name, but a single facility may appear multiple times with different names.
      *
+     *  This method comes in two flavors: insert(), and insert_and_adjust().  The latter immediately enables and disables the
+     *  facility's streams according to the current default importance levels of this MessageFacilities object.  If @p facility
+     *  is the first MessageFacility to be inserted, and it is inserted by insert() rather than insert_and_adjust(), then the
+     *  facility's currently enabled streams are used to initialize the set of default enabled importance levels.
+     *
      *  The @p facility is incorporated by reference and should not be destroyed until after this MessageFacilities object is
-     *  destroyed. */
+     *  destroyed.
+     * @{ */
     void insert(MessageFacility &facility, std::string name="");
+    void insert_and_adjust(MessageFacility &facility, std::string name="");
+    /** @} */
 
     /** Remove a facility by name. */
     void erase(const std::string &name) {
@@ -787,6 +824,12 @@ public:
      *  The global list (AllFacilitiesControl) also affects the list of default-enabled importance levels.
      */
     std::string control(const std::string &s);
+
+    /** Readjust all member facilities.  All members are readjusted to enable only those importance levels that are part of
+     * this MessageFacilities' default importance levels.  It is as if we called disable() then enable() for each message
+     * facility by name. See impset() and class documentation for details. */
+    void reenable();
+    void reenable_from(const MessageFacilities &other);
 
     /** Enable/disable specific importance level across all facilities.  This method also affects the set of "current
      *  importance levels" used when enabling an entire facility.

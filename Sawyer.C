@@ -284,7 +284,18 @@ MessageFacility::init(const std::string &name, MessagePrefix &prefix, MessageSin
     for (int i=0; i<N_LEVELS; ++i)
         streams_[i] = new MessageStream(name, (MessageImportance)i, prefix, sink);
 }
-    
+
+void
+MessageFacilities::impset(MessageImportance imp, bool enabled) 
+{
+    if (enabled) {
+        impset_.insert(imp);
+    } else {
+        impset_.erase(imp);
+    }
+    impset_initialized_ = true;
+}
+
 void
 MessageFacilities::insert(MessageFacility &facility, std::string name)
 {
@@ -302,6 +313,30 @@ MessageFacilities::insert(MessageFacility &facility, std::string name)
     } else {
         facilities_.insert(std::make_pair(name, &facility));
     }
+
+    if (!impset_initialized_) {
+        impset_.clear();
+        for (int i=0; i<N_LEVELS; ++i) {
+            MessageImportance mi = (MessageImportance)i;
+            if (facility[mi])
+                impset_.insert(mi);
+        }
+        impset_initialized_ = true;
+    }
+}
+
+void
+MessageFacilities::insert_and_adjust(MessageFacility &facility, std::string name)
+{
+    ImportanceSet imps = impset_;
+    insert(facility, name); // throws
+
+    // Now that the facility has been successfully inserted...
+    impset_ = imps;
+    for (int i=0; i<N_LEVELS; ++i) {
+        MessageImportance mi = (MessageImportance)i;
+        facility[mi].enable(imps.find(mi)!=imps.end());
+    }
 }
 
 void
@@ -311,6 +346,31 @@ MessageFacilities::erase(MessageFacility &facility)
     for (FacilityMap::iterator fi=map.begin(); fi!=map.end(); ++fi) {
         if (fi->second == &facility)
             facilities_.erase(fi->first);
+    }
+}
+
+void
+MessageFacilities::reenable()
+{
+    for (FacilityMap::iterator fi=facilities_.begin(); fi!=facilities_.end(); ++fi) {
+        for (int i=0; i<N_LEVELS; ++i) {
+            MessageImportance imp = (MessageImportance)i;
+            fi->second->get(imp).enable(impset_.find(imp)!=impset_.end());
+        }
+    }
+}
+
+void
+MessageFacilities::reenable_from(const MessageFacilities &other)
+{
+    for (FacilityMap::const_iterator fi_src=other.facilities_.begin(); fi_src!=other.facilities_.end(); ++fi_src) {
+        FacilityMap::iterator fi_dst = facilities_.find(fi_src->first);
+        if (fi_dst!=facilities_.end()) {
+            for (int i=0; i<N_LEVELS; ++i) {
+                MessageImportance imp = (MessageImportance)i;
+                fi_dst->second->get(imp).enable(fi_src->second->get(imp).enabled());
+            }
+        }
     }
 }
 
