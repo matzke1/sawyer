@@ -365,24 +365,22 @@ class MessageStreamBuf: public std::streambuf {
     bool enabled_;                      // should messages be emitted?
     Message mesg_;                      // current message
     MessageProps dflt_mprops_;          // default properties to initialize current message properties
+    bool initialized_;                  // false until init() has been called
 
 protected:
-    MessageStreamBuf(): importance_(INFO), prefix_(NULL), sink_(NULL), enabled_(false) {}
+    MessageStreamBuf(): importance_(INFO), prefix_(NULL), sink_(NULL), enabled_(false), initialized_(false) {}
 
+    // The constructor is not allowed to do much because it might be called for global variables before the MessagePrefix
+    // and MessageSink have had a chance to be constructed.
     MessageStreamBuf(const std::string name, MessageImportance imp, MessagePrefix *prefix, MessageSink *sink)
-        : name_(name), importance_(imp), prefix_(prefix), sink_(sink), enabled_(true) {
-        assert(sink!=NULL);
-        dflt_mprops_.set_color(imp);
-        sink_->adjust_mprops(dflt_mprops_);
-        mesg_.reset(dflt_mprops_);
-        
-    }
+        : name_(name), importance_(imp), prefix_(prefix), sink_(sink), enabled_(true), initialized_(false) {}
 
     // Copies an existing stream without copying that stream's partial message (if any)
     MessageStreamBuf(const MessageStreamBuf &other)
         : name_(other.name_), importance_(other.importance_), prefix_(other.prefix_), sink_(other.sink_),
-          enabled_(other.enabled_), dflt_mprops_(other.dflt_mprops_) {
-        mesg_.reset(dflt_mprops_);
+          enabled_(other.enabled_), dflt_mprops_(other.dflt_mprops_), initialized_(other.initialized_) {
+        if (initialized_)
+            mesg_.reset(dflt_mprops_);
     }
 
     // Copies an existing stream without copying that stream's partial message (if any)
@@ -393,7 +391,9 @@ protected:
         sink_ = other.sink_;
         enabled_ = other.enabled_;
         dflt_mprops_ = other.dflt_mprops_;
-        mesg_.reset(dflt_mprops_);
+        initialized_ = other.initialized_;
+        if (initialized_)
+            mesg_.reset(dflt_mprops_);
         return *this;
     }
 
@@ -402,6 +402,9 @@ protected:
     virtual int_type overflow(int_type c = traits_type::eof()) /*override*/;
 
 private:
+    // (Re)initialize the streambuf.
+    void init();
+
     // Cancel any current partial message without attempting to undo anything that was emitted already
     void cancel() { mesg_.reset(dflt_mprops_); }
 

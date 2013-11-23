@@ -199,10 +199,23 @@ MessageFileSink::emit(Message &mesg)
  *                                      Message streams
  *******************************************************************************************************************************/
 
+void
+MessageStreamBuf::init()
+{
+    assert(sink_!=NULL);
+    dflt_mprops_.set_color(importance_);
+    sink_->adjust_mprops(dflt_mprops_);
+    mesg_.reset(dflt_mprops_);
+    initialized_ = true;
+}
+
 std::streamsize
 MessageStreamBuf::xsputn(const char *s, std::streamsize &n)
 {
     assert(n>0);
+    if (!initialized_)
+        init();
+
     for (std::streamsize i=0; i<n; ++i) {
 
         // First letter of a message sets its indentation and prefix.
@@ -231,6 +244,8 @@ MessageStreamBuf::xsputn(const char *s, std::streamsize &n)
 MessageStreamBuf::int_type
 MessageStreamBuf::overflow(int_type c)
 {
+    if (!initialized_)
+        init();
     if (c==traits_type::eof())
         return traits_type::eof();
     char_type ch = traits_type::to_char_type(c);
@@ -241,7 +256,7 @@ MessageStreamBuf::overflow(int_type c)
 void
 MessageStreamBuf::finish() 
 {
-    if (enabled_ && !mesg_.empty() && mesg_.is_partial()) {
+    if (initialized_ && enabled_ && !mesg_.empty() && mesg_.is_partial()) {
         mesg_.append(mesg_.props().destroy_string);
         sink_->emit(mesg_);
         mesg_.reset(dflt_mprops_);
