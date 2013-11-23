@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <list>
 #include <stdexcept>
 #include <sstream>
 
@@ -263,25 +264,28 @@ MessageStreamBuf::transfer_ownership(MessageStreamBuf &other)
 void
 MessageFacility::init(const std::string &name, MessagePrefix &prefix, MessageSink &sink)
 {
+    name_ = name;
     memset(streams_, 0, sizeof streams_); // in case of constructor exception
     for (int i=0; i<N_LEVELS; ++i)
         streams_[i] = new MessageStream(name, (MessageImportance)i, prefix, sink);
 }
     
 void
-MessageFacilities::insert(MessageFacility &facility, std::string switch_name)
+MessageFacilities::insert(MessageFacility &facility, std::string name)
 {
-    if (switch_name.empty())
-        switch_name = facility.name();
-    if (switch_name.empty())
-        throw std::logic_error("no switch name and facility name is empty");
-
-    FacilityMap::iterator found = facilities_.find(switch_name);
+    if (name.empty())
+        name = facility.name();
+    if (name.empty())
+        throw std::logic_error("facility name is empty and no name was supplied");
+    const char *s = name.c_str();
+    if (0!=name.compare(parse_facility_name(s)))
+        throw std::logic_error("name '"+name+"' is not valid for the MessageFacilities::control language");
+    FacilityMap::iterator found = facilities_.find(name);
     if (found!=facilities_.end()) {
         if (found->second != &facility)
-            throw std::logic_error("name is used more than once: "+switch_name);
+            throw std::logic_error("message facility '"+name+"' is used more than once");
     } else {
-        facilities_.insert(std::make_pair(switch_name, &facility));
+        facilities_.insert(std::make_pair(name, &facility));
     }
 }
 
@@ -301,8 +305,10 @@ MessageFacilities::enable(const std::string &switch_name, bool b)
     FacilityMap::iterator found = facilities_.find(switch_name);
     if (found != facilities_.end()) {
         if (b) {
-            for (ImportanceSet::iterator ii=impset_.begin(); ii!=impset_.end(); ++ii)
-                found->second->get(*ii).enable();
+            for (int i=0; i<N_LEVELS; ++i) {
+                MessageImportance imp = (MessageImportance)i;
+                found->second->get(imp).enable(impset_.find(imp)!=impset_.end());
+            }
         } else {
             for (int i=0; i<N_LEVELS; ++i)
                 found->second->get((MessageImportance)i).disable();
@@ -322,7 +328,315 @@ MessageFacilities::enable(MessageImportance imp, bool b)
         fi->second->get(imp).enable(b);
 }
 
+void
+MessageFacilities::enable(bool b)
+{
+    for (FacilityMap::iterator fi=facilities_.begin(); fi!=facilities_.end(); ++fi) {
+        MessageFacility *facility = fi->second;
+        if (b) {
+            for (int i=0; i<N_LEVELS; ++i) {
+                MessageImportance imp = (MessageImportance)i;
+                facility->get(imp).enable(impset_.find(imp)!=impset_.end());
+            }
+        } else {
+            for (int i=0; i<N_LEVELS; ++i)
+                facility->get((MessageImportance)i).disable();
+        }
+    }
+}
 
+std::string
+MessageFacilities::ControlTerm::to_string() const
+{
+    std::string s = enable ? "enable" : "disable";
+    if (lo==hi) {
+        s += " level " + stringifyMessageImportance(lo);
+    } else {
+        s += " levels " + stringifyMessageImportance(lo) + " through " + stringifyMessageImportance(hi);
+    }
+    s += " for " + (facility_name.empty() ? "all registered facilities" : facility_name);
+    return s;
+}
+
+// Matches the Perl regular expression /^\s*([a-zA-Z]\w*((\.|::)[a-zA-Z]\w*)*/
+// On match, returns $1 and str points to the next character after the regular expression
+// When not matched, returns "" and str is unchanged
+std::string
+MessageFacilities::parse_facility_name(const char *&str)
+{
+    std::string name;
+    const char *s = str;
+    while (isspace(*s)) ++s;
+    while (isalpha(*s)) {
+        while (isalnum(*s) || '_'==*s) name += *s++;
+        if ('.'==s[0] && (isalpha(s[1]) || '_'==s[1])) {
+            name += ".";
+            ++s;
+        } else if (':'==s[0] && ':'==s[1] && (isalpha(s[2]) || '_'==s[2])) {
+            name += "::";
+            s += 2;
+        }
+    }
+    if (!name.empty())
+        str = s;
+    return name;
+}
+
+// Matches the Perl regular expression /^\s*([+!]?)/ and returns $1 on success with str pointing to the character after the
+// match.  Returns the empty string on failure with str not adjusted.
+std::string
+MessageFacilities::parse_enablement(const char *&str)
+{
+    const char *s = str;
+    while (isspace(*s)) ++s;
+    if ('!'==*s || '+'==*s) {
+        str = s+1;
+        return std::string(s, 1);
+    }
+    return "";
+}
+
+// Matches the Perl regular expression /^\s*(<=?|>=?)/ and returns $1 on success with str pointing to the character after
+// the match. Returns the empty string on failure with str not adjusted.
+std::string
+MessageFacilities::parse_relation(const char *&str)
+{
+    const char *s = str;
+    while (isspace(*s)) ++s;
+    if (!strncmp(s, "<=", 2) || !strncmp(s, ">=", 2)) {
+        str = s + 2;
+        return std::string(s, 2);
+    } else if ('<'==*s || '>'==*s) {
+        str = s + 1;
+        return std::string(s, 1);
+    }
+    return "";
+}
+
+// Matches the Perl regular expression /^\s*(all|none|debug|trace|where|info|warn|error|fatal)\b/
+// On match, returns $1 and str points to the next character after the match
+// On failure, returns "" and str is unchanged
+std::string
+MessageFacilities::parse_importance_name(const char *&str)
+{
+    static const char *words[] = {"all", "none", "debug", "trace", "where", "info", "warn", "error", "fatal",
+                                  "ALL", "NONE", "DEBUG", "TRACE", "WHERE", "INFO", "WARN", "ERROR", "FATAL"};
+    static const size_t nwords = sizeof(words)/sizeof(words[0]);
+
+    const char *s = str;
+    while (isspace(*s)) ++s;
+    for (size_t i=0; i<nwords; ++i) {
+        size_t n = strlen(words[i]);
+        if (0==strncmp(s, words[i], n) && !isalnum(s[n]) && '_'!=s[n]) {
+            str += (s-str) + n;
+            return words[i];
+        }
+    }
+    return "";
+}
+
+MessageImportance
+MessageFacilities::importance_from_string(const std::string &str)
+{
+    if (0==str.compare("debug") || 0==str.compare("DEBUG"))
+        return DEBUG;
+    if (0==str.compare("trace") || 0==str.compare("TRACE"))
+        return TRACE;
+    if (0==str.compare("where") || 0==str.compare("WHERE"))
+        return WHERE;
+    if (0==str.compare("info")  || 0==str.compare("INFO"))
+        return INFO;
+    if (0==str.compare("warn")  || 0==str.compare("WARN"))
+        return WARN;
+    if (0==str.compare("error") || 0==str.compare("ERROR"))
+        return ERROR;
+    if (0==str.compare("fatal") || 0==str.compare("FATAL"))
+        return FATAL;
+    abort();
+}
+
+// parses a StreamControlList. On success, returns a non-empty vector and adjust 'str' to point to the next character after the
+// list.  On failure, throw a ControlError.
+std::list<MessageFacilities::ControlTerm>
+MessageFacilities::parse_importance_list(const std::string &facility_name, const char *&str)
+{
+    const char *s = str;
+    std::list<ControlTerm> retval;
+
+    while (1) {
+        const char *elmt_start = s;
+
+        // List elements are separated by a comma.
+        if (!retval.empty()) {
+            while (isspace(*s)) ++s;
+            if (','!=*s) {
+                s = elmt_start;
+                break;
+            }
+            ++s;
+        }
+
+        while (isspace(*s)) ++s;
+        const char *enablement_start = s;
+        std::string enablement = parse_enablement(s);
+
+        while (isspace(*s)) ++s;
+        const char *relation_start = s;
+        std::string relation = parse_relation(s);
+
+        while (isspace(*s)) ++s;
+        const char *importance_start = s;
+        std::string importance = parse_importance_name(s);
+        if (importance.empty()) {
+            if (!enablement.empty() || !relation.empty())
+                throw ControlError("message importance level expected", importance_start);
+            s = elmt_start;
+            break;
+        }
+
+        ControlTerm term(facility_name, enablement.compare("!")!=0);
+        if (0==importance.compare("all") || 0==importance.compare("none")) {
+            if (!enablement.empty())
+                throw ControlError("'"+importance+"' cannot be preceded by '"+enablement+"'", enablement_start);
+            if (!relation.empty())
+                throw ControlError("'"+importance+"' cannot be preceded by '"+relation+"'", relation_start);
+            term.lo = DEBUG;
+            term.hi = FATAL;
+            term.enable = 0!=importance.compare("none");
+        } else {
+            MessageImportance imp = importance_from_string(importance);
+            if (relation.empty()) {
+                term.lo = term.hi = importance_from_string(importance);
+            } else if (relation[0]=='<') {
+                term.lo = DEBUG;
+                term.hi = imp;
+                if (1==relation.size()) {
+                    if (DEBUG==imp)
+                        continue; // empty set
+                    term.hi = (MessageImportance)(term.hi - 1);
+                }
+            } else {
+                term.lo = imp;
+                term.hi = FATAL;
+                if (1==relation.size()) {
+                    if (FATAL==imp)
+                        continue; // empty set
+                    term.lo = (MessageImportance)(term.lo + 1);
+                }
+            }
+        }
+        retval.push_back(term);
+    }
+
+    if (!retval.empty())
+        str = s;
+    return retval;
+}
+
+std::string
+MessageFacilities::control(const std::string &ss)
+{
+    const char *start = ss.c_str();
+    const char *s = start;
+    std::list<ControlTerm> terms;
+
+    try {
+        while (1) {
+            std::list<ControlTerm> t2 = parse_importance_list("", s);
+            if (t2.empty()) {
+                // facility name
+                while (isspace(*s)) ++s;
+                const char *facility_name_start = s;
+                std::string facility_name = parse_facility_name(s);
+                if (facility_name.empty())
+                    break;
+                if (facilities_.find(facility_name)==facilities_.end())
+                    throw ControlError("no such message facility '"+facility_name+"'", facility_name_start);
+
+                // stream control list in parentheses
+                while (isspace(*s)) ++s;
+                if ('('!=*s)
+                    throw ControlError("expected '(' after message facility name '"+facility_name+"'", s);
+                ++s;
+                t2 = parse_importance_list(facility_name, s);
+                if (t2.empty())
+                    throw ControlError("expected stream control list after '('", s);
+                while (isspace(*s)) ++s;
+                if (')'!=*s)
+                    throw ControlError("expected ')' at end of stream control list for '"+facility_name+"'", s);
+                ++s;
+            }
+
+            terms.insert(terms.end(), t2.begin(), t2.end());
+            while (isspace(*s)) ++s;
+            if (','!=*s)
+                break;
+            ++s;
+        }
+
+        while (isspace(*s)) ++s;
+        if (*s) {
+            if (terms.empty())
+                throw ControlError("syntax error", s);
+            if (terms.back().facility_name.empty())
+                throw ControlError("syntax error in global list", s);
+            throw ControlError("syntax error after '"+terms.back().facility_name+"' list", s);
+        }
+    } catch (const ControlError &error) {
+        std::string s = error.mesg + "\n";
+        size_t offset = error.input_position - start;
+        if (offset <= ss.size()) {
+            s += "    error occurred in \"" + ss + "\"\n";
+            s += "    at this position   " + std::string(offset, '-') + "^\n";
+        }
+        return s;
+    }
+
+    for (std::list<ControlTerm>::iterator ti=terms.begin(); ti!=terms.end(); ++ti) {
+        const ControlTerm &term = *ti;
+#if 0 /*DEBUGGING [Robb Matzke 2013-11-22]*/
+        static MessageFacility log("Sawyer::MessageFacilities::control");
+        log[DEBUG] <<term.to_string() <<"\n";
+#endif
+        if (term.facility_name.empty()) {
+            for (MessageImportance imp=term.lo; imp<=term.hi; imp=(MessageImportance)(imp+1))
+                enable(imp, term.enable);
+        } else {
+            FacilityMap::iterator found = facilities_.find(term.facility_name);
+            assert(found!=facilities_.end() && found->second!=NULL);
+            for (MessageImportance imp=term.lo; imp<=term.hi; imp=(MessageImportance)(imp+1))
+                found->second->get(imp).enable(term.enable);
+        }
+    }
+
+    return ""; // no errors
+}
+
+void
+MessageFacilities::print(std::ostream &log) const
+{
+    for (int i=0; i<N_LEVELS; ++i) {
+        MessageImportance mi = (MessageImportance)i;
+        log <<(impset_.find(mi)==impset_.end() ? '-' : stringifyMessageImportance(mi)[0]);
+    }
+    log <<" default enabled levels\n";
+
+    if (facilities_.empty()) {
+        log <<"no message facilities registered\n";
+    } else {
+        for (FacilityMap::const_iterator fi=facilities_.begin(); fi!=facilities_.end(); ++fi) {
+            MessageFacility *facility = fi->second;
+
+            // A short easy to read format. Letters indicate the importances that are enabled; dashes keep them aligned.
+            // Sort of like the format 'ls -l' uses to show permissions.
+            for (int i=0; i<N_LEVELS; ++i) {
+                MessageImportance mi = (MessageImportance)i;
+                log <<(facility->get(mi) ? stringifyMessageImportance(mi)[0] : '-');
+            }
+            log <<" " <<fi->first <<"\n";
+        }
+    }
+}
 
 /*******************************************************************************************************************************
  *                                      Manipulators

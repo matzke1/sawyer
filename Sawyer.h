@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <list>
 #include <map>
 #include <ostream>
 #include <set>
@@ -342,9 +343,6 @@ public:
 
 /** Sink that sends messages to standard error. */
 extern MessageFileSink merr;
-
-
-extern MessageFileSink mout;
 
 /** Sink that always discards its output. */
 extern MessageNullSink mnull;
@@ -717,6 +715,7 @@ private:
     void init(const std::string &name, MessagePrefix&, MessageSink&);
 };
 
+// Default library wide message facility
 extern MessageFacility log;
 
 
@@ -731,24 +730,67 @@ class MessageFacilities {
     FacilityMap facilities_;
     ImportanceSet impset_;
 public:
-    /** Register a facility so it can be controlled from the command line. The command-line switch defaults to be the same as
-     *  the facility name, and in any case should not contain leading hyphens. The @p facility is incorporated by reference and
-     *  should not be destroyed until after this MessageFacilities object is destroyed.
+    /** Register a facility so it can be controlled as part of a collection of facilities.  The optional @p name is the
+     *  FACILITY_TERM string of the control language for the inserted @p facility, and defaults to the facility's name.  The
+     *  name consists of one or more symbols separated by '::', or '.' and often corresponds to the source code component that
+     *  it serves.  Names are case-sensitive in the control language.  No two facilities in the same MessageFacilities object
+     *  can have the same name, but a single facility may appear multiple times with different names.
      *
-     *  No two facilities in the same MessageFacilities object can have the same name, but a single facility may appear
-     *  multiple times with different names. */
-    void insert(MessageFacility &facility, std::string switch_name="");
+     *  The @p facility is incorporated by reference and should not be destroyed until after this MessageFacilities object is
+     *  destroyed. */
+    void insert(MessageFacility &facility, std::string name="");
 
-    /** Remove a facility.
-     * @{ */
-    void erase(const std::string &switch_name) {
-        facilities_.erase(switch_name);
+    /** Remove a facility by name. */
+    void erase(const std::string &name) {
+        facilities_.erase(name);
     }
-    void erase(MessageFacility &facility);
-    /** @} */
 
-    /** Parse a single command-line switch and enable/disable the indicated streams. (Format of switch TBD.) */
-    void control(const std::string&);
+    /** Remove all occurrences of the facility. */
+    void erase(MessageFacility &facility);
+
+    /** Parse a single command-line switch and enable/disable the indicated streams.  Returns an empty string on success, or an
+     *  error message on failure.  No configuration changes are made if a failure occurs.
+     *
+     *  The control string, @p s, is a sentence in the following language:
+     *
+     * @code
+     *  Sentence             := (FacilitiesControl ( ',' FacilitiesControl )* )?
+     *
+     *  FacilitiesControl    := AllFacilitiesControl | NamedFacilityControl
+     *  AllFacilitiesControl := StreamControlList
+     *  NamedFacilityControl := FACILITY_NAME '(' StreamControlList ')'
+     *
+     *  StreamControlList    := StreamControl ( ',' StreamControl )*
+     *  StreamControl        := StreamState? Relation? STREAM_NAME | 'all' | 'none'
+     *  StreamState          := '+' | '!'
+     *  Relation             := '>=' | '>' | '<=' | '<'
+     * @endcode
+     *
+     *  The language is processed left-to-right and stream states are affected immediately.  This allows, for instance, turning
+     *  off all streams and then selectively enabling streams.
+     *
+     *  Some examples:
+     * @code
+     *  all                             // enable all event messages
+     *  none,debug                      // turn on only debugging messages
+     *  all,!debug                      // turn on all except debugging
+     *  fatal                           // make sure fatal errors are enabled (without changing others)
+     *  none,<=trace                    // disable all except those less than or equal to 'trace'
+     *
+     *  frontend(debug)                 // enable debugging streams in the 'frontend' facility
+     *  warn,frontend(!warn)            // turn on warning messages everywhere except the frontend
+     * @endcode
+     *
+     *  The global list (AllFacilitiesControl) also affects the list of default-enabled importance levels.
+     */
+    std::string control(const std::string &s);
+
+    /** Enable/disable specific importance level across all facilities.  This method also affects the set of "current
+     *  importance levels" used when enabling an entire facility.
+     * @{ */
+    void enable(MessageImportance, bool b=true);
+    void disable(MessageImportance imp) { enable(imp, false); }
+    /** @} */
 
     /** Enable/disable a facility by name. When disabling, all importance levels of the specified facility are disabled. When
      *  enabling, only the current importance levels are enabled for the facility.  If the facility is not found then nothing
@@ -758,12 +800,40 @@ public:
     void enable(const std::string &switch_name, bool b=true);
     /** @} */
 
-    /** Enable/disable specific importance level across all facilities.  This method also affects the set of "current
-     *  importance levels" used when enabling an entire facility.
-     * @{ */
-    void enable(MessageImportance, bool b=true);
-    void disable(MessageImportance imp) { enable(imp, false); }
-    /** @} */
+    /** Enable/disable all facilities.  When disabling, all importance levels of all facilities are disabled.  When enabling,
+     *  only the current importance levels are enabled for each facility. */
+    void enable(bool b=true);
+    void disable() { enable(false); }
+
+    /** Print the list of facilities and their states. This is mostly for debugging purposes. The output may have internal
+     *  line feeds and will end with a line feed. */
+    void print(std::ostream&) const;
+
+private:
+    // Private info used by control() to indicate what should be adjusted.
+    struct ControlTerm {
+        ControlTerm(const std::string &facility_name, bool enable)
+            : facility_name(facility_name), lo(DEBUG), hi(DEBUG), enable(enable) {}
+        std::string to_string() const;      // string representation of this struct for debugging
+        std::string facility_name;          // optional facility name; empty implies all facilities
+        MessageImportance lo, hi;           // inclusive range of importances
+        bool enable;                        // new state
+    };
+
+    // Error information thrown internally
+    struct ControlError {
+        ControlError(const std::string &mesg, const char *position): mesg(mesg), input_position(position) {}
+        std::string mesg;
+        const char *input_position;
+    };
+
+    // Functions used by the control() method
+    static std::string parse_facility_name(const char* &input);
+    static std::string parse_enablement(const char* &input);
+    static std::string parse_relation(const char* &input);
+    static std::string parse_importance_name(const char* &input);
+    static MessageImportance importance_from_string(const std::string&);
+    static std::list<ControlTerm> parse_importance_list(const std::string &facility_name, const char* &input);
 
 };
 
