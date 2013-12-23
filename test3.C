@@ -20,8 +20,7 @@ color_name(Color c)
 
 void adjust(Color *color)
 {
-    not_null(color);
-    if (BLUE!=*color) {
+    if (BLUE!=*not_null(color)) {
         *color = (Color)(*color+1);
     } else {
         not_implemented("blue is a difficult color");
