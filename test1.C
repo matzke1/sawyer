@@ -113,14 +113,35 @@ void test7(const DestinationPtr &sink)
 }
 
 // handle for partial messages
-void test8(const DestinationPtr &sink)
-{
-    banner("test8 - partial handle");
+void test8a(const DestinationPtr &sink) {
+    banner("test8a - partial handle");
     Facility log("test8", sink);
-    SProxy m1 = *log[DEBUG].dup() <<"part1";
-    log[DEBUG] <<"part2";
-    log[DEBUG] <<" done2\n";
-    *m1 <<" done1\n";
+    SProxy m1 = *log[DEBUG].dup() <<"1.1";
+    log[DEBUG] <<"2.1";
+    log[DEBUG] <<" 2.2\n";
+    *m1 <<" 1.2\n";
+}
+
+// handle for partial messages
+void test8b(const DestinationPtr &sink) {
+    banner("test8b - partial handle");
+    Facility log("test8b", sink);
+
+    Stream m1 = log[DEBUG] <<"1.1";
+    log[DEBUG] <<"2.1";
+    log[DEBUG] <<" 2.2\n";
+    m1 <<" 1.2\n";
+}
+
+// handle for partial messages
+void test8c(const DestinationPtr &sink) {
+    banner("test8c - partial handle");
+    Facility log("test8c", sink);
+
+    Stream m1(log[DEBUG] <<"1.1");
+    log[DEBUG] <<"2.1";
+    log[DEBUG] <<" 2.2\n";
+    m1 <<" 1.2\n";
 }
 
 // partial messages with enable/disable
@@ -456,7 +477,7 @@ int main()
 #endif
 
 #if 0 /* [Robb Matzke 2014-01-20] */
-    test19(merr);
+    test8c(merr);
     exit(0);
 #endif
 
@@ -467,7 +488,9 @@ int main()
     test5(merr);
     test6(merr);
     test7(merr);
-    test8(merr);
+    test8a(merr);
+    test8b(merr);
+    test8c(merr);
     test9(merr);
 //    test10();
 //    test11();

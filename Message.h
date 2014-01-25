@@ -34,8 +34,9 @@
 //
 // The proper, non-lazy way write that (which also works if do_something writes to log[INFO]), is to save the "starting"
 // message's stream so the message can be completed later:
-// 
-//     SProxy m1 = log[INFO] <<"starting";
+//
+//     SProxy m1(log[INFO].dup());
+//     *m1 <<"starting";
 //     do_something();
 //     *m1 <<" done.\n";
 //
@@ -949,15 +950,15 @@ class StreamBuf: public std::streambuf {
 
 protected:
     StreamBuf(): enabled_(true), isBaked_(false), anyUnbuffered_(false) {}
-    ~StreamBuf() { cancel(); }
+    ~StreamBuf() { cancelMessage(); }
     virtual std::streamsize xsputn(const char *s, std::streamsize &n) /*override*/;
     virtual int_type overflow(int_type c = traits_type::eof()) /*override*/;
 
 private:
     void completeMessage();                             // complete and post message, then start a new one
+    void cancelMessage();                               // cancel message if necessary
     void bake();                                        // bake the destinations
     void post();                                        // post message if necessary
-    void cancel();                                      // cancel message if necessary
 };
 
 #ifdef SAWYER_MESSAGE_USE_PROXY
@@ -991,6 +992,8 @@ class Stream: public std::ostream {
     size_t nrefs_;                                      // used when we don't have std::move semantics
     StreamBuf *streambuf_;                              // each stream has its own
 public:
+
+    /** Construct a stream and initialize its name and importance properties. */
     Stream(const std::string facilityName, Importance imp, const DestinationPtr &destination)
         : std::ostream(new StreamBuf), nrefs_(0), streambuf_(NULL) {
         streambuf_ = dynamic_cast<StreamBuf*>(rdbuf());
@@ -1002,6 +1005,7 @@ public:
         streambuf_->message_.properties() = streambuf_->dflt_props_;
     }
 
+    /** Construct a stream and initialize its properties as specified. */
     Stream(const MesgProps &props, const DestinationPtr &destination)
         : std::ostream(new StreamBuf), nrefs_(0), streambuf_(NULL) {
         streambuf_ = dynamic_cast<StreamBuf*>(rdbuf());
@@ -1012,18 +1016,22 @@ public:
         streambuf_->message_.properties() = streambuf_->dflt_props_;
     }
 
+    /** Construct a new stream from an existing stream.  If @p other has a pending message then ownership of that message
+     *  is moved to this new stream. */
     Stream(const Stream &other)
         : std::ostream(new StreamBuf), nrefs_(0), streambuf_(NULL) {
         initFrom(other);
     }
 
+    /** Initialize this stream from another stream.  If @p other has a pending message then ownership of that message
+     *  is moved to this stream. */
     Stream& operator=(const Stream &other) {
         initFrom(other);
         return *this;
     }
 
-    // Copy from an std::ostream that has a Stream run-time type. This is so we can do things like this:
-    //   Stream m1 = log[INFO] <<"first part of the message";
+    // Same as Stream(const Stream&) but declared so we can do things like this:
+    //   Stream m1(log[INFO] <<"first part of the message");
     //   m1 <<"; finalize message\n";
     Stream(const std::ostream &other_)
         : std::ostream(rdbuf()), nrefs_(0), streambuf_(NULL) {
@@ -1033,6 +1041,9 @@ public:
         initFrom(*other);
     }
 
+    // Same as operator=(const Stream&) but declared so we can do things like this:
+    //   Stream m1 = log[INFO] <<"first part of the message");
+    //   m1 <<"; finalize message\n";
     Stream& operator=(const std::ostream &other_) {
         const Stream *other = dynamic_cast<const Stream*>(&other_);
         if (!other)
@@ -1051,20 +1062,36 @@ public:
         return SProxy(new Stream(*this));
     }
 #endif
-    
+
+protected:
+    // Initiaize this stream from @p other.  This stream will get its own StreamBuf (if it doesn't have one already), and
+    // any pending message from @p other will be moved (not copied) to this stream.
     void initFrom(const Stream &other) {
+        assert(other.streambuf_!=NULL);
         streambuf_ = dynamic_cast<StreamBuf*>(rdbuf());
-        delete streambuf_;
-        streambuf_ = new StreamBuf;
-        rdbuf(streambuf_);
+        if (!streambuf_) {
+            streambuf_ = new StreamBuf;
+            rdbuf(streambuf_);
+        }
+
+        // If this stream has a partial message then it needs to be canceled.  This also resets things associated with
+        // the message, such as the baked properties.
+        streambuf_->cancelMessage();
+
+        // Copy some stuff from other.
         streambuf_->enabled_ = other.streambuf_->enabled_;
         streambuf_->dflt_props_ = other.streambuf_->dflt_props_;
-        streambuf_->message_.properties() = other.streambuf_->dflt_props_;
         streambuf_->destination_ = other.streambuf_->destination_;
-        streambuf_->isBaked_ = false;
-        streambuf_->anyUnbuffered_ = false;
+
+        // Swap message-related stuff in order to move ownership of the message to this.
+        streambuf_->message_.properties() = streambuf_->dflt_props_;
+        std::swap(streambuf_->message_, other.streambuf_->message_);
+        std::swap(streambuf_->baked_, other.streambuf_->baked_);
+        std::swap(streambuf_->isBaked_, other.streambuf_->isBaked_);
+        std::swap(streambuf_->anyUnbuffered_, other.streambuf_->anyUnbuffered_);
     }
 
+public:
     /** Returns true if a stream is enabled. */
     bool enabled() const { return streambuf_->enabled_; }
 

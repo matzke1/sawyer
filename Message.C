@@ -625,6 +625,17 @@ void StreamBuf::completeMessage() {
     anyUnbuffered_ = false;
 }
 
+void StreamBuf::cancelMessage() {
+    if (!message_.isEmpty()) {
+        message_.cancel();
+        post();
+    }
+    message_ = Mesg(dflt_props_);
+    baked_.clear();
+    isBaked_ = false;
+    anyUnbuffered_ = false;
+}
+
 void StreamBuf::bake() {
     if (!isBaked_) {
         destination_->bakeDestinations(message_.properties(), baked_/*out*/);
@@ -632,13 +643,6 @@ void StreamBuf::bake() {
         for (BakedDestinations::const_iterator bi=baked_.begin(); bi!=baked_.end() && !anyUnbuffered_; ++bi)
             anyUnbuffered_ = !bi->second.isBuffered;
         isBaked_ = true;
-    }
-}
-
-void StreamBuf::cancel() {
-    if (!message_.isEmpty()) {
-        message_.cancel();
-        post();
     }
 }
 
