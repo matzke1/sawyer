@@ -3,24 +3,32 @@
 
 #include "Message.h"
 #include <cmath>
+#include <sstream>
 
 namespace Sawyer {
 
+// used internally by the ProgressBar<> classes
 class ProgressBarImpl {
 public:
     double value_;                                      // between zero and one, inclusive
     size_t width_;                                      // width of bar in characters
+    bool showPercent_;                                  // show the percent after the progress bar
     std::string leftEnd_, rightEnd_;                    // strings for left and right ends of progress bar
     char barChar_, nonBarChar_;                         // characters for the bar and non-bar parts
+    std::string prefix_;                                // extra text before the bar (usually a short message)
+    std::string suffix_;                                // extra text to show after the bar (usually the value)
     static double minUpdateInterval_;                   // min number of seconds between update
+    static double initialDelay_;                        // time to delay before emitting the first message
     double lastUpdateTime_;                             // time of previous update
     Message::MesgProps overridesAnsi_;                  // properties we override from the stream_ when using color
     Message::SProxy stream_;                            // stream to which messages are sent
     size_t nUpdates_;                                   // number of times a message was emitted
     bool shouldSpin_;                                   // spin instead of progress
+    Message::Mesg textMesg_;                            // message used when ANSI escape sequences are not available
+    boost::optional<int> oldPercent_;                   // old percent value used when updating a non-color progress bar
 
     ProgressBarImpl(const Message::SProxy &stream)
-        : value_(0.0), width_(30), leftEnd_("["), rightEnd_("]"), barChar_('#'), nonBarChar_('-'),
+        : value_(0.0), width_(55), showPercent_(true), leftEnd_("["), rightEnd_("]"), barChar_('#'), nonBarChar_('-'),
           lastUpdateTime_(0.0), stream_(stream), nUpdates_(0), shouldSpin_(false) {
         init();
     }
@@ -34,7 +42,27 @@ public:
     void configUpdate(double ratio, bool backward);     // update for configuration changes
     void valueUpdate(double ratio, bool backward);      // update for changes in value
     std::string makeBar(double ratio, bool backward);   // make the bar itself
+    void updateTextMesg(double ratio);                  // update the textMesg_
 };
+
+/** Global settings for progress bars. */
+namespace ProgressBarSettings {
+    /** Delay before first message is emitted. A relatively large delay produces fewer messages by avoiding messages when
+     *  the entire task can be completed quickly.  The default is 5 seconds. This value is global, applying to all progress
+     *  bars.
+     * @{ */
+    double initialDelay();
+    void initialDelay(double s);
+    /** @} */
+    
+
+    /** Minimum time between updates.  Measured in seconds.
+     *  @{ */
+    double minimumUpdateInterval();
+    void minimumUpdateInterval(double s);
+    /** @} */
+} // namespace
+
 
 /** Progress bars.
  *
@@ -69,19 +97,24 @@ private:
 
     Position value_;
     ProgressBarImpl bar_;
+    bool showValue_;
 
 public:
-    explicit ProgressBar(const Message::SProxy &stream)
-        : value_(0, 0, 0), bar_(stream) {
+    explicit ProgressBar(const Message::SProxy &stream, const std::string &name="progress")
+        : value_(0, 0, 0), bar_(stream), showValue_(true) {
         bar_.shouldSpin_ = true;
+        bar_.prefix_ = name;
     }
-    ProgressBar(ValueType rightValue, const Message::SProxy &stream)
-        : value_(0, 0, rightValue), bar_(stream) {
+    ProgressBar(ValueType rightValue, const Message::SProxy &stream, const std::string &name="progress")
+        : value_(0, 0, rightValue), bar_(stream), showValue_(true) {
         bar_.shouldSpin_ = isEmpty();
+        bar_.prefix_ = name;
     }
-    ProgressBar(ValueType leftValue, ValueType curValue, ValueType rightValue, const Message::SProxy &stream)
-        : value_(leftValue, curValue, rightValue), bar_(stream) {
+    ProgressBar(ValueType leftValue, ValueType curValue, ValueType rightValue, const Message::SProxy &stream,
+                const std::string &name="progress")
+        : value_(leftValue, curValue, rightValue), bar_(stream), showValue_(true) {
         bar_.shouldSpin_ = isEmpty();
+        bar_.prefix_ = name;
     }
 
     /** Value for the progress bar.
@@ -91,18 +124,19 @@ public:
     }
     void value(ValueType curValue) {
         value_.curValue = curValue;
-        bar_.valueUpdate(ratio(), isBackward());
+        valueUpdated();
     }
+
     void value(ValueType curValue, ValueType rightValue) {
         value_.curValue = curValue;
         value_.rightValue = rightValue;
         bar_.shouldSpin_ = isEmpty();
-        bar_.configUpdate(ratio(), isBackward());
+        configUpdated();
     }
     void value(ValueType leftValue, ValueType curValue, ValueType rightValue) {
         value_ = Position(leftValue, curValue, rightValue);
         bar_.shouldSpin_ = isEmpty();
-        bar_.configUpdate(ratio(), isBackward());
+        configUpdated();
     }
     /** @} */
 
@@ -129,21 +163,19 @@ public:
     void domain(const std::pair<ValueType, ValueType> &p) {
         value_.leftValue = p.first;
         value_.rightValue = p.second;
-        bar_.configUpdate(ratio(), isBackward());
+        configUpdated();
     }
     void domain(ValueType leftValue, ValueType rightValue) {
         value_.leftValue = leftValue;
         value_.rightValue = rightValue;
-        bar_.configUpdate(ratio(), isBackward());
+        configUpdated();
     }
     /** @} */
 
     /** Increment or decrement the progress bar.
      *  @{ */
     void increment(ValueType delta=1);
-    void decrement(ValueType delta=1) {
-        increment(-delta);
-    }
+    void decrement(ValueType delta=1);
     ProgressBar& operator++() {
         increment(1);
         return *this;
@@ -160,6 +192,14 @@ public:
         decrement(1);
         return *this;
     }
+    ProgressBar& operator+=(ValueType delta) {
+        increment(delta);
+        return *this;
+    }
+    ProgressBar& operator-=(ValueType delta) {
+        decrement(delta);
+        return *this;
+    }
     /** @} */
 
     /** Width of progress bar in characters at 100%
@@ -169,7 +209,18 @@ public:
     }
     void width(size_t width) {
         bar_.width_ = width;
-        bar_.configUpdate(ratio(), isBackward());
+        configUpdated();
+    }
+    /** @} */
+
+    /** String to show before the beginning of the bar.  This should be something very short, like "processing input".
+     * @{ */
+    const std::string& prefix() const {
+        return bar_.prefix_;
+    }
+    void prefix(const std::string &s) {
+        bar_.prefix_ = s;
+        configUpdated();
     }
     /** @} */
 
@@ -182,7 +233,7 @@ public:
     void barchars(char bar, char nonBar) {
         bar_.barChar_ = bar;
         bar_.nonBarChar_ = nonBar;
-        bar_.configUpdate(ratio(), isBackward());
+        configUpdated();
     }
     /** @} */
 
@@ -194,15 +245,53 @@ public:
     void endchars(const std::string &lt, const std::string &rt) {
         bar_.leftEnd_ = lt;
         bar_.rightEnd_ = rt;
-        bar_.configUpdate(ratio(), isBackward());
+        configUpdated();
     }
     /** @} */
 
-    /** Minimum time between updates.  Measured in seconds.
-     *  @{ */
-    static double minimumUpdateInterval() { return ProgressBarImpl::minUpdateInterval_; }
-    static void minimumUpdateInterval(double s) { ProgressBarImpl::minUpdateInterval_ = s; }
+    /** Whether to show the percent indication.  The default is true.
+     * @{ */
+    bool showPercent() const {
+        return bar_.showPercent_;
+    }
+    void showPercent(bool b) {
+        bar_.showPercent_ = b;
+        configUpdated();
+    }
     /** @} */
+
+    /** Whether to show the current value.  The is true.
+     * @{ */
+    bool showValue() const {
+        return showValue_;
+    }
+    void showValue(bool b) {
+        showValue_ = b;
+        configUpdated();
+    }
+    /** @} */
+
+protected:
+    void valueUpdated() {
+        if (showValue_) {
+            std::ostringstream ss;
+            ss <<value_.curValue;
+            bar_.suffix_ = ss.str();
+        } else {
+            bar_.suffix_.clear();
+        }
+        bar_.valueUpdate(ratio(), isBackward());
+    }
+    void configUpdated() {
+        if (showValue_) {
+            std::ostringstream ss;
+            ss <<value_.curValue;
+            bar_.suffix_ = ss.str();
+        } else {
+            bar_.suffix_.clear();
+        }
+        bar_.configUpdate(ratio(), isBackward());
+    }
 };
 
 // try not to get negative values when subtracting because they might behave strangely if T is something weird.
@@ -234,7 +323,15 @@ void ProgressBar<T>::increment(ValueType delta) {
     ValueType oldValue = value_.curValue;
     value_.curValue += delta;
     if (oldValue!=value_.curValue)
-        bar_.valueUpdate(ratio(), isBackward());
+        valueUpdated();
+}
+
+template <typename T>
+void ProgressBar<T>::decrement(ValueType delta) {
+    ValueType oldValue = value_.curValue;
+    value_.curValue -= delta;
+    if (oldValue!=value_.curValue)
+        valueUpdated();
 }
 
 } // namespace
