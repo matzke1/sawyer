@@ -40,8 +40,8 @@ int main(int argc, char *argv[])
 
     // Emit a log message with a possible error right in the middle of the "color is" message
     Color c = (Color)strtol(argv[1], NULL, 0);
-    logger[INFO] <<"color " <<c;
-    logger[INFO] <<" is " <<color_name(c) <<"\n";
+    log[INFO] <<"color " <<c;
+    log[INFO] <<" is " <<color_name(c) <<"\n";
 
     adjust(c==RED ? NULL : &c);
 

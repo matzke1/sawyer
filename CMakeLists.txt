@@ -5,7 +5,7 @@ set(CMAKE_BUILD_TYPE Debug)
 find_package(PkgConfig)
 find_package(Boost 1.47.0 REQUIRED COMPONENTS system filesystem regex signals)
 
-set(lib_src Assert.C Message.C ProgressBar.C)
+set(lib_src Assert.C Message.C ProgressBar.C Sawyer.C)
 add_library(sawyer SHARED ${lib_src})
 
 include_directories(

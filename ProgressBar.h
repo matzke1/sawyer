@@ -28,7 +28,7 @@ public:
     boost::optional<int> oldPercent_;                   // old percent value used when updating a non-color progress bar
 
     ProgressBarImpl(const Message::SProxy &stream)
-        : value_(0.0), width_(55), showPercent_(true), leftEnd_("["), rightEnd_("]"), barChar_('#'), nonBarChar_('-'),
+        : value_(0.0), width_(15), showPercent_(true), leftEnd_("["), rightEnd_("]"), barChar_('#'), nonBarChar_('-'),
           lastUpdateTime_(0.0), stream_(stream), nUpdates_(0), shouldSpin_(false) {
         init();
     }

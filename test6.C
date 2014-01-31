@@ -4,13 +4,13 @@
 using namespace Sawyer::Message;
 
 int main(int argc, char *argv[]) {
-    logger[DEBUG] <<"a low-level debugging message intended for developers\n";
-    logger[TRACE] <<"a fine-level trace message intended mostly for developers\n";
-    logger[WHERE] <<"a coarse-level trace message intended for developers and users\n";
-    logger[INFO] <<"an informational message intended for end users\n";
-    logger[WARN] <<"a warning message about an unusual situation\n";
-    logger[ERROR] <<"a message about a recoverable error situation\n";
-    logger[FATAL] <<"a message about a non-recoverable error\n";
+    log[DEBUG] <<"a low-level debugging message intended for developers\n";
+    log[TRACE] <<"a fine-level trace message intended mostly for developers\n";
+    log[WHERE] <<"a coarse-level trace message intended for developers and users\n";
+    log[INFO] <<"an informational message intended for end users\n";
+    log[WARN] <<"a warning message about an unusual situation\n";
+    log[ERROR] <<"a message about a recoverable error situation\n";
+    log[FATAL] <<"a message about a non-recoverable error\n";
 
     return 0;
 }

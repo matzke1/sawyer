@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
         if (0==strncmp(argv[argno], "--log=", 6)) {
             std::string errmesg = facilities.control(argv[argno]+6);
             if (!errmesg.empty())
-                logger[ERROR] <<errmesg <<"\n";
+                log[ERROR] <<errmesg <<"\n";
         } else {
             std::cerr <<"usage: " <<argv[0] <<" --log=LOG_SPECS\n";
             exit(1);
@@ -34,12 +34,12 @@ int main(int argc, char *argv[])
 
     // Demonstrate the results by emitting some messages
     std::cerr <<"\nAbout to emit one of each kind of message (only enabled streams will show):\n";
-    logger[DEBUG] <<"a low-level debugging message intended for developers\n";
-    logger[TRACE] <<"a fine-level trace message intended mostly for developers\n";
-    logger[WHERE] <<"a coarse-level trace message intended for developers and users\n";
-    logger[INFO] <<"an informational message intended for end users\n";
-    logger[WARN] <<"a warning message about an unusual situation\n";
-    logger[ERROR] <<"a message about a recoverable error situation\n";
-    logger[FATAL] <<"a message about a non-recoverable error\n";
+    log[DEBUG] <<"a low-level debugging message intended for developers\n";
+    log[TRACE] <<"a fine-level trace message intended mostly for developers\n";
+    log[WHERE] <<"a coarse-level trace message intended for developers and users\n";
+    log[INFO] <<"an informational message intended for end users\n";
+    log[WARN] <<"a warning message about an unusual situation\n";
+    log[ERROR] <<"a message about a recoverable error situation\n";
+    log[FATAL] <<"a message about a non-recoverable error\n";
     return 0;
 }

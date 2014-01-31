@@ -1,6 +1,7 @@
 #include "Message.h"
 
 #include <cerrno>
+#include <cmath>
 #include <cstdio>
 #include <iomanip>
 #include <stdexcept>
@@ -300,9 +301,23 @@ bool SequenceFilter::shouldForward(const MesgProps&) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void TimeFilter::initialDelay(double delta) {
+    if (delta > 0.0) {
+        initialDelay_ = delta;
+        if (0==nPosted_) {
+            double then_int;
+            double then_frac = modf(now() + delta, &then_int);
+            lastBakeTime_.tv_sec = then_int;
+            lastBakeTime_.tv_usec = round(1e6 * then_frac);
+        }
+    }
+}
+
 bool TimeFilter::shouldForward(const MesgProps&) {
+    ++nPosted_;
     gettimeofday(&lastBakeTime_, NULL);
-    return timeval_delta(prevMessageTime_, lastBakeTime_) >= minInterval_;
+    return  timeval_delta(prevMessageTime_, lastBakeTime_) >= minInterval_;
+
 }
 
 void TimeFilter::forwarded(const MesgProps&) {
@@ -707,6 +722,15 @@ void Stream::cancelationString(const std::string &s, bool asDefault) {
     }
 }
 
+void Stream::facilityName(const std::string &s, bool asDefault) {
+    streambuf_->message_.properties().facilityName = s;
+    if (asDefault) {
+        streambuf_->dflt_props_.facilityName = s;
+    } else if (streambuf_->isBaked_) {
+        throw std::runtime_error("message properties are already baked");
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 SProxy::SProxy(std::ostream *o): stream_(NULL) {
@@ -753,7 +777,7 @@ void SProxy::reset() {
 }
 
 SProxy::operator bool() const {
-    return stream_ && stream_->enabled();
+    return stream_!=NULL;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -763,9 +787,12 @@ void Facility::initStreams(const DestinationPtr &destination) {
         streams_.push_back(new Stream(name_, (Importance)i, destination));
 }
 
-void Facility::cleanupStreams() {
-    for (int i=0; i<N_IMPORTANCE; ++i)
-        streams_[i].reset();
+Stream& Facility::get(Importance imp) {
+    if (imp<0 || imp>=N_IMPORTANCE)
+        throw std::runtime_error("invalid importance level");
+    if ((size_t)imp>=streams_.size() || NULL==streams_[imp])
+        throw std::runtime_error("stream " + stringifyImportance(imp) + " is not initialized yet");
+    return *streams_[imp];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1161,18 +1188,19 @@ void Facilities::print(std::ostream &log) const {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 DestinationPtr merr;
-Facility logger("", FdSink::instance(2));
+Facility log;
 Facilities facilities;
+bool isInitialized;
 
-bool init() {
-    if (!merr) {
+bool initializeLibrary() {
+    if (!isInitialized) {
+        isInitialized = true;
         merr = FdSink::instance(2);
-        facilities.insert(logger, "sawyer");
+        log = Facility("", merr);
+        facilities.insert(log, "sawyer");
     }
     return true;
 }
-
-bool initialized = init();
 
 } // namespace
 } // namespace

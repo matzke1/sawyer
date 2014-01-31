@@ -1,6 +1,8 @@
 #ifndef Sawyer_Message_H
 #define Sawyer_Message_H
 
+#include "Sawyer.h"
+
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/logic/tribool.hpp>
 #include <boost/optional.hpp>
@@ -99,14 +101,15 @@ namespace Sawyer {
  *
  * @section usage Basic message emission via porcelain
  *
- *  A useful usage pattern is to name all the Facility objects "log" and define one in the global scope and any successively
- *  smaller scopes to the extent desired.  To emit a message, write code like:
+ *  A useful usage pattern is to name all the Facility objects "logger" or "lg" ("log" is ambiguous with the logorithm function
+ *  in  <cmath> if  namespaces are imported). Define a logger in the global scope and any successively smaller scopes to the
+ *  extent desired.  To emit a message, write code like:
  *
  * @code
  *  #include <Sawyer/Message.h>
  *  using namespace Sawyer::Message;
  *  ...
- *  log[DEBUG] <<"this is a debugging message.\n";
+ *  Message::log[DEBUG] <<"this is a debugging message.\n";
  * @endcode
  *
  *  The C++ compiler will resolve "log" to the most-locally available declaration, i.e., the most specific Facility. "[DEBUG]"
@@ -216,6 +219,14 @@ namespace Sawyer {
  * @endcode
  */
 namespace Message {
+
+/** Explicitly initialize the library. This initializes any global objects provided by the library to users.  This happens
+ *  automatically for many API calls, but sometimes needs to be called explicitly. Calling this after the library has already
+ *  been initialized does nothing. The function always returns true. */
+bool initializeLibrary();
+
+/** True if the library has been initialized. */
+extern bool isInitialized;
 
 /** Level of importance for a message. Higher values are generally of more importance than lower values. */
 enum Importance {
@@ -488,7 +499,9 @@ protected:
     MesgProps dflts_;                                   // default property values merged into each incoming message
     MesgProps overrides_;                               // overrides applied to incoming message
 protected:
-    Destination() {}
+    Destination() {
+        initializeLibrary();
+    }
 public:
     virtual ~Destination() {}
 
@@ -625,12 +638,14 @@ public:
 /** Filters messages based on time.  Any message posted within some specified time of a previously forwarded message will
  *  not be forwarded to children nodes in the plumbing lattice. */
 class TimeFilter: public Filter {
+    double initialDelay_;                               // amount to delay before emitting the first message
     double minInterval_;                                // minimum time between messages
     struct timeval prevMessageTime_;                    // time previous message was emitted
     struct timeval lastBakeTime_;                       // time cached by shouldForward, used by forwarded
+    size_t nPosted_;                                    // number of messages posted (including those suppressed)
 protected:
     explicit TimeFilter(double minInterval)
-        : minInterval_(minInterval) {
+        : initialDelay_(0.0), minInterval_(minInterval) {
         memset(&prevMessageTime_, 0, sizeof(timeval));
         memset(&lastBakeTime_, 0, sizeof(timeval));
     }
@@ -646,6 +661,15 @@ public:
     double minInterval() const { return minInterval_; }
     void minInterval(double d);
     /** @} */
+
+    /** Delay before the next message.
+     *  @{ */
+    double initialDelay() const { return initialDelay_; }
+    void initialDelay(double d);
+    /** @} */
+
+    /** Number of messages processed.  This includes messages forwarded and messages not forwarded. */
+    size_t nPosted() const { return nPosted_; }
 
     virtual bool shouldForward(const MesgProps&) /*override*/;
     virtual void forwarded(const MesgProps&) /*override*/;
@@ -1136,10 +1160,13 @@ public:
     /** Set message or stream properties. If @p asDefault is false then the property is set only in the current message and
      *  the message must be empty (e.g., just after the previous message was completed).  When @p asDefault is true the new
      *  value becomes the default for all future messages. The default also affects the current message if the current message
-     *  is empty. */
+     *  is empty.
+     *  @{ */
     void completionString(const std::string &s, bool asDefault=true);
     void interruptionString(const std::string &s, bool asDefault=true);
     void cancelationString(const std::string &s, bool asDefault=true);
+    void facilityName(const std::string &s, bool asDefault=true);
+     /** @} */
 
     /** Accessor for the message destination.
      *  @{ */
@@ -1191,13 +1218,13 @@ class Facility {
     std::string name_;
     std::vector<SProxy> streams_;
 public:
+    // Creates an empty facility with no streams.
+    Facility() {}
+
     /** Creates streams of all importance levels. */
     Facility(const std::string &name, const DestinationPtr &destination): name_(name) {
+        initializeLibrary();
         initStreams(destination);
-    }
-
-    ~Facility() {
-        cleanupStreams();
     }
 
     /** Returns a stream for the specified importance level.  Returns a copy so that we can do things like this:
@@ -1207,13 +1234,9 @@ public:
      *     m2 <<" part 2\n";
      * @{ */
 #ifdef SAWYER_MESSAGE_USE_PROXY
-    Stream& get(Importance imp) {
-        assert((size_t)imp<streams_.size());
-        return *streams_[imp];
-    }
+    Stream& get(Importance imp);
     Stream& operator[](Importance imp) {
-        assert((size_t)imp<streams_.size());
-        return *streams_[imp];
+        return get(imp);
     }
 #else
     // g++ 4.8 does not yet have have a standard-conforming library, so this doesn't work
@@ -1245,7 +1268,6 @@ public:
 
 private:
     void initStreams(const DestinationPtr&);
-    void cleanupStreams();
 };
 
 /** Collection of facilities.
@@ -1270,6 +1292,7 @@ public:
 
     /** Constructs an empty container of Facility objects. */
     Facilities() {
+        initializeLibrary();
         // Initialize impset_ for the sake of insertAndAdjust(), but do not consider it to be truly initialized until after
         // a MessageFacility is inserted.
         impset_.insert(WARN);
@@ -1410,7 +1433,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 extern DestinationPtr merr;                             // unbuffered output to standard error
-extern Facility logger;                                 // global logging facility
+extern Facility log;                                    // global logging facility
 extern Facilities facilities;                           // global facilities object provided by Sawyer
 
 } // namespace
