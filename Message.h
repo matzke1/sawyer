@@ -1218,8 +1218,19 @@ class Facility {
     std::string name_;
     std::vector<SProxy> streams_;
 public:
-    // Creates an empty facility with no streams.
+    /** Construct an empty facility.  The facility will have no name and all streams will be uninitialized.  Any attempt to
+     *  emit anything to a facility in the default state will cause an std::runtime_error to be thrown with a message similar
+     *  to "stream INFO is not initialized yet".  This facility can be initialized by assigning it a value from another
+     *  initialized facility. */
     Facility() {}
+
+    /** Create a named facility with default destinations.  All streams are enabled and all output goes to file descriptor
+     *  2 (standard error) via unbuffered system calls.  Facilities initialized to this state can typically be used before the
+     *  C++ runtime is fully initialized and before Sawyer::initializeLibrary() is called. */
+    explicit Facility(const std::string &name): name_(name) {
+        //initializeLibrary() //delay until later
+        initStreams(FdSink::instance(2));
+    }
 
     /** Creates streams of all importance levels. */
     Facility(const std::string &name, const DestinationPtr &destination): name_(name) {
@@ -1266,7 +1277,8 @@ public:
     /** Return the name of the facility. This is a read-only field initialized at construction time. */
     const std::string name() const { return name_; }
 
-private:
+    /** Cause all streams to use the specified destination.  This can be called for facilities that already have streams and
+     *  destinations, but it can also be called to initialize the streams for a default-constructed facility. */
     void initStreams(const DestinationPtr&);
 };
 

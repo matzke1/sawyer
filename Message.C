@@ -783,8 +783,13 @@ SProxy::operator bool() const {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Facility::initStreams(const DestinationPtr &destination) {
-    for (int i=0; i<N_IMPORTANCE; ++i)
-        streams_.push_back(new Stream(name_, (Importance)i, destination));
+    if (streams_.empty()) {
+        for (int i=0; i<N_IMPORTANCE; ++i)
+            streams_.push_back(new Stream(name_, (Importance)i, destination));
+    } else {
+        for (int i=0; i<streams_.size(); ++i)
+            streams_[i]->destination(destination);
+    }
 }
 
 Stream& Facility::get(Importance imp) {
