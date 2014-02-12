@@ -795,8 +795,16 @@ void Facility::initStreams(const DestinationPtr &destination) {
 Stream& Facility::get(Importance imp) {
     if (imp<0 || imp>=N_IMPORTANCE)
         throw std::runtime_error("invalid importance level");
-    if ((size_t)imp>=streams_.size() || NULL==streams_[imp])
-        throw std::runtime_error("stream " + stringifyImportance(imp) + " is not initialized yet");
+    if ((size_t)imp>=streams_.size() || NULL==streams_[imp]) {
+        // If you're looking at this line in a debugger it's probably because you're trying to use a Stream from a
+        // default-constructed Facility.  Facilities that are allocated statically and/or at global scope should probably
+        // either be constructed with Facility(const std::string&) or initialized by assigning some other facility to them.
+        // Another possibility is that you provided Sawyer::Message::merr as the destination before libsawyer had a chance to
+        // initialize that global variable. You can work around that problem by calling Sawyer::initializeLibrary() first.
+        throw std::runtime_error("stream " + stringifyImportance(imp) +
+                                 (name_.empty() ? std::string() : " in facility \"" + name_ + "\"") +
+                                 " is not initialized yet");
+    }
     return *streams_[imp];
 }
 
