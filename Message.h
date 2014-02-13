@@ -515,9 +515,7 @@ protected:
     MesgProps dflts_;                                   // default property values merged into each incoming message
     MesgProps overrides_;                               // overrides applied to incoming message
 protected:
-    Destination() {
-        initializeLibrary();
-    }
+    Destination() {}
 public:
     virtual ~Destination() {}
 
