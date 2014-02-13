@@ -766,18 +766,20 @@ public:
 
 /** Information printed at the beginning of each free-format message. */
 class Prefix {
+    enum When { NEVER=0, SOMETIMES=1, ALWAYS=2 };
     ColorSet colorSet_;                                 // colors to use if props.useColor is true
     boost::optional<std::string> programName_;          // name of program as it will be displayed (e.g., "a.out[12345]")
     bool showProgramName_;
     bool showThreadId_;
     boost::optional<timeval> startTime_;                // time at which program started
     bool showElapsedTime_;
-    bool showFacilityName_;                             // should the facility name be displayed?
+    When showFacilityName_;                             // should the facility name be displayed?
     bool showImportance_;                               // should the message importance be displayed?
     void initFromSystem();                              // initialize data from the operating system
 protected:
     Prefix()
-        : showProgramName_(true), showThreadId_(true), showElapsedTime_(true), showFacilityName_(true), showImportance_(true) {
+        : showProgramName_(true), showThreadId_(true), showElapsedTime_(true), showFacilityName_(SOMETIMES),
+          showImportance_(true) {
         initFromSystem();
         colorSet_ = ColorSet::fullColor();
     }
@@ -832,10 +834,11 @@ public:
     void showElapsedTime(bool b) { showElapsedTime_ = b; }
     /** @} */
 
-    /** Whether to show the facilityName property when the property has a value.
+    /** Whether to show the facilityName property when the property has a value.  When set to SOMETIMES, the facility name
+     *  is shown when it differs from the program name and the program name has been shown.
      * @{ */
-    bool showFacilityName() const { return showFacilityName_; }
-    void showFacilityName(bool b) { showFacilityName_ = b; }
+    When showFacilityName() const { return showFacilityName_; }
+    void showFacilityName(When w) { showFacilityName_ = w; }
     /** @} */
 
     /** Whether to show the importance property when the property has a value.

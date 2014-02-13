@@ -436,8 +436,10 @@ std::string Prefix::toString(const Mesg &mesg, const MesgProps &props) const {
             endColor = "\033[m";
         }
     }
-    
+
+    std::string programNameShown;
     if (showProgramName_ && programName_) {
+        programNameShown = *programName_;
         retval <<*programName_;
         if (showThreadId_)
             retval <<"[" <<getpid() <<"]";
@@ -454,13 +456,19 @@ std::string Prefix::toString(const Mesg &mesg, const MesgProps &props) const {
         }
     }
 
+    std::string facilityNameShown;
     if (showFacilityName_ && props.facilityName) {
-        retval <<separator <<*props.facilityName;
-        if (showImportance_ && props.importance)
-            retval <<"[" <<std::setw(5) <<std::left <<stringifyImportance(*props.importance) <<"]";
+        if (SOMETIMES!=showFacilityName_ || 0!=programNameShown.compare(*props.facilityName)) {
+            facilityNameShown = *props.facilityName;
+            retval <<separator <<*props.facilityName;
+        }
         separator = " ";
-    } else if (showImportance_ && props.importance) {
-        retval <<separator <<"[" <<std::setw(5) <<std::left <<stringifyImportance(*props.importance) <<"]";
+    }
+
+    if (showImportance_ && props.importance) {
+        if (facilityNameShown.empty())
+            retval <<separator;
+        retval <<"[" <<std::setw(5) <<std::left <<stringifyImportance(*props.importance) <<"]";
         separator = " ";
     }
 
