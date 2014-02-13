@@ -18,28 +18,28 @@ int main(int argc, char *argv[])
         if (0==strncmp(argv[argno], "--log=", 6)) {
             std::string errmesg = facilities.control(argv[argno]+6);
             if (!errmesg.empty())
-                log[ERROR] <<errmesg <<"\n";
+                mlog[ERROR] <<errmesg <<"\n";
         } else {
             std::cerr <<"usage: " <<argv[0] <<" --log=LOG_SPECS\n";
             exit(1);
         }
     }
 
-    // Show the results. We could emit this stuff using Sawyer::Message::log[INFO] (or other level) but if we happened to
+    // Show the results. We could emit this stuff using Sawyer::Message::mlog[INFO] (or other level) but if we happened to
     // disable that stream with our command-line parsing this test wouldn't display anything.  So instead we just send the
-    // output to std::cerr.  This is another benefit of Sawyer: std::cerr and log[INFO] etc are mostly interchangeable.
+    // output to std::cerr.  This is another benefit of Sawyer: std::cerr and mlog[INFO] etc are mostly interchangeable.
     std::cerr <<"The following message streams are enabled after command-line processing:\n"
               <<"'-' means disabled. Letters are (D)ebug, (T)race, (W)here, (I)nfo, (W)arning, (E)rror, and (F)atal.\n";
     facilities.print(std::cerr);
 
     // Demonstrate the results by emitting some messages
     std::cerr <<"\nAbout to emit one of each kind of message (only enabled streams will show):\n";
-    log[DEBUG] <<"a low-level debugging message intended for developers\n";
-    log[TRACE] <<"a fine-level trace message intended mostly for developers\n";
-    log[WHERE] <<"a coarse-level trace message intended for developers and users\n";
-    log[INFO] <<"an informational message intended for end users\n";
-    log[WARN] <<"a warning message about an unusual situation\n";
-    log[ERROR] <<"a message about a recoverable error situation\n";
-    log[FATAL] <<"a message about a non-recoverable error\n";
+    mlog[DEBUG] <<"a low-level debugging message intended for developers\n";
+    mlog[TRACE] <<"a fine-level trace message intended mostly for developers\n";
+    mlog[WHERE] <<"a coarse-level trace message intended for developers and users\n";
+    mlog[INFO] <<"an informational message intended for end users\n";
+    mlog[WARN] <<"a warning message about an unusual situation\n";
+    mlog[ERROR] <<"a message about a recoverable error situation\n";
+    mlog[FATAL] <<"a message about a non-recoverable error\n";
     return 0;
 }
