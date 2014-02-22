@@ -1,16 +1,20 @@
 #include "CommandLine.h"
 
 #include <algorithm>
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/foreach.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
 #include <cassert>
 #include <cerrno>
+#include <set>
 #include <sstream>
 
 namespace Sawyer {
 namespace CommandLine {
 
+const std::string STR_NONE(" %-NONE^}");                // arbitrary, but unusual
 const Location NOWHERE(-1, -1);
 
 static bool matchAnyString(const std::vector<std::string> &strings, const std::string &toMatch) {
@@ -31,42 +35,110 @@ std::ostream& operator<<(std::ostream &o, const Location &x) {
 }
 
 
-/*******************************************************************************************************************************
- *                                      Parsers
- *******************************************************************************************************************************/
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Cursor
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-boost::any ValueParser::match(const char *s, const char **rest) {
-    assert(s!=NULL);
-    assert(rest!=NULL);
-    *rest = NULL;
-    boost::any retval = (*this)(s, rest);
-    assert(rest!=NULL);
-    assert(*rest >= s);
+std::string Cursor::substr(const Location &limit1, const Location &limit2, const std::string &separator) {
+    std::string retval;
+    Location begin = limit1, end = limit2;
+    if (end < begin)
+        std::swap(begin, end);
+    while (begin < end) {
+        if (begin.idx < end.idx) {
+            retval += rest(begin);
+            if (end.offset)
+                retval += separator;
+            ++begin.idx;
+            begin.offset = 0;
+        } else {
+            retval += rest(begin).substr(0, end.offset-begin.offset);
+            break;
+        }
+    }
     return retval;
 }
 
-boost::any ValueParser::matchAll(const std::string &str) {
+Cursor& Cursor::location(const Location &loc) {
+    loc_ = loc;
+    if (loc_.idx >= strings_.size()) {
+        loc_.offset = 0;
+    } else {
+        while (loc_.idx < strings_.size() && loc_.offset >= strings_[loc_.idx].size()) {
+            ++loc_.idx;
+            loc_.offset = 0;
+        }
+    }
+    return *this;
+}
+
+void Cursor::consumeChars(size_t nchars) {
+    while (nchars > 0 && loc_.idx < strings_.size()) {
+        assert(strings_[loc_.idx].size() >= loc_.offset);
+        size_t n = std::min(nchars, (strings_[loc_.idx].size() - loc_.offset));
+        loc_.offset += n;
+        nchars -= n;
+        while (loc_.idx < strings_.size() && loc_.offset >= strings_[loc_.idx].size()) {
+            ++loc_.idx;
+            loc_.offset = 0;
+        }
+    }
+}
+
+
+        
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Parsers
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+boost::any ValueParser::matchString(const std::string &str) {
+    Cursor cursor = str;
+    boost::any retval = match(cursor);
+    if (cursor.atArgBegin())
+        throw std::runtime_error("not matched");
+    if (!cursor.atEnd())
+        throw std::runtime_error("extra text after end of value");
+    return retval;
+}
+
+boost::any ValueParser::match(Cursor &cursor) {
+    Cursor start = cursor;
+    return (*this)(cursor);
+}
+
+// Only called by match().  If the subclass doesn't override this, then we try calling the C-string version instead.
+boost::any ValueParser::operator()(Cursor &cursor) {
+    std::string str = cursor.rest();
     const char *s = str.c_str();
-    const char *rest = NULL;
-    boost::any retval = match(s, &rest);
-    if (*rest)
-        throw NotMatched();
+    const char *rest = s;
+    boost::any retval = (*this)(s, &rest);
+    if (NULL!=rest) {
+        assert(rest>=s && rest<= s+strlen(s));
+        cursor.consumeChars(rest-s);
+    }
     return retval;
 }
 
-boost::any AnyParser::operator()(const char *s, const char **rest) {
-    *rest = s + strlen(s);
-    return std::string(s);
+// only called by ValueParser::operator()(Cursor&)
+boost::any ValueParser::operator()(const char *s, const char **rest) {
+    throw std::runtime_error("subclass must implement an operator() with a cursor or C strings");
+}
+
+boost::any AnyParser::operator()(Cursor &cursor) {
+    std::string retval = cursor.rest();
+    cursor.consumeArg();
+    return retval;
 }
 
 boost::any IntegerParser::operator()(const char *s, const char **rest) {
     errno = 0;
     boost::int64_t retval = strtoll(s, (char**)rest, 0);
     if (*rest==s)
-        throw NotMatched();
+        throw std::runtime_error("integer expected");
     while (isspace(**rest)) ++*rest;
     if (ERANGE==errno)
-        throw std::range_error("integer overflow for \"" + std::string(s, *rest-s) + "\"");
+        throw std::range_error("integer overflow");
     return retval;
 }
 
@@ -74,17 +146,17 @@ boost::any UnsignedIntegerParser::operator()(const char *s, const char **rest) {
     errno = 0;
     boost::uint64_t retval = strtoull(s, (char**)rest, 0);
     if (*rest==s)
-        throw NotMatched();
+        throw std::runtime_error("unsigned integer expected");
     while (isspace(**rest)) ++*rest;
     if (ERANGE==errno)
-        throw std::range_error("integer overflow for \"" + std::string(s, *rest-s) + "\"");
+        throw std::range_error("integer overflow");
     return retval;
 }
 
 boost::any RealNumberParser::operator()(const char *s, const char **rest) {
     double retval = strtod(s, (char**)rest);
     if (*rest==s)
-        throw NotMatched();
+        throw std::runtime_error("real number expected");
     while (isspace(**rest)) ++*rest;
     return retval;
 }
@@ -106,11 +178,11 @@ boost::any BooleanParser::operator()(const char *s, const char **rest) {
             }
         }
     }
-    throw NotMatched();
+    throw std::runtime_error("Boolean expected");
 }
 
-boost::any StringSetParser::operator()(const char *s, const char **rest) {
-    std::string input(s);
+boost::any StringSetParser::operator()(Cursor &cursor) {
+    std::string input = cursor.rest();
     size_t bestMatchIdx = (size_t)(-1), bestMatchLen = 0;
     for (size_t i=0; i<strings_.size(); ++i) {
         if (boost::starts_with(input, strings_[i]) && ((size_t)(-1)==bestMatchIdx || strings_[i].size()>bestMatchLen)) {
@@ -119,12 +191,12 @@ boost::any StringSetParser::operator()(const char *s, const char **rest) {
         }
     }
     if ((size_t)(-1)==bestMatchIdx)
-        throw NotMatched();
-    *rest = s + bestMatchLen;
+        throw std::runtime_error("specific word expected");
+    cursor.consumeChars(bestMatchLen);
     return strings_[bestMatchIdx];
 }
 
-ListParserPtr ListParser::limit(size_t minLength, size_t maxLength) {
+ListParser::Ptr ListParser::limit(size_t minLength, size_t maxLength) {
     if (minLength > maxLength)
         throw std::runtime_error("minimum ListParser length must be less than or equal to maximum length");
     if (minLength < elements_.size())
@@ -134,44 +206,59 @@ ListParserPtr ListParser::limit(size_t minLength, size_t maxLength) {
     return boost::dynamic_pointer_cast<ListParser>(shared_from_this());
 }
 
-boost::any ListParser::operator()(const char *input, const char **rest) {
+boost::any ListParser::operator()(Cursor &cursor) {
     assert(!elements_.empty());
+    ExcursionGuard excursion(cursor);                   // parsing the list should be all or nothing
     std::vector<boost::any> retval;
     std::string sep = "";
-    const char *s = input;
+
     for (size_t i=0; i<maxLength_; ++i) {
         const ParserSep &ps = elements_[std::min(i, elements_.size()-1)];
 
         // Advance over the value separator
         if (0!=i) {
+            std::string str = cursor.rest();
+            const char *s = str.c_str();
             boost::regex re("\\A" + sep);
             boost::cmatch matched;
-            if (!regex_search(s, matched, re)) {
-                *rest = s;
-                break;
-            }
-            s += matched.str().size();
+            if (!regex_search(s, matched, re))
+                return boost::any();
+            cursor.consumeChars(matched.str().size());
             sep = ps.second;
         }
 
         // Parse the value
-        boost::any value = (*ps.first)(s, rest);
+        boost::any value = ps.first->match(cursor);
         retval.push_back(value);
-        s = *rest;
     }
 
-    if (retval.size()<minLength_ || retval.size()>maxLength_)
-        throw NotMatched();
+    if (retval.size()<minLength_ || retval.size()>maxLength_) {
+        std::ostringstream ss;
+        if (minLength_ == maxLength_) {
+            ss <<"list with " <<maxLength_ <<" element" <<(1==maxLength_?"":"s") <<" expected (got " <<retval.size() <<")";
+            throw std::runtime_error(ss.str());
+        } else if (minLength_+1 == maxLength_) {
+            ss <<"list with " <<minLength_ <<" or " <<maxLength_ <<" element" <<(1==maxLength_?"":"s") <<" expected"
+               <<" (got " <<retval.size() <<")";
+            throw std::runtime_error(ss.str());
+        } else {
+            std::ostringstream ss;
+            ss <<"list with " <<minLength_ <<" to " <<maxLength_ <<" elements expected (got " <<retval.size() <<")";
+            throw std::runtime_error(ss.str());
+        }
+    }
+
+    excursion.cancel();
     return retval;
 }
 
-AnyParserPtr anyParser() { return AnyParserPtr(new AnyParser); }
-IntegerParserPtr integerParser() { return IntegerParserPtr(new IntegerParser); }
-UnsignedIntegerParserPtr unsignedIntegerParser() { return UnsignedIntegerParserPtr(new UnsignedIntegerParser); }
-RealNumberParserPtr realNumberParser() { return RealNumberParserPtr(new RealNumberParser); }
-BooleanParserPtr booleanParser() { return BooleanParserPtr(new BooleanParser); }
-StringSetParserPtr stringSetParser() { return StringSetParserPtr(new StringSetParser); }
-ListParserPtr listParser(const ValueParserPtr &p, const std::string &sep) { return ListParserPtr(new ListParser(p, sep)); }
+AnyParser::Ptr anyParser() { return AnyParser::instance(); }
+IntegerParser::Ptr integerParser() { return IntegerParser::instance(); }
+UnsignedIntegerParser::Ptr unsignedIntegerParser() { return UnsignedIntegerParser::instance(); }
+RealNumberParser::Ptr realNumberParser() { return RealNumberParser::instance(); }
+BooleanParser::Ptr booleanParser() { return BooleanParser::instance(); }
+StringSetParser::Ptr stringSetParser() { return StringSetParser::instance(); }
+ListParser::Ptr listParser(const ValueParser::Ptr &p, const std::string &sep) { return ListParser::instance(p, sep); }
 
 /*******************************************************************************************************************************
  *                                      Actions
@@ -189,20 +276,151 @@ void ShowHelp::operator()() {
     stream_ <<"FIXME[Robb Matzke 2014-02-14]: This is the help message!\n";
 }
 
-ExitProgramPtr exitProgram(int exitStatus) { return ExitProgramPtr(new ExitProgram(exitStatus)); }
-ShowVersionPtr showVersion(const std::string &versionString) { return ShowVersionPtr(new ShowVersion(versionString)); }
-ShowHelpPtr showHelp(std::ostream &o) { return ShowHelpPtr(new ShowHelp(o)); }
+ExitProgram::Ptr exitProgram(int exitStatus) { return ExitProgram::instance(exitStatus); }
+ShowVersion::Ptr showVersion(const std::string &versionString) { return ShowVersion::instance(versionString); }
+ShowHelp::Ptr showHelp(std::ostream &o) { return ShowHelp::instance(o); }
 
 
 /*******************************************************************************************************************************
  *                                      Parsed values
  *******************************************************************************************************************************/
 
+// A variety of common integer types
+template<typename T>
+static T fromSigned(const boost::any &v) {
+    if (v.type() == typeid(boost::int64_t)) {
+        return boost::any_cast<boost::int64_t>(v);
+    } else if (v.type() == typeid(long long)) {
+        return boost::any_cast<long long>(v);
+    } else if (v.type() == typeid(long)) {
+        return boost::any_cast<long>(v);
+    } else if (v.type() == typeid(int)) {
+        return boost::any_cast<int>(v);
+    } else if (v.type() == typeid(short)) {
+        return boost::any_cast<short>(v);
+    } else if (v.type() == typeid(signed char)) {
+        return boost::any_cast<signed char>(v);
+    } else {
+        return boost::any_cast<T>(v);
+    }
+}
+
+template<typename T>
+static T fromUnsigned(const boost::any &v) {
+    if (v.type() == typeid(boost::uint64_t)) {
+        return boost::any_cast<boost::uint64_t>(v);
+    } else if (v.type() == typeid(unsigned long long)) {
+        return boost::any_cast<unsigned long long>(v);
+    } else if (v.type() == typeid(unsigned long)) {
+        return boost::any_cast<unsigned long>(v);
+    } else if (v.type() == typeid(unsigned int)) {
+        return boost::any_cast<unsigned int>(v);
+    } else if (v.type() == typeid(unsigned short)) {
+        return boost::any_cast<unsigned short>(v);
+    } else if (v.type() == typeid(unsigned char)) {
+        return boost::any_cast<unsigned char>(v);
+    } else if (v.type() == typeid(size_t)) {
+        return boost::any_cast<size_t>(v);
+    } else {
+        return boost::any_cast<T>(v);
+    }
+}
+
+template<typename T>
+static T fromInteger(const boost::any &v) {
+    try {
+        return fromSigned<T>(v);
+    } catch (const boost::bad_any_cast&) {
+    }
+    try {
+        return fromUnsigned<T>(v);
+    } catch (const boost::bad_any_cast&) {
+    }
+    if (v.type() == typeid(bool)) {
+        return boost::any_cast<bool>(v);
+    } else {
+        return boost::any_cast<T>(v);                   // try blind luck
+    }
+}
+
+// A variety of common floating point types
+template<typename T>
+T fromFloatingPoint(const boost::any &v) {
+    if (v.type() == typeid(double)) {
+        return boost::any_cast<double>(v);
+    } else if (v.type() == typeid(float)) {
+        return boost::any_cast<float>(v);
+    } else {
+        return fromInteger<T>(v);
+    }
+}
+
+int ParsedValue::asInt() const {
+    return fromInteger<int>(value_);
+}
+
+unsigned ParsedValue::asUnsigned() const {
+    return fromInteger<unsigned>(value_);
+}
+
+long ParsedValue::asLong() const {
+    return fromInteger<long>(value_);
+}
+
+unsigned long ParsedValue::asUnsignedLong() const {
+    return fromInteger<unsigned long>(value_);
+}
+
+boost::int64_t ParsedValue::asInt64() const {
+    return fromInteger<boost::int64_t>(value_);
+}
+
+boost::uint64_t ParsedValue::asUnsigned64() const {
+    return fromInteger<boost::int64_t>(value_);
+}
+
+double ParsedValue::asDouble() const {
+    return fromFloatingPoint<double>(value_);
+}
+
+float ParsedValue::asFloat() const {
+    return fromFloatingPoint<float>(value_);
+}
+
+bool ParsedValue::asBool() const {
+    return fromInteger<boost::uint64_t>(value_);
+}
+
+std::string ParsedValue::asString() const {
+    try {
+        boost::int64_t x = fromSigned<boost::int64_t>(value_);
+        return boost::lexical_cast<std::string>(x);
+    } catch (const boost::bad_any_cast&) {
+    }
+    try {
+        boost::uint64_t x = fromUnsigned<boost::int64_t>(value_);
+        return boost::lexical_cast<std::string>(x);
+    } catch (const boost::bad_any_cast&) {
+    }
+    try {
+        double x = fromFloatingPoint<double>(value_);
+        return boost::lexical_cast<std::string>(x);
+    } catch (const boost::bad_any_cast&) {
+    }
+    try {
+        bool x = boost::any_cast<bool>(value_);
+        return boost::lexical_cast<std::string>(x);
+    } catch (const boost::bad_any_cast&) {
+    }
+    std::string x = boost::any_cast<std::string>(value_);
+    return x;
+}
+    
 void ParsedValue::print(std::ostream &o) const {
     if (switch_) {
         o <<"{switch=\"" <<switchString_ <<"\" at " <<switchLocation_ <<" key=\"" <<switch_->key() <<"\""
           <<"; value str=\"" <<valueString_ <<"\" at " <<valueLocation_
-          <<"; ord={s" <<switchOrdinal_ <<", k" <<keyOrdinal_ <<"}"
+          <<"; seq={s" <<switchSequence_ <<", k" <<keySequence_ <<"}"
           <<"}";
     } else {
         o <<"empty";
@@ -213,6 +431,7 @@ std::ostream& operator<<(std::ostream &o, const ParsedValue &x) {
     x.print(o);
     return o;
 }
+
 
 /*******************************************************************************************************************************
  *                                      Switch Descriptors
@@ -232,13 +451,14 @@ ParsingProperties ParsingProperties::inherit(const ParsingProperties &base) cons
     return retval;
 }
 
-void Switch::init(const std::string &longName, const std::string &shortNames) {
-    shortNames_ = shortNames;
+void Switch::init(const std::string &longName, char shortName) {
+    if (shortName)
+        shortNames_ = std::string(1, shortName);
     if (!longName.empty()) {
         longNames_.push_back(longName);
         key_ = documentationKey_ = longName;
-    } else if (!shortNames.empty()) {
-        key_ = documentationKey_ = std::string(1, shortNames[0]);
+    } else if (shortName) {
+        key_ = documentationKey_ = std::string(1, shortName);
     } else {
         throw std::runtime_error("every Switch must have either a long or short name");
     }
@@ -297,20 +517,21 @@ Switch& Switch::resetValueSeparators(const std::string &s1, const std::string &s
     return *this;
 }
 
-Switch& Switch::argument(const std::string &name, const ValueParserPtr &parser) {
+Switch& Switch::argument(const std::string &name, const ValueParser::Ptr &parser) {
     return argument(SwitchArgument(name, parser));
 }
 
-Switch& Switch::argument(const std::string &name, const ValueParserPtr &parser, const std::string &defaultValueStr) {
+Switch& Switch::argument(const std::string &name, const ValueParser::Ptr &parser, const std::string &defaultValueStr) {
     return argument(SwitchArgument(name, parser, defaultValueStr));
 }
 
-Switch& Switch::defaultValue(const std::string &text, const ValueParserPtr &p) {
-    defaultValue_ = p->matchAll(text);
+Switch& Switch::defaultValue(const std::string &text, const ValueParser::Ptr &p) {
+    defaultValue_ = p->matchString(text);
+    defaultValueString_ = text;
     return *this;
 }
 
-Switch& Switch::action(const SwitchActionPtr &action) {
+Switch& Switch::action(const SwitchAction::Ptr &action) {
     if (action!=NULL)
         actions_.push_back(action);
     return *this;
@@ -348,22 +569,35 @@ std::runtime_error Switch::extraTextAfterArgument(const std::string &switchStrin
     std::string str = "unexpected extra text after switch \"" + switchString + "\" argument: " + cursor.rest();
     return std::runtime_error(str);
 }
+
+std::runtime_error Switch::missingArgument(const std::string &switchString, const Cursor &cursor,
+                                           const SwitchArgument &sa, const std::string &reason) const {
+    std::string str = switchString + " argument " + boost::to_upper_copy(sa.name()) + " is missing";
+    if (!reason.empty())
+        str += ": " + reason;
+    return std::runtime_error(str);
+}
     
-size_t Switch::matchLongName(const std::string &arg, const ParsingProperties &props) const {
+size_t Switch::matchLongName(Cursor &cursor, const ParsingProperties &props) const {
+    assert(cursor.atArgBegin());
     BOOST_FOREACH (const std::string &prefix, props.longPrefixes) {
-        if (boost::starts_with(arg, prefix)) {
-            std::string rest = arg.substr(prefix.size());
+        if (boost::starts_with(cursor.arg(), prefix)) {
+            std::string rest = cursor.arg().substr(prefix.size());
             BOOST_FOREACH (const std::string &name, longNames_) {
                 if (boost::starts_with(rest, name)) {
                     size_t retval = prefix.size() + name.size();
                     rest = rest.substr(name.size());
-                    if (rest.empty())
+                    if (rest.empty()) {
+                        cursor.consumeChars(retval);
                         return retval;                  // switch name matches to end of program argument
+                    }
                     if (0==arguments_.size())
                         continue;                       // switch name does not match to end, but has no declared args
                     BOOST_FOREACH (const std::string &sep, props.valueSeparators) {
-                        if (0!=sep.compare(" ") && boost::starts_with(rest, sep))
+                        if (0!=sep.compare(" ") && boost::starts_with(rest, sep)) {
+                            cursor.consumeChars(retval);
                             return retval;              // found prefix, name, and separator for switch with args
+                        }
                     }
                 }
             }
@@ -372,30 +606,81 @@ size_t Switch::matchLongName(const std::string &arg, const ParsingProperties &pr
     return 0;
 }
 
-// Throws an exception if it cannot parse. The cursor might be updated even if an exception is thrown.
-void Switch::matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
-                            ParsedValues &result /*out*/) const {
+size_t Switch::matchShortName(Cursor &cursor, const ParsingProperties &props, std::string &name /*out*/) const {
+    BOOST_FOREACH (const std::string &prefix, props.shortPrefixes) {
+        if (boost::starts_with(cursor.arg(), prefix)) {
+            if (prefix.size() >= cursor.location().offset && prefix.size() < cursor.arg().size()) {
+                // name must immediately follow the prefix
+                if (strchr(shortNames_.c_str(), cursor.arg()[prefix.size()])) {
+                    size_t retval = prefix.size() + 1;
+                    Location p = cursor.location();
+                    p.offset = retval;
+                    cursor.location(p);
+                    name = cursor.arg().substr(0, retval);
+                    return retval;
+                }
+            } else if (prefix.size() < cursor.arg().size()) {
+                if (strchr(shortNames_.c_str(), cursor.rest()[0])) {
+                    name = cursor.arg().substr(0, prefix.size()) + cursor.rest().substr(0, 1);
+                    cursor.consumeChars(1);
+                    return prefix.size() + 1;
+                }
+            }
+        }
+    }
+    name = "";
+    return 0;
+}
+
+// matches short or long arguments. Counts only arguments that are actually present.  The first present switch argument starts
+// at the cursor, and subsequent switch arguments must be aligned at the beginning of a program argument.
+size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, ParsedValues &result /*out*/) const {
+    ExcursionGuard excursion(cursor);
+    size_t retval = 0;
+    BOOST_FOREACH (const SwitchArgument &sa, arguments_) {
+        if (retval>0 && !cursor.atArgBegin())
+            throw extraTextAfterArgument(switchString, cursor);
+
+        Location valueLocation = cursor.location();
+        try {
+            boost::any value = sa.parser()->match(cursor);
+            if (cursor.location() == valueLocation && sa.isRequired())
+                throw std::runtime_error("not found");
+            result.push_back(ParsedValue(value, valueLocation, cursor.substr(valueLocation)));
+            ++retval;
+        } catch (const std::runtime_error &e) {
+            if (sa.isRequired())
+                throw missingArgument(switchString, cursor, sa, e.what());
+            result.push_back(ParsedValue(sa.defaultValue(), NOWHERE, sa.defaultValueString()));
+        }
+    }
+    excursion.cancel();
+    return retval;
+}
+
+void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
+                                ParsedValues &result /*out*/) const {
+    ExcursionGuard excursion(cursor);
+
     // If the switch has no declared arguments, then parse its default.
     if (arguments_.empty()) {
-        assert(cursor.atArgEnd());
-        cursor.consumeArg();
-        result.push_back(ParsedValue(defaultValue_, NOWHERE, ""));
+        assert(cursor.atArgBegin() || cursor.atEnd());
+        result.push_back(ParsedValue(defaultValue_, NOWHERE, defaultValueString_));
         return;
     }
 
     // Try to match the name/value separator.  Advance the cursor to the first character of the first value.
     bool matchedSeparator = false;
-    if (cursor.atArgEnd()) {
-        if (matchAnyString(props.valueSeparators, " ")) {
-            cursor.consumeArg();
+    if (cursor.atArgBegin()) {
+        if (matchAnyString(props.valueSeparators, " "))
             matchedSeparator = true;
-        }
     } else {
         std::string s = cursor.rest();
         BOOST_FOREACH (const std::string &sep, props.valueSeparators) {
             if (boost::starts_with(s, sep)) {
                 cursor.consumeChars(sep.size());
                 matchedSeparator = true;
+                break;
             }
         }
     }
@@ -403,49 +688,35 @@ void Switch::matchArguments(const std::string &switchString, Cursor &cursor /*in
     // If we couldn't match the name/value separator then this switch cannot have any values.
     if (!matchedSeparator && nRequiredArguments()>0)
         throw noSeparator(switchString, cursor, props);
-    
-    // Try to match arguments, some of which might be optional.  Each value must end at the end of a program argument.
-    // Some arguments might be optional.
-    size_t nValuesParsed = 0; // number of values actually parsed from the program arguments, not assigned default values
-    BOOST_FOREACH (const SwitchArgument &sa, arguments_) {
-        if (cursor.atEnd()) {
-            if (sa.isRequired()) {
-                break;
-            } else {
-                result.push_back(ParsedValue(sa.defaultValue(), NOWHERE, ""));
-            }
-        } else {
-            const char *s = cursor.rest().c_str();
-            const char *rest = NULL;
-            if (sa.isRequired()) {
-                boost::any value = sa.parser()->match(s, &rest);
-                result.push_back(ParsedValue(value, cursor.location(), std::string(s, rest)));
-            } else {
-                try {
-                    boost::any value = sa.parser()->match(s, &rest);
-                    result.push_back(ParsedValue(value, cursor.location(), std::string(s, rest)));
-                } catch (const NotMatched&) {
-                    result.push_back(ParsedValue(sa.defaultValue(), NOWHERE, ""));
-                    continue;
-                }
-            }
 
-            ++nValuesParsed;
-            cursor.consumeChars(rest-s);
-            if (cursor.atArgEnd())
-                cursor.consumeArg();
-        }
+    // Parse the arguments for this switch now that we've consumed the prefix, switch name, and argument separators.
+    size_t nValuesParsed = matchArguments(switchString, cursor, result /*out*/);
+
+    // Post conditions
+    if (!cursor.atArgBegin() && !cursor.atEnd())
+        throw extraTextAfterArgument(switchString, cursor);
+    if (nValuesParsed < nRequiredArguments())
+        throw notEnoughArguments(switchString, cursor, nValuesParsed);
+    excursion.cancel();
+}
+
+void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
+                                ParsedValues &result /*out*/) const {
+    // If the switch has no declared arguments, then parse its default.
+    if (arguments_.empty()) {
+        result.push_back(ParsedValue(defaultValue_, NOWHERE, defaultValueString_));
+        return;
     }
 
-    if (!cursor.atArgBegin() && !cursor.atArgEnd())
-        throw extraTextAfterArgument(switchString, cursor);
+    // Parse the arguments for this switch.
+    size_t nValuesParsed = matchArguments(switchString, cursor, result /*out*/);
     if (nValuesParsed < nRequiredArguments())
         throw notEnoughArguments(switchString, cursor, nValuesParsed);
 }
 
 void Switch::runActions() const {
-    BOOST_FOREACH (const SwitchActionPtr &action, actions_)
-        (*action)();
+    BOOST_FOREACH (const SwitchAction::Ptr &action, actions_)
+        action->run();
 }
 
 
@@ -520,7 +791,7 @@ const Switch& SwitchGroup::getByName(const std::string &s) {
             (1==s.size() && boost::contains(switches_[i].shortNames(), s)))
             return switches_[i];
     }
-    throw NotMatched();
+    throw std::runtime_error("switch \"" + s + "\" not found\n");
 }
 
 bool SwitchGroup::keyExists(const std::string &s) {
@@ -536,7 +807,81 @@ const Switch& SwitchGroup::getByKey(const std::string &s) {
         if (0==switches_[i].key().compare(s))
             return switches_[i];
     }
-    throw NotMatched();
+    throw std::runtime_error("switch key \"" + s + "\" not found\n");
+}
+
+/*******************************************************************************************************************************
+ *                                      Parser results
+ *******************************************************************************************************************************/
+
+void ParserResult::insert(ParsedValues &pvals) {
+    BOOST_FOREACH (ParsedValue &pval, pvals) {
+        const Switch *sw = &pval.createdBy();
+
+        // Get sequences for this value and update the value.
+        size_t keySequence = keyIndex_[sw->key()].size();
+        size_t switchSequence = switchIndex_[sw].size();
+        pval.sequenceInfo(keySequence, switchSequence);
+
+        // Insert the parsed value and update all the indexes
+        size_t idx = values_.size();
+        values_.push_back(pval);
+        keyIndex_[sw->key()].push_back(idx);
+        switchIndex_[sw].push_back(idx);
+        argvIndex_[pval.switchLocation()].push_back(idx);
+
+#if 1 /*DEBUGGING [Robb Matzke 2014-02-18]*/
+        std::cerr <<"    " <<pval <<"\n";
+#endif
+    }
+}
+
+void ParserResult::skip(const Location &loc) {
+    skippedIndex_.push_back(loc.idx);
+}
+
+void ParserResult::terminator(const Location &loc) {
+    terminators_.push_back(loc.idx);
+}
+
+const ParsedValue& ParserResult::parsed(const std::string &switchKey, size_t idx) {
+    return values_[keyIndex_[switchKey][idx]];
+}
+
+ParsedValues ParserResult::parsed(const std::string &switchKey) {
+    ParsedValues retval;
+    BOOST_FOREACH (size_t idx, keyIndex_[switchKey])
+        retval.push_back(values_[idx]);
+    return retval;
+}
+
+std::vector<std::string> ParserResult::skippedArgs() const {
+    std::vector<std::string> retval;
+    BOOST_FOREACH (size_t idx, skippedIndex_)
+        retval.push_back(argv_[idx]);
+    return retval;
+}
+
+std::vector<std::string> ParserResult::remainingArgs() const {
+    std::vector<std::string> retval;
+    for (size_t i=stoppedAt_.idx; i<argv_.size(); ++i)
+        retval.push_back(argv_[i]);
+    return retval;
+}
+
+std::vector<std::string> ParserResult::unparsedArgs() const {
+    std::set<size_t> indexes;
+    BOOST_FOREACH (size_t idx, skippedIndex_)
+        indexes.insert(idx);
+    BOOST_FOREACH (size_t idx, terminators_)
+        indexes.insert(idx);
+    for (size_t i=stoppedAt_.idx; i<argv_.size(); ++i)
+        indexes.insert(i);
+
+    std::vector<std::string> retval;
+    BOOST_FOREACH (size_t idx, indexes)
+        retval.push_back(argv_[idx]);
+    return retval;
 }
 
 /*******************************************************************************************************************************
@@ -628,72 +973,137 @@ ParserResult Parser::parse(int argc, char *argv[]) {
 }
 
 ParserResult Parser::parse(const std::vector<std::string> &programArguments) {
-    ParserResult result;
+    ParserResult result(programArguments);
     Cursor cursor(programArguments);
+
     while (!cursor.atEnd()) {
         assert(cursor.atArgBegin());
-        ParsedValues valuesForSwitch;
-        const Switch *sw = parseOneSwitch(cursor, valuesForSwitch);
-        if (NULL==sw)
-            break;
-#if 1 /*DEBUGGING [Robb Matzke 2014-02-17]*/
-        std::cerr <<"ROBB: parsed switch and got these values:\n";
-        BOOST_FOREACH (const ParsedValue &v, valuesForSwitch)
-            std::cerr <<"    " <<v <<"\n";
-#endif
+        result.stoppedAt(cursor.location());
 
+        // Check for termination switch.
+        BOOST_FOREACH (std::string termination, terminationSwitches_) {
+            if (0==cursor.arg().compare(termination)) {
+                result.terminator(cursor.location());
+                cursor.consumeArg();
+                result.stoppedAt(cursor.location());
+                return result;
+            }
+        }
+        
+        // Does this look like a switch (even one that we might not know about)?
+        bool isSwitch = apparentSwitch(cursor);
+        if (!isSwitch) {
+            if (skipNonSwitches_) {
+                result.skip(cursor.location());
+                cursor.consumeArg();
+                result.stoppedAt(cursor.location());
+                continue;
+            } else {
+                return result;
+            }
+        }
+
+        // Attempt to parse the switch. The parseOneSwitch() throws an exception if something goes wrong, but returns NULL if
+        // there's no switch to parse.
+        try {
+            parseOneSwitch(cursor, result);
+        } catch (const std::runtime_error &e) {
+            if (skipUnknownSwitches_) {
+                result.skip(cursor.location());
+                cursor.consumeArg();
+                result.stoppedAt(cursor.location());
+                continue;
+            } else {
+                throw;
+            }
+        }
+        result.stoppedAt(cursor.location());
+
+#if 0 /* [Robb Matzke 2014-02-20] */
+        // Run switch actions
         sw->runActions();
+#endif
     }
-    return result;
+
+    return result;                                      // reached end of program arguments
 }
 
-const Switch* Parser::parseOneSwitch(Cursor &cursor, ParsedValues &parsedValues /*out*/) {
-    assert(cursor.atArgBegin());
-    parsedValues.clear();
-
-    // Check for termination switch.
-    BOOST_FOREACH (std::string termination, terminationSwitches_) {
-        if (0==cursor.arg().compare(termination))
-            return NULL;                                // FIXME[Robb Matzke 2014-02-17]: should we save this info?
-    }
-
-    // Try to parse one switch.
+bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
     boost::optional<std::runtime_error> saved_error;
+
+    // Try to find a long switch that works first.
+    assert(cursor.atArgBegin());
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
+            ExcursionGuard excursion(cursor);
             ParsingProperties swProps = sw.properties().inherit(sgProps);
-            if (size_t nchars = sw.matchLongName(cursor.arg(), swProps)) {
-                const std::string switchString = cursor.arg().substr(0, nchars);
-                Location switchLocation = cursor.location();
-
-                ExcursionSaver excursion(cursor);
-                cursor.consumeChars(nchars);
+            Location switchLocation = cursor.location();
+            if (sw.matchLongName(cursor, swProps)) {
+                const std::string switchString = cursor.substr(switchLocation);
                 try {
-                    sw.matchArguments(switchString, cursor, swProps, parsedValues /*out*/);
-                    BOOST_FOREACH (ParsedValue &parsed, parsedValues) {
+                    ParsedValues parsedValues;
+                    sw.matchLongArguments(switchString, cursor, swProps, parsedValues /*out*/);
+                    BOOST_FOREACH (ParsedValue &parsed, parsedValues)
                         parsed.switchInfo(&sw, switchLocation, switchString);
-                    }
+                    result.insert(parsedValues);
                     excursion.cancel();
-                    return &sw;
+                    return true;
                 } catch (const std::runtime_error &e) {
                     saved_error = e;
-                    continue;                           // couldn't parse args, so try another switch
                 }
             }
         }
     }
+
+    // No long switch, so try to parse the program argument as a short switch.
+    assert(cursor.atArgBegin());
+    while (true) {
+        bool parsedSomething = parseShortSwitch(cursor, result, saved_error);
+        if (!parsedSomething)
+            break;
+        if (cursor.atArgBegin() || cursor.atEnd())
+            return true;
+    }
+
     if (saved_error)
         throw *saved_error;                             // found at least one switch but couldn't ever parse arguments
 
     if (apparentSwitch(cursor))
         throw std::runtime_error("unrecognized switch: " + cursor.arg());
 
-    return NULL;
+    return false;
 }
 
+// Parse one short switch and advance the cursor over the switch name and arguments.
+const Switch* Parser::parseShortSwitch(Cursor &cursor, ParserResult &result,
+                                       boost::optional<std::runtime_error> &saved_error) {
+    BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
+        ParsingProperties sgProps = sg.properties().inherit(properties_);
+        BOOST_FOREACH (const Switch &sw, sg.switches()) {
+            ExcursionGuard excursion(cursor);
+            ParsingProperties swProps = sw.properties().inherit(sgProps);
+            Location switchLocation = cursor.location();
+            std::string switchString;
+            if (sw.matchShortName(cursor, swProps, switchString /*out*/)) {
+                try {
+                    ParsedValues parsedValues;
+                    sw.matchShortArguments(switchString, cursor, swProps, parsedValues /*out*/);
+                    BOOST_FOREACH (ParsedValue &parsed, parsedValues)
+                        parsed.switchInfo(&sw, switchLocation, switchString);
+                    result.insert(parsedValues);
+                    excursion.cancel();
+                    return &sw;
+                } catch (const std::runtime_error &e) {
+                    saved_error = e;
+                }
+            }
+        }
+    }
+    return NULL;
+}
+    
 bool Parser::apparentSwitch(const Cursor &cursor) const {
-    assert(cursor.atArgBegin());
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
         BOOST_FOREACH (const Switch &sw, sg.switches()) {

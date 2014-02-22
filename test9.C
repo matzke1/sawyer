@@ -9,35 +9,37 @@ int main(int argc, char *argv[]) {
     SwitchGroup ss;
 
 #if 1 /*DEBUGGING [Robb Matzke 2014-02-17]*/
-    ss.insert(Switch("robb", "")
-              .argument("arg1", anyParser(), "foo"));
+    ss.insert(Switch("test", 't'));
 
-#endif
-                   
+
+
+#else
 
     // Minimal format for a switch: takes no arguments and stores true if the switch occurred on the command line at least
     // once, and has no documentation.
-    ss.insert(Switch("verbose", "v"));
+    ss.insert(Switch("verbose", 'v'));
 
-    // A switch may have more than one name.  Multiple short names are all specified in the second argument.
-    ss.insert(Switch("gray", "gb")
-              .longName("grey"));
+    // A switch may have more than one name.
+    ss.insert(Switch("gray", 'g')
+              .longName("grey")
+              .shortName('b'));
 
     // Most switches also have documentation. Documentation for the body of the switch using a simple markup language.
     // The rest of these examples don't use documentation just to keep things short and simple.
-    ss.insert(Switch("all", "a")
+    ss.insert(Switch("all", 'a')
               .doc("Do not ignore entries starting with '.'"));
     
     // A switch can cause some action to immediately occur each time it is processed.  The showVersion() is an action
     // provided by Sawyer, but user actions are also allowed.
-    ss.insert(Switch("version", "V")
+    ss.insert(Switch("version", 'V')
               .action(showVersion("1.2.3")));
 
     // A switch can have more than one action. They're processed in the order they're declared.  The
     // showHelp() and exitProgram() actions are predefined.  Note that the short name is two characters, which means that both
     // "-h" and "-?" are valid spellings (assuming the prefix is "-" when parsing).  The alternative is a user-defined action
     // that does two or more things, but that's more verbose (one goal of this API is that switch descriptions are short).
-    ss.insert(Switch("help", "h?")
+    ss.insert(Switch("help", 'h')
+              .shortName('?')
               .action(showHelp(std::cout))
               .action(exitProgram(0)));
 
@@ -49,9 +51,9 @@ int main(int argc, char *argv[]) {
     // A switch can take an argument interpreted as an arbitrary string.  The argument can be separated from the
     // switch in various ways: as a single program argument: --committer=alice or -Calice; as two program
     // arguments: --committer alice or -C alice.  Controlled by settings for the parser, switch set, or switch.
-    ValueParserPtr xp = anyParser();
+    ValueParser::Ptr xp = anyParser();
     SwitchArgument xa("name", xp);
-    ss.insert(Switch("committer", "C")
+    ss.insert(Switch("committer", 'C')
               .argument(xa));
 
     // A switch can have more than one argument, as in
@@ -68,45 +70,45 @@ int main(int argc, char *argv[]) {
               .argument("threshold", realNumberParser()));
     
     // A later switch occurrence may override an earlier occurrence of the same switch on the command line.
-    ss.insert(Switch("editor", "E")
+    ss.insert(Switch("editor", 'E')
               .argument("editor_command")
               .saveLast());                             // this is the default
 
     // A switch may occur more than once on the command line with all values saved
-    ss.insert(Switch("author", "A")
+    ss.insert(Switch("author", 'A')
               .argument("name")
               .saveAll());                              // save all values when the switch repeats
 
     // A switch may be prohibited from occurring multiple times on the command line.
-    ss.insert(Switch("password", "P")
+    ss.insert(Switch("password", 'P')
               .saveOne());                              // different than saveFirst (which ignores subsequent occurrences)
 
     // A switch may have multiple values separated by the specified regular expression (default is
     // "[,:;[:space:]][[:space:]]*|[[:space:]]+" (i.e., a comma, colon, or semicolon followed by optional white
     // space, or at least one white space.
-    ss.insert(Switch("incdir", "I")
+    ss.insert(Switch("incdir", 'I')
               .doc("List of directories to search.")
               .argument("directories", listParser(anyParser())) // each switch value is a list of strings
               .saveAll());                               // and the switch can appear multiple times
 
     // A switch can be one of an enumerated list.  The elements of the list are strings, but they must be
     // parsable as if they actually appeared on the program command line.
-    ss.insert(Switch("untracked-files", "u")
+    ss.insert(Switch("untracked-files", 'u')
               .argument("mode",
                         stringSetParser()->with("no")->with("normal")->with("all")));
     
     // A 2d coordinate can be treated as a pair of real numbers as in "--origin=5.0,4.5"
-    ss.insert(Switch("origin", "")
+    ss.insert(Switch("origin")
               .argument("coordinate-pair",
                         listParser(realNumberParser(), ",")  // list of real numbers separated by exactly "," characters
                         ->exactly(2)));                 // and containing exactly two elements
 
     // If two switches are a Boolean pair (--pager/--no-pager, --fomit-frame-pointer/--fno-omit-fram-pointer,
     // --verbose/--quiet) you can do this:
-    ss.insert(Switch("fomit-frame-pointer", "")
+    ss.insert(Switch("fomit-frame-pointer")
               .key("fomit-frame-pointer")               // this is the default for this switch
               .defaultValue("yes", booleanParser()));   // this is the default for this switch
-    ss.insert(Switch("fno-omit-frame-pointer", "")
+    ss.insert(Switch("fno-omit-frame-pointer")
               .key("fomit-frame-pointer")               // use the same key as the "yes" version
               .defaultValue("no", booleanParser()));    // but cause a "no" to be registered
 
@@ -115,7 +117,7 @@ int main(int argc, char *argv[]) {
 
     // A switch argument may be optional. The next item on the command-line must look like a switch.  E.g.,
     // "--color" is the same as "--color=always" if the next program argument looks like a switch.
-    ss.insert(Switch("use-color", "")
+    ss.insert(Switch("use-color")
               .argument("when",                         // argument name
                         (enumParser<WhenColor>()        // WhenColor must be declared at global scope
                          ->with("never", NEVER)         // possible values
@@ -132,11 +134,11 @@ int main(int argc, char *argv[]) {
                 *rest = s + strlen(s);
                 return std::string(s);
             }
-            throw NotMatched();
+            return boost::any();                        // nothing to parse
         }
     };
 
-    ss.insert(Switch("module", "M")
+    ss.insert(Switch("module", 'M')
               .argument("module-name", MyParser::instance()));
 
     // User can supply his own action.
@@ -146,20 +148,55 @@ int main(int argc, char *argv[]) {
     // long as the other switch's definition is available when parsing.
     // FIXME[Robb Matzke 2014-02-13]
 
+#endif
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Parsing
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // construct a parser, add switch groups, and apply it to program arguments.
-    ParserResult parsed = Parser().with(ss).parse(argc, argv);
-
-    // FIXME[Robb Matzke 2014-02-15]: option to just skip over program arguments that cannot be parsed.
+    ParserResult cmdline = Parser().with(ss)
+                           // .skipUnknownSwitches()
+                           // .skipNonSwitches()
+                           .parse(argc, argv);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Query results
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    std::vector<std::string> args;
+
+    if (cmdline.have("test")) {
+        std::cout <<"parsed test: string value=\"" <<cmdline.parsed("test", 0).string() <<"\"\n";
+        std::cout <<"value as floating point: " <<cmdline.parsed("test", 0).asDouble() <<"\n";
+        std::cout <<"value as string: " <<cmdline.parsed("test", 0).asString() <<"\n";
+    }
     
+    args = cmdline.skippedArgs();
+    if (!args.empty()) {
+        std::cout <<"these non-switch program arguments were skipped:";
+        for (size_t i=0; i<args.size(); ++i)
+            std::cout <<" \"" <<args[i] <<"\"";
+        std::cout <<"\n";
+    }
+
+    args = cmdline.remainingArgs();
+    if (!args.empty()) {
+        std::cout <<"these program arguments still remain unparsed:";
+        for (size_t i=0; i<args.size(); ++i)
+            std::cout <<" \"" <<args[i] <<"\"";
+        std::cout <<"\n";
+    }
+
+    args = cmdline.unparsedArgs();
+    if (!args.empty()) {
+        std::cout <<"these are all the arguments remaining:";
+        for (size_t i=0; i<args.size(); ++i)
+            std::cout <<" \"" <<args[i] <<"\"";
+        std::cout <<"\n";
+    }
+
+    return 0;
 }
 
 
