@@ -108,6 +108,9 @@ public:
     Cursor(const std::vector<std::string> &strings): strings_(strings) {}
     Cursor(const std::string &string): strings_(1, string) {}
 
+    /** All strings for the cursor. */
+    const std::vector<std::string>& strings() const { return strings_; }
+
     /** Current position of the cursor.
      *  @{ */
     const Location& location() const { return loc_; }
@@ -144,6 +147,10 @@ public:
     std::string substr(const Location &limit, const std::string &separator=" ") { return substr(loc_, limit, separator); }
     std::string substr(const Location &limit1, const Location &limit2, const std::string &separator=" ");
     /** @} */
+
+    /** Replace the current string with new strings.  Repositions the cursor to the beginning of the first inserted
+     * string. Must not be called when atEnd() returns true. */
+    void replace(const std::vector<std::string>&);
 
     /** Advance the cursor N characters.  The location is not advanced to the beginning of the next argument if it
      *  reaches the end of the current argument. */
@@ -866,8 +873,8 @@ public:
      *  based on the conventions used by the operating system.  Erasing these defaults might get you a command line syntax
      *  that's jarring to uses.
      * @{ */
-    Switch& resetLongPrefixes(const std::string &s1, const std::string &s2=STR_NONE, const std::string &s3=STR_NONE,
-                              const std::string &s4=STR_NONE);
+    Switch& resetLongPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
+                              const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
     Switch& longPrefix(const std::string &s1) { properties_.longPrefixes.push_back(s1); return *this; }
     const std::vector<std::string>& longPrefixes() const { return properties_.longPrefixes; }
     /** @} */
@@ -883,8 +890,8 @@ public:
      *  based on the conventions used by the operating system.  Erasing these defaults might get you a command line syntax
      *  that's jarring to uses.
      * @{ */
-    Switch& resetShortPrefixes(const std::string &s1, const std::string &s2=STR_NONE, const std::string &s3=STR_NONE,
-                               const std::string &s4=STR_NONE);
+    Switch& resetShortPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
+                               const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
     Switch& shortPrefix(const std::string &s1) { properties_.shortPrefixes.push_back(s1); return *this; }
     const std::vector<std::string>& shortPrefixes() const { return properties_.shortPrefixes; }
     /** @} */
@@ -1014,6 +1021,7 @@ private:
 
     // Constructs an exception describing that there is unexpected extra text after a switch argument.
     std::runtime_error extraTextAfterArgument(const std::string &switchString, const Cursor&) const;
+    std::runtime_error extraTextAfterArgument(const std::string &switchString, const Cursor&, const SwitchArgument&) const;
 
     // Constructs an exception describing that we couldn't parse all the required arguments
     std::runtime_error notEnoughArguments(const std::string &switchString, const Cursor&, size_t nargs) const;
@@ -1053,7 +1061,8 @@ private:
     // the first character after the switch name; it will be updated to point to the first position after the last parsed
     // argument upon return.  If anything goes wrong an exception is thrown (cursor and result might be invalid).  Returns the
     // number of argument values parsed, not counting those created from default values.
-    size_t matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, ParsedValues &result /*out*/) const;
+    size_t matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, ParsedValues &result /*out*/,
+                          bool isLongSwitch) const;
 
     // Run the actions associated with this switch.
     void runActions() const;
@@ -1072,7 +1081,7 @@ class SwitchGroup {
     ParsingProperties properties_;
 public:
     /** See Switch::resetLongPrefixes(). */
-    SwitchGroup& resetLongPrefixes(const std::string &s1, const std::string &s2=STR_NONE,
+    SwitchGroup& resetLongPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                    const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
 
     /** See Switch::longPrefix(). */
@@ -1082,7 +1091,7 @@ public:
     const std::vector<std::string>& longPrefixes() const { return properties_.longPrefixes; }
 
     /** See Switch::resetShortPrefixes(). */
-    SwitchGroup& resetShortPrefixes(const std::string &s1, const std::string &s2=STR_NONE,
+    SwitchGroup& resetShortPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                     const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
 
     /** See Switch::shortPrefix(). */
@@ -1092,7 +1101,7 @@ public:
     const std::vector<std::string>& shortPrefixes() const { return properties_.shortPrefixes; }
 
     /** See Switch::resetValueSeparators(). */
-    SwitchGroup& resetValueSeparators(const std::string &s1, const std::string &s2=STR_NONE,
+    SwitchGroup& resetValueSeparators(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                       const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
 
     /** See Switch::valueSeparator(). */
@@ -1145,9 +1154,8 @@ private:
 
 /** A result returned by parsing a command line. */
 class ParserResult {
-    std::vector<std::string> argv_;                     // does not include main's argv[0]
+    Cursor cursor_;
     ParsedValues values_;
-    Location stoppedAt_;                                // where parsing stopped
 
     // List of parsed values organized by key.  The integers in this map are indexes into the values_ vector.
     typedef std::map<std::string /*keyname*/, std::vector<size_t> > KeyIndex;
@@ -1172,7 +1180,7 @@ class ParserResult {
 
 private:
     friend class Parser;
-    ParserResult(const std::vector<std::string> &argv): argv_(argv) {}
+    ParserResult(const std::vector<std::string> &argv): cursor_(argv) {}
 
 public:
     /** Returns the number of values for the specified key.  Since switches that have no declared argument are given a value,
@@ -1214,14 +1222,10 @@ public:
     std::vector<std::string> parsedArgs() const;
 
     /** The original command line, except with command-line inclusion expanded. */
-    const std::vector<std::string>& allArgs() const { return argv_; }
+    const std::vector<std::string>& allArgs() const { return cursor_.strings(); }
 
 
-public:                                                 // used internally FIXME[Robb Matzke 2014-02-19]
-    // High water mark for parsing
-    void stoppedAt(const Location &loc) { stoppedAt_ = loc; }
-    const Location& stoppedAt() const { return stoppedAt_; }
-
+private:
     // Insert more parsed values.  Also updates some data members of the ParsedValue objects.
     void insert(ParsedValues&);
 
@@ -1231,6 +1235,7 @@ public:                                                 // used internally FIXME
     // Add a terminator
     void terminator(const Location&);
 
+    Cursor& cursor() { return cursor_; }
 };
 
 
@@ -1246,7 +1251,6 @@ class Parser {
     std::vector<std::string> terminationSwitches_;      // special switch to terminate parsing; default is "--"
     bool shortMayNestle_;                               // is "-ab" the same as "-a -b"?
     std::vector<std::string> inclusionPrefixes_;        // prefixes that mark command line file inclusion (e.g., "@")
-    size_t maxInclusionDepth_;                          // max depth to prevent recursive inclusion
     bool skipNonSwitches_;                              // skip over non-switch arguments?
     bool skipUnknownSwitches_;                          // skip over switches we don't recognize?
 public:
@@ -1254,7 +1258,7 @@ public:
     /** Default constructor.  The default constructor sets up a new parser with defaults suitable for the operating
      *  system. The switch declarations need to be added (via with()) before the parser is useful. */
     Parser()
-        : shortMayNestle_(true), maxInclusionDepth_(10), skipNonSwitches_(false), skipUnknownSwitches_(false) {
+        : shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false) {
         init();
     }
 
@@ -1310,16 +1314,19 @@ public:
     bool shortMayNestle() const { return shortMayNestle(); }
     /** @} */
 
-
-
-    // whether command-line inclusion is allowed, and how many levels; default is "@" as in "@more-options"
+    /** Strings that indicate that arguments are to be read from a file.  The resetInclusionPrefixes() clears the list (and
+     *  adds prefixes) while inclusionPrefix() only adds another prefix to the list.  The default inclusion prefix on
+     *  Unix-like systems is "@".  For instance, to make file inclusion look like a normal switch,
+     * @code
+     *  Parser parser();
+     *  parser.resetInclusionPrefixes("--file=");
+     * @endcode
+     * @{ */
     Parser& resetInclusionPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                    const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
     Parser& inclusionPrefix(const std::string &s1) { inclusionPrefixes_.push_back(s1); return *this; }
     const std::vector<std::string>& inclusionPrefixes() const { return inclusionPrefixes_; }
-
-    Parser& maxInclusionDepth(size_t n) { maxInclusionDepth_ = n; return *this; }
-    size_t maxInclusionDepth() const { return maxInclusionDepth_; }
+    /** @} */
 
     /** Whether to skip over non-switch arguments when parsing.  If false, parsing stops at the first non-switch, otherwise
      *  non-switches are simply skipped over and added to the parsing result that's eventually returned. In either case,
@@ -1354,6 +1361,13 @@ public:
         return parse(args);
     }
 
+    /** Read a text file to obtain arguments.  The specified file is opened and each line is read to obtain a vector of
+     *  arguments.  Blank lines and lines whose first non-space character is '#' are ignored.  The remaining lines are split
+     *  into one or more arguments at white space.  Single and double quoted regions within a line are treated as single
+     *  arguments (the quotes are removed).  The backslash can be used to escape quotes, white space, and backslash; any other
+     *  use of the backspace is not special. */
+    std::vector<std::string> readArgsFromFile(const std::string &filename);
+
 private:
     void init();
 
@@ -1374,6 +1388,8 @@ private:
     // argument that starts with a long or short prefix.
     bool apparentSwitch(const Cursor&) const;
 
+
+    
     // FIXME[Robb Matzke 2014-02-21]: Some way to parse command-lines from a config file, or to merge parsed command-lines with
     // a yaml config file, etc.
 

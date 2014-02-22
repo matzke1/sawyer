@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
@@ -85,8 +86,16 @@ void Cursor::consumeChars(size_t nchars) {
     }
 }
 
+void Cursor::replace(const std::vector<std::string> &args) {
+    assert(!atEnd());
+    std::vector<std::string>::iterator at = strings_.begin() + loc_.idx;
+    at = strings_.erase(at);
+    strings_.insert(at, args.begin(), args.end());
+    Location newloc = loc_;
+    newloc.offset = 0;
+    location(newloc);
+}
 
-        
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Parsers
@@ -103,7 +112,6 @@ boost::any ValueParser::matchString(const std::string &str) {
 }
 
 boost::any ValueParser::match(Cursor &cursor) {
-    Cursor start = cursor;
     return (*this)(cursor);
 }
 
@@ -550,16 +558,16 @@ size_t Switch::nRequiredArguments() const {
 
 std::runtime_error Switch::notEnoughArguments(const std::string &switchString, const Cursor &cursor, size_t nargs) const {
     std::ostringstream ss;
-    ss <<"not enough arguments for switch \"" <<switchString <<"\", found " <<nargs <<" but expected ";
+    ss <<"not enough arguments for " <<switchString <<" (found " <<nargs <<" but expected ";
     if (arguments_.size() != nRequiredArguments())
         ss <<"at least ";
-    ss <<nRequiredArguments();
+    ss <<nRequiredArguments() <<")";
     return std::runtime_error(ss.str());
 }
 
 std::runtime_error Switch::noSeparator(const std::string &switchString, const Cursor &cursor,
                                        const ParsingProperties &props) const {
-    std::string str = "expected one of the following separators between switch \"" + switchString + "\" and its argument:";
+    std::string str = "expected one of the following separators between " + switchString + " and its argument:";
     BOOST_FOREACH (std::string sep, props.valueSeparators) {
         if (0!=sep.compare(" "))
             str += " \"" + sep + "\"";
@@ -568,10 +576,17 @@ std::runtime_error Switch::noSeparator(const std::string &switchString, const Cu
 }
 
 std::runtime_error Switch::extraTextAfterArgument(const std::string &switchString, const Cursor &cursor) const {
-    std::string str = "unexpected extra text after switch \"" + switchString + "\" argument: " + cursor.rest();
+    std::string str = "unexpected extra text after " + switchString + " argument: \"" + cursor.rest() + "\"";
     return std::runtime_error(str);
 }
 
+std::runtime_error Switch::extraTextAfterArgument(const std::string &switchString, const Cursor &cursor,
+                                                  const SwitchArgument &sa) const {
+    std::string str = "unexpected extra text after " + switchString + " " +
+                      boost::to_upper_copy(sa.name()) + " argument: \"" + cursor.rest() + "\"";
+    return std::runtime_error(str);
+}
+    
 std::runtime_error Switch::missingArgument(const std::string &switchString, const Cursor &cursor,
                                            const SwitchArgument &sa, const std::string &reason) const {
     std::string str = switchString + " argument " + boost::to_upper_copy(sa.name()) + " is missing";
@@ -659,13 +674,16 @@ bool Switch::explodeVector(ParsedValues &pvals /*in,out*/) const {
 
 // matches short or long arguments. Counts only arguments that are actually present.  The first present switch argument starts
 // at the cursor, and subsequent switch arguments must be aligned at the beginning of a program argument.
-size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, ParsedValues &result /*out*/) const {
+size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, ParsedValues &result /*out*/,
+                              bool isLongSwitch) const {
     ExcursionGuard guard(cursor);
     size_t retval = 0;
     BOOST_FOREACH (const SwitchArgument &sa, arguments_) {
+        // Second and subsequent arguments must start at the beginning of a program argument
         if (retval>0 && !cursor.atArgBegin())
-            throw extraTextAfterArgument(switchString, cursor);
+            throw extraTextAfterArgument(switchString, cursor, sa);
 
+        // Parse the argument value if possible, otherwise use a default if allowed
         Location valueLocation = cursor.location();
         try {
             boost::any value = sa.parser()->match(cursor);
@@ -678,6 +696,10 @@ size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*
                 throw missingArgument(switchString, cursor, sa, e.what());
             result.push_back(ParsedValue(sa.defaultValue(), NOWHERE, sa.defaultValueString()));
         }
+
+        // Long switch arguments must end aligned with a program argument
+        if (isLongSwitch && !cursor.atArgBegin() && !cursor.atEnd())
+            throw extraTextAfterArgument(switchString, cursor, sa);
     }
     explodeVector(result);
     guard.cancel();
@@ -716,7 +738,7 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
         throw noSeparator(switchString, cursor, props);
 
     // Parse the arguments for this switch now that we've consumed the prefix, switch name, and argument separators.
-    size_t nValuesParsed = matchArguments(switchString, cursor, result /*out*/);
+    size_t nValuesParsed = matchArguments(switchString, cursor, result /*out*/, true /*longSwitch*/);
 
     // Post conditions
     if (!cursor.atArgBegin() && !cursor.atEnd())
@@ -735,7 +757,7 @@ void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor
     }
 
     // Parse the arguments for this switch.
-    size_t nValuesParsed = matchArguments(switchString, cursor, result /*out*/);
+    size_t nValuesParsed = matchArguments(switchString, cursor, result /*out*/, false /*shortSwitch*/);
     if (nValuesParsed < nRequiredArguments())
         throw notEnoughArguments(switchString, cursor, nValuesParsed);
 }
@@ -923,14 +945,14 @@ ParsedValues ParserResult::parsed(const std::string &switchKey) {
 std::vector<std::string> ParserResult::skippedArgs() const {
     std::vector<std::string> retval;
     BOOST_FOREACH (size_t idx, skippedIndex_)
-        retval.push_back(argv_[idx]);
+        retval.push_back(cursor_.strings()[idx]);
     return retval;
 }
 
 std::vector<std::string> ParserResult::unreachedArgs() const {
     std::vector<std::string> retval;
-    for (size_t i=stoppedAt_.idx; i<argv_.size(); ++i)
-        retval.push_back(argv_[i]);
+    for (size_t i=cursor_.location().idx; i<cursor_.strings().size(); ++i)
+        retval.push_back(cursor_.strings()[i]);
     return retval;
 }
 
@@ -940,12 +962,12 @@ std::vector<std::string> ParserResult::unparsedArgs() const {
         indexes.insert(idx);
     BOOST_FOREACH (size_t idx, terminators_)
         indexes.insert(idx);
-    for (size_t i=stoppedAt_.idx; i<argv_.size(); ++i)
+    for (size_t i=cursor_.location().idx; i<cursor_.strings().size(); ++i)
         indexes.insert(i);
 
     std::vector<std::string> retval;
     BOOST_FOREACH (size_t idx, indexes)
-        retval.push_back(argv_[idx]);
+        retval.push_back(cursor_.strings()[idx]);
     return retval;
 }
 
@@ -958,7 +980,7 @@ std::vector<std::string> ParserResult::parsedArgs() const {
 
     std::vector<std::string> retval;
     BOOST_FOREACH (size_t idx, indexes)
-        retval.push_back(argv_[idx]);
+        retval.push_back(cursor_.strings()[idx]);
     return retval;
 }
 
@@ -973,6 +995,7 @@ void Parser::init() {
     properties_.valueSeparators.push_back("=");         // as in "--switch=value"
     properties_.valueSeparators.push_back(" ");         // switch value is in next program argument
     terminationSwitches_.push_back("--");
+    inclusionPrefixes_.push_back("@");
 }
 
 Parser& Parser::resetLongPrefixes(const std::string &s1, const std::string &s2, const std::string &s3, const std::string &s4) {
@@ -1053,21 +1076,33 @@ ParserResult Parser::parse(int argc, char *argv[]) {
 
 ParserResult Parser::parse(const std::vector<std::string> &programArguments) {
     ParserResult result(programArguments);
-    Cursor cursor(programArguments);
+    Cursor &cursor = result.cursor();
 
     while (!cursor.atEnd()) {
         assert(cursor.atArgBegin());
-        result.stoppedAt(cursor.location());
 
         // Check for termination switch.
         BOOST_FOREACH (std::string termination, terminationSwitches_) {
             if (0==cursor.arg().compare(termination)) {
                 result.terminator(cursor.location());
                 cursor.consumeArg();
-                result.stoppedAt(cursor.location());
                 return result;
             }
         }
+
+        // Check for file inclusion switch.
+        bool inserted = false;
+        BOOST_FOREACH (std::string prefix, inclusionPrefixes_) {
+            const std::string &arg = cursor.arg();
+            if (boost::starts_with(arg, prefix) && arg.size() > prefix.size()) {
+                std::string filename = arg.substr(prefix.size());
+                std::vector<std::string> args = readArgsFromFile(filename);
+                cursor.replace(args);
+                inserted = true;
+            }
+        }
+        if (inserted)
+            continue;
         
         // Does this look like a switch (even one that we might not know about)?
         bool isSwitch = apparentSwitch(cursor);
@@ -1075,7 +1110,6 @@ ParserResult Parser::parse(const std::vector<std::string> &programArguments) {
             if (skipNonSwitches_) {
                 result.skip(cursor.location());
                 cursor.consumeArg();
-                result.stoppedAt(cursor.location());
                 continue;
             } else {
                 return result;
@@ -1090,13 +1124,11 @@ ParserResult Parser::parse(const std::vector<std::string> &programArguments) {
             if (skipUnknownSwitches_) {
                 result.skip(cursor.location());
                 cursor.consumeArg();
-                result.stoppedAt(cursor.location());
                 continue;
             } else {
                 throw;
             }
         }
-        result.stoppedAt(cursor.location());
     }
 
     return result;                                      // reached end of program arguments
@@ -1221,6 +1253,64 @@ bool Parser::apparentSwitch(const Cursor &cursor) const {
         }
     }
     return false;
+}
+
+// Read a text file to obtain command line arguments which are returned.
+std::vector<std::string> Parser::readArgsFromFile(const std::string &filename) {
+    std::vector<std::string> retval;
+    struct FileGuard {
+        FILE *f;
+        char *linebuf;
+        size_t linebufsz;
+        FileGuard(FILE *f): f(f), linebuf(NULL), linebufsz(0) {}
+        ~FileGuard() {
+            if (f) fclose(f);
+            if (linebuf) free(linebuf);
+        }
+    } file(fopen(filename.c_str(), "r"));
+    if (NULL==file.f)
+        throw std::runtime_error("failed to open file \"" + filename + "\": " + strerror(errno));
+
+    ssize_t nchars, nlines = 0;
+    while ((nchars = getline(&file.linebuf, &file.linebufsz, file.f))>0) {
+        ++nlines;
+        std::string line = boost::trim_copy(std::string(file.linebuf, nchars));
+        nchars = line.size();
+        if (line.empty() || '#'==line[0])
+            continue;
+        char inQuote = '\0';
+        std::string word;
+
+        for (ssize_t i=0; i<nchars; ++i) {
+            char ch = line[i];
+            if ('\''==ch || '"'==ch) {
+                if (ch==inQuote) {
+                    inQuote = '\0';
+                } else if (!inQuote) {
+                    inQuote = ch;
+                } else {
+                    word += ch;
+                }
+            } else if ('\\'==ch && i+1<nchars && (strchr("'\"\\", line[i+1]) || isspace(line[i+1]))) {
+                word += line[++i];
+            } else if (isspace(ch) && !inQuote) {
+                while (i+1<nchars && isspace(line[i+1]))
+                    ++i;
+                retval.push_back(word);
+                word = "";
+            } else {
+                word += ch;
+            }
+        }
+        retval.push_back(word);
+
+        if (inQuote) {
+            std::ostringstream ss;
+            ss <<"unterminated quote at line " <<nlines <<" in " <<filename;
+            throw std::runtime_error(ss.str());
+        }
+    }
+    return retval;
 }
 
 } // namespace
