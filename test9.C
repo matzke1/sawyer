@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
 #if 1 /*DEBUGGING [Robb Matzke 2014-02-17]*/
     ss.insert(Switch("test", 't')
               .action(showVersion("GOT IT!"))
-              .argument("arg", integerParser()));
+              .argument("arg", listParser(integerParser())));
 
 
 

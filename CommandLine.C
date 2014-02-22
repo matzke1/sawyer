@@ -217,6 +217,8 @@ boost::any ListParser::operator()(Cursor &cursor) {
 
         // Advance over the value separator
         if (0!=i) {
+            if (cursor.atArgBegin() || cursor.atEnd())
+                break;                                  // we've advanced over the entire program argument
             std::string str = cursor.rest();
             const char *s = str.c_str();
             boost::regex re("\\A" + sep);
@@ -224,8 +226,8 @@ boost::any ListParser::operator()(Cursor &cursor) {
             if (!regex_search(s, matched, re))
                 return boost::any();
             cursor.consumeChars(matched.str().size());
-            sep = ps.second;
         }
+        sep = ps.second;
 
         // Parse the value
         boost::any value = ps.first->match(cursor);
