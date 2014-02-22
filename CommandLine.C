@@ -208,7 +208,7 @@ ListParser::Ptr ListParser::limit(size_t minLength, size_t maxLength) {
 
 boost::any ListParser::operator()(Cursor &cursor) {
     assert(!elements_.empty());
-    ExcursionGuard excursion(cursor);                   // parsing the list should be all or nothing
+    ExcursionGuard guard(cursor);                       // parsing the list should be all or nothing
     std::vector<boost::any> retval;
     std::string sep = "";
 
@@ -248,7 +248,7 @@ boost::any ListParser::operator()(Cursor &cursor) {
         }
     }
 
-    excursion.cancel();
+    guard.cancel();
     return retval;
 }
 
@@ -635,7 +635,7 @@ size_t Switch::matchShortName(Cursor &cursor, const ParsingProperties &props, st
 // matches short or long arguments. Counts only arguments that are actually present.  The first present switch argument starts
 // at the cursor, and subsequent switch arguments must be aligned at the beginning of a program argument.
 size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, ParsedValues &result /*out*/) const {
-    ExcursionGuard excursion(cursor);
+    ExcursionGuard guard(cursor);
     size_t retval = 0;
     BOOST_FOREACH (const SwitchArgument &sa, arguments_) {
         if (retval>0 && !cursor.atArgBegin())
@@ -654,13 +654,13 @@ size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*
             result.push_back(ParsedValue(sa.defaultValue(), NOWHERE, sa.defaultValueString()));
         }
     }
-    excursion.cancel();
+    guard.cancel();
     return retval;
 }
 
 void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
                                 ParsedValues &result /*out*/) const {
-    ExcursionGuard excursion(cursor);
+    ExcursionGuard guard(cursor);
 
     // If the switch has no declared arguments, then parse its default.
     if (arguments_.empty()) {
@@ -697,7 +697,7 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
         throw extraTextAfterArgument(switchString, cursor);
     if (nValuesParsed < nRequiredArguments())
         throw notEnoughArguments(switchString, cursor, nValuesParsed);
-    excursion.cancel();
+    guard.cancel();
 }
 
 void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
@@ -1040,18 +1040,33 @@ bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
         return true;
     }
 
-    // Or multiple short switches.  If short switches are nestled, then the result is affected only if all the nesltled
-    // switches can be parsed.
-    bool allParsed = false;
-    while (parseShortSwitch(cursor, values, saved_error)) {
-        if (cursor.atArgBegin() || cursor.atEnd()) {
-            allParsed = true;
-            break;
+    if (!shortMayNestle_) {
+        // Single short switch
+        if (parseShortSwitch(cursor, values, saved_error)) {
+            if (!cursor.atArgBegin() && !cursor.atEnd()) {
+                assert(!values.empty());
+                const Switch &sw = values.front().createdBy();
+                throw sw.extraTextAfterArgument(values.front().switchString(), cursor);
+            }
+            result.insert(values);
+            return true;
         }
-    }
-    if (allParsed) {
-        result.insert(values);
-        return true;
+    } else {
+        // Or multiple short switches.  If short switches are nestled, then the result is affected only if all the nesltled
+        // switches can be parsed.
+        bool allParsed = false;
+        ExcursionGuard guard(cursor);
+        while (parseShortSwitch(cursor, values, saved_error)) {
+            if (cursor.atArgBegin() || cursor.atEnd()) {
+                allParsed = true;
+                break;
+            }
+        }
+        if (allParsed) {
+            result.insert(values);
+            guard.cancel();
+            return true;
+        }
     }
 
     // Throw or return zero?
@@ -1069,7 +1084,7 @@ bool Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues, boost::
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
-            ExcursionGuard excursion(cursor);
+            ExcursionGuard guard(cursor);
             ParsingProperties swProps = sw.properties().inherit(sgProps);
             Location switchLocation = cursor.location();
             if (sw.matchLongName(cursor, swProps)) {
@@ -1080,7 +1095,7 @@ bool Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues, boost::
                     BOOST_FOREACH (ParsedValue &pv, pvals)
                         pv.switchInfo(&sw, switchLocation, switchString);
                     parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end());
-                    excursion.cancel();
+                    guard.cancel();
                     return true;
                 } catch (const std::runtime_error &e) {
                     saved_error = e;
@@ -1096,7 +1111,7 @@ bool Parser::parseShortSwitch(Cursor &cursor, ParsedValues &parsedValues, boost:
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
-            ExcursionGuard excursion(cursor);
+            ExcursionGuard guard(cursor);
             ParsingProperties swProps = sw.properties().inherit(sgProps);
             Location switchLocation = cursor.location();
             std::string switchString;
@@ -1107,7 +1122,7 @@ bool Parser::parseShortSwitch(Cursor &cursor, ParsedValues &parsedValues, boost:
                     BOOST_FOREACH (ParsedValue &pv, pvals)
                         pv.switchInfo(&sw, switchLocation, switchString);
                     parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end());
-                    excursion.cancel();
+                    guard.cancel();
                     return true;
                 } catch (const std::runtime_error &e) {
                     saved_error = e;

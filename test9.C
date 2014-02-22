@@ -160,6 +160,7 @@ int main(int argc, char *argv[]) {
     ParserResult cmdline = Parser().with(ss)
                            // .skipUnknownSwitches()
                            // .skipNonSwitches()
+                           // .shortMayNestle(false)
                            .parse(argc, argv);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

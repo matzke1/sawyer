@@ -1236,6 +1236,7 @@ public:
     Parser& terminationSwitch(const std::string &s1) { terminationSwitches_.push_back(s1); return *this; }
     const std::vector<std::string>& terminationSwitches() const { return terminationSwitches_; }
 
+    // May short swtiches nestle together as in "-ab" rather than "-a -b"?
     Parser& shortMayNestle(bool b) { shortMayNestle_ = b; return *this; }
     bool shortMayNestle() const { return shortMayNestle(); }
 
