@@ -634,6 +634,29 @@ size_t Switch::matchShortName(Cursor &cursor, const ParsingProperties &props, st
     return 0;
 }
 
+// optionally explodes a vector value into separate values
+bool Switch::explodeVector(ParsedValues &pvals /*in,out*/) const {
+    if (!explodeVector_)
+        return false;
+
+    bool retval = false;
+    ParsedValues pvals2;
+    BOOST_FOREACH (const ParsedValue &pval1, pvals) {
+        if (pval1.value().type()==typeid(std::vector<boost::any>)) {
+            std::vector<boost::any> valvec = boost::any_cast<std::vector<boost::any> >(pval1.value());
+            BOOST_FOREACH (const boost::any &val2, valvec) {
+                ParsedValue pval2(val2, pval1.valueLocation(), pval1.string());
+                pvals2.push_back(pval2);
+                retval = true;
+            }
+        } else {
+            pvals2.push_back(pval1);
+        }
+    }
+    pvals = pvals2;
+    return retval;
+}
+
 // matches short or long arguments. Counts only arguments that are actually present.  The first present switch argument starts
 // at the cursor, and subsequent switch arguments must be aligned at the beginning of a program argument.
 size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, ParsedValues &result /*out*/) const {
@@ -656,6 +679,7 @@ size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*
             result.push_back(ParsedValue(sa.defaultValue(), NOWHERE, sa.defaultValueString()));
         }
     }
+    explodeVector(result);
     guard.cancel();
     return retval;
 }
@@ -837,9 +861,9 @@ void ParserResult::insert(ParsedValues &pvals) {
         std::cerr <<"    " <<pval <<"\n";
 #endif
 
-        // Run the switch actions, but only once per switch (e.g., "-vvv" where "v" is a short switch will cause the action to
-        // run only once.  Long switches won't have this ambiguity since insert() will be called with only one long switch at a
-        // time.
+        // Run the switch actions, but only once per switch (e.g., "-vvv" where "v" is a short switch will cause the action
+        // to run only once.  Long switches won't have this ambiguity since insert() will be called with only one long
+        // switch at a time.
         if (seen.insert(sw).second)
             sw->runActions();
     }

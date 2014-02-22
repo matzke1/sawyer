@@ -736,6 +736,7 @@ private:
     ValueAugmenterPtr augmenter_;                       // used if save_==SAVE_AUGMENT
     boost::any defaultValue_;                           // default when no arguments are present
     std::string defaultValueString_;                    // string version of defaultValue_ (before parsing)
+    bool explodeVector_;                                // expand a vector value into separate values
 
 public:
     /** Switch declaration constructor.  Every switch must have either a long or short name (or both).  Neither name should
@@ -747,7 +748,7 @@ public:
      *  command-line argument then the first declaration wins--this includes being able to parse its arguments.  This feature
      *  is sometimes used to declare two switches with the same name but which take different types of arguments. */
     explicit Switch(const std::string &longName, char shortName='\0')
-        : hidden_(false), save_(SAVE_ALL), defaultValue_(true), defaultValueString_("true") {
+        : hidden_(false), save_(SAVE_ALL), defaultValue_(true), defaultValueString_("true"), explodeVector_(false) {
         init(longName, shortName);
     }
 
@@ -920,6 +921,18 @@ public:
     std::string defaultValueString() const { return defaultValueString_; }
     /** @} */
 
+    /** Whether to explode a vector value.  If parsing a switch results in a value which is an STL vector, then that value is
+     *  replaced with the individual elements of the vector.  This is useful for switches that can either occur multiple times
+     *  or take a vector as an argument, such as GCC's "-I" switch.
+     *
+     *  When a vector is exploded into multiple ParsedValue objects, all the new ParsedValue objects will have the same value
+     *  location and value string corresponding to the unexploded argument.  Exploding a value does not reparse the original
+     *  string to obtain the locations of the individual components.
+     * @{ */
+    Switch& explodeVector(bool b) { explodeVector_ = b; return *this; }
+    bool explodeVector() const { return explodeVector_; }
+    /** @} */
+
     /** Action to occur each time a switch is parsed.  All switch occurrences cause a ParserResult object to be modified in
      *  some way and eventually returned by the parser, which the user then queries.  However, sometimes it's necessary for a
      *  switch to also cause something to happen as soon as it's recognized, and that's the purpose of this property. The
@@ -1001,6 +1014,9 @@ private:
     // to the character after the name.  The returned name is the prefix and the character even if they don't occur next to
     // each other in the program argument.
     size_t matchShortName(Cursor&/*in,out*/, const ParsingProperties &props, std::string &name) const;
+
+    // Explodes vector-valued elements of pvals, replacing pvals in place.
+    bool explodeVector(ParsedValues &pvals /*in,out*/) const;
 
     // Parse long switch arguments when the cursor is positioned immediately after the switch name.  This matches the
     // switch/value separator if necessary and subsequent switch arguments.
@@ -1183,7 +1199,7 @@ public:                                                 // used internally FIXME
     void stoppedAt(const Location &loc) { stoppedAt_ = loc; }
     const Location& stoppedAt() const { return stoppedAt_; }
 
-    // Insert more parsed values. Also updates sequence numbers in the argument.
+    // Insert more parsed values.  Also updates some data members of the ParsedValue objects.
     void insert(ParsedValues&);
 
     // Indicate that we're skipping over a program argument
