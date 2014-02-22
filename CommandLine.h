@@ -1163,11 +1163,11 @@ class ParserResult {
     typedef std::map<Location, std::vector<size_t> > ArgvIndex;
     ArgvIndex argvIndex_;
 
-    // Information about program arguments that the parser skipped over.
+    // Information about program arguments that the parser skipped over. Indexes into argv_.
     typedef std::vector<size_t> SkippedIndex;
     SkippedIndex skippedIndex_;
 
-    // Information about terminator switches like "--"
+    // Information about terminator switches like "--". Indexes into argv_.
     SkippedIndex terminators_;
 
 private:
@@ -1210,7 +1210,7 @@ public:
      *  line with the parsed stuff removed. */
     std::vector<std::string> unparsedArgs() const;
 
-    // Program arguments that were parsed.
+    /** Returns the program arguments that were processed. */
     std::vector<std::string> parsedArgs() const;
 
     // The original command line, except with command-line inclusion expanded.

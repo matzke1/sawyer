@@ -949,6 +949,20 @@ std::vector<std::string> ParserResult::unparsedArgs() const {
     return retval;
 }
 
+std::vector<std::string> ParserResult::parsedArgs() const {
+    std::set<size_t> indexes;
+    for (ArgvIndex::const_iterator ai=argvIndex_.begin(); ai!=argvIndex_.end(); ++ai)
+        indexes.insert(ai->first.idx);
+    BOOST_FOREACH (size_t idx, terminators_)
+        indexes.insert(idx);
+
+    std::vector<std::string> retval;
+    BOOST_FOREACH (size_t idx, indexes)
+        retval.push_back(argv_[idx]);
+    return retval;
+}
+
+
 /*******************************************************************************************************************************
  *                                      Parser
  *******************************************************************************************************************************/
