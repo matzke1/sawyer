@@ -968,6 +968,7 @@ public:
 
 private:
     friend class Parser;
+    friend class ParserResult;
 
     void init(const std::string &longName, char shortName);
 
@@ -1022,57 +1023,89 @@ private:
 };
 
 
-/** A collection of related switches that are parsed in tandem. */
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Switch groups
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+/** A collection of related switches. */
 class SwitchGroup {
     std::vector<Switch> switches_;
     ParsingProperties properties_;
 public:
-    SwitchGroup& resetLongPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
+    /** See Switch::resetLongPrefixes(). */
+    SwitchGroup& resetLongPrefixes(const std::string &s1, const std::string &s2=STR_NONE,
                                    const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
+
+    /** See Switch::longPrefix(). */
     SwitchGroup& longPrefix(const std::string &s1) { properties_.longPrefixes.push_back(s1); return *this; }
+
+    /** See Switch::longPrefixes(). */
     const std::vector<std::string>& longPrefixes() const { return properties_.longPrefixes; }
 
-    SwitchGroup& resetShortPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
+    /** See Switch::resetShortPrefixes(). */
+    SwitchGroup& resetShortPrefixes(const std::string &s1, const std::string &s2=STR_NONE,
                                     const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
+
+    /** See Switch::shortPrefix(). */
     SwitchGroup& shortPrefix(const std::string &s1) { properties_.shortPrefixes.push_back(s1); return *this; }
+
+    /** See Switch::shortPrefixes(). */
     const std::vector<std::string>& shortPrefixes() const { return properties_.shortPrefixes; }
 
-    SwitchGroup& resetValueSeparators(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
+    /** See Switch::resetValueSeparators(). */
+    SwitchGroup& resetValueSeparators(const std::string &s1, const std::string &s2=STR_NONE,
                                       const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
+
+    /** See Switch::valueSeparator(). */
     SwitchGroup& valueSeparator(const std::string &s1) { properties_.valueSeparators.push_back(s1); return *this; }
+
+    /** See Switch::valueSeparators(). */
     const std::vector<std::string>& valueSeparators() const { return properties_.valueSeparators; }
-    /** @} */
 
-    /** Return information about switches.
-     *  @{ */
+    /** Number of switches declared. */
     size_t nSwitches() const { return switches_.size(); }
-    const std::vector<Switch>& switches() const { return switches_; }
-    const Switch& getByIndex(size_t idx) const { return switches_[idx]; }
-    bool nameExists(const std::string &switchName);
-    const Switch& getByName(const std::string &switchName);     // returns first match
-    bool keyExists(const std::string &switchKey);
-    const Switch& getByKey(const std::string &switchKey);       // returns first match
-    /** @} */
 
-    /** Insert a switch into the set. */
+    /** List of all declared switches. */
+    const std::vector<Switch>& switches() const { return switches_; }
+
+    /** Switch declaration at the specified index. */
+    const Switch& getByIndex(size_t idx) const { return switches_[idx]; }
+
+    /** Returns true if a switch with the specified name exists.  Both long and short names are checked. */
+    bool nameExists(const std::string &switchName);
+
+    /** Returns the first switch with the specified name. Both long and short names are checked. Throws an exception if no
+     *  switch with that name exists. */
+    const Switch& getByName(const std::string &switchName);
+
+    /** Returns true if a switch with the specified key exists. */
+    bool keyExists(const std::string &switchKey);
+
+    /** Returns the first switch with the specified key.  Throws an exception if no switch exists having that key. */
+    const Switch& getByKey(const std::string &switchKey);
+
+    /** Insert a switch into the group. */
     SwitchGroup& insert(const Switch&);
 
-    /** Remove a switch from the set. */
+    /** Remove a switch from the group.
+     * @{ */
     SwitchGroup& removeByIndex(size_t idx);
     SwitchGroup& removeByName(const std::string &switchName);
     SwitchGroup& removeByKey(const std::string &switchKey);
-
-    /** Make an alias between switch names. FIXME[Robb Matzke 2014-02-13]: is this the best way?
-     *  @{ */
-    SwitchGroup& alias(const std::string &newName, const std::string &existingName);
     /** @} */
 
-    // used internally
+private:
+    friend class Parser;
     const ParsingProperties& properties() const { return properties_; }
 };
 
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Parser result
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/** A result returned by parsing a command line. */
 class ParserResult {
     std::vector<std::string> argv_;                     // does not include main's argv[0]
     ParsedValues values_;
@@ -1099,26 +1132,39 @@ class ParserResult {
     // Information about terminator switches like "--"
     SkippedIndex terminators_;
 
-public:
+private:
+    friend class Parser;
     ParserResult(const std::vector<std::string> &argv): argv_(argv) {}
 
-    // Returns the number of values parsed for the specified key.
+public:
+    /** Returns the number of values for the specified key.  Since switches that have no declared argument are given a value,
+     *  and since switches seldom take more than one argument, this is also a good approximation for the number of times a
+     *  switch appeared on the command line. */
     size_t have(const std::string &switchKey) { return keyIndex_[switchKey].size(); }
 
-    // Returns values by key. Example the first value from switches that use the "verbose" key.
-    //    bool b = cmdline.parsedKey("verbose")[0].valueAsBool();
+    /** Returns values for a key.  This is the usual method for obtaining a value for a switch.  During parsing, the arguments
+     *  of the switch are converted to ParsedValue objects and stored according to the key of the switch that did the
+     *  parsing.  For example, if "--verbose" has a default value of int "1", and "--quiet" has a default value of int "0", and
+     *  both use a "verbosity" key to store their result, here's how you would obtain the value for the last occurrence of
+     *  either of these switches:
+     *
+     * @code
+     *  ParserResult cmdline = parser.parse(argc, argv);
+     *  int verbosity = cmdline.parsed("verbosity").last().asInt();
+     * @endcode
+     */
     const ParsedValue& parsed(const std::string &switchKey, size_t idx);
     ParsedValues parsed(const std::string &switchKey);
 
-    // Program arguments that were skipped over during parsing.  File inclusions are expanded.  Arguments skipped for any
-    // reason are lumped together because we really don't know what they really are when they don't look like switches--they
-    // could be switch arguments that couldn't be parsed for some reason (e.g., a switch that takes an optional integer
-    // argument but a non-integer string was supplied), they could be switch arguments for a switch that we didn't recognize
-    // (e.g., user entered "--auhter washington" instead of "--author washington"), or they could be program arguments that are
-    // not switch arguments.
+    /** Program arguments that were skipped over during parsing.  Returns arguments skipped for any reason, because there's no
+     *  way to know with certainty what they are--they could be switch arguments that couldn't be parsed for some reason (e.g.,
+     *  a switch that takes an optional integer argument but a non-integer string was accidentally supplied), they could be
+     *  switch arguments for a switch that we didn't recognize (switch name was accidentally misspelled), or they could be
+     *  program positional arguments. The program arguments are returned in the order they appeared, with file inclusions
+     *  expanded. */
     std::vector<std::string> skippedArgs() const;
 
-    // The arguments that were not parsed.
+    /** Returns program arguments that were not parsed. These are the arguments left over when the parser stopped. */
     std::vector<std::string> remainingArgs() const;
 
     // The skipped() and remaining() arguments along with termination switches.  This is basically the original program command
@@ -1235,8 +1281,11 @@ public:
     // declaration can be found, then throw an error.  The cursor will not be modified when an error is thrown.
     bool parseOneSwitch(Cursor&, ParserResult&/*out*/);
 
-    // Parse one short switch if possible.
-    const Switch* parseShortSwitch(Cursor &cursor, ParserResult&/*out*/, boost::optional<std::runtime_error>&/*out*/);
+    // Parse one switch if possible.  Returns true and updates the cursor and parsed values if a switch can be parsed.  Returns
+    // false if the next program argument doesn't look like a switch (even a misspelled switch). Throws an exception otherwise,
+    // without changing the cursor or parsed values.
+    bool parseLongSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&);
+    bool parseShortSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&);
 
     // Returns true if the program argument at the cursor looks like it might be a switch.  Apparent switches are any program
     // argument that starts with a long or short prefix.

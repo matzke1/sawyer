@@ -9,7 +9,9 @@ int main(int argc, char *argv[]) {
     SwitchGroup ss;
 
 #if 1 /*DEBUGGING [Robb Matzke 2014-02-17]*/
-    ss.insert(Switch("test", 't'));
+    ss.insert(Switch("test", 't')
+              .action(showVersion("GOT IT!"))
+              .argument("arg", integerParser()));
 
 
 
