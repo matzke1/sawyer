@@ -1243,11 +1243,11 @@ bool Parser::apparentSwitch(const Cursor &cursor) const {
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
             ParsingProperties swProps = sw.properties().inherit(sgProps);
             BOOST_FOREACH (const std::string &prefix, swProps.longPrefixes) {
-                if (!prefix.empty() && boost::starts_with(cursor.arg(), prefix))
+                if (!prefix.empty() && boost::starts_with(cursor.arg(), prefix) && cursor.arg().size() > prefix.size())
                     return true;
             }
             BOOST_FOREACH (const std::string &prefix, swProps.shortPrefixes) {
-                if (!prefix.empty() && boost::starts_with(cursor.arg(), prefix))
+                if (!prefix.empty() && boost::starts_with(cursor.arg(), prefix) && cursor.arg().size() > prefix.size())
                     return true;
             }
         }
