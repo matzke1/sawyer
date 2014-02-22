@@ -224,7 +224,7 @@ boost::any ListParser::operator()(Cursor &cursor) {
             boost::regex re("\\A" + sep);
             boost::cmatch matched;
             if (!regex_search(s, matched, re))
-                return boost::any();
+                break;
             cursor.consumeChars(matched.str().size());
         }
         sep = ps.second;
@@ -845,21 +845,53 @@ void ParserResult::insert(ParsedValues &pvals) {
     BOOST_FOREACH (ParsedValue &pval, pvals) {
         const Switch *sw = &pval.createdBy();
 
-        // Get sequences for this value and update the value.
-        size_t keySequence = keyIndex_[sw->key()].size();
-        size_t switchSequence = switchIndex_[sw].size();
-        pval.sequenceInfo(keySequence, switchSequence);
+        // How to save this value
+        bool shouldSave = true;
+        switch (sw->save()) {
+            case SAVE_NONE:
+                throw std::runtime_error(pval.switchString() + " is illegal here");
+            case SAVE_ONE:
+                if (!keyIndex_[sw->key()].empty())
+                    throw std::runtime_error("switch key \"" + sw->key() + "\" cannot appear multiple times (" +
+                                             pval.switchString() + ")");
+                break;
+            case SAVE_FIRST:
+                if (!keyIndex_[sw->key()].empty())
+                    shouldSave = false;                 // skip this value since we already saved one
+                break;
+            case SAVE_LAST:
+                if (!keyIndex_[sw->key()].empty())
+                    keyIndex_[sw->key()].pop_back();    // delete previous value
+                break;
+            case SAVE_ALL:
+                break;
+            case SAVE_AUGMENT:
+                if (!keyIndex_[sw->key()].empty()) {
+                    ValueAugmenter::Ptr f = sw->augmentValue();
+                    if (f)
+                        (*f)(values_[keyIndex_[sw->key()].back()], pval);
+                    keyIndex_[sw->key()].pop_back();
+                }
+                break;
+        }
 
-        // Insert the parsed value and update all the indexes
-        size_t idx = values_.size();
-        values_.push_back(pval);
-        keyIndex_[sw->key()].push_back(idx);
-        switchIndex_[sw].push_back(idx);
-        argvIndex_[pval.switchLocation()].push_back(idx);
+        if (shouldSave) {
+            // Get sequences for this value and update the value.
+            size_t keySequence = keyIndex_[sw->key()].size();
+            size_t switchSequence = switchIndex_[sw].size();
+            pval.sequenceInfo(keySequence, switchSequence);
+
+            // Insert the parsed value and update all the indexes
+            size_t idx = values_.size();
+            values_.push_back(pval);
+            keyIndex_[sw->key()].push_back(idx);
+            switchIndex_[sw].push_back(idx);
+            argvIndex_[pval.switchLocation()].push_back(idx);
 
 #if 1 /*DEBUGGING [Robb Matzke 2014-02-18]*/
-        std::cerr <<"    " <<pval <<"\n";
+            std::cerr <<"    " <<pval <<"\n";
 #endif
+        }
 
         // Run the switch actions, but only once per switch (e.g., "-vvv" where "v" is a short switch will cause the action
         // to run only once.  Long switches won't have this ambiguity since insert() will be called with only one long
@@ -895,7 +927,7 @@ std::vector<std::string> ParserResult::skippedArgs() const {
     return retval;
 }
 
-std::vector<std::string> ParserResult::remainingArgs() const {
+std::vector<std::string> ParserResult::unreachedArgs() const {
     std::vector<std::string> retval;
     for (size_t i=stoppedAt_.idx; i<argv_.size(); ++i)
         retval.push_back(argv_[i]);
@@ -1120,7 +1152,7 @@ bool Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues, boost::
                     sw.matchLongArguments(switchString, cursor, swProps, pvals /*out*/);
                     BOOST_FOREACH (ParsedValue &pv, pvals)
                         pv.switchInfo(&sw, switchLocation, switchString);
-                    parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end());
+                    parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end()); // may throw
                     guard.cancel();
                     return true;
                 } catch (const std::runtime_error &e) {
@@ -1147,7 +1179,7 @@ bool Parser::parseShortSwitch(Cursor &cursor, ParsedValues &parsedValues, boost:
                     sw.matchShortArguments(switchString, cursor, swProps, pvals /*out*/);
                     BOOST_FOREACH (ParsedValue &pv, pvals)
                         pv.switchInfo(&sw, switchLocation, switchString);
-                    parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end());
+                    parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end()); // may throw
                     guard.cancel();
                     return true;
                 } catch (const std::runtime_error &e) {

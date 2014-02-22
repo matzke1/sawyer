@@ -472,35 +472,6 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                      Switch value agumenters
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// FIXME[Robb Matzke 2014-02-21]: Finish this design
-
-typedef boost::shared_ptr<class ValueAugmenter> ValueAugmenterPtr;
-
-class ValueAugmenter {
-public:
-    virtual ~ValueAugmenter() {}
-    virtual void operator()() = 0;                           // FIXME[Robb Matzke 2014-02-14]
-};
-
-template<typename T>
-class Increment: public ValueAugmenter {
-    T delta_;
-public:
-    Increment(T delta): delta_(delta) {}
-    virtual void operator()();
-};
-
-template<typename T>
-boost::shared_ptr<Increment<T> >
-incrementValue(T delta=1) {
-    return boost::shared_ptr<Increment<T> >(new Increment<T>(delta));
-}
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Switch immediate actions
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -597,10 +568,13 @@ private:
     }
 
 public:
-    /** Returns the parsed value.  Parsed values are represented by boost::any, which is capable of storing any type of parsed
+    /** The parsed value.  Parsed values are represented by boost::any, which is capable of storing any type of parsed
      *  value including void.  This is the most basic access to the value; the class also provides a variety of casting
-     *  accessors that are sometimes more convenient (their names start with "as"). */
+     *  accessors that are sometimes more convenient (their names start with "as").
+     * @{ */
     const boost::any& value() const { return value_; }
+    void value(const boost::any &v) { value_ = v; }
+    /** @} */
 
     /** Command-line location from whence this value came.  For values that are defaults which didn't come from the
      *  command-line, the constant NOWHERE is returned. */
@@ -671,6 +645,57 @@ typedef std::vector<ParsedValue> ParsedValues;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Switch value agumenters
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/** Base class for value agumentors.  A ValueAugmenter is invoked after a switch argument (explicit or default) is passed to
+ *  combine a previously parsed value with the currently parsed value, replacing the previously parsed value.  The augmenter is
+ *  invoked only if the switch's save mode is SAVE_AUGMENT.
+ *
+ *  Value augmentors are reference counted entities following the same paradigm as described for ValueParser. */
+class ValueAugmenter {
+public:
+    typedef boost::shared_ptr<ValueAugmenter> Ptr;
+    virtual ~ValueAugmenter() {}
+
+    /** Agument a previous value.  Modify @p next in place by combining it in some way with @p prev, the previously parsed
+     *  value. The returned @p next will replace @prev in the list of parser results indexed by key. */
+    virtual void operator()(const ParsedValue &prev, ParsedValue &next) = 0;
+};
+
+// FIXME[Robb Matzke 2014-02-22]: we could make this less sensitive to the boost::any_cast
+
+/** Increment a previous value. Increments the current value by adding the previous parsed value to it.  The template argument
+ *  is the type of parsed values. */
+template<typename T>
+class Increment: public ValueAugmenter {
+protected:
+    Increment() {}
+public:
+    typedef boost::shared_ptr<Increment> Ptr;
+    static Ptr instance() { return Ptr(new Increment<T>); }
+    virtual void operator()(const ParsedValue &prev, ParsedValue &next) {
+        T v1 = boost::any_cast<T>(prev.value());
+        T v2 = boost::any_cast<T>(next.value());
+        T sum = v1 + v2;
+        next.value(sum);
+    }
+};
+
+/** Replace the previous parsed value with the sum of the previous and current values. */
+template<typename T>
+typename Increment<T>::Ptr increment() {
+    return Increment<T>::instance();
+}
+
+/** Replace the previous parsed value with the sum of the previous and current values.  This assumes that the parser was an
+ *  integerParser(). */
+Increment<boost::int64_t>::Ptr incrementInt() {
+    return Increment<boost::int64_t>::instance();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Switch descriptors
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -685,6 +710,16 @@ struct ParsingProperties {
     ParsingProperties()
         : inheritLongPrefixes(true), inheritShortPrefixes(true), inheritValueSeparators(true) {}
     ParsingProperties inherit(const ParsingProperties &base) const;
+};
+
+/** Describes how to handle switches that occur multiple times. */
+enum Save {
+    SAVE_NONE,                                          /**< Switch is disabled. Any occurrence will be an error. */
+    SAVE_ONE,                                           /**< Switch cannot appear more than once. */
+    SAVE_LAST,                                          /**< Use only the last occurrence and ignore all previous. */
+    SAVE_FIRST,                                         /**< Use only the first occurrence and ignore all previous. */
+    SAVE_ALL,                                           /**< Save all values as a vector. */
+    SAVE_AUGMENT,                                       /**< Save the first value, or modify previously saved value. */
 };
 
 /** Describes one command-line switch.
@@ -710,17 +745,6 @@ struct ParsingProperties {
  * @endcode
  */
 class Switch {
-public:
-    /** Describes how to handle switches that occur multiple times. */
-    enum Save {
-        SAVE_NONE,                                      /**< Switch is disabled. Any occurrence will be an error. */
-        SAVE_ONE,                                       /**< Switch cannot appear more than once. */
-        SAVE_LAST,                                      /**< Use only the last occurrence and ignore all previous. */
-        SAVE_FIRST,                                     /**< Use only the first occurrence and ignore all previous. */
-        SAVE_ALL,                                       /**< Save all values as a vector. */
-        SAVE_AUGMENT,                                   /**< Save the first value, or modify previously saved value. */
-    };
-
 private:
     std::vector<std::string> longNames_;                // long name of switch, or empty string
     std::string shortNames_;                            // optional short names for this switch
@@ -733,7 +757,7 @@ private:
     std::vector<SwitchArgument> arguments_;             // arguments with optional default values
     std::vector<SwitchAction::Ptr> actions_;            // what happens as soon as the switch is parsed
     Save save_;                                         // which switch values should be saved
-    ValueAugmenterPtr augmenter_;                       // used if save_==SAVE_AUGMENT
+    ValueAugmenter::Ptr augmenter_;                     // used if save_==SAVE_AUGMENT
     boost::any defaultValue_;                           // default when no arguments are present
     std::string defaultValueString_;                    // string version of defaultValue_ (before parsing)
     bool explodeVector_;                                // expand a vector value into separate values
@@ -954,7 +978,6 @@ public:
     const std::vector<SwitchAction::Ptr>& actions() const { return actions_; }
     /** @} */
 
-    // FIXME[Robb Matzke 2014-02-21]: not implemented yet
     /** Describes what to do if a switch occurs more than once.  Normally, if a switch occurs more than once then all of its
      * values are made available in the result. Setting this property to one of its other possibilities can make make it easier
      * to do things like using only the last value, causing an error, or avoiding occurrences of two switches that are mutually
@@ -969,14 +992,13 @@ public:
     Switch& saveLast() { return save(SAVE_LAST); }
     Switch& saveFirst() { return save(SAVE_FIRST); }
     Switch& saveAll() { return save(SAVE_ALL); }
-    Switch& saveAugment(const ValueAugmenterPtr f) { save(SAVE_AUGMENT); return augmentValue(f); }
+    Switch& saveAugment(const ValueAugmenter::Ptr f) { save(SAVE_AUGMENT); return augmentValue(f); }
     /** @} */
 
-    // FIXME[Robb Matzke 2014-02-21]: not implemented yet
     /** The functor to call when augmenting a previously saved value.
      *  @{ */
-    Switch& augmentValue(const ValueAugmenterPtr &f) { augmenter_ = f; return *this; }
-    ValueAugmenterPtr augmentValue() const { return augmenter_; }
+    Switch& augmentValue(const ValueAugmenter::Ptr &f) { augmenter_ = f; return *this; }
+    ValueAugmenter::Ptr augmentValue() const { return augmenter_; }
     /** @} */
 
 private:
@@ -1180,11 +1202,12 @@ public:
      *  expanded. */
     std::vector<std::string> skippedArgs() const;
 
-    /** Returns program arguments that were not parsed. These are the arguments left over when the parser stopped. */
-    std::vector<std::string> remainingArgs() const;
+    /** Returns program arguments that were not reached during parsing. These are the arguments left over when the parser
+     *  stopped. */
+    std::vector<std::string> unreachedArgs() const;
 
-    // The skipped() and remaining() arguments along with termination switches.  This is basically the original program command
-    // line with the parsed stuff removed.
+    /** The skippedArgs() and unreachedArgs() along with termination switches.  This is basically the original program command
+     *  line with the parsed stuff removed. */
     std::vector<std::string> unparsedArgs() const;
 
     // Program arguments that were parsed.
