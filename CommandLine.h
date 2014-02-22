@@ -1213,7 +1213,7 @@ public:
     /** Returns the program arguments that were processed. */
     std::vector<std::string> parsedArgs() const;
 
-    // The original command line, except with command-line inclusion expanded.
+    /** The original command line, except with command-line inclusion expanded. */
     const std::vector<std::string>& allArgs() const { return argv_; }
 
 
@@ -1234,6 +1234,12 @@ public:                                                 // used internally FIXME
 };
 
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Parser
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/** Parser for a program command line. A parser is configured to describe the valid program switches, their arguments, and
+ *  other information.  The parser is then applied to a program command line to return a ParserResult. */
 class Parser {
     std::vector<SwitchGroup> switchGroups_;
     ParsingProperties properties_;
@@ -1244,40 +1250,67 @@ class Parser {
     bool skipNonSwitches_;                              // skip over non-switch arguments?
     bool skipUnknownSwitches_;                          // skip over switches we don't recognize?
 public:
+
+    /** Default constructor.  The default constructor sets up a new parser with defaults suitable for the operating
+     *  system. The switch declarations need to be added (via with()) before the parser is useful. */
     Parser()
         : shortMayNestle_(true), maxInclusionDepth_(10), skipNonSwitches_(false), skipUnknownSwitches_(false) {
         init();
     }
-    
+
+    /** Add switch declarations. The specified group of switch declarations is copied into the parser. */
     Parser& with(const SwitchGroup &sg) { switchGroups_.push_back(sg); return *this; }
 
-    // default is "--" and "-"
+    /** Prefixes to use for long command-line switches.  The resetLongSwitches() clears the list (and adds prefixes) while
+     *  longPrefix() only adds another prefix to the list.  The default long switch prefix on Unix-like systems is "--".
+     * @{ */
     Parser& resetLongPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                               const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
     Parser& longPrefix(const std::string &s1) { properties_.longPrefixes.push_back(s1); return *this; }
     const std::vector<std::string>& longPrefixes() const { return properties_.longPrefixes; }
+    /** @} */
 
-    // default is "-"
+    /** Prefixes to use for short command-line switches.  The resetShortSwitches() clears the list (and adds prefixes) while
+     *  shortPrefix() only adds another prefix to the list.  The default short switch prefix on Unix-like systems is "-".
+     * @{ */
     Parser& resetShortPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
     Parser& shortPrefix(const std::string &s1) { properties_.shortPrefixes.push_back(s1); return *this; }
     const std::vector<std::string>& shortPrefixes() const { return properties_.shortPrefixes; }
+    /** @} */
 
-    // default is "=" and " " (as in separate arguments)
+    /** Strings that separate a long switch from its value.  The resetValueSeparators() clears the list (and adds separators)
+     *  while valueSeparator() only adds another separator to the list.  The separator " " is special: it indicates that the
+     *  argument for a switch must appear in a separate program argument (i.e., "--author matzke" as opposed to
+     *  "--author=matzke").  The default value separators on Unix-like systems are "=" and " ".
+     * @{ */
     Parser& resetValueSeparators(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                 const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
     Parser& valueSeparator(const std::string &s1) { properties_.valueSeparators.push_back(s1); return *this; }
     const std::vector<std::string>& valueSeparators() const { return properties_.valueSeparators; }
+    /** @} */
 
-    // default is "--"
+    /** Strings that indicate the end of the argument list.  The resetTerminationSwitches() clears the list (and adds
+     *  terminators) while terminationSwitch() only adds another terminator to the list.  The default terminator on Unix-like
+     *  systems is "--".
+     * @{ */
     Parser& resetTerminationSwitches(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                    const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
     Parser& terminationSwitch(const std::string &s1) { terminationSwitches_.push_back(s1); return *this; }
     const std::vector<std::string>& terminationSwitches() const { return terminationSwitches_; }
+    /** @} */
 
-    // May short swtiches nestle together as in "-ab" rather than "-a -b"?
+    /** Indicates whether short switches can nestle together.  If short switches are allowed to nestle, then "-ab" is the same
+     *  as "-a -b" in two separate program arguments.  This even works if the short switch takes an argument as long as the
+     *  argument parsing ends at the next short switch name.  For instance, if "-a" takes an integer argument then "-a100b"
+     *  will be parsed as "-a100 -b", but if "-a" takes a string argument the entire "100b" will be parsed as the value for the
+     *  "-a" switch.  The default on Unix-like systems is that short switches may nestle.
+     * @{ */
     Parser& shortMayNestle(bool b) { shortMayNestle_ = b; return *this; }
     bool shortMayNestle() const { return shortMayNestle(); }
+    /** @} */
+
+
 
     // whether command-line inclusion is allowed, and how many levels; default is "@" as in "@more-options"
     Parser& resetInclusionPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
@@ -1288,31 +1321,41 @@ public:
     Parser& maxInclusionDepth(size_t n) { maxInclusionDepth_ = n; return *this; }
     size_t maxInclusionDepth() const { return maxInclusionDepth_; }
 
-    // Whether to skip over non-switch arguments when parsing.  If false, parsing stops at the first non-switch, otherwise
-    // non-switches are simply skipped over and added to the parsing result that's eventually returned. In either case, parsing
-    // stops when a terminator switch (usually "--") is found. Anything that looks like a switch but doesn't match a
-    // declaration continues to result in an error regardless of this property.
+    /** Whether to skip over non-switch arguments when parsing.  If false, parsing stops at the first non-switch, otherwise
+     *  non-switches are simply skipped over and added to the parsing result that's eventually returned. In either case,
+     *  parsing stops when a terminator switch (usually "--") is found. Anything that looks like a switch but doesn't match a
+     *  declaration continues to result in an error regardless of this property.
+     * @{ */
     Parser& skipNonSwitches(bool b=true) { skipNonSwitches_ = b; return *this; }
     bool skippingNonSwitches() const { return skipNonSwitches_; }
+    /** @} */
 
-    // Whether to skip over unrecognized switches.  An unrecognized switch is any program argument that looks like a switch
-    // (see apparentSwitch()) but which doesn't match the name of any declared switch.  When not skipping (the default) such
-    // program arguments cause an "unrecognized switch" exception.
+    /** Whether to skip over unrecognized switches.  An unrecognized switch is any program argument that looks like a switch
+     *  but which doesn't match the name of any declared switch.  When not skipping (the default) such program arguments throw
+     *  an "unrecognized switch" std::runtime_error.
+     * @{ */
     Parser& skipUnknownSwitches(bool b=true) { skipUnknownSwitches_ = b; return *this; }
     bool skippingUnkownSwitches() const { return skipUnknownSwitches_; }
+    /** @} */
 
-    // Parsing starts with the second (index 1) element of argv since the first is the command name.  The argv array
-    // does not require that argv[argc] be allocated.
+    /** Parse program arguments.  The first program argument, <code>argv[0]</code>, is considered to be the name of the program
+     *  and is not parsed as a program argument.  This function does not require that <code>argv[argc]</code> be a member of
+     *  the argv array (normally, <code>argv[argc]==NULL</code>) in main(). */
     ParserResult parse(int argc, char *argv[]);
 
-    // The vector should contain only command arguments, not the command name or a final empty string.
+    /** Parse program arguments.  The vector should be only the program arguments, not a program name or final empty string. */
     ParserResult parse(const std::vector<std::string>&);
 
+    /** Parse program arguments. The arguments are specified as iterators to strings and should be only program arguments, not
+     *  a program name or final empty string. */
     template<typename Iterator>
     ParserResult parse(Iterator begin, Iterator end) {
         std::vector<std::string> args(begin, end);
         return parse(args);
     }
+
+private:
+    void init();
 
     // Parse one switch from the current position in the command line and return the switch descriptor.  If the cursor is at
     // the end of the command line then return false without updating the cursor or parsed values.  If the cursor is at a
@@ -1334,8 +1377,7 @@ public:
     // FIXME[Robb Matzke 2014-02-21]: Some way to parse command-lines from a config file, or to merge parsed command-lines with
     // a yaml config file, etc.
 
-private:
-    void init();
+
 };
 
 } // namespace
