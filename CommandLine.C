@@ -207,8 +207,6 @@ boost::any StringSetParser::operator()(Cursor &cursor) {
 ListParser::Ptr ListParser::limit(size_t minLength, size_t maxLength) {
     if (minLength > maxLength)
         throw std::runtime_error("minimum ListParser length must be less than or equal to maximum length");
-    if (minLength < elements_.size())
-        throw std::runtime_error("minimum ListParser length is smaller than the number of elements specified");
     minLength_ = minLength;
     maxLength_ = maxLength;
     return boost::dynamic_pointer_cast<ListParser>(shared_from_this());

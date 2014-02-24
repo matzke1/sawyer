@@ -379,7 +379,7 @@ public:
     /** Specifies element type and separator. Adds another element type and separator to this parser.  The specified values
      *  are also used for all the following list members unless a subsequent type and separator are supplied.  I.e., the
      *  final element type and separator are repeated as necessary when parsing. */
-    Ptr nextMember(const ValueParser::Ptr &elmtType, const std::string &separatorRe=",\\s*") {
+    Ptr nextMember(const ValueParser::Ptr &elmtType, const std::string &separatorRe="[,;:]\\s*|\\s+") {
         elements_.push_back(ParserSep(elmtType, separatorRe));
         return boost::dynamic_pointer_cast<ListParser>(shared_from_this());
     }
@@ -404,7 +404,7 @@ UnsignedIntegerParser::Ptr unsignedIntegerParser();
 RealNumberParser::Ptr realNumberParser();
 BooleanParser::Ptr booleanParser();
 StringSetParser::Ptr stringSetParser();
-ListParser::Ptr listParser(const ValueParser::Ptr&, const std::string &sepRe=",\\s*");
+ListParser::Ptr listParser(const ValueParser::Ptr&, const std::string &sepRe="[,;:]\\s*|\\s+");
 
 // Note: enum T must be defined at global scope
 template<typename T>
