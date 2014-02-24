@@ -8,7 +8,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
 find_package(PkgConfig)
 find_package(Boost 1.47.0 REQUIRED COMPONENTS system filesystem regex signals)
 
-set(lib_src Assert.C CommandLine.C Message.C ProgressBar.C Sawyer.C)
+set(lib_src Assert.C CommandLine.C Markup.C MarkupRoff.C Message.C ProgressBar.C Sawyer.C)
 add_library(sawyer SHARED ${lib_src})
 
 include_directories(
@@ -41,3 +41,6 @@ target_link_libraries(test8 sawyer ${Boost_LIBRARIES})
 
 add_executable(test9 test9.C)
 target_link_libraries(test9 sawyer ${Boost_LIBRARIES})
+
+add_executable(test10 test10.C)
+target_link_libraries(test10 sawyer ${Boost_LIBRARIES})
