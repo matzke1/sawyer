@@ -1536,9 +1536,6 @@ private:
     // argument that starts with a long or short prefix.
     bool apparentSwitch(const Cursor&) const;
 
-#if 1 /*DEBUGGING [Robb Matzke 2014-02-24]*/
-public:
-#endif
     // Returns documentation in the internal markup language
     std::string documentationMarkup() const;
 
