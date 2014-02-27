@@ -629,6 +629,9 @@ public:
     /** Convenient any_cast.  This is a slightly less verbose way to get the value and perform a boost::any_cast. */
     template<typename T> T as() const { return boost::any_cast<T>(value_); }
 
+    /** The key used by the switch that created this value. */
+    const std::string& switchKey() const { return switchKey_; }
+
     /** The string for the switch that caused this value to be parsed.  This string includes the switch prefix and the switch
      *  name in order to allow programs to distinguish between the same switch occuring with two different prefixes (like the
      *  "-invert" vs "+invert" style which is sometimes used for Boolean-valued switches).
