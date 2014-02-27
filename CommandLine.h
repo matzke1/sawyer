@@ -1277,8 +1277,8 @@ public:
 
 
 private:
-    // Insert more parsed values.  Also updates some data members of the ParsedValue objects.
-    void insert(ParsedValues&, const Parser*);
+    // Insert more parsed values.  Values should be inserted one switch's worth at a time (or fewer)
+    void insert(const ParsedValues&, const Parser*, const Switch*);
 
     // Indicate that we're skipping over a program argument
     void skip(const Location&);
@@ -1536,11 +1536,12 @@ private:
     // declaration can be found, then throw an error.  The cursor will not be modified when an error is thrown.
     bool parseOneSwitch(Cursor&, ParserResult&/*out*/);
 
-    // Parse one switch if possible.  Returns true and updates the cursor and parsed values if a switch can be parsed.  Returns
-    // false if the next program argument doesn't look like a switch (even a misspelled switch). Throws an exception otherwise,
-    // without changing the cursor or parsed values.
-    bool parseLongSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&);
-    bool parseShortSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&);
+    // Parse one switch if possible.  Returns the swtich and updates the cursor and parsed values if a switch can be parsed.
+    // Returns null if the next program argument doesn't look like a switch (even a misspelled switch). Throws an exception
+    // otherwise, without changing the cursor or parsed values.  The returned pointer is valid only as long as this parser
+    // is allocated.
+    const Switch* parseLongSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&);
+    const Switch* parseShortSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&);
 
     // Returns true if the program argument at the cursor looks like it might be a switch.  Apparent switches are any program
     // argument that starts with a long or short prefix.

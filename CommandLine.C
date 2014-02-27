@@ -528,7 +528,8 @@ Switch& Switch::resetLongPrefixes(const std::string &s1, const std::string &s2, 
     return *this;
 }
 
-Switch& Switch::resetShortPrefixes(const std::string &s1, const std::string &s2, const std::string &s3, const std::string &s4) {
+Switch& Switch::resetShortPrefixes(const std::string &s1, const std::string &s2, const std::string &s3,
+                                   const std::string &s4) {
     properties_.inheritShortPrefixes = false;
     properties_.shortPrefixes.clear();
     if (0!=s1.compare(STR_NONE))
@@ -542,7 +543,8 @@ Switch& Switch::resetShortPrefixes(const std::string &s1, const std::string &s2,
     return *this;
 }
 
-Switch& Switch::resetValueSeparators(const std::string &s1, const std::string &s2, const std::string &s3, const std::string &s4) {
+Switch& Switch::resetValueSeparators(const std::string &s1, const std::string &s2, const std::string &s3,
+                                     const std::string &s4) {
     properties_.inheritValueSeparators = false;
     properties_.valueSeparators.clear();
     if (0!=s1.compare(STR_NONE))
@@ -891,11 +893,8 @@ const Switch& SwitchGroup::getByKey(const std::string &s) {
  *                                      Parser results
  *******************************************************************************************************************************/
 
-void ParserResult::insert(ParsedValues &pvals, const Parser *parser) {
-    std::set<const Switch*> seen;
-    BOOST_FOREACH (ParsedValue &pval, pvals) {
-        const Switch *sw = &pval.createdBy();
-
+void ParserResult::insert(const ParsedValues &pvals, const Parser *parser, const Switch *sw) {
+    BOOST_FOREACH (ParsedValue pval, pvals) {
         // How to save this value
         bool shouldSave = true;
         switch (sw->whichValue()) {
@@ -944,11 +943,7 @@ void ParserResult::insert(ParsedValues &pvals, const Parser *parser) {
 #endif
         }
 
-        // Run the switch actions, but only once per switch (e.g., "-vvv" where "v" is a short switch will cause the action
-        // to run only once.  Long switches won't have this ambiguity since insert() will be called with only one long
-        // switch at a time.
-        if (seen.insert(sw).second)
-            sw->runActions(parser);
+        sw->runActions(parser);
     }
 }
 
@@ -1198,35 +1193,40 @@ bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
 
     // Single long switch
     ParsedValues values;
-    if (parseLongSwitch(cursor, values, saved_error /*out*/)) {
-        result.insert(values, this);
+    if (const Switch *sw = parseLongSwitch(cursor, values, saved_error /*out*/)) {
+        result.insert(values, this, sw);
         return true;
     }
 
     if (!shortMayNestle_) {
         // Single short switch
-        if (parseShortSwitch(cursor, values, saved_error)) {
+        if (const Switch *sw = parseShortSwitch(cursor, values, saved_error)) {
             if (!cursor.atArgBegin() && !cursor.atEnd()) {
                 ASSERT_forbid(values.empty());
                 const Switch &sw = values.front().createdBy();
                 throw sw.extraTextAfterArgument(values.front().switchString(), cursor);
             }
-            result.insert(values, this);
+            result.insert(values, this, sw);
             return true;
         }
     } else {
         // Or multiple short switches.  If short switches are nestled, then the result is affected only if all the nesltled
         // switches can be parsed.
+        typedef std::pair<const Switch*, ParsedValues> SwitchValues;
+        std::list<SwitchValues> valuesBySwitch;
         bool allParsed = false;
         ExcursionGuard guard(cursor);
-        while (parseShortSwitch(cursor, values, saved_error)) {
+        while (const Switch *sw = parseShortSwitch(cursor, values, saved_error)) {
+            valuesBySwitch.push_back(SwitchValues(sw, values));
+            values.clear();
             if (cursor.atArgBegin() || cursor.atEnd()) {
                 allParsed = true;
                 break;
             }
         }
         if (allParsed) {
-            result.insert(values, this);
+            BOOST_FOREACH (SwitchValues &svpair, valuesBySwitch)
+                result.insert(svpair.second, this, svpair.first);
             guard.cancel();
             return true;
         }
@@ -1241,7 +1241,8 @@ bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
 }
 
 // Parse one long switch and advance the cursor over the switch name and arguments.
-bool Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues, boost::optional<std::runtime_error> &saved_error) {
+const Switch* Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues,
+                                      boost::optional<std::runtime_error> &saved_error) {
     if (!cursor.atArgBegin())
         return NULL;
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
@@ -1259,18 +1260,19 @@ bool Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues, boost::
                         pv.switchInfo(&sw, switchLocation, switchString);
                     parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end()); // may throw
                     guard.cancel();
-                    return true;
+                    return &sw;
                 } catch (const std::runtime_error &e) {
                     saved_error = e;
                 }
             }
         }
     }
-    return false;
+    return NULL;
 }
 
 // Parse one short switch and advance the cursor over the switch name and arguments.
-bool Parser::parseShortSwitch(Cursor &cursor, ParsedValues &parsedValues, boost::optional<std::runtime_error> &saved_error) {
+const Switch* Parser::parseShortSwitch(Cursor &cursor, ParsedValues &parsedValues,
+                                       boost::optional<std::runtime_error> &saved_error) {
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
@@ -1286,7 +1288,7 @@ bool Parser::parseShortSwitch(Cursor &cursor, ParsedValues &parsedValues, boost:
                         pv.switchInfo(&sw, switchLocation, switchString);
                     parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end()); // may throw
                     guard.cancel();
-                    return true;
+                    return &sw;
                 } catch (const std::runtime_error &e) {
                     saved_error = e;
                 }
