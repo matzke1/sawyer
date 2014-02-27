@@ -568,7 +568,7 @@ class ParsedValue {
     boost::any value_;
     Location valueLocation_;                            // where this value came from on the command-line; or NOWHERE if dflt
     std::string valueString_;                           // string representation of the value
-    const Switch *switch_;                              // switch that parsed this value
+    std::string switchKey_;                             // key for the switch that parsed this value
     Location switchLocation_;                           // where is the actual switch name in switchString_?
     std::string switchString_;                          // prefix and switch name
     size_t keySequence_, switchSequence_;               // relation of this value w.r.t. other values for same key and switch
@@ -579,12 +579,11 @@ private:
     friend class Parser;
 
     ParsedValue(const boost::any value, const Location &loc, const std::string &str)
-        : value_(value), valueLocation_(loc), valueString_(str),
-          switch_(NULL), keySequence_(0), switchSequence_(0) {}
+        : value_(value), valueLocation_(loc), valueString_(str), keySequence_(0), switchSequence_(0) {}
 
     // Update the switch information for the parsed value.
-    ParsedValue& switchInfo(const Switch *sw, const Location &loc, const std::string &str) {
-        switch_ = sw; switchLocation_ = loc; switchString_ = str;
+    ParsedValue& switchInfo(const std::string &key, const Location &loc, const std::string &str) {
+        switchKey_ = key; switchLocation_ = loc; switchString_ = str;
         return *this;
     }
 
@@ -643,13 +642,6 @@ public:
      *  switch name after any leading prefix.  For nestled single-character switches, the location's command line argument
      *  index will be truthful, but the character offset will refer to the string returned by switchString(). */
     Location switchLocation() const { return switchLocation_; }
-
-    // FIXME[Robb Matzke 2014-02-21]: better interface, perhaps reference counting or copying
-    /** The switch that caused the value to be created.  Switches are referred to by pointers, which are only valid as long as
-     *  the switch itself is allocated.  The pointer should be valid as long as the switch's SwitchGroup is still allocated and
-     *  has not been modified since this SwitchValue was created.  This generally isn't a problem since switch groups are
-     *  typically fully created before parsing takes place. */
-    const Switch& createdBy() const { return *switch_; }
 
     /** How this value relates to others with the same key.  This method returns the sequence number for this value among all
      *  values created for the same key. */

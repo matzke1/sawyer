@@ -430,14 +430,10 @@ std::string ParsedValue::asString() const {
 }
     
 void ParsedValue::print(std::ostream &o) const {
-    if (switch_) {
-        o <<"{switch=\"" <<switchString_ <<"\" at " <<switchLocation_ <<" key=\"" <<switch_->key() <<"\""
-          <<"; value str=\"" <<valueString_ <<"\" at " <<valueLocation_
-          <<"; seq={s" <<switchSequence_ <<", k" <<keySequence_ <<"}"
-          <<"}";
-    } else {
-        o <<"empty";
-    }
+    o <<"{switch=\"" <<switchString_ <<"\" at " <<switchLocation_ <<" key=\"" <<switchKey_ <<"\""
+      <<"; value str=\"" <<valueString_ <<"\" at " <<valueLocation_
+      <<"; seq={s" <<switchSequence_ <<", k" <<keySequence_ <<"}"
+      <<"}";
 }
 
 std::ostream& operator<<(std::ostream &o, const ParsedValue &x) {
@@ -1203,8 +1199,7 @@ bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
         if (const Switch *sw = parseShortSwitch(cursor, values, saved_error)) {
             if (!cursor.atArgBegin() && !cursor.atEnd()) {
                 ASSERT_forbid(values.empty());
-                const Switch &sw = values.front().createdBy();
-                throw sw.extraTextAfterArgument(values.front().switchString(), cursor);
+                throw sw->extraTextAfterArgument(values.front().switchString(), cursor);
             }
             result.insert(values, this, sw);
             return true;
@@ -1257,7 +1252,7 @@ const Switch* Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues
                     ParsedValues pvals;
                     sw.matchLongArguments(switchString, cursor, swProps, pvals /*out*/);
                     BOOST_FOREACH (ParsedValue &pv, pvals)
-                        pv.switchInfo(&sw, switchLocation, switchString);
+                        pv.switchInfo(sw.key(), switchLocation, switchString);
                     parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end()); // may throw
                     guard.cancel();
                     return &sw;
@@ -1285,7 +1280,7 @@ const Switch* Parser::parseShortSwitch(Cursor &cursor, ParsedValues &parsedValue
                     ParsedValues pvals;
                     sw.matchShortArguments(switchString, cursor, swProps, pvals /*out*/);
                     BOOST_FOREACH (ParsedValue &pv, pvals)
-                        pv.switchInfo(&sw, switchLocation, switchString);
+                        pv.switchInfo(sw.key(), switchLocation, switchString);
                     parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end()); // may throw
                     guard.cancel();
                     return &sw;
