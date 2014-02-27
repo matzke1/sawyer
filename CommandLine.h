@@ -821,6 +821,10 @@ public:
     const std::string& shortNames() const { return shortNames_; }
     /** @} */
 
+    /** Name by which switch prefers to be known.  This is the first long name, or the first short name if there are no
+     *  long names. */
+    std::string preferredName() const { return longNames_.empty() ? std::string(1, shortNames_[0]) : longNames_[0]; }
+
     /** Key used when parsing this switch.  When a switch value is parsed (or an intrinsic or default value is used) to create
      *  a ParsedValue object, the object will be associated with the switch key.  This allows different switches to write to
      *  the same result locations and is useful for different keys that refer to the same concept, like "--verbose" and
