@@ -183,7 +183,6 @@ int main(int argc, char *argv[]) {
                     "or the primary branch remote's HEAD points at. When creating a shallow clone with the @s depth option, "
                     "this is the default, unless @s no-single-branch is given to fetch the histories near the tips of all "
                     "branches."));
-    // FIXME[Robb Matzke 2014-02-24]: hidden is not implemented yet
     cmd.insert(Switch("no-single-branch")
                .key("single-branch")
                .intrinsicValue("false", booleanParser())
@@ -204,14 +203,32 @@ int main(int argc, char *argv[]) {
 
     Parser parser;
     parser
+        // These are the switch groups from above that we want to be able to parse.
+        // FIXME[Robb Matzke 2014-02-26]: order matters, so document it
         .with(general)
         .with(cmd)
-        .chapter(1, "Sawyer Demonstration")
-        .purpose("Clone a repository into a new directory")
-        .version("1.7.10.4", "09/29/2012")
-        .doc("synopsis",
+
+#if 0 /* enable these to turn this into a Windows-like command-parser, and notice how documentation also changes */
+        .resetLongPrefixes("/")
+        .resetShortPrefixes("/")
+#endif
+
+        // Basic information about the program. We could specify a program name here too, but Sawyer is smart
+        // enough to get the name from the operating system, and that way your documentation will be relevant to
+        // what the user actually typed to run the command.
+        .chapter(1, "Sawyer Demonstration")                     // man page header and footer, i.e., "test11(1)"
+        .purpose("Clone a repository into a new directory")     // the Name section for the benefit of makewhatis(1)
+        .version("1.7.10.4", "09/29/2012")                      // appears in the manpage footer
+
+        // The default synopsis is like "foo [SWITCHES...]". Capitalization is only for the sake of the output (but for nroff
+        // it doesn't matter since it'll be upper-cased). Sawyer itself is not sensitive to how you capitalize the names; it
+        // will treat "Synopsis" and "synopsis" the same way.
+        .doc("Synopsis",
              "@prop{programName} clone [@v{switches}] @v{repository} @v{directory}")
-        .doc("description",
+
+        // An optional description gets output between the Synopsis and Options sections.  Of course, you don't have
+        // do declare it in this order, but source code is more readable if you do.
+        .doc("Description",
              "Clones a repository into a newly created directory, creates remote-tracking branches for each branch in "
              "the cloned repository (visible using '@prop{programName} branch @s{r}'), and creates and checks out an initial "
              "branch that is forked from the cloned repository's currently active branch.\n\n"
@@ -222,26 +239,51 @@ int main(int argc, char *argv[]) {
              "refs/remotes/origin and by initializing remote.origin.url and remote.origin.fetch configuration "
              "variables.\n\n"
              "This is version @prop{versionString}.")
-        .doc("options",
+        .doc("Options",
              "This paragraph is extra text for the Options section of the man page. It will appear above the list of "
              "program switches.  The common practice is to name this section 'Options' even though it mostly describes "
              "program switches. The remainder of this section is generated automatically.")
+
+        // I always like to put the nitty gritty details after the command-line switches because I'm looking at a man
+        // page because I forgot how to use a program, not because I forgot what it does.
         .doc("details", "1",
              "More details... Any number of user-defined sections are possible and their order can be controled.")
-        .doc("bugs", "2", "User-defined sections can be in any order you want.")
-        .doc("more bugs", "3", "...and named anything you want.")
-        .doc("see also", "zzz", "And you can augment sections that are created automatically.")
-        .doc("authors",          // notice that "@" in the email works fine since what follows is not a valid tag
+
+        // Extra stuff, some standard and some funny. Sawyer doesn't care what sections you define.
+        .doc("Bugs", "2", "User-defined sections can be in any order you want.")
+        .doc("More Bugs", "3", "...and named anything you want.")
+
+        // The See Also section is automatically generated and contains all the @man references that appear prior to
+        // this section (that is, prior in the output, not the C++ source code).  You can also insert your own text.
+        .doc("See Also", "zzz", "And you can augment sections that are created automatically.")
+
+        // The markup parser is decently smart about deciding when a "@" is part of a tag and when it should be copied
+        // to the output.  For instance, the "@" in the email address works fine.  Also, the two @man references here show
+        // up in the See Also section since "authors" comes before "zzz" alphabetically.
+        .doc("Authors",
              "Git was started by Linus Torvalds, and is currently maintained by Junio C Hamano. Numerous contributions "
              "have come from the git mailing list @b{<git@vger.kernel.org>}. For a more complete list of contributors, see "
              "@i{http://git-scm.com/about}. If you have a clone of git.git itself, the output of @man{git-shortlog}(1) "
              " and @man{git-blame}(1) can show you the authors for specific parts of the project.")
-        .doc("bogus", "Something we're about to delete...")
-        .doc("bogus", "") // delete a section
+
+        // You can delete some sections (this example's a bit stupid because you wouldn't normally delete a section you
+        // just created, but you might want to delete a section if the parser was created in source code you don't "own".
+        // You can't delete the sections Sawyer creates automatically (you'd only delete your own text in those sections).
+        .doc("Bogus", "Something we're about to delete...")
+        .doc("BOGUS", "") // case is insignificant
+
+        // Normally if an error occurs Sawyer will throw an STL runtime_error containing the error message.  But if you set
+        // the errorStream property to a Sawyer::Message::Stream your error will go there instead and the program exits with
+        // non-zero status.  If you prefer, you can catch the runtime_error and print it yourself, or even just rely on the C++
+        // runtime to print it.  Also, if an errorStream is used and a "help" switch is defined, Sawyer will print "invoke
+        // with '--help' for usage information." (or you can customize it to something else with the exitMessage property.
         .errorStream(Message::mlog[Message::FATAL]) // exit on error instead of throwing std::runtime_error
+
+        // Finally, parse the command line!  This returns a ParserResult which we don't use in this example.
         .parse(argc, argv);
 
-    // If we didn't have --help (which we said should cause the program to exit), then print the raw nroff man page.
+    // If our demo didn't exit by now (no --help, which we said should cause an exit), then print the raw nroff man page
+    // for debugging purposes.  This is also an easy way to create a manpage for your program.
     std::cout <<parser.manpage();
     
 }

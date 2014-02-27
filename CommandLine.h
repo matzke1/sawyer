@@ -1313,7 +1313,8 @@ class Parser {
     typedef std::map<std::string, std::string> StringStringMap;
     StringStringMap sectionDoc_;                        // extra documentation for any section by lower-case section name
     StringStringMap sectionOrder_;                      // maps section keys to section names
-    Message::SProxy errorStream_;                       // send errors here if non-null instead of throwing runtime_error
+    Message::SProxy errorStream_;                       // send errors here and exit instead of throwing runtime_error
+    boost::optional<std::string> exitMessage_;          // additional message before exit when errorStream_ is not empty
     
 public:
 
@@ -1425,6 +1426,15 @@ public:
     Parser& errorStream(const Message::SProxy &stream) { errorStream_ = stream; return *this; }
     const Message::SProxy& errorStream() const { return errorStream_; }
     /** @} */
+
+    /** Extra text to print befor calling exit() when the errorStream property is non-null.  The default is to emit the
+     *  message "invoke with '--help' to see usage information." if a switch with the name "help" is present, or nothing
+     *  otherwise.
+     * @{ */
+    Parser& exitMessage(const std::string &s) { exitMessage_ = s; return *this; }
+    std::string exitMessage() const { return exitMessage_ ? *exitMessage_ : std::string(); }
+    /** @} */
+
 
     /** Parse program arguments.  The first program argument, <code>argv[0]</code>, is considered to be the name of the program
      *  and is not parsed as a program argument.  This function does not require that <code>argv[argc]</code> be a member of

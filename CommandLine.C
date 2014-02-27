@@ -1109,6 +1109,23 @@ ParserResult Parser::parse(const std::vector<std::string> &programArguments) {
             return parseInternal(programArguments);
         } catch (const std::runtime_error &e) {
             *errorStream_ << e.what() <<"\n";
+            if (exitMessage_) {
+                *errorStream_ <<*exitMessage_ <<"\n";
+            } else {
+                BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
+                    ParsingProperties sgProps = sg.properties().inherit(properties_);
+                    BOOST_FOREACH (const Switch &sw, sg.switches()) {
+                        BOOST_FOREACH (const std::string &name, sw.longNames()) {
+                            if (0==name.compare("help")) {
+                                ParsingProperties swProps = sw.properties().inherit(sgProps);
+                                std::string prefix = swProps.longPrefixes.empty() ? std::string() : swProps.longPrefixes.front();
+                                *errorStream_ <<"invoke with '" <<prefix <<"help' for usage information.\n";
+                                exit(1);
+                            }
+                        }
+                    }
+                }
+            }
             exit(1);
         }
     } else {
@@ -1537,7 +1554,7 @@ std::string Parser::docForSection(const std::string &sectionName) const {
             doc = programName() + " - " + (purpose_.empty() ? std::string("Undocumented") : purpose_);
     } else if (0==docKey.compare("synopsis")) {
         if (doc.empty())
-            doc = programName() + " [@v{switches}]...\n";
+            doc = programName() + " [@v{switches}...]\n";
     } else if (0==docKey.compare("options")) {
         StringStringMap docByKey;
         BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
