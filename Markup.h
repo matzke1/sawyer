@@ -62,13 +62,12 @@ typedef boost::shared_ptr<class ItalicTag>      ItalicTagPtr;
 typedef boost::shared_ptr<class VariableTag>    VariableTagPtr;
 typedef boost::shared_ptr<class NameBulletTag>  NameBulletTagPtr;
 
-
 typedef boost::shared_ptr<class ProseTag>       ProseTagPtr;
 typedef boost::shared_ptr<class CodeTag>        CodeTagPtr;
 typedef boost::shared_ptr<class TagInstance>    TagInstancePtr;
 typedef boost::shared_ptr<class Content>        ContentPtr;
 typedef boost::shared_ptr<class Formatter>      FormatterPtr;
-typedef boost::shared_ptr<class RoffFormatter>  RoffFormatterPtr;
+typedef boost::shared_ptr<class TextFormatter>  TextFormatterPtr;
 
 typedef std::string Word;
 typedef std::vector<Word> Words;
@@ -169,8 +168,17 @@ protected:
     explicit TagInstance(const TagPtr &tag): tag_(tag) {}
     TagInstance(const TagPtr &tag, const TagArgs &args): tag_(tag), args_(args) {}
 public:
-    static TagInstancePtr instance(const TagPtr &tag) { return TagInstancePtr(new TagInstance(tag)); }
-    static TagInstancePtr instance(const TagPtr &tag, const TagArgs &args) { return TagInstancePtr(new TagInstance(tag, args)); }
+    static TagInstancePtr instance(const TagPtr &tag) {
+        return TagInstancePtr(new TagInstance(tag));
+    }
+    static TagInstancePtr instance(const TagPtr &tag, const TagArgs &args) {
+        return TagInstancePtr(new TagInstance(tag, args));
+    }
+    static TagInstancePtr instance(const TagPtr &tag, const ContentPtr &arg0) {
+        TagArgs args;
+        args.push_back(arg0);
+        return instance(tag, args);
+    }
     void append(const ContentPtr &arg) { args_.push_back(arg); }
     const TagPtr tag() const { return tag_; }
     const TagArgs& args() const { return args_; }
@@ -193,6 +201,7 @@ public:
     ContentPtr eval() const;
     void emit(std::ostream&, const FormatterPtr&) const;
     void print(std::ostream&) const;
+    std::string asText() const;
 };
 
 
@@ -276,6 +285,20 @@ public:
     virtual void endTag(std::ostream&, const TagPtr&, const TagArgs&) = 0;
     virtual void text(std::ostream&, const std::string&) = 0;
 };
+
+// Formatter used internally by the asText() methods.
+class TextFormatter: public Formatter {
+protected:
+    TextFormatter() {}
+public:
+    static TextFormatterPtr instance() { return TextFormatterPtr(new TextFormatter); }
+    virtual void beginDocument(std::ostream&) /*override*/ {}
+    virtual void endDocument(std::ostream&) /*override*/ {}
+    virtual bool beginTag(std::ostream&, const TagPtr&, const TagArgs&) /*override*/ { return true; }
+    virtual void endTag(std::ostream&, const TagPtr&, const TagArgs&) /*override*/ {}
+    virtual void text(std::ostream &stream, const std::string &text) /*override*/ { stream <<text; }
+};
+    
 
 } // namespace
 } // namespace

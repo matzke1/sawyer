@@ -7,6 +7,8 @@
 namespace Sawyer {
 namespace Markup {
 
+typedef boost::shared_ptr<class RoffFormatter>  RoffFormatterPtr;
+
 class RoffFormatter: public Formatter {
     std::string pageName_;                              // command name, usually upper case. E.g., "LS"
     std::string chapterNumber_;                         // usually a number. E.g., "1" for commands

@@ -119,6 +119,14 @@ void Content::emit(std::ostream &stream, const FormatterPtr &formatter) const {
         elmt->emit(stream, formatter);
 }
 
+// Text representation of content
+std::string Content::asText() const {
+    std::ostringstream ss;
+    FormatterPtr fmt = TextFormatter::instance();
+    emit(ss, fmt);
+    return ss.str();
+}
+
 void Content::print(std::ostream &o) const {
     o <<"[";
     BOOST_FOREACH (const TagInstancePtr &tag, elmts_)

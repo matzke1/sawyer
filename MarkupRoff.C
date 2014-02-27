@@ -61,8 +61,12 @@ std::string RoffFormatter::escapeText(const std::string &s) const {
     std::string retval;
     BOOST_FOREACH (char c, s) {
         switch (c) {
-            case '-': retval += "\\-"; break;
-            default: retval += c; break;
+            case '-':
+                retval += "\\-";
+                break;
+            default:
+                retval += c;
+                break;
         }
     }
     return retval;
@@ -135,10 +139,8 @@ void RoffFormatter::checkNotInArg(const TagPtr &tag) const {
 }
 
 void RoffFormatter::nextLine() {
-    if (!startOfLine_) {
-        bufferedOutput_ <<"\n";
-        startOfLine_ = true;
-    }
+    bufferedOutput_ <<"\n";
+    startOfLine_ = true;
 }
 
 bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagArgs &args) {
@@ -150,7 +152,9 @@ bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagA
         checkNotInArg(tag);
 
         inArg_ = tag;
-        bufferedOutput_ <<"\n.SH \"";
+        bufferedOutput_ <<"\n";
+        std::streampos shPosition = bufferedOutput_.tellp();
+        bufferedOutput_ <<".SH \"";
         ++convertToUpper_;
         args[0]->emit(stream, self());
         --convertToUpper_;
@@ -158,8 +162,18 @@ bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagA
         nextLine();
         inArg_.reset();
 
+        // We don't want to emit an .SH command if there's no body, but since it's too late by now to go back and fix
+        // it, and since we can't expect to have c++11 move semantics, the only way to undo the .SH command is to seek
+        // back and overwrite it with an nroff comment.
+        std::streampos startOfBody = bufferedOutput_.tellp();
         args[1]->emit(stream, self());
-        bufferedOutput_ <<"\n";
+        if (boost::trim_copy(bufferedOutput_.str().substr(startOfBody)).empty()) {
+            bufferedOutput_.seekp(shPosition);
+            bufferedOutput_ <<".\\\"";
+            bufferedOutput_.seekp(0, std::ios_base::end);
+        }
+
+        nextLine();
         recurse = false;
 
     } else if (tag->name() == "namebullet") {
@@ -242,8 +256,8 @@ void RoffFormatter::text(std::ostream &stream, const std::string &text) {
     if (startOfLine_)
         boost::trim_left_if(s, boost::is_any_of(" \t\n"));
 
-    boost::regex trailspace("[ \t]+$");
-    boost::erase_all_regex(s, trailspace);
+    //boost::regex trailspace("[ \t]+$");
+    //boost::erase_all_regex(s, trailspace);
 
     boost::regex multispace("[ \t][ \t]+");
     boost::replace_all_regex(s, multispace, std::string(" "));
@@ -251,9 +265,13 @@ void RoffFormatter::text(std::ostream &stream, const std::string &text) {
     if (convertToUpper_)
         boost::to_upper(s);
     s = escapeText(s);
+    if (startOfLine_ && !s.empty() && '.'==s[0])
+        s = "\\fR" + s;                                  // otherwise it looks like a command
+
     bufferedOutput_ <<s;
 
-    startOfLine_ = false;
+    if (!s.empty())
+        startOfLine_ = false;
 }
 
 

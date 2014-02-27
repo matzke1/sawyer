@@ -1,7 +1,10 @@
 #include "CommandLine.h"
+#include "MarkupRoff.h"
+#include "Message.h"
 
 #include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/foreach.hpp>
@@ -11,6 +14,8 @@
 #include <cerrno>
 #include <set>
 #include <sstream>
+#include <termio.h>
+#include <sys/ioctl.h>
 
 namespace Sawyer {
 namespace CommandLine {
@@ -272,21 +277,21 @@ ListParser::Ptr listParser(const ValueParser::Ptr &p, const std::string &sep) { 
  *                                      Actions
  *******************************************************************************************************************************/
 
-void ExitProgram::operator()() {
+void ExitProgram::operator()(const Parser*) {
     exit(exitStatus_);
 }
 
-void ShowVersion::operator()() {
+void ShowVersion::operator()(const Parser*) {
     std::cerr <<versionString_ <<"\n";
 }
 
-void ShowHelp::operator()() {
-    stream_ <<"FIXME[Robb Matzke 2014-02-14]: This is the help message!\n";
+void ShowHelp::operator()(const Parser *parser) {
+    parser->emitDocumentationToPager();
 }
 
 ExitProgram::Ptr exitProgram(int exitStatus) { return ExitProgram::instance(exitStatus); }
 ShowVersion::Ptr showVersion(const std::string &versionString) { return ShowVersion::instance(versionString); }
-ShowHelp::Ptr showHelp(std::ostream &o) { return ShowHelp::instance(o); }
+ShowHelp::Ptr showHelp() { return ShowHelp::instance(); }
 
 
 /*******************************************************************************************************************************
@@ -479,8 +484,34 @@ Switch& Switch::longName(const std::string &name) {
     return *this;
 }
 
+std::string Switch::synopsisForArgument(const SwitchArgument &sa) const {
+    std::string retval;
+    if (sa.isOptional())
+        retval += "[";
+    retval += "@v{" + sa.name() + "}";
+    if (sa.isOptional())
+        retval += "]";
+    return retval;
+}
+
 std::string Switch::synopsis() const {
-    return "FIXME[Robb Matzke 2014-02-14]: This is the synopsis!";
+    if (!synopsis_.empty())
+        return synopsis_;
+
+    std::vector<std::string> perName;
+    BOOST_FOREACH (const std::string &name, longNames_) {
+        std::string s = "@s{" + name +"}";
+        BOOST_FOREACH (const SwitchArgument &sa, arguments_)
+            s += " " + synopsisForArgument(sa);
+        perName.push_back(s);
+    }
+    BOOST_FOREACH (char name, shortNames_) {
+        std::string s = "@s{" + std::string(1, name) + "}";
+        BOOST_FOREACH (const SwitchArgument &sa, arguments_)
+            s += " " + synopsisForArgument(sa);
+        perName.push_back(s);
+    }
+    return boost::join(perName, "; ");
 }
 
 Switch& Switch::resetLongPrefixes(const std::string &s1, const std::string &s2, const std::string &s3, const std::string &s4) {
@@ -533,9 +564,9 @@ Switch& Switch::argument(const std::string &name, const ValueParser::Ptr &parser
     return argument(SwitchArgument(name, parser, defaultValueStr));
 }
 
-Switch& Switch::defaultValue(const std::string &text, const ValueParser::Ptr &p) {
-    defaultValue_ = p->matchString(text);
-    defaultValueString_ = text;
+Switch& Switch::intrinsicValue(const std::string &text, const ValueParser::Ptr &p) {
+    intrinsicValue_ = p->matchString(text);
+    intrinsicValueString_ = text;
     return *this;
 }
 
@@ -711,7 +742,7 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
     // If the switch has no declared arguments, then parse its default.
     if (arguments_.empty()) {
         assert(cursor.atArgBegin() || cursor.atEnd());
-        result.push_back(ParsedValue(defaultValue_, NOWHERE, defaultValueString_));
+        result.push_back(ParsedValue(intrinsicValue_, NOWHERE, intrinsicValueString_));
         return;
     }
 
@@ -750,7 +781,7 @@ void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor
                                 ParsedValues &result /*out*/) const {
     // If the switch has no declared arguments, then parse its default.
     if (arguments_.empty()) {
-        result.push_back(ParsedValue(defaultValue_, NOWHERE, defaultValueString_));
+        result.push_back(ParsedValue(intrinsicValue_, NOWHERE, intrinsicValueString_));
         return;
     }
 
@@ -760,9 +791,9 @@ void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor
         throw notEnoughArguments(switchString, cursor, nValuesParsed);
 }
 
-void Switch::runActions() const {
+void Switch::runActions(const Parser *parser) const {
     BOOST_FOREACH (const SwitchAction::Ptr &action, actions_)
-        action->run();
+        action->run(parser);
 }
 
 
@@ -860,14 +891,14 @@ const Switch& SwitchGroup::getByKey(const std::string &s) {
  *                                      Parser results
  *******************************************************************************************************************************/
 
-void ParserResult::insert(ParsedValues &pvals) {
+void ParserResult::insert(ParsedValues &pvals, const Parser *parser) {
     std::set<const Switch*> seen;
     BOOST_FOREACH (ParsedValue &pval, pvals) {
         const Switch *sw = &pval.createdBy();
 
         // How to save this value
         bool shouldSave = true;
-        switch (sw->save()) {
+        switch (sw->whichValue()) {
             case SAVE_NONE:
                 throw std::runtime_error(pval.switchString() + " is illegal here");
             case SAVE_ONE:
@@ -885,9 +916,9 @@ void ParserResult::insert(ParsedValues &pvals) {
                 break;
             case SAVE_ALL:
                 break;
-            case SAVE_AUGMENT:
+            case SAVE_AUGMENTED:
                 if (!keyIndex_[sw->key()].empty()) {
-                    ValueAugmenter::Ptr f = sw->augmentValue();
+                    ValueAugmenter::Ptr f = sw->valueAugmenter();
                     if (f)
                         (*f)(values_[keyIndex_[sw->key()].back()], pval);
                     keyIndex_[sw->key()].pop_back();
@@ -917,7 +948,7 @@ void ParserResult::insert(ParsedValues &pvals) {
         // to run only once.  Long switches won't have this ambiguity since insert() will be called with only one long
         // switch at a time.
         if (seen.insert(sw).second)
-            sw->runActions();
+            sw->runActions(parser);
     }
 }
 
@@ -1138,7 +1169,7 @@ bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
     // Single long switch
     ParsedValues values;
     if (parseLongSwitch(cursor, values, saved_error /*out*/)) {
-        result.insert(values);
+        result.insert(values, this);
         return true;
     }
 
@@ -1150,7 +1181,7 @@ bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
                 const Switch &sw = values.front().createdBy();
                 throw sw.extraTextAfterArgument(values.front().switchString(), cursor);
             }
-            result.insert(values);
+            result.insert(values, this);
             return true;
         }
     } else {
@@ -1165,7 +1196,7 @@ bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
             }
         }
         if (allParsed) {
-            result.insert(values);
+            result.insert(values, this);
             guard.cancel();
             return true;
         }
@@ -1309,6 +1340,336 @@ std::vector<std::string> Parser::readArgsFromFile(const std::string &filename) {
         }
     }
     return retval;
+}
+
+const std::string& Parser::programName() const {
+    if (programName_.empty()) {
+        boost::optional<std::string> s = Message::Prefix::instance()->programName();
+        if (s)
+            programName_ = *s;
+    }
+    return programName_;
+}
+
+Parser& Parser::version(const std::string &versionString, const std::string &dateString) {
+    versionString_ = versionString;
+    dateString_ = dateString;
+    return *this;
+}
+
+std::pair<std::string, std::string> Parser::version() const {
+    if (dateString_.empty()) {
+        time_t now = time(NULL);
+        struct tm tm;
+        if (localtime_r(&now, &tm)) {
+            static const char *month[] = {"January", "February", "March", "April", "May", "June", "July",
+                                          "August", "September", "October", "November", "December"};
+            dateString_ = std::string(month[tm.tm_mon]) + " " + boost::lexical_cast<std::string>(1900+tm.tm_year);
+        }
+    }
+    return std::make_pair(versionString_, dateString_);
+}
+
+Parser& Parser::chapter(int chapterNumber, const std::string &chapterName) {
+    int cn = chapterNumber_ = chapterNumber < 1 || chapterNumber > 9 ? 1 : chapterNumber;
+    if (chapterName.empty()) {
+        static const char *chapter[] = {
+            "",                                         // 0
+            "User Commands",                            // 1
+            "System Calls",                             // 2
+            "Libraries",                                // 3
+            "Devices",                                  // 4
+            "File Formats",                             // 5
+            "Games",                                    // 6
+            "Miscellaneous",                            // 7
+            "System Administration",                    // 8
+            "Documentation"                             // 9
+        };
+        chapterName_ = chapter[cn];
+    } else {
+        chapterName_ = chapterName;
+    }
+    return *this;
+}
+
+std::pair<int, std::string> Parser::chapter() const {
+    return std::make_pair(chapterNumber_, chapterName_);
+}
+
+Parser& Parser::doc(const std::string &sectionName, const std::string &docKey, const std::string &text) {
+    sectionOrder_[docKey] = sectionName;
+    sectionDoc_[boost::to_lower_copy(sectionName)] = text;
+    return *this;
+}
+
+std::vector<std::string> Parser::docSections() const {
+    std::vector<std::string> retval;
+    for (StringStringMap::const_iterator di=sectionDoc_.begin(); di!=sectionDoc_.end(); ++di)
+        retval.push_back(di->first);
+    return retval;
+}
+
+// @s{NAME} where NAME is either a long or short switch name without prefix.
+typedef std::map<std::string, std::string> PreferredPrefixes; // maps switch names to their best prefixes
+typedef boost::shared_ptr<class SwitchTag> SwitchTagPtr;
+class SwitchTag: public Markup::Tag {
+    PreferredPrefixes preferredPrefixes_;
+    std::string bestShortPrefix_;                       // short prefix if the switch name is not recognized
+    std::string bestLongPrefix_;                        // long prefix if the switch name is not recognized
+protected:
+    SwitchTag(const PreferredPrefixes &known, const std::string &bestShort, const std::string &bestLong)
+        : Markup::Tag("switch", 1), preferredPrefixes_(known), bestShortPrefix_(bestShort), bestLongPrefix_(bestLong) {}
+public:
+    static SwitchTagPtr instance(const PreferredPrefixes &known, const std::string &bestShort, const std::string &bestLong) {
+        return SwitchTagPtr(new SwitchTag(known, bestShort, bestLong));
+    }
+    virtual Markup::ContentPtr eval(const Markup::TagArgs &args) /*override*/ {
+        using namespace Markup;
+        assert(1==args.size());
+        std::string raw = args.front()->asText();
+        PreferredPrefixes::const_iterator i = preferredPrefixes_.find(raw);
+        if (i==preferredPrefixes_.end()) {
+            if (1==raw.size()) {
+                raw = bestShortPrefix_ + raw;
+            } else {
+                raw = bestLongPrefix_ + raw;
+            }
+        } else {
+            raw = i->second + raw;
+        }
+        TagInstancePtr nulltag = TagInstance::instance(NullTag::instance(raw));
+        ContentPtr retval = Content::instance();
+        retval->append(nulltag);
+        return retval;
+    }
+};
+
+// @seeAlso is replaced by the list @man references that have been processed so far.
+typedef boost::shared_ptr<class SeeAlsoTag> SeeAlsoTagPtr;
+class SeeAlsoTag: public Markup::Tag {
+public:
+public:
+    typedef std::map<std::string, Markup::ContentPtr> SeeAlso;
+private:
+    SeeAlso seeAlso_;
+protected:
+    SeeAlsoTag(): Markup::Tag("seeAlso", 0) {}
+public:
+    static SeeAlsoTagPtr instance() { return SeeAlsoTagPtr(new SeeAlsoTag); }
+    void insert(const std::string &name, const Markup::ContentPtr content) {
+        seeAlso_[name] = content;
+    }
+    virtual Markup::ContentPtr eval(const Markup::TagArgs &args) /*override*/ {
+        using namespace Markup;
+        assert(0==args.size());
+        ContentPtr retval = Content::instance();
+        for (SeeAlso::iterator sai=seeAlso_.begin(); sai!=seeAlso_.end(); ++sai) {
+            if (sai!=seeAlso_.begin())
+                retval->append(", ");
+            retval->append(sai->second);
+        }
+        return retval;
+    }
+};
+
+// @man{PAGE}{CHAPTER} converted to @b{PAGE}(CHAPTER) to cite Unix manual pages.
+typedef boost::shared_ptr<class ManTag> ManTagPtr;
+class ManTag: public Markup::Tag {
+    SeeAlsoTagPtr seeAlso_;
+protected:
+    ManTag(const SeeAlsoTagPtr &seeAlso): Markup::Tag("man", 2), seeAlso_(seeAlso) {}
+public:
+    static ManTagPtr instance(const SeeAlsoTagPtr &seeAlso) { return ManTagPtr(new ManTag(seeAlso)); }
+    virtual Markup::ContentPtr eval(const Markup::TagArgs &args) /*override*/ {
+        using namespace Markup;
+        assert(2==args.size());
+        ContentPtr retval = Content::instance();
+        retval->append(TagInstance::instance(BoldTag::instance(), args[0]));
+        retval->append("(");
+        retval->append(args[1]);
+        retval->append(")");
+        seeAlso_->insert(args[0]->asText(), retval);
+        return retval;
+    }
+};
+
+// @prop{KEY} is replaced with the property string stored for KEY
+typedef boost::shared_ptr<class PropTag> PropTagPtr;
+class PropTag: public Markup::Tag {
+    std::map<std::string, std::string> values_;
+protected:
+    PropTag(): Markup::Tag("prop", 1) {}
+public:
+    static PropTagPtr instance() { return PropTagPtr(new PropTag); }
+    PropTagPtr with(const std::string &key, const std::string &value) {
+        values_[key] = value;
+        return boost::dynamic_pointer_cast<PropTag>(shared_from_this());
+    }
+    virtual Markup::ContentPtr eval(const Markup::TagArgs &args) /*overload*/ {
+        using namespace Markup;
+        assert(1==args.size());
+        std::string key = args.front()->asText();
+        ContentPtr retval = Content::instance();
+        retval->append(values_[key]);
+        return retval;
+    }
+};
+
+std::string Parser::docForSection(const std::string &sectionName) const {
+    std::string docKey = boost::to_lower_copy(sectionName);
+    StringStringMap::const_iterator section = sectionDoc_.find(docKey);
+    std::string doc = section == sectionDoc_.end() ? std::string() : section->second;
+    if (0==docKey.compare("name")) {
+        if (doc.empty())
+            doc = programName() + " - " + (purpose_.empty() ? std::string("Undocumented") : purpose_);
+    } else if (0==docKey.compare("synopsis")) {
+        if (doc.empty())
+            doc = programName() + " [@v{switches}]...\n";
+    } else if (0==docKey.compare("options")) {
+        StringStringMap docByKey;
+        BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
+            BOOST_FOREACH (const Switch &sw, sg.switches()) {
+                if (!sw.hidden()) {
+                    const std::string &swDoc = sw.doc();
+                    docByKey[sw.docKey()] = "@defn{" + sw.synopsis() + "}"
+                                            "{" + (swDoc.empty() ? std::string("Not documented.") : sw.doc()) + "}\n";
+                }
+            }
+        }
+        doc += "\n\n";
+        for (StringStringMap::iterator di=docByKey.begin(); di!=docByKey.end(); ++di)
+            doc += di->second;
+    } else if (0==docKey.compare("see also")) {
+            doc += "\n\n@seeAlso";
+    }
+    
+    return doc;
+}
+
+// Returns a map that lists all known switches and their preferred prefix
+void Parser::preferredSwitchPrefixes(std::map<std::string, std::string> &prefixMap /*out*/) const {
+    BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
+        ParsingProperties sgProps = sg.properties().inherit(properties_);
+        BOOST_FOREACH (const Switch &sw, sg.switches()) {
+            ParsingProperties swProps = sw.properties().inherit(sgProps);
+            if (!swProps.longPrefixes.empty()) {
+                const std::string &prefix = swProps.longPrefixes.front();
+                BOOST_FOREACH (const std::string &name, sw.longNames())
+                    prefixMap[name] = prefix;
+            }
+            if (!swProps.shortPrefixes.empty()) {
+                const std::string &prefix = swProps.shortPrefixes.front();
+                BOOST_FOREACH (char name, sw.shortNames())
+                    prefixMap[std::string(1, name)] = prefix;
+            }
+        }
+    }
+}
+
+// Obtain the documentation markup for this parser.
+std::string Parser::documentationMarkup() const {
+    std::set<std::string> created;                      // sections that we've created
+
+    // The man pages starts with some sections that are always present in the same order.
+    std::string doc = "@section{Name}{" + docForSection("name") + "}\n" +
+                      "@section{Synopsis}{" + docForSection("synopsis") + "}\n" +
+                      "@section{Description}{" + docForSection("description") + "}\n" +
+                      "@section{Options}{" + docForSection("options") + "}\n";
+    created.insert("name");
+    created.insert("synopsis");
+    created.insert("description");
+    created.insert("options");
+
+    // Append user-defined sections
+    for (StringStringMap::const_iterator soi=sectionOrder_.begin(); soi!=sectionOrder_.end(); ++soi) {
+        if (created.insert(boost::to_lower_copy(soi->second)).second)
+            doc += "@section{" + soi->second + "}{" + docForSection(soi->second) + "}\n";
+    }
+
+    // This section is always at the bottom unless the user forces it elsewhere.
+    if (created.insert("see also").second)
+        doc += "@section{See Also}{" + docForSection("see also") + "}\n";
+    
+    return doc;
+}
+
+// Generate an nroff manual page
+std::string Parser::manpage() const {
+    // The @s tag for expanding switch names from "foo" to "--foo", or whatever is appropriate
+    std::map<std::string, std::string> prefixes;
+    preferredSwitchPrefixes(prefixes);
+    std::string bestShort = properties_.shortPrefixes.empty() ?
+                            std::string("-") :
+                            properties_.shortPrefixes.front();
+    std::string bestLong = properties_.longPrefixes.empty() ?
+                           std::string("--") :
+                           properties_.longPrefixes.front();
+
+    // Make some properties available in the markup
+    PropTagPtr properties = PropTag::instance();
+    properties
+        ->with("inclusionPrefix", inclusionPrefixes_.empty() ? std::string() : inclusionPrefixes_.front())
+        ->with("terminationSwitch", terminationSwitches_.empty() ? std::string() : terminationSwitches_.front())
+        ->with("programName", programName())
+        ->with("purpose", purpose())
+        ->with("versionString", version().first)
+        ->with("versionDate", version().second)
+        ->with("chapterNumber", boost::lexical_cast<std::string>(chapter().first))
+        ->with("chapterName", chapter().second);
+
+    // This tag decl will accumulate all the @man references
+    SeeAlsoTagPtr seeAlso = SeeAlsoTag::instance();
+
+    Markup::Parser mp;
+    mp.registerTag(SwitchTag::instance(prefixes, bestShort, bestLong), "s");
+    mp.registerTag(ManTag::instance(seeAlso), "man");
+    mp.registerTag(seeAlso, "seeAlso");
+    mp.registerTag(properties, "prop");
+
+    Markup::ParserResult markup = mp.parse(documentationMarkup());
+    std::string chapterNumberStr = boost::lexical_cast<std::string>(chapter().first);
+    Markup::RoffFormatterPtr nroff = Markup::RoffFormatter::instance(programName(), chapterNumberStr, chapter().second);
+    nroff->version(version().first, version().second);
+    std::ostringstream ss;
+    markup.emit(ss, nroff);
+    return ss.str();
+}
+
+// Try to determine screen width.
+int Parser::terminalWidth() {
+    int ttyfd = isatty(1) ? 1 : (isatty(0) ? 1 : (isatty(2) ? 2 : -1));
+    if (ttyfd >= 0) {
+        struct winsize ws;
+        if (-1 != ioctl(ttyfd, TIOCGWINSZ, &ws))
+            return ws.ws_col;
+    }
+        
+    if (const char *columns = getenv("COLUMNS")) {
+        char *rest = NULL;
+        errno = 0;
+        int n = strtol(columns, &rest, 0);
+        if (0==errno && rest!=columns && !*rest)
+            return n;
+    }
+
+    return 80;
+}
+
+// Send manual to the output
+// nroff -mandoc -rLL=156n -rLT=156n |ul
+void Parser::emitDocumentationToPager() const {
+    std::string doc = manpage();
+    int actualWidth = terminalWidth();
+    int width = std::min(actualWidth * 39/40, std::max(actualWidth-2, 20));
+    std::string cmd = std::string("nroff -man ") +
+                      "-rLL=" + boost::lexical_cast<std::string>(width) + "n " +
+                      "-rLT=" + boost::lexical_cast<std::string>(width) + "n " +
+                      "| less";
+    FILE *proc = popen(cmd.c_str(), "w");
+    if (!proc)
+        throw std::runtime_error("cannot run \"" + cmd + "\"");
+    fputs(doc.c_str(), proc);
+    pclose(proc);
 }
 
 } // namespace

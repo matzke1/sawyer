@@ -1,11 +1,16 @@
 #include "CommandLine.h"
 
+using namespace Sawyer::CommandLine;
+    
 enum WhenColor { NEVER, AUTO, ALWAYS };
+
+void showRawManPage(const Parser *parser) {
+    std::cout <<parser->manpage();
+    exit(0);
+}
 
 int main(int argc, char *argv[]) {
 
-    using namespace Sawyer::CommandLine;
-    
     SwitchGroup ss;
 
 #if 0 /*DEBUGGING [Robb Matzke 2014-02-17]*/
@@ -19,7 +24,7 @@ int main(int argc, char *argv[]) {
 #else
 
     // Minimal format for a switch: takes no arguments and stores true if the switch occurred on the command line at least
-    // once, and has no documentation.
+    // once.
     ss.insert(Switch("verbose", 'v'));
 
     // A switch may have more than one name.
@@ -31,6 +36,12 @@ int main(int argc, char *argv[]) {
     // The rest of these examples don't use documentation just to keep things short and simple.
     ss.insert(Switch("all", 'a')
               .doc("Do not ignore entries starting with '.'"));
+
+    // Switches can override or augment the set of prefix strings.  This switch will be accepted as "-rose:log" instead
+    // of the normal prefixes. (Using this is discouraged since it can be jarring for users on systems that don't normally use
+    // that prefix. E.g., POSIX uses "+", Windows uses "/").
+    ss.insert(Switch("log")
+              .resetLongPrefixes("-rose:"));
     
     // A switch can cause some action to immediately occur each time it is processed.  The showVersion() is an action
     // provided by Sawyer, but user actions are also allowed.
@@ -42,62 +53,90 @@ int main(int argc, char *argv[]) {
     // things, but that's more verbose (one goal of this API is that switch descriptions are short).
     ss.insert(Switch("help", 'h')
               .shortName('?')
-              .action(showHelp(std::cout))
+              .action(showHelp())
               .action(exitProgram(0)));
 
-    // An argumentless switch can can be given a different value than true/false when it occurs.  For instance, this "--wide"
+    // Here's a user defined action the shortest way possible.  User's can also use the boost shared pointer paradigm used
+    // throughout Sawyer itself, but this way is a little shorter and more STL-like. The functor should expect one argument, a
+    // pointer to the parser which is calling it.
+    ss.insert(Switch("raw-man")
+              .action(userAction(showRawManPage))
+              .doc("Prints the raw nroff man page to standard output for debugging."));
+
+    // An argumentless switch can can be given a different value than true when it occurs.  For instance, this switch
     // will set its value to the unsigned int 130 if it occurs on the command-line.
     ss.insert(Switch("wide")
-              .defaultValue("130", unsignedIntegerParser()));
+              .intrinsicValue("130", unsignedIntegerParser()));
 
     // A switch can take an argument interpreted as an arbitrary string.  The argument can be separated from the
     // switch in various ways: as a single program argument: --committer=alice or -Calice; as two program
-    // arguments: --committer alice or -C alice.  Controlled by settings for the parser, switch set, or switch.
+    // arguments: --committer alice or -C alice (controlled by settings for the parser, switch group, or switch).
+    // The argument name, "name" in this case, is only used in error messages and documentation and can be pretty much
+    // anything you want (but probably something that succinctly describes the argument).
     ss.insert(Switch("committer", 'C')
+              .argument("name"));
+
+    // A switch can control what separates the switch name from the value.  This switch accepts the usual "=" but also
+    // accepts ":=".  It usually doesn't matter what order the settings occur since they're all just properties that are
+    // being adjusted.  A few methods are order dependent (like resetValueSeparators() and valueSeparator()).  In general, if a
+    // method name includes a verb then it probably does something more than only adjust a property.
+    ss.insert(Switch("verifier")
+              .valueSeparator(":=")
               .argument("name"));
 
     // A switch can have more than one argument, as in
     //    --swap thing1 thing2
-    // which is different than a switch that takes one argument that can be parsed as two values:
+    // which is different than a switch that takes one argument that can be parsed as two individual values:
     //    --swap thing1,thing2   (we'll show this below)
     // its also possible to combine two or more different syntaxes for the same switch (also shown below).
     ss.insert(Switch("swap")
               .argument("first-item")
               .argument("second-item"));
 
-    // A switch may require that its argument be parsable as an integer, unsigned integer, real number, etc.
-    ss.insert(Switch("threshold")                       // no short name for this one
+    // A switch may require that its argument be parsable as an integer, unsigned integer, real number, etc. When a parser is
+    // specified it not only allows some rudimentary error checking, but it also converts and stores the value as any C++ type
+    // (in addition to std::string). It also allows nestling of single-letter switches with values, as in this example, which
+    // allows "-t3.14v" -- same as "-t 3.14 -v" (nestling can be disabled with a parser property if you don't like it).
+    ss.insert(Switch("threshold", 't')
               .argument("threshold", realNumberParser()));
 
-    // If a switch occurs more than once on the command line, all occurrances will be parsed and saved. This behavior can be
-    // changed so that only the first value is saved, only the last value is saved, or an error is raised if the switch appears
-    // more than once.  This example saves only the last value and throws earlier values away:
+    // If a switch occurs more than once on the command line, all occurrances will be parsed but only the last value is
+    // preserved in the parser results (that's usually what one wants for most switches). This behavior can be changed so that
+    // only the first value is saved, or it's an error for the switch to occur more than once (or ever), or all values are
+    // saved.  This example saves all the values.
     ss.insert(Switch("editor", 'E')
               .argument("editor_command")
-              .saveLast());                             // this is the default
+              .whichValue(SAVE_ALL));                   // the default is SAVE_LAST
 
-    // It's also possible that subsequent occurrences modify the value stored by the previous occurrence. A classic example is
-    // a debug switch where each occurrence of the switch increments the debug level.
+    // It's also possible that subsequent occurrences of a switch modify the value stored by the previous occurrence. A classic
+    // example is a debug switch where each occurrence of the switch increments the debug level, storing only a single integer
+    // rather than a list of integers.  One does that by registering a value augmenter and setting the whichProperty to
+    // SAVE_AUGMENTED.  The augmenter probably needs to be aware of the data type being saved.  Users can create the own
+    // augmenters: they're just functors that take two parsed values and return one.
     ss.insert(Switch("debug", 'd')
-              .defaultValue("1", integerParser())
-              .saveAugment(incrementInt()));
+              .intrinsicValue("1", integerParser())     // otherwise the values are Boolean
+              .valueAugmenter(incrementInt())           // an agumenter provided by the library
+              .whichValue(SAVE_AUGMENTED));             // ensures the augmenter is called
     
     // A switch may be prohibited from occurring multiple times on the command line.
     ss.insert(Switch("password", 'P')
-              .saveOne());                              // different than saveFirst (which ignores subsequent occurrences)
+              .whichValue(SAVE_ONE));                   // different than SAVE_FIRST which ignores subsequent occurrences
 
     // A switch can even be prohibited from occuring at all on the command line (it still appears in the documentation if it
     // isn't also hidden).//FIXME[Robb Matzke 2014-02-24]: provide an error message as an argument
     ss.insert(Switch("author", 'A')
               .argument("name")
-              .saveNone());
+              .whichValue(SAVE_NONE));
 
     // A switch may have multiple values separated by the specified regular expression (default is a comma, colon, or semicolon
-    // followed by optional white space, or at least one white space.
+    // followed by optional white space, or at least one white space.  If a switch argument parses to an STL container, the
+    // container can be optionally exploded so "-I foo:bar" is (almost) indistinguishable from "-I foo -I bar" (almost, because
+    // the information about where each value came from on the command line is inaccurate).
     ss.insert(Switch("incdir", 'I')
               .doc("List of directories to search.")
               .argument("directories", listParser(anyParser())) // each switch value is a list of strings
-              .saveAll());                               // and the switch can appear multiple times
+              .explodeVector(true)                      // FIXME[Robb Matzke 2014-02-24]: should not be a verb
+              .whichValue(SAVE_ALL));                   // and the switch can appear multiple times
 
     // A switch can be one of an enumerated list.
     ss.insert(Switch("untracked-files", 'u')
@@ -134,15 +173,15 @@ int main(int argc, char *argv[]) {
                         ->limit(1, 2)));                // allow only one or two items in the list
 
     // If two switches are a Boolean pair (--pager/--no-pager, --fomit-frame-pointer/--fno-omit-fram-pointer,
-    // --verbose/--quiet) you can give the switches two different default values and tell them to store their value in the same
-    // place (by virtue of both using the same storage key).  The Boolean parser accepts a variety of strings, and if it's not
-    // flexible enough you can use the stringSetParser.
+    // --verbose/--quiet) you can give the switches two different intrinsic values and tell them to store their value in the
+    // same place (by virtue of both using the same storage key).  The Boolean parser accepts a variety of strings, and if it's
+    // not flexible enough you can use the stringSetParser.
     ss.insert(Switch("fomit-frame-pointer")
               .key("fomit-frame-pointer")               // this is the default for this switch
-              .defaultValue("yes", booleanParser()));   // this is the default for this switch
+              .intrinsicValue("yes", booleanParser())); // this is the default for this switch
     ss.insert(Switch("fno-omit-frame-pointer")
               .key("fomit-frame-pointer")               // use the same key as the "yes" version
-              .defaultValue("no", booleanParser()));    // but cause a "no" to be registered
+              .intrinsicValue("no", booleanParser()));  // but cause a "no" to be registered
 
     // Two switches can be mutually exclusive using the storeOne() attribute in conjuction with a single key.  The various
     // storage settings (one, first, last, all, etc.) that we saw above are applied on a per-key basis rather than a per-switch
@@ -153,14 +192,14 @@ int main(int argc, char *argv[]) {
               .longName("quick")
               .longName("rabbit")
               .key("speed")
-              .defaultValue("75", integerParser())
-              .saveOne());
+              .intrinsicValue("75", integerParser())
+              .whichValue(SAVE_ONE));
     ss.insert(Switch("go-slow", 'S')
               .longName("lazy")
               .longName("turtle")
               .key("speed")
-              .defaultValue("15", integerParser())
-              .saveOne());
+              .intrinsicValue("15", integerParser())
+              .whichValue(SAVE_ONE));
 
     // A switch argument may be optional. E.g., "--color" is the same as "--color=always" if the next program argument doesn't
     // look like a valid argument for the switch.
@@ -177,7 +216,8 @@ int main(int argc, char *argv[]) {
     
     // User can supply his own parser.  Here's a parser that requires an argument to start with the string ":module:".  Of
     // course, this silly example can probably be delayed until after parsing, but when the syntax is for an optional switch
-    // argument you sometimes need to do it during parsing.
+    // argument you sometimes need to do it during parsing.  The interface shown has an API like strtod() et al. There's also
+    // an interface for parsing values that span multiple program arguments.
     typedef boost::shared_ptr<class MyParser> MyParserPtr;
     struct MyParser: ValueParser {
         static MyParserPtr instance() { return MyParserPtr(new MyParser); } // or use a global myParser() factory function
@@ -206,11 +246,12 @@ int main(int argc, char *argv[]) {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // construct a parser, add switch groups, and apply it to program arguments.
-    ParserResult cmdline = Parser().with(ss)
-                           // .skipUnknownSwitches()
-                           // .skipNonSwitches()
-                           .resetInclusionPrefixes("--file=")
-                           .parse(argc, argv);
+    ParserResult cmdline = Parser()
+                           .with(ss)                    // as many switch groups as you like (but at least one)
+                           .skipUnknownSwitches()       // optional, causes the parser to keep going across unknown switches
+                           .skipNonSwitches()           // optional, causes the parser to keep going across positional args
+                           .resetInclusionPrefixes("--file=") // saying "--file=x" will suck in switches from the file "x"
+                           .parse(argc, argv);          // here's the actual parsing (other methods available too)
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Query results
@@ -218,12 +259,16 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::string> args;
 
+    // Did we see an occurrence of the "--test" switch?  If so, get its value a few different ways.  We can also get things
+    // like a pointer to the Switch object, the switch text (whether it was "--test", "-test", "+test", etc.), the location of
+    // the switch in the command line, the value text as it appeared on the command line, where the value appeared, etc.
     if (cmdline.have("test")) {
-        std::cout <<"parsed test: string value=\"" <<cmdline.parsed("test", 0).string() <<"\"\n";
+        std::cout <<"parsed test: string value=\"" <<cmdline.parsed("test", 0).string() <<"\"\n"; // command-line text
         std::cout <<"value as floating point: " <<cmdline.parsed("test", 0).asDouble() <<"\n";
-        std::cout <<"value as string: " <<cmdline.parsed("test", 0).asString() <<"\n";
+        std::cout <<"value as string: " <<cmdline.parsed("test", 0).asString() <<"\n"; // the double cast to a string
     }
 
+    // Some queries that return parts of a command line.
     args = cmdline.parsedArgs();
     std::cout <<"these program arguments were parsed:";
     for (size_t i=0; i<args.size(); ++i)
@@ -242,6 +287,8 @@ int main(int argc, char *argv[]) {
         std::cout <<" \"" <<args[i] <<"\"";
     std::cout <<"\n";
 
+    // This query is how you would use the parser to remove the switches we recognize so that the rest of the command line can
+    // be passed to some other parser.
     args = cmdline.unparsedArgs();
     std::cout <<"these are all the arguments not parsed:";
     for (size_t i=0; i<args.size(); ++i)
@@ -250,19 +297,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
-
-
-//    // FIXME[Robb Matzke 2014-02-13] show some things we can do with the results
-//
-//
-//                   .longPrefix("--", "-")               // prefixes for introducing long-name switches (this is the default)
-//                   .shortPrefix("-")                    // prefixes for introducing single-letter switches (this is default)
-//                   .longValueSeparator("=", " ")        // what separates a switch name from its value (this is the default)
-//                   .shortMayNestle(true)                // "-ab" is like "-a -b" (this is the default)
-//                   .terminator("--")                    // stop processing when we hit "--" (this is the default)
-//                   .include("@");                       // "@foobar" will insert switches from file "foobar"
-//
-//
-//
-//    SwitchGroup ss = SwitchGroup()
