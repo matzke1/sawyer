@@ -1104,6 +1104,19 @@ ParserResult Parser::parse(int argc, char *argv[]) {
 }
 
 ParserResult Parser::parse(const std::vector<std::string> &programArguments) {
+    if (errorStream_) {
+        try {
+            return parseInternal(programArguments);
+        } catch (const std::runtime_error &e) {
+            *errorStream_ << e.what() <<"\n";
+            exit(1);
+        }
+    } else {
+        return parseInternal(programArguments);
+    }
+}
+
+ParserResult Parser::parseInternal(const std::vector<std::string> &programArguments) {
     ParserResult result(programArguments);
     Cursor &cursor = result.cursor();
 

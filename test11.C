@@ -41,9 +41,10 @@
 
 #include "CommandLine.h"
 
-int main(int argc, char *argv[]) {
+using namespace Sawyer;
+using namespace Sawyer::CommandLine;
 
-    using namespace Sawyer::CommandLine;
+int main(int argc, char *argv[]) {
 
     SwitchGroup general;                                // general switches for all git commands
     general.insert(Switch("version")
@@ -237,6 +238,7 @@ int main(int argc, char *argv[]) {
              " and @man{git-blame}(1) can show you the authors for specific parts of the project.")
         .doc("bogus", "Something we're about to delete...")
         .doc("bogus", "") // delete a section
+        .errorStream(Message::mlog[Message::FATAL]) // exit on error instead of throwing std::runtime_error
         .parse(argc, argv);
 
     // If we didn't have --help (which we said should cause the program to exit), then print the raw nroff man page.

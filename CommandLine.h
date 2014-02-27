@@ -2,6 +2,8 @@
 #ifndef Sawyer_CommandLine_H
 #define Sawyer_CommandLine_H
 
+#include "Message.h"
+
 #include <boost/any.hpp>
 #include <boost/cstdint.hpp>
 #include <boost/enable_shared_from_this.hpp>
@@ -1311,6 +1313,7 @@ class Parser {
     typedef std::map<std::string, std::string> StringStringMap;
     StringStringMap sectionDoc_;                        // extra documentation for any section by lower-case section name
     StringStringMap sectionOrder_;                      // maps section keys to section names
+    Message::SProxy errorStream_;                       // send errors here if non-null instead of throwing runtime_error
     
 public:
 
@@ -1405,6 +1408,24 @@ public:
     bool skippingUnkownSwitches() const { return skipUnknownSwitches_; }
     /** @} */
 
+    /** Specifies a message stream to which errors are sent.  If non-null, when a parse method encounters an error it writes
+     *  the error message to this stream and exits.  The default, when null, is that errors cause an std::runtime_error to
+     *  be thrown.  The various "skip" properties suppress certain kinds of errors entirely.
+     *
+     *  SProxy objects are intermediaries returned by the "[]" operator of Message::Facility, and users don't normally interact
+     *  with them explicitly.  They're only present because c++11 std::move semantics aren't widely available yet.
+     *
+     *  For example, to cause command-line parsing errors to use the Sawyer-wide FATAL stream, say this:
+     *
+     * @code
+     *  Parser parser;
+     *  parser.errorStream(Message::mlog[Message::FATAL]);
+     * @endcode
+     * @{ */
+    Parser& errorStream(const Message::SProxy &stream) { errorStream_ = stream; return *this; }
+    const Message::SProxy& errorStream() const { return errorStream_; }
+    /** @} */
+
     /** Parse program arguments.  The first program argument, <code>argv[0]</code>, is considered to be the name of the program
      *  and is not parsed as a program argument.  This function does not require that <code>argv[argc]</code> be a member of
      *  the argv array (normally, <code>argv[argc]==NULL</code>) in main(). */
@@ -1494,6 +1515,9 @@ public:
 
 private:
     void init();
+
+    // Implementation for the public parse methods.
+    ParserResult parseInternal(const std::vector<std::string> &programArguments);
 
     // Parse one switch from the current position in the command line and return the switch descriptor.  If the cursor is at
     // the end of the command line then return false without updating the cursor or parsed values.  If the cursor is at a
