@@ -1,3 +1,4 @@
+#include "Assert.h"
 #include "MarkupRoff.h"
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/classification.hpp>
@@ -243,8 +244,8 @@ bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagA
 }
 
 void RoffFormatter::endTag(std::ostream &stream, const TagPtr &tag, const TagArgs &args) {
-    assert(!tagStack_.empty());
-    assert(tagStack_.back()->name() == tag->name());
+    ASSERT_forbid(tagStack_.empty());
+    ASSERT_require(tagStack_.back()->name() == tag->name());
     tagStack_.pop_back();
 }
 

@@ -1,3 +1,4 @@
+#include "Assert.h"
 #include "CommandLine.h"
 #include "MarkupRoff.h"
 #include "Message.h"
@@ -10,7 +11,6 @@
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
-#include <cassert>
 #include <cerrno>
 #include <set>
 #include <sstream>
@@ -80,7 +80,7 @@ Cursor& Cursor::location(const Location &loc) {
 
 void Cursor::consumeChars(size_t nchars) {
     while (nchars > 0 && loc_.idx < strings_.size()) {
-        assert(strings_[loc_.idx].size() >= loc_.offset);
+        ASSERT_require(strings_[loc_.idx].size() >= loc_.offset);
         size_t n = std::min(nchars, (strings_[loc_.idx].size() - loc_.offset));
         loc_.offset += n;
         nchars -= n;
@@ -92,7 +92,7 @@ void Cursor::consumeChars(size_t nchars) {
 }
 
 void Cursor::replace(const std::vector<std::string> &args) {
-    assert(!atEnd());
+    ASSERT_forbid(atEnd());
     std::vector<std::string>::iterator at = strings_.begin() + loc_.idx;
     at = strings_.erase(at);
     strings_.insert(at, args.begin(), args.end());
@@ -127,7 +127,7 @@ boost::any ValueParser::operator()(Cursor &cursor) {
     const char *rest = s;
     boost::any retval = (*this)(s, &rest);
     if (NULL!=rest) {
-        assert(rest>=s && rest<= s+strlen(s));
+        ASSERT_require(rest>=s && rest<= s+strlen(s));
         cursor.consumeChars(rest-s);
     }
     return retval;
@@ -218,7 +218,7 @@ ListParser::Ptr ListParser::limit(size_t minLength, size_t maxLength) {
 }
 
 boost::any ListParser::operator()(Cursor &cursor) {
-    assert(!elements_.empty());
+    ASSERT_forbid(elements_.empty());
     ExcursionGuard guard(cursor);                       // parsing the list should be all or nothing
     std::vector<boost::any> retval;
     std::string sep = "";
@@ -625,7 +625,7 @@ std::runtime_error Switch::missingArgument(const std::string &switchString, cons
 }
     
 size_t Switch::matchLongName(Cursor &cursor, const ParsingProperties &props) const {
-    assert(cursor.atArgBegin());
+    ASSERT_require(cursor.atArgBegin());
     BOOST_FOREACH (const std::string &prefix, props.longPrefixes) {
         if (boost::starts_with(cursor.arg(), prefix)) {
             std::string rest = cursor.arg().substr(prefix.size());
@@ -741,7 +741,7 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
 
     // If the switch has no declared arguments, then parse its default.
     if (arguments_.empty()) {
-        assert(cursor.atArgBegin() || cursor.atEnd());
+        ASSERT_require(cursor.atArgBegin() || cursor.atEnd());
         result.push_back(ParsedValue(intrinsicValue_, NOWHERE, intrinsicValueString_));
         return;
     }
@@ -1121,7 +1121,7 @@ ParserResult Parser::parseInternal(const std::vector<std::string> &programArgume
     Cursor &cursor = result.cursor();
 
     while (!cursor.atEnd()) {
-        assert(cursor.atArgBegin());
+        ASSERT_require(cursor.atArgBegin());
 
         // Check for termination switch.
         BOOST_FOREACH (std::string termination, terminationSwitches_) {
@@ -1190,7 +1190,7 @@ bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
         // Single short switch
         if (parseShortSwitch(cursor, values, saved_error)) {
             if (!cursor.atArgBegin() && !cursor.atEnd()) {
-                assert(!values.empty());
+                ASSERT_forbid(values.empty());
                 const Switch &sw = values.front().createdBy();
                 throw sw.extraTextAfterArgument(values.front().switchString(), cursor);
             }
@@ -1438,7 +1438,7 @@ public:
     }
     virtual Markup::ContentPtr eval(const Markup::TagArgs &args) /*override*/ {
         using namespace Markup;
-        assert(1==args.size());
+        ASSERT_require(1==args.size());
         std::string raw = args.front()->asText();
         PreferredPrefixes::const_iterator i = preferredPrefixes_.find(raw);
         if (i==preferredPrefixes_.end()) {
@@ -1474,7 +1474,7 @@ public:
     }
     virtual Markup::ContentPtr eval(const Markup::TagArgs &args) /*override*/ {
         using namespace Markup;
-        assert(0==args.size());
+        ASSERT_require(0==args.size());
         ContentPtr retval = Content::instance();
         for (SeeAlso::iterator sai=seeAlso_.begin(); sai!=seeAlso_.end(); ++sai) {
             if (sai!=seeAlso_.begin())
@@ -1495,7 +1495,7 @@ public:
     static ManTagPtr instance(const SeeAlsoTagPtr &seeAlso) { return ManTagPtr(new ManTag(seeAlso)); }
     virtual Markup::ContentPtr eval(const Markup::TagArgs &args) /*override*/ {
         using namespace Markup;
-        assert(2==args.size());
+        ASSERT_require(2==args.size());
         ContentPtr retval = Content::instance();
         retval->append(TagInstance::instance(BoldTag::instance(), args[0]));
         retval->append("(");
@@ -1520,7 +1520,7 @@ public:
     }
     virtual Markup::ContentPtr eval(const Markup::TagArgs &args) /*overload*/ {
         using namespace Markup;
-        assert(1==args.size());
+        ASSERT_require(1==args.size());
         std::string key = args.front()->asText();
         ContentPtr retval = Content::instance();
         retval->append(values_[key]);
