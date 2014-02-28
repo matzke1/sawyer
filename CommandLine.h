@@ -8,8 +8,11 @@
 #include <boost/any.hpp>
 #include <boost/cstdint.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/numeric/conversion/cast.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
+#include <cerrno>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -260,9 +263,31 @@ private:
     virtual boost::any operator()(Cursor&) /*override*/;
 };
 
-/** Parses an integer.  The integer may be positive, negative, or zero in decimal, octal, or hexadecimal format using the C/C++
- *  syntax.  The syntax is that which is recognized by the strtoll() function, plus it sucks up any trailing white space.
- *  Returns boost::int64_t */
+// used internally to cast one numeric type to another and throw a range_error with a decent message.
+template<typename Target, typename Source>
+struct NumericCast {
+    static Target convert(Source from, const std::string &parsed) {
+        try {
+            return boost::numeric_cast<Target>(from);
+        } catch (const boost::numeric::positive_overflow&) {
+            std::string bound = boost::lexical_cast<std::string>(boost::numeric::bounds<Target>::highest());
+            throw std::range_error("parsed string \""+parsed+"\" is greater than "+bound);
+        } catch (const boost::numeric::negative_overflow&) {
+            std::string bound = boost::lexical_cast<std::string>(boost::numeric::bounds<Target>::lowest());
+            throw std::range_error("parsed string \""+parsed+"\" is less than "+bound);
+        } catch (const boost::numeric::bad_numeric_cast&) {
+            throw std::range_error("cannot cast \""+parsed+"\" to destination type");
+        }
+    }
+};
+            
+
+/** Parses an integer and converts it to numeric type @p T.  Matches an integer in the mathematical sense in C++ decimal,
+ *  octal, or hexadecimal format, and attempts to convert it to the type @p T.  If the integer cannot be converted to type @p T
+ *  then an std::range_error is thrown (which is most likely caught by higher layers of the Sawyer::CommandLine library and
+ *  converted to an std::runtime_error with additional information about the failure).  The syntax is that which is recognized
+ *  by the strtoll() function, plus trailing white space. */
+template<typename T>
 class IntegerParser: public ValueParser {
 protected:
     IntegerParser() {}
@@ -270,24 +295,51 @@ public:
     typedef boost::shared_ptr<IntegerParser> Ptr;
     static Ptr instance() { return Ptr(new IntegerParser); } /**< Allocating constructor. */
 private:
-    virtual boost::any operator()(const char *input, const char **rest) /*override*/;
+    virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
+        errno = 0;
+        boost::int64_t big = strtoll(input, (char**)rest, 0);
+        if (*rest==input)
+            throw std::runtime_error("integer expected");
+        while (isspace(**rest)) ++*rest;
+        std::string parsed(input, *rest-input);
+        if (ERANGE==errno)
+            throw std::range_error("integer overflow when parsing \""+parsed+"\"");
+        return NumericCast<T, boost::int64_t>::convert(big, parsed);
+    }
 };
 
-/** Parses a non-negative integer.  The integer may be positive or zero in decimal, octal, or hexadecimal format using the
- *  C/C++ syntax.  The syntax is that which is recognized by the strtoull function, plus it sucks up any trailing white
- *  space. Returns boost::uint64_t. */
-class UnsignedIntegerParser: public ValueParser {
+/** Parses a non-negative integer and converts it to numeric type @p T.  Matches a non-negative integer in the mathematical
+ *  sense in C++ decimal, octal, or hexadecimal format, and attempts to convert it to the type @p T.  If the integer cannot be
+ *  converted to type @p T then an std::range_error is thrown (which is most likely caught by higher layers of the
+ *  Sawyer::CommandLine library and converted to an std::runtime_error with additional information about the failure).  The
+ *  syntax is that which is recognized by the strtoull() function, plus trailing white space. */
+template<typename T>
+class NonNegativeIntegerParser: public ValueParser {
 protected:
-    UnsignedIntegerParser() {}
+    NonNegativeIntegerParser() {}
 public:
-    typedef boost::shared_ptr<UnsignedIntegerParser> Ptr;
-    static Ptr instance() { return Ptr(new UnsignedIntegerParser); } /**< Allocating constructor. */
+    typedef boost::shared_ptr<NonNegativeIntegerParser> Ptr;
+    static Ptr instance() { return Ptr(new NonNegativeIntegerParser); } /**< Allocating constructor. */
 private:
-    virtual boost::any operator()(const char *input, const char **rest) /*override*/;
+    virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
+        errno = 0;
+        boost::uint64_t big = strtoull(input, (char**)rest, 0);
+        if (*rest==input)
+            throw std::runtime_error("unsigned integer expected");
+        while (isspace(**rest)) ++*rest;
+        std::string parsed(input, *rest-input);
+        if (ERANGE==errno)
+            throw std::range_error("integer overflow when parsing \""+parsed+"\"");
+        return NumericCast<T, boost::uint64_t>::convert(big, parsed);
+    }
 };
 
-/** Parses a floating point constant. The syntax is that which is recognized by the strtod() function, plus it sucks up any
- *  trailing white space. Returns double. */
+/** Parses a real number and converts it to numeric type @p T.  Matches a real number in the mathematical sense in C++
+ *  floating-point representation, and attempts to convert it to the type @p T.  If the real number cannot be converted to type
+ *  @p T then an std::range_error is thrown (which is most likely caught by higher layers of the Sawyer::CommandLine library
+ *  and converted to an std::runtime_error with additional information about the failure).  The syntax is that which is
+ *  recognized by the strtod() function, plus trailing white space. */
+template<typename T>
 class RealNumberParser: public ValueParser {
 protected:
     RealNumberParser() {}
@@ -295,11 +347,20 @@ public:
     typedef boost::shared_ptr<RealNumberParser> Ptr;
     static Ptr instance() { return Ptr(new RealNumberParser); } /**< Allocating constructor. */
 private:
-    virtual boost::any operator()(const char *input, const char **rest) /*override*/;
+    virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
+        double big = strtod(input, (char**)rest);
+        if (*rest==input)
+            throw std::runtime_error("real number expected");
+        while (isspace(**rest)) ++*rest;
+        std::string parsed(input, *rest-input);
+        return NumericCast<T, double>::convert(big, parsed);
+    }
 };
 
-/** Parses a boolean value.  True values are: 1, t, true, y, yes, on; false values are 0, f, false, n, no, off. Comparisons are
- * case insensitive. The value may be preceded and/or followed by white space. */
+/** Parses a boolean value and converts it to numeric type @p T. Matches any one of the strings "1", "t", "true", "y", "yes",
+ * "on" (as a true value), "0", "f", "false", "n", "no", and "off" (as a false value) followed by white space and attempts to
+ * convert it to the type @p T. */
+template<typename T>
 class BooleanParser: public ValueParser {
 protected:
     BooleanParser() {}
@@ -307,7 +368,25 @@ public:
     typedef boost::shared_ptr<BooleanParser> Ptr;
     static Ptr instance() { return Ptr(new BooleanParser); } /**< Allocating constructor. */
 private:
-    virtual boost::any operator()(const char *input, const char **rest) /*override*/;
+    virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
+        static const char *neg[] = {"false", "off", "no", "0", "f", "n"}; // longest to shortest
+        static const char *pos[] = {"true",  "yes", "on", "1", "t", "y"};
+        const char *start = input;
+        while (isspace(*input)) ++input;
+        for (int negpos=0; negpos<2; ++negpos) {
+            const char **list = 0==negpos ? neg : pos;
+            size_t listsz = 0==negpos ? sizeof(neg)/sizeof(*neg) : sizeof(pos)/sizeof(*pos);
+            for (size_t i=0; i<listsz; ++i) {
+                if (0==strncasecmp(list[i], input, strlen(list[i]))) {
+                    *rest = input + strlen(list[i]);
+                    while (isspace(**rest)) ++*rest;
+                    std::string parsed(start, *rest-start);
+                    return NumericCast<T, bool>::convert(0!=negpos, parsed);
+                }
+            }
+        }
+        throw std::runtime_error("Boolean expected");
+    }
 };
 
 /** Parses any one of a set of strings.  The return value is of type std::string. Returns std::string. */
@@ -403,10 +482,27 @@ private:
 /** Factory function.  A factory function is a more terse way of calling the instance() static allocator.
  *  @{ */
 AnyParser::Ptr anyParser();
-IntegerParser::Ptr integerParser();
-UnsignedIntegerParser::Ptr unsignedIntegerParser();
-RealNumberParser::Ptr realNumberParser();
-BooleanParser::Ptr booleanParser();
+
+template<typename T>
+typename IntegerParser<T>::Ptr integerParser() {
+    return IntegerParser<T>::instance();
+}
+
+template<typename T>
+typename NonNegativeIntegerParser<T>::Ptr nonNegativeIntegerParser() {
+    return NonNegativeIntegerParser<T>::instance();
+}
+
+template<typename T>
+typename RealNumberParser<T>::Ptr realNumberParser() {
+    return RealNumberParser<T>::instance();
+}
+
+template<typename T>
+typename BooleanParser<T>::Ptr booleanParser() {
+    return BooleanParser<T>::instance();
+}
+
 StringSetParser::Ptr stringSetParser();
 ListParser::Ptr listParser(const ValueParser::Ptr&, const std::string &sepRe="[,;:]\\s*|\\s+");
 

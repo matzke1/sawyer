@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
                         "below)."));
     general.insert(Switch("no-pager")
                    .key("paginate")                             // same as the --paginate switch
-                   .intrinsicValue("false", booleanParser())    // but with opposite value from the default
+                   .intrinsicValue("false", booleanParser<bool>())    // but with opposite value from the default
                    .doc("Do not pipe git output into a pager."));
     general.insert(Switch("git-dir")
                    .argument("path")
@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
                     "given for the same key, each value will be written to the config file. This makes it safe, for "
                     "example, to add additional fetch refspecs to the origin remote."));
     cmd.insert(Switch("depth")
-               .argument("depth", unsignedIntegerParser())
+               .argument("depth", nonNegativeIntegerParser<unsigned>())
                .doc("Create a shallow clone with a history truncated to the specified number of revisions. A shallow "
                     "repository has a number of limitations (you cannot clone or fetch from it, nor push from nor into "
                     "it), but is adequate if you are only interested in the recent history of a large project with a long "
@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
                     "branches."));
     cmd.insert(Switch("no-single-branch")
                .key("single-branch")
-               .intrinsicValue("false", booleanParser())
+               .intrinsicValue("false", booleanParser<bool>())
                .hidden(true));                          // already documented in "single-branch"
     cmd.insert(Switch("recursive")
                .longName("recursive-submodules")        // alternate name for same switch

@@ -16,7 +16,8 @@ int main(int argc, char *argv[]) {
 #if 0 /*DEBUGGING [Robb Matzke 2014-02-17]*/
     ss.insert(Switch("test", 't')
               .action(showVersion("GOT IT!"))
-              .defaultValue("911", integerParser()));
+              .argument("value", booleanParser<bool>()));
+
 
 
 
@@ -64,9 +65,10 @@ int main(int argc, char *argv[]) {
               .doc("Prints the raw nroff man page to standard output for debugging."));
 
     // An argumentless switch can can be given a different value than true when it occurs.  For instance, this switch
-    // will set its value to the unsigned int 130 if it occurs on the command-line.
+    // will parse the mathematical non-negative number "130" (can be any C/C++ format) and store it as an unsigned short as if
+    // the string "130" appeared on the command-line.
     ss.insert(Switch("wide")
-              .intrinsicValue("130", unsignedIntegerParser()));
+              .intrinsicValue("130", nonNegativeIntegerParser<unsigned short>()));
 
     // A switch can take an argument interpreted as an arbitrary string.  The argument can be separated from the
     // switch in various ways: as a single program argument: --committer=alice or -Calice; as two program
@@ -98,7 +100,7 @@ int main(int argc, char *argv[]) {
     // (in addition to std::string). It also allows nestling of single-letter switches with values, as in this example, which
     // allows "-t3.14v" -- same as "-t 3.14 -v" (nestling can be disabled with a parser property if you don't like it).
     ss.insert(Switch("threshold", 't')
-              .argument("threshold", realNumberParser()));
+              .argument("threshold", realNumberParser<double>()));
 
     // If a switch occurs more than once on the command line, all occurrances will be parsed but only the last value is
     // preserved in the parser results (that's usually what one wants for most switches). This behavior can be changed so that
@@ -114,7 +116,7 @@ int main(int argc, char *argv[]) {
     // SAVE_AUGMENTED.  The augmenter probably needs to be aware of the data type being saved.  Users can create the own
     // augmenters: they're just functors that take two parsed values and return one.
     ss.insert(Switch("debug", 'd')
-              .intrinsicValue("1", integerParser())     // otherwise the values are Boolean
+              .intrinsicValue("1", integerParser<int>()) // otherwise the values are Boolean
               .valueAugmenter(incrementInt())           // an agumenter provided by the library
               .whichValue(SAVE_AUGMENTED));             // ensures the augmenter is called
     
@@ -149,7 +151,7 @@ int main(int argc, char *argv[]) {
     ss.insert(Switch("width", 'w')
               .argument("nchars", stringSetParser()->with("auto")));
     ss.insert(Switch("width", 'w')
-              .argument("nchars", integerParser()));
+              .argument("nchars", integerParser<int>()));
 #else
     ss.insert(Switch("width", 'w')
               .argument("nchars",
@@ -161,14 +163,14 @@ int main(int argc, char *argv[]) {
     // A 2d coordinate can be treated as a pair of real numbers as in "--origin=5.0,4.5"
     ss.insert(Switch("origin")
               .argument("coordinate-pair",
-                        listParser(realNumberParser(), ",")  // list of real numbers separated by exactly "," characters
+                        listParser(realNumberParser<float>(), ",")  // list of real numbers separated by exactly "," characters
                         ->exactly(2)));                 // and containing exactly two elements
 
     // A list can even have different types for the elements.  Here's a switch that takes a list containing an integer and a
     // string.  The string is optional because this list can have 1 or 2 items:
     ss.insert(Switch("increment")
               .argument("delta,when",
-                        listParser(integerParser())
+                        listParser(integerParser<int>())
                         ->nextMember(stringSetParser()->with("pre")->with("post"))
                         ->limit(1, 2)));                // allow only one or two items in the list
 
@@ -178,10 +180,10 @@ int main(int argc, char *argv[]) {
     // not flexible enough you can use the stringSetParser.
     ss.insert(Switch("fomit-frame-pointer")
               .key("fomit-frame-pointer")               // this is the default for this switch
-              .intrinsicValue("yes", booleanParser())); // this is the default for this switch
+              .intrinsicValue("yes", booleanParser<bool>())); // this is the default for this switch
     ss.insert(Switch("fno-omit-frame-pointer")
               .key("fomit-frame-pointer")               // use the same key as the "yes" version
-              .intrinsicValue("no", booleanParser()));  // but cause a "no" to be registered
+              .intrinsicValue("no", booleanParser<bool>()));  // but cause a "no" to be registered
 
     // Two switches can be mutually exclusive using the storeOne() attribute in conjuction with a single key.  The various
     // storage settings (one, first, last, all, etc.) that we saw above are applied on a per-key basis rather than a per-switch
@@ -192,13 +194,13 @@ int main(int argc, char *argv[]) {
               .longName("quick")
               .longName("rabbit")
               .key("speed")
-              .intrinsicValue("75", integerParser())
+              .intrinsicValue("75", integerParser<int>())
               .whichValue(SAVE_ONE));
     ss.insert(Switch("go-slow", 'S')
               .longName("lazy")
               .longName("turtle")
               .key("speed")
-              .intrinsicValue("15", integerParser())
+              .intrinsicValue("15", integerParser<int>())
               .whichValue(SAVE_ONE));
 
     // A switch argument may be optional. E.g., "--color" is the same as "--color=always" if the next program argument doesn't
@@ -248,8 +250,8 @@ int main(int argc, char *argv[]) {
     // construct a parser, add switch groups, and apply it to program arguments.
     ParserResult cmdline = Parser()
                            .with(ss)                    // as many switch groups as you like (but at least one)
-                           .skipUnknownSwitches()       // optional, causes the parser to keep going across unknown switches
-                           .skipNonSwitches()           // optional, causes the parser to keep going across positional args
+                           // .skipUnknownSwitches()       // optional, causes the parser to keep going across unknown switches
+                           // .skipNonSwitches()           // optional, causes the parser to keep going across positional args
                            .resetInclusionPrefixes("--file=") // saying "--file=x" will suck in switches from the file "x"
                            .parse(argc, argv);          // here's the actual parsing (other methods available too)
 
