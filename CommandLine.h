@@ -2,6 +2,7 @@
 #ifndef Sawyer_CommandLine_H
 #define Sawyer_CommandLine_H
 
+#include "Assert.h"
 #include "Message.h"
 
 #include <boost/any.hpp>
@@ -680,9 +681,11 @@ public:
     typedef boost::shared_ptr<ValueAugmenter> Ptr;
     virtual ~ValueAugmenter() {}
 
-    /** Agument a previous value.  Modify @p next in place by combining it in some way with @p prev, the previously parsed
-     *  value. The returned @p next will replace @prev in the list of parser results indexed by key. */
-    virtual void operator()(const ParsedValue &prev, ParsedValue &next) = 0;
+    /** Called when a switch's value is about to be stored into the ParserResult.  The previously stored switch values for all
+     * switch occurrences that used this same key are provided in the first arugment.  The recently parsed value (or values if
+     * the switch value was a list that was then exploded) is provided as the second argument.  The function should return a
+     * new value (or values) that will replace the values passed on the command-line. */
+    virtual ParsedValues operator()(const ParsedValues &savedValues, const ParsedValues &newValues) = 0;
 };
 
 // FIXME[Robb Matzke 2014-02-22]: we could make this less sensitive to the boost::any_cast
@@ -696,11 +699,17 @@ protected:
 public:
     typedef boost::shared_ptr<Increment> Ptr;
     static Ptr instance() { return Ptr(new Increment<T>); }
-    virtual void operator()(const ParsedValue &prev, ParsedValue &next) {
-        T v1 = boost::any_cast<T>(prev.value());
-        T v2 = boost::any_cast<T>(next.value());
-        T sum = v1 + v2;
-        next.value(sum);
+    virtual ParsedValues operator()(const ParsedValues &savedValues, const ParsedValues &newValues) /*override*/ {
+        ASSERT_forbid(savedValues.empty());
+        ASSERT_forbid(newValues.empty());
+        T v1 = boost::any_cast<T>(savedValues.front().value());
+        T v2 = boost::any_cast<T>(newValues.front().value());
+        T v3 = v1 + v2;
+        ParsedValue sum = newValues.front();
+        sum.value(v3);
+        ParsedValues retval;
+        retval.push_back(sum);
+        return retval;
     }
 };
 
@@ -1044,7 +1053,24 @@ public:
      *  line then only its final value is made available in the parser result since this is usually what one wants for most
      *  switches.  The "whichValue" property can be adjusted to change this behavior (see documentation for the WhichValue
      *  enumeration for possibilities).  The SAVE_AUGMENTED mode also needs a valueAugmentor, otherwise it behaves the same as
-     *  SAVE_LAST. */
+     *  SAVE_LAST.
+     *
+     *  The whichValue property is applied per switch occurrence, but applied using the switch's key, which it may share with
+     *  other switches.  For example, if two switches, --foo1 and --foo2 both use the key "foo" and both have the SAVE_ONE
+     *  mode, then an error will be raised if the command line is "--foo1 --foo2".  But if --foo1 uses SAVE_ONE and --foo2 uses
+     *  SAVE_ALL, then no error is raised because at the point in the command line when the --foo1 occurrence is checked,
+     *  --foo2 hasn't occurred yet.
+     *
+     *  A switch that has a list value (e.g., listParser) is treated as having a single value per occurrence, but if the list
+     *  is exploded then it will be treated as if the switch occurred more than once.  In other words, SAVE_ONE will not
+     *  normaly raise an error for an occurrence like "--foo1=a,b,c" because it's considered to be a single value (a single
+     *  list), but would cause an error if the list were exploded into three values.
+     *
+     *  Single letter switches that are nestled and repeated, like the somewhat common debug switch where more occurrences
+     *  means more debugging output, like "-d" versus "-ddd" are counted as individual switches: -d is one, -ddd is three.
+     *
+     *  If a switch with SAVE_LAST is processed, it deletes all the previously saved values for the same key even if they came
+     *  from other switches having the same key but not the same SAVE_LAST configuration. */
     Switch& whichValue(WhichValue s) { whichValue_ = s; return *this; }
     WhichValue whichValue() const { return whichValue_; }
     /** @} */
@@ -1207,13 +1233,10 @@ class ParserResult {
     Cursor cursor_;
     ParsedValues values_;
 
-    // List of parsed values organized by key.  The integers in this map are indexes into the values_ vector.
-    typedef std::map<std::string /*keyname*/, std::vector<size_t> > KeyIndex;
-    KeyIndex keyIndex_;
-
-    // List of parsed values organized by switch. The integers are indexes into the values_ vector.
-    typedef std::map<const Switch*, std::vector<size_t> > SwitchIndex;
-    SwitchIndex switchIndex_;
+    // Maps a name to indexes into the values_ vector.
+    typedef std::map<std::string, std::vector<size_t> > NameIndex;
+    NameIndex keyIndex_;                                // Values per switch key
+    NameIndex switchIndex_;                             // Values per switch preferred name
 
     // List of parsed values organized by their location on the command line.  The location is for the switch itself even if
     // the values are spread out across subsequent argv members. We do it this way because many of the values are defaults that
@@ -1277,7 +1300,8 @@ public:
 
 private:
     // Insert more parsed values.  Values should be inserted one switch's worth at a time (or fewer)
-    void insert(const ParsedValues&, const Parser*, const Switch*);
+    void insertValuesForSwitch(const ParsedValues&, const Parser*, const Switch*);
+    void insertOneValue(const ParsedValue&, const std::string &key, const std::string &switchName);
 
     // Indicate that we're skipping over a program argument
     void skip(const Location&);
