@@ -8,6 +8,7 @@
 #include <boost/any.hpp>
 #include <boost/cstdint.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/optional.hpp>
@@ -96,6 +97,7 @@ struct Location {
     Location(): idx(0), offset(0) {}
     Location(size_t idx, size_t offset): idx(idx), offset(offset) {}
     bool operator==(const Location &other) const { return idx==other.idx && offset==other.offset; }
+    bool operator!=(const Location &other) const { return !(*this==other); }
     bool operator<(const Location &other) const { return idx<other.idx || (idx==other.idx && offset<other.offset); }
     bool operator<=(const Location &other) const { return *this<other || *this==other; }
 };
@@ -140,10 +142,14 @@ public:
 
     /** Return the part of an argument at and beyond the cursor.  If the cursor is at the end of an argument then an empty
      *  string is returned.   A @p location can be specified to override the location that's inherent to this cursor without
-     *  changing this cursor.  It is an error to call this when atEnd() would return true.
+     *  changing this cursor.  Returns an empty string if called whn atEnd() would return true.
      * @{ */
-    std::string rest() const { return strings_[loc_.idx].substr(loc_.offset); }
-    std::string rest(const Location &location) const { return strings_[location.idx].substr(location.offset); }
+    std::string rest() const { return loc_.idx < strings_.size() ? strings_[loc_.idx].substr(loc_.offset) : std::string(); }
+    std::string rest(const Location &location) const {
+        return (location.idx < strings_.size() && location.offset < strings_[location.idx].size() ?
+                strings_[location.idx].substr(location.offset) :
+                std::string());
+    }
     /** @} */
 
     /** Returns all characters within limits.  Returns all the characters between this cursor's current location and the
@@ -172,6 +178,9 @@ public:
     }
     void consumeArg() { consumeArgs(1); }
     /** @} */
+
+    /** Number of characters from the beginning of the cursor to its current location. */
+    size_t linearDistance() const;
 };
 
 /** Guards a cursor and restores it when destroyed.  If this object is destroyed without first calling its cancel() method then
@@ -189,9 +198,36 @@ public:
     void cancel() { canceled_ = true; }
 };
 
-/*******************************************************************************************************************************
- *                                      Switch Argument Parsers
- *******************************************************************************************************************************/
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Switch value savers
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class ValueSaver {
+protected:
+    ValueSaver() {}
+public:
+    typedef boost::shared_ptr<ValueSaver> Ptr;
+    virtual ~ValueSaver() {}
+    virtual void save(const boost::any&) const = 0;
+};
+
+template<typename T>
+class TypedSaver: public ValueSaver {
+    T &storage_;
+protected:
+    TypedSaver(T &storage): storage_(storage) {}
+public:
+    typedef boost::shared_ptr<TypedSaver> Ptr;
+    static Ptr instance(T &storage) { return Ptr(new TypedSaver(storage)); }
+    virtual void save(const boost::any &value) const /*override*/ {
+        storage_ = boost::any_cast<T>(value);
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Switch argument parsers
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** Base class parsing a value from input.
  *
@@ -227,8 +263,10 @@ public:
  *
  *  Users can create their own parsers (and are encouraged to do so) by following this same recipe. */
 class ValueParser: public boost::enable_shared_from_this<ValueParser> {
+    ValueSaver::Ptr valueSaver_;
 protected:
     ValueParser() {}
+    explicit ValueParser(const ValueSaver::Ptr &valueSaver): valueSaver_(valueSaver) {}
 public:
     typedef boost::shared_ptr<ValueParser> Ptr;
     virtual ~ValueParser() {}
@@ -244,6 +282,24 @@ public:
      *  operator throws an std::runtime_error exception. */
     boost::any match(Cursor&) /*final*/;
 
+    /** The functor responsible for saving a parsed value in user storage.  Many of the ValueParser subclasses take an argument
+     *  which is a reference to a user-defined storage location, such as:
+     *
+     * @code
+     *  bool verbose;
+     *  Switch("verbose")
+     *      .intrinsicValue("true", booleanParser(verbose));
+     * @endcode
+     *
+     *  When a parser is created in such a way, a ValueSaver object is created an saved in this valueSaver property. After
+     *  parsing, if the user invokes ParserResult::apply(), the value for the switch is saved into the user location.  No value
+     *  is saved until apply is called--this allows command-lines to be parsed for their error side effects without actually
+     *  changing any program state.
+     * @{ */
+    Ptr valueSaver(const ValueSaver::Ptr &f) { valueSaver_ = f; return shared_from_this(); }
+    const ValueSaver::Ptr valueSaver() const { return valueSaver_; }
+    /** @} */
+
 private:
     /** Parse next input characters. Each subclass should implement one of these. See documentation for class ValueParser.
      *  @{ */
@@ -256,9 +312,11 @@ private:
 class AnyParser: public ValueParser {
 protected:
     AnyParser() {}
+    AnyParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
     typedef boost::shared_ptr<AnyParser> Ptr;
-    static Ptr instance() { return Ptr(new AnyParser); } /**< Allocating constructor. */;
+    static Ptr instance() { return Ptr(new AnyParser); }
+    static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new AnyParser(valueSaver)); }
 private:
     virtual boost::any operator()(Cursor&) /*override*/;
 };
@@ -291,9 +349,11 @@ template<typename T>
 class IntegerParser: public ValueParser {
 protected:
     IntegerParser() {}
+    explicit IntegerParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
     typedef boost::shared_ptr<IntegerParser> Ptr;
-    static Ptr instance() { return Ptr(new IntegerParser); } /**< Allocating constructor. */
+    static Ptr instance() { return Ptr(new IntegerParser); }
+    static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new IntegerParser(valueSaver)); }
 private:
     virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
         errno = 0;
@@ -317,9 +377,11 @@ template<typename T>
 class NonNegativeIntegerParser: public ValueParser {
 protected:
     NonNegativeIntegerParser() {}
+    NonNegativeIntegerParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
     typedef boost::shared_ptr<NonNegativeIntegerParser> Ptr;
-    static Ptr instance() { return Ptr(new NonNegativeIntegerParser); } /**< Allocating constructor. */
+    static Ptr instance() { return Ptr(new NonNegativeIntegerParser); }
+    static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new NonNegativeIntegerParser(valueSaver)); }
 private:
     virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
         errno = 0;
@@ -343,9 +405,11 @@ template<typename T>
 class RealNumberParser: public ValueParser {
 protected:
     RealNumberParser() {}
+    RealNumberParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
     typedef boost::shared_ptr<RealNumberParser> Ptr;
-    static Ptr instance() { return Ptr(new RealNumberParser); } /**< Allocating constructor. */
+    static Ptr instance() { return Ptr(new RealNumberParser); }
+    static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new RealNumberParser(valueSaver)); }
 private:
     virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
         double big = strtod(input, (char**)rest);
@@ -364,9 +428,11 @@ template<typename T>
 class BooleanParser: public ValueParser {
 protected:
     BooleanParser() {}
+    BooleanParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
     typedef boost::shared_ptr<BooleanParser> Ptr;
-    static Ptr instance() { return Ptr(new BooleanParser); } /**< Allocating constructor. */
+    static Ptr instance() { return Ptr(new BooleanParser); }
+    static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new BooleanParser(valueSaver)); }
 private:
     virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
         static const char *neg[] = {"false", "off", "no", "0", "f", "n"}; // longest to shortest
@@ -394,9 +460,11 @@ class StringSetParser: public ValueParser {
     std::vector<std::string> strings_;
 protected:
     StringSetParser() {}
+    StringSetParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
     typedef boost::shared_ptr<StringSetParser> Ptr;
-    static Ptr instance() { return Ptr(new StringSetParser); } /**< Allocating constructor. */
+    static Ptr instance() { return Ptr(new StringSetParser); }
+    static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new StringSetParser(valueSaver)); }
 
     /** Adds string members.  Inserts an additional string to be recognized in the input.
      *  @{ */
@@ -420,9 +488,11 @@ class EnumParser: public ValueParser {
     std::map<std::string, T> members_;
 protected:
     EnumParser(): strParser_(StringSetParser::instance()) {}
+    EnumParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver), strParser_(StringSetParser::instance()) {}
 public:
     typedef boost::shared_ptr<EnumParser> Ptr;
-    static Ptr instance() { return Ptr(new EnumParser); } /** Allocating constructor. */
+    static Ptr instance() { return Ptr(new EnumParser); }
+    static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new EnumParser(valueSaver)); }
 
     /** Adds enum members.  Inserts an additional enumeration constant and its string name. */
     Ptr with(const std::string &name, T value) {
@@ -454,15 +524,17 @@ public:
 
     /** Allocating constructor.  The @p firstElmtType is the parser for the first value (and the remaining values also if no
      *  subsequent parser is specified), and the @p separatorRe is the regular expression describing how values of this type
-     *  are separated from subsequent values. */
-    static Ptr instance(const ValueParser::Ptr &firstElmtType, const std::string &separatorRe=",\\s*") {
+     *  are separated from subsequent values. The default separator is a comma, semicolon, or colon followed by zero or more
+     *  white space characters. */
+    static Ptr instance(const ValueParser::Ptr &firstElmtType, const std::string &separatorRe="[,;:]\\s*") {
         return Ptr(new ListParser(firstElmtType, separatorRe)); 
     }
 
     /** Specifies element type and separator. Adds another element type and separator to this parser.  The specified values
      *  are also used for all the following list members unless a subsequent type and separator are supplied.  I.e., the
-     *  final element type and separator are repeated as necessary when parsing. */
-    Ptr nextMember(const ValueParser::Ptr &elmtType, const std::string &separatorRe="[,;:]\\s*|\\s+") {
+     *  final element type and separator are repeated as necessary when parsing. The default separator is a comma, semicolon,
+     *  or colon followed by zero ore more white space characters. */
+    Ptr nextMember(const ValueParser::Ptr &elmtType, const std::string &separatorRe="[,;:]\\s*") {
         elements_.push_back(ParserSep(elmtType, separatorRe));
         return boost::dynamic_pointer_cast<ListParser>(shared_from_this());
     }
@@ -477,40 +549,94 @@ public:
 private:
     virtual boost::any operator()(Cursor&) /*override*/;
 };
-    
 
-/** Factory function.  A factory function is a more terse way of calling the instance() static allocator.
+/** Factory for value parsers.  A factory function is a more terse and convenient way of calling the instance() static
+ *  allocator for parser types and often alleviates the user from having to specify template arguments.  Most parser factories
+ *  come in two varieties, and some in three varieties:
+ *
+ *  <ul>
+ *    <li>Parser factories that take no function or template arguments.  These create a parser that uses a specific C++ type
+ *        to represent its value and does not attempt to copy the parsed value to a user-specified storage location, but rather
+ *        stores the value only in the ParserResult.  An example is <code>integerParser()</code>, which stores the parsed
+ *        mathematical integer as a C++ "int" in the ParserResult.</li>
+ *    <li>Parser factories that take a template typename argument.  These create a parser that uses the specified type to
+ *        represent its value, but store the value only in the ParserResult.  An example is
+ *        <code>integerParser<short>()</code>, which parses a mathematical integer and stores it in a C++ "short".</li>
+ *    <li>Parser factories that take a function argument (and an inferred template argument) which is an L-value to
+ *        indicate where the parsed value should be stored if ParserResult::apply() is called.  The value is also stored in the
+ *        ParserResult and can be queried by the user.  An example is: <code>long foo; integerParser(foo)</code>.</li>
+ *  </ul>
  *  @{ */
+AnyParser::Ptr anyParser(std::string &storage);
 AnyParser::Ptr anyParser();
 
+template<typename T>
+typename IntegerParser<T>::Ptr integerParser(T &storage) {
+    return IntegerParser<T>::instance(TypedSaver<T>::instance(storage));
+}
 template<typename T>
 typename IntegerParser<T>::Ptr integerParser() {
     return IntegerParser<T>::instance();
 }
+IntegerParser<int>::Ptr integerParser() {
+    return IntegerParser<int>::instance();
+}
 
+
+template<typename T>
+typename NonNegativeIntegerParser<T>::Ptr nonNegativeIntegerParser(T &storage) {
+    return NonNegativeIntegerParser<T>::instance(TypedSaver<T>::instance(storage));
+}
 template<typename T>
 typename NonNegativeIntegerParser<T>::Ptr nonNegativeIntegerParser() {
     return NonNegativeIntegerParser<T>::instance();
 }
+NonNegativeIntegerParser<unsigned>::Ptr nonNegativeIntegerParser() {
+    return NonNegativeIntegerParser<unsigned>::instance();
+}
 
+
+template<typename T>
+typename RealNumberParser<T>::Ptr realNumberParser(T &storage) {
+    return RealNumberParser<T>::instance(TypedSaver<T>::instance(storage));
+}
 template<typename T>
 typename RealNumberParser<T>::Ptr realNumberParser() {
     return RealNumberParser<T>::instance();
 }
+RealNumberParser<double>::Ptr realNumberParser() {
+    return RealNumberParser<double>::instance();
+}
 
+
+template<typename T>
+typename BooleanParser<T>::Ptr booleanParser(T &storage) {
+    return BooleanParser<T>::instance(TypedSaver<T>::instance(storage));
+}
 template<typename T>
 typename BooleanParser<T>::Ptr booleanParser() {
     return BooleanParser<T>::instance();
 }
+BooleanParser<bool>::Ptr booleanParser() {
+    return BooleanParser<bool>::instance();
+}
 
-StringSetParser::Ptr stringSetParser();
-ListParser::Ptr listParser(const ValueParser::Ptr&, const std::string &sepRe="[,;:]\\s*|\\s+");
 
-// Note: enum T must be defined at global scope
+template<typename T>
+typename EnumParser<T>::Ptr enumParser(T &storage) {
+    return EnumParser<T>::instance(TypedSaver<T>::instance(storage));
+}
 template<typename T>
 typename EnumParser<T>::Ptr enumParser() {
     return EnumParser<T>::instance();
 }
+
+
+StringSetParser::Ptr stringSetParser(std::string &storage);
+StringSetParser::Ptr stringSetParser();
+
+
+ListParser::Ptr listParser(const ValueParser::Ptr&, const std::string &sepRe="[,;:]\\s*");
 /** @} */
 
 
@@ -669,18 +795,21 @@ class ParsedValue {
     Location switchLocation_;                           // where is the actual switch name in switchString_?
     std::string switchString_;                          // prefix and switch name
     size_t keySequence_, switchSequence_;               // relation of this value w.r.t. other values for same key and switch
+    ValueSaver::Ptr valueSaver_;                        // saves the value during ParserResult::apply()
 
 private:
     friend class Switch;
     friend class ParserResult;
     friend class Parser;
 
-    ParsedValue(const boost::any value, const Location &loc, const std::string &str)
-        : value_(value), valueLocation_(loc), valueString_(str), keySequence_(0), switchSequence_(0) {}
+    ParsedValue(const boost::any value, const Location &loc, const std::string &str, const ValueSaver::Ptr &saver)
+        : value_(value), valueLocation_(loc), valueString_(str), keySequence_(0), switchSequence_(0), valueSaver_(saver) {}
 
     // Update the switch information for the parsed value.
     ParsedValue& switchInfo(const std::string &key, const Location &loc, const std::string &str) {
-        switchKey_ = key; switchLocation_ = loc; switchString_ = str;
+        switchKey_ = key;
+        switchLocation_ = loc;
+        switchString_ = str;
         return *this;
     }
 
@@ -751,6 +880,9 @@ public:
      *  among all values created for the same switch. */
     size_t switchSequence() const { return switchSequence_; }
 
+    /** Save this value in switch-supplied storage. */
+    void save() const;
+
     // Print some debug info
     void print(std::ostream&) const;
 
@@ -784,41 +916,33 @@ public:
     virtual ParsedValues operator()(const ParsedValues &savedValues, const ParsedValues &newValues) = 0;
 };
 
-// FIXME[Robb Matzke 2014-02-22]: we could make this less sensitive to the boost::any_cast
-
-/** Increment a previous value. Increments the current value by adding the previous parsed value to it.  The template argument
- *  is the type of parsed values. */
+/** Sums all previous and current values. The template argument must match the type of the summed values. */
 template<typename T>
-class Increment: public ValueAugmenter {
+class Sum: public ValueAugmenter {
 protected:
-    Increment() {}
+    Sum() {}
 public:
-    typedef boost::shared_ptr<Increment> Ptr;
-    static Ptr instance() { return Ptr(new Increment<T>); }
+    typedef boost::shared_ptr<Sum> Ptr;
+    static Ptr instance() { return Ptr(new Sum<T>); }
     virtual ParsedValues operator()(const ParsedValues &savedValues, const ParsedValues &newValues) /*override*/ {
-        ASSERT_forbid(savedValues.empty());
         ASSERT_forbid(newValues.empty());
-        T v1 = boost::any_cast<T>(savedValues.front().value());
-        T v2 = boost::any_cast<T>(newValues.front().value());
-        T v3 = v1 + v2;
-        ParsedValue sum = newValues.front();
-        sum.value(v3);
-        ParsedValues retval;
-        retval.push_back(sum);
-        return retval;
+        T sum = 0;
+        BOOST_FOREACH (const ParsedValue &pv, savedValues)
+            sum = sum + boost::any_cast<T>(pv.value());
+        BOOST_FOREACH (const ParsedValue &pv, newValues)
+            sum = sum + boost::any_cast<T>(pv.value());
+        ParsedValue pval = newValues.front();           // so we keep the same location information
+        pval.value(sum);
+        ParsedValues pvals;
+        pvals.push_back(pval);
+        return pvals;
     }
 };
 
 /** Replace the previous parsed value with the sum of the previous and current values. */
 template<typename T>
-typename Increment<T>::Ptr increment() {
-    return Increment<T>::instance();
-}
-
-/** Replace the previous parsed value with the sum of the previous and current values.  This assumes that the parser was an
- *  integerParser(). */
-Increment<boost::int64_t>::Ptr incrementInt() {
-    return Increment<boost::int64_t>::instance();
+typename Sum<T>::Ptr sum() {
+    return Sum<T>::instance();
 }
 
 
@@ -889,6 +1013,7 @@ private:
     ValueAugmenter::Ptr valueAugmenter_;                // used if whichValue_==SAVE_AUGMENTED
     boost::any intrinsicValue_;                         // default when no arguments are present
     std::string intrinsicValueString_;                  // string version of defaultValue_ (before parsing)
+    ValueParser::Ptr intrinsicValueParser_;             // what parsed the intrinsicValueString_
     bool explodeVector_;                                // expand a vector value into separate values
 
 public:
@@ -902,7 +1027,7 @@ public:
      *  is sometimes used to declare two switches with the same name but which take different types of arguments. */
     explicit Switch(const std::string &longName, char shortName='\0')
         : hidden_(false), whichValue_(SAVE_LAST), intrinsicValue_(true), intrinsicValueString_("true"),
-          explodeVector_(false) {
+          intrinsicValueParser_(booleanParser<bool>()), explodeVector_(false) {
         init(longName, shortName);
     }
 
@@ -1110,6 +1235,7 @@ public:
     Switch& intrinsicValue(const std::string &text, const ValueParser::Ptr &p = anyParser());
     boost::any intrinsicValue() const { return intrinsicValue_; }
     std::string intrinsicValueString() const { return intrinsicValueString_; }
+    const ValueParser::Ptr intrinsicValueParser() const { return intrinsicValueParser_; }
     /** @} */
 
     /** Whether to explode a vector value.  If parsing a switch results in a value which is an STL vector, then that value is
@@ -1336,7 +1462,8 @@ class ParserResult {
 
     // List of parsed values organized by their location on the command line.  The location is for the switch itself even if
     // the values are spread out across subsequent argv members. We do it this way because many of the values are defaults that
-    // don't actually have an argv location.  The integers are indexes into the values_ vector.
+    // don't actually have an argv location.  The integers are indexes into the values_ vector. In other words, this is a
+    // mapping from switch location to values_ elements for the switch's values.
     typedef std::map<Location, std::vector<size_t> > ArgvIndex;
     ArgvIndex argvIndex_;
 
@@ -1352,6 +1479,9 @@ private:
     ParserResult(const std::vector<std::string> &argv): cursor_(argv) {}
 
 public:
+    /** Saves parsed values in switch-supplied locations. */
+    const ParserResult& apply() const;
+
     /** Returns the number of values for the specified key.  Since switches that have no declared argument are given a value,
      *  and since switches seldom take more than one argument, this is also a good approximation for the number of times a
      *  switch appeared on the command line. */
@@ -1375,8 +1505,8 @@ public:
      *  way to know with certainty what they are--they could be switch arguments that couldn't be parsed for some reason (e.g.,
      *  a switch that takes an optional integer argument but a non-integer string was accidentally supplied), they could be
      *  switch arguments for a switch that we didn't recognize (switch name was accidentally misspelled), or they could be
-     *  program positional arguments. The program arguments are returned in the order they appeared, with file inclusions
-     *  expanded. */
+     *  program positional arguments. The program arguments are returned in the order they appeared, with processed file
+     *  inclusion switches expanded. */
     std::vector<std::string> skippedArgs() const;
 
     /** Returns program arguments that were not reached during parsing. These are the arguments left over when the parser
@@ -1384,13 +1514,18 @@ public:
     std::vector<std::string> unreachedArgs() const;
 
     /** The skippedArgs() and unreachedArgs() along with termination switches.  This is basically the original program command
-     *  line with the parsed stuff removed. */
-    std::vector<std::string> unparsedArgs() const;
+     *  line with the parsed stuff removed.  Note that terminator switches (like "--") will be present in this list if @p
+     *  includeTerminators is true even if they were parsed. Processed file inclusion switches are expanded. If you're using
+     *  the parser to remove the part of the command line that it recognizes, then you probably want @p includeTerminators to
+     *  be true. That way, if the original command line is "--theirs --mine -- --other" and the parser recognizes "--mine" and
+     *  the "--" terminator, you'll be left with "--theirs -- --other" rather than only "--theirs --other". */
+    std::vector<std::string> unparsedArgs(bool includeTerminators=false) const;
 
-    /** Returns the program arguments that were processed. */
+    /** Returns the program arguments that were processed. This includes terminator switches that were parsed. Processed file
+     * inclusion switches are is expanded. */
     std::vector<std::string> parsedArgs() const;
 
-    /** The original command line, except with command-line inclusion expanded. */
+    /** The original command line, except with processed file inclusion switches expanded. */
     const std::vector<std::string>& allArgs() const { return cursor_.strings(); }
 
 

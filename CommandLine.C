@@ -8,7 +8,6 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>
-#include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 #include <cerrno>
 #include <set>
@@ -100,6 +99,13 @@ void Cursor::replace(const std::vector<std::string> &args) {
     location(newloc);
 }
 
+size_t Cursor::linearDistance() const {
+    size_t retval = 0;
+    for (size_t i=0; i<loc_.idx; ++i)
+        retval += strings_[i].size();
+    retval += loc_.offset;
+    return retval;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Parsers
@@ -181,7 +187,7 @@ boost::any ListParser::operator()(Cursor &cursor) {
                 break;                                  // we've advanced over the entire program argument
             std::string str = cursor.rest();
             const char *s = str.c_str();
-            boost::regex re("\\A" + sep);
+            boost::regex re("\\A(" + sep + ")");
             boost::cmatch matched;
             if (!regex_search(s, matched, re))
                 break;
@@ -189,8 +195,21 @@ boost::any ListParser::operator()(Cursor &cursor) {
         }
         sep = ps.second;
 
-        // Parse the value
-        boost::any value = ps.first->match(cursor);
+        // Find the next value separator so we can prevent from parsing through it
+        size_t endOfValue = cursor.rest().size();
+        {
+            boost::regex re(sep);
+            boost::cmatch matched;
+            std::string str = cursor.rest();
+            const char *s = str.c_str();
+            if (regex_search(s, matched, re))
+                endOfValue = matched.position();
+        }
+
+        // Parse the value, stopping before the next separator
+        Cursor valueCursor(cursor.rest().substr(0, endOfValue));
+        boost::any value = ps.first->match(valueCursor);
+        cursor.consumeChars(valueCursor.linearDistance());
         retval.push_back(value);
     }
 
@@ -214,9 +233,25 @@ boost::any ListParser::operator()(Cursor &cursor) {
     return retval;
 }
 
-AnyParser::Ptr anyParser() { return AnyParser::instance(); }
-StringSetParser::Ptr stringSetParser() { return StringSetParser::instance(); }
-ListParser::Ptr listParser(const ValueParser::Ptr &p, const std::string &sep) { return ListParser::instance(p, sep); }
+AnyParser::Ptr anyParser(std::string &storage) {
+    return AnyParser::instance(TypedSaver<std::string>::instance(storage));
+}
+
+AnyParser::Ptr anyParser() {
+    return AnyParser::instance();
+}
+
+StringSetParser::Ptr stringSetParser(std::string &storage) {
+    return StringSetParser::instance(TypedSaver<std::string>::instance(storage));
+}
+
+StringSetParser::Ptr stringSetParser() {
+    return StringSetParser::instance();
+}
+
+ListParser::Ptr listParser(const ValueParser::Ptr &p, const std::string &sep) {
+    return ListParser::instance(p, sep);
+}
 
 /*******************************************************************************************************************************
  *                                      Actions
@@ -373,7 +408,12 @@ std::string ParsedValue::asString() const {
     std::string x = boost::any_cast<std::string>(value_);
     return x;
 }
-    
+
+void ParsedValue::save() const {
+    if (valueSaver_)
+        valueSaver_->save(value_);
+}
+
 void ParsedValue::print(std::ostream &o) const {
     o <<"{switch=\"" <<switchString_ <<"\" at " <<switchLocation_ <<" key=\"" <<switchKey_ <<"\""
       <<"; value str=\"" <<valueString_ <<"\" at " <<valueLocation_
@@ -510,6 +550,7 @@ Switch& Switch::argument(const std::string &name, const ValueParser::Ptr &parser
 Switch& Switch::intrinsicValue(const std::string &text, const ValueParser::Ptr &p) {
     intrinsicValue_ = p->matchString(text);
     intrinsicValueString_ = text;
+    intrinsicValueParser_ = p;
     return *this;
 }
 
@@ -632,7 +673,7 @@ bool Switch::explodeVector(ParsedValues &pvals /*in,out*/) const {
         if (pval1.value().type()==typeid(std::vector<boost::any>)) {
             std::vector<boost::any> valvec = boost::any_cast<std::vector<boost::any> >(pval1.value());
             BOOST_FOREACH (const boost::any &val2, valvec) {
-                ParsedValue pval2(val2, pval1.valueLocation(), pval1.string());
+                ParsedValue pval2(val2, pval1.valueLocation(), pval1.string(), ValueSaver::Ptr());
                 pvals2.push_back(pval2);
                 retval = true;
             }
@@ -661,12 +702,12 @@ size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*
             boost::any value = sa.parser()->match(cursor);
             if (cursor.location() == valueLocation && sa.isRequired())
                 throw std::runtime_error("not found");
-            result.push_back(ParsedValue(value, valueLocation, cursor.substr(valueLocation)));
+            result.push_back(ParsedValue(value, valueLocation, cursor.substr(valueLocation), sa.parser()->valueSaver()));
             ++retval;
         } catch (const std::runtime_error &e) {
             if (sa.isRequired())
                 throw missingArgument(switchString, cursor, sa, e.what());
-            result.push_back(ParsedValue(sa.defaultValue(), NOWHERE, sa.defaultValueString()));
+            result.push_back(ParsedValue(sa.defaultValue(), NOWHERE, sa.defaultValueString(), sa.parser()->valueSaver()));
         }
 
         // Long switch arguments must end aligned with a program argument
@@ -685,7 +726,7 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
     // If the switch has no declared arguments, then parse its default.
     if (arguments_.empty()) {
         ASSERT_require(cursor.atArgBegin() || cursor.atEnd());
-        result.push_back(ParsedValue(intrinsicValue_, NOWHERE, intrinsicValueString_));
+        result.push_back(ParsedValue(intrinsicValue_, NOWHERE, intrinsicValueString_, intrinsicValueParser_->valueSaver()));
         return;
     }
 
@@ -724,7 +765,7 @@ void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor
                                 ParsedValues &result /*out*/) const {
     // If the switch has no declared arguments, then parse its default.
     if (arguments_.empty()) {
-        result.push_back(ParsedValue(intrinsicValue_, NOWHERE, intrinsicValueString_));
+        result.push_back(ParsedValue(intrinsicValue_, NOWHERE, intrinsicValueString_, intrinsicValueParser_->valueSaver()));
         return;
     }
 
@@ -910,6 +951,15 @@ void ParserResult::terminator(const Location &loc) {
     terminators_.push_back(loc.idx);
 }
 
+const ParserResult& ParserResult::apply() const {
+    for (NameIndex::const_iterator ki=keyIndex_.begin(); ki!=keyIndex_.end(); ++ki) {
+        BOOST_FOREACH (size_t idx, ki->second) {
+            values_[idx].save();
+        }
+    }
+    return *this;
+}
+
 const ParsedValue& ParserResult::parsed(const std::string &switchKey, size_t idx) {
     return values_[keyIndex_[switchKey][idx]];
 }
@@ -935,12 +985,14 @@ std::vector<std::string> ParserResult::unreachedArgs() const {
     return retval;
 }
 
-std::vector<std::string> ParserResult::unparsedArgs() const {
+std::vector<std::string> ParserResult::unparsedArgs(bool includeTerminators) const {
     std::set<size_t> indexes;
     BOOST_FOREACH (size_t idx, skippedIndex_)
         indexes.insert(idx);
-    BOOST_FOREACH (size_t idx, terminators_)
-        indexes.insert(idx);
+    if (includeTerminators) {
+        BOOST_FOREACH (size_t idx, terminators_)
+            indexes.insert(idx);
+    }
     for (size_t i=cursor_.location().idx; i<cursor_.strings().size(); ++i)
         indexes.insert(i);
 
@@ -952,8 +1004,17 @@ std::vector<std::string> ParserResult::unparsedArgs() const {
 
 std::vector<std::string> ParserResult::parsedArgs() const {
     std::set<size_t> indexes;
-    for (ArgvIndex::const_iterator ai=argvIndex_.begin(); ai!=argvIndex_.end(); ++ai)
-        indexes.insert(ai->first.idx);
+
+    // Program arguments that have parsed switches, and the locations of the switch values
+    for (ArgvIndex::const_iterator i=argvIndex_.begin(); i!=argvIndex_.end(); ++i) {
+        indexes.insert(i->first.idx);
+        BOOST_FOREACH (size_t valueIdx, i->second) {
+            const Location valueLocation = values_[valueIdx].valueLocation();
+            if (valueLocation != NOWHERE)
+                indexes.insert(valueLocation.idx);
+        }
+    }
+
     BOOST_FOREACH (size_t idx, terminators_)
         indexes.insert(idx);
 
