@@ -111,9 +111,9 @@ size_t Cursor::linearDistance() const {
 //                                      Parsers
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-boost::any ValueParser::matchString(const std::string &str) {
+ParsedValue ValueParser::matchString(const std::string &str) {
     Cursor cursor = str;
-    boost::any retval = match(cursor);
+    ParsedValue retval = match(cursor);
     if (cursor.atArgBegin())
         throw std::runtime_error("not matched");
     if (!cursor.atEnd())
@@ -121,16 +121,16 @@ boost::any ValueParser::matchString(const std::string &str) {
     return retval;
 }
 
-boost::any ValueParser::match(Cursor &cursor) {
+ParsedValue ValueParser::match(Cursor &cursor) {
     return (*this)(cursor);
 }
 
 // Only called by match().  If the subclass doesn't override this, then we try calling the C-string version instead.
-boost::any ValueParser::operator()(Cursor &cursor) {
+ParsedValue ValueParser::operator()(Cursor &cursor) {
     std::string str = cursor.rest();
     const char *s = str.c_str();
     const char *rest = s;
-    boost::any retval = (*this)(s, &rest);
+    ParsedValue retval = (*this)(s, &rest, cursor.location());
     if (NULL!=rest) {
         ASSERT_require(rest>=s && rest<= s+strlen(s));
         cursor.consumeChars(rest-s);
@@ -139,17 +139,19 @@ boost::any ValueParser::operator()(Cursor &cursor) {
 }
 
 // only called by ValueParser::operator()(Cursor&)
-boost::any ValueParser::operator()(const char *s, const char **rest) {
+ParsedValue ValueParser::operator()(const char *s, const char **rest, const Location &loc) {
     throw std::runtime_error("subclass must implement an operator() with a cursor or C strings");
 }
 
-boost::any AnyParser::operator()(Cursor &cursor) {
-    std::string retval = cursor.rest();
+ParsedValue AnyParser::operator()(Cursor &cursor) {
+    Location startLoc = cursor.location();
+    std::string s = cursor.rest();
     cursor.consumeArg();
-    return retval;
+    return ParsedValue(s, startLoc, s, valueSaver());
 }
 
-boost::any StringSetParser::operator()(Cursor &cursor) {
+ParsedValue StringSetParser::operator()(Cursor &cursor) {
+    Location locStart = cursor.location();
     std::string input = cursor.rest();
     size_t bestMatchIdx = (size_t)(-1), bestMatchLen = 0;
     for (size_t i=0; i<strings_.size(); ++i) {
@@ -161,7 +163,7 @@ boost::any StringSetParser::operator()(Cursor &cursor) {
     if ((size_t)(-1)==bestMatchIdx)
         throw std::runtime_error("specific word expected");
     cursor.consumeChars(bestMatchLen);
-    return strings_[bestMatchIdx];
+    return ParsedValue(strings_[bestMatchIdx], locStart, strings_[bestMatchIdx], valueSaver());
 }
 
 ListParser::Ptr ListParser::limit(size_t minLength, size_t maxLength) {
@@ -172,10 +174,11 @@ ListParser::Ptr ListParser::limit(size_t minLength, size_t maxLength) {
     return boost::dynamic_pointer_cast<ListParser>(shared_from_this());
 }
 
-boost::any ListParser::operator()(Cursor &cursor) {
+ParsedValue ListParser::operator()(Cursor &cursor) {
     ASSERT_forbid(elements_.empty());
+    Location startLoc = cursor.location();
     ExcursionGuard guard(cursor);                       // parsing the list should be all or nothing
-    std::vector<boost::any> retval;
+    ValueList values;
     std::string sep = "";
 
     for (size_t i=0; i<maxLength_; ++i) {
@@ -208,29 +211,30 @@ boost::any ListParser::operator()(Cursor &cursor) {
 
         // Parse the value, stopping before the next separator
         Cursor valueCursor(cursor.rest().substr(0, endOfValue));
-        boost::any value = ps.first->match(valueCursor);
+        ParsedValue value = ps.first->match(valueCursor);
+        value.valueLocation(cursor.location());
         cursor.consumeChars(valueCursor.linearDistance());
-        retval.push_back(value);
+        values.push_back(value);
     }
 
-    if (retval.size()<minLength_ || retval.size()>maxLength_) {
+    if (values.size()<minLength_ || values.size()>maxLength_) {
         std::ostringstream ss;
         if (minLength_ == maxLength_) {
-            ss <<"list with " <<maxLength_ <<" element" <<(1==maxLength_?"":"s") <<" expected (got " <<retval.size() <<")";
+            ss <<"list with " <<maxLength_ <<" element" <<(1==maxLength_?"":"s") <<" expected (got " <<values.size() <<")";
             throw std::runtime_error(ss.str());
         } else if (minLength_+1 == maxLength_) {
             ss <<"list with " <<minLength_ <<" or " <<maxLength_ <<" element" <<(1==maxLength_?"":"s") <<" expected"
-               <<" (got " <<retval.size() <<")";
+               <<" (got " <<values.size() <<")";
             throw std::runtime_error(ss.str());
         } else {
             std::ostringstream ss;
-            ss <<"list with " <<minLength_ <<" to " <<maxLength_ <<" elements expected (got " <<retval.size() <<")";
+            ss <<"list with " <<minLength_ <<" to " <<maxLength_ <<" elements expected (got " <<values.size() <<")";
             throw std::runtime_error(ss.str());
         }
     }
 
     guard.cancel();
-    return retval;
+    return ParsedValue(values, startLoc, cursor.substr(startLoc), valueSaver());
 }
 
 AnyParser::Ptr anyParser(std::string &storage) {
@@ -412,6 +416,12 @@ std::string ParsedValue::asString() const {
 void ParsedValue::save() const {
     if (valueSaver_)
         valueSaver_->save(value_);
+
+    if (value_.type() == typeid(ListParser::ValueList)) {
+        const ListParser::ValueList &values = boost::any_cast<ListParser::ValueList>(value_);
+        BOOST_FOREACH (const ParsedValue &pval, values)
+            pval.save();
+    }
 }
 
 void ParsedValue::print(std::ostream &o) const {
@@ -549,8 +559,7 @@ Switch& Switch::argument(const std::string &name, const ValueParser::Ptr &parser
 
 Switch& Switch::intrinsicValue(const std::string &text, const ValueParser::Ptr &p) {
     intrinsicValue_ = p->matchString(text);
-    intrinsicValueString_ = text;
-    intrinsicValueParser_ = p;
+    intrinsicValue_.valueLocation(NOWHERE);
     return *this;
 }
 
@@ -663,18 +672,17 @@ size_t Switch::matchShortName(Cursor &cursor, const ParsingProperties &props, st
 }
 
 // optionally explodes a vector value into separate values
-bool Switch::explodeVector(ParsedValues &pvals /*in,out*/) const {
-    if (!explodeVector_)
+bool Switch::explode(ParsedValues &pvals /*in,out*/) const {
+    if (!explosiveLists_)
         return false;
 
     bool retval = false;
     ParsedValues pvals2;
     BOOST_FOREACH (const ParsedValue &pval1, pvals) {
-        if (pval1.value().type()==typeid(std::vector<boost::any>)) {
-            std::vector<boost::any> valvec = boost::any_cast<std::vector<boost::any> >(pval1.value());
-            BOOST_FOREACH (const boost::any &val2, valvec) {
-                ParsedValue pval2(val2, pval1.valueLocation(), pval1.string(), ValueSaver::Ptr());
-                pvals2.push_back(pval2);
+        if (pval1.value().type()==typeid(ListParser::ValueList)) {
+            ListParser::ValueList elmts = boost::any_cast<ListParser::ValueList>(pval1.value());
+            BOOST_FOREACH (const ParsedValue &elmt, elmts) {
+                pvals2.push_back(elmt);
                 retval = true;
             }
         } else {
@@ -699,10 +707,10 @@ size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*
         // Parse the argument value if possible, otherwise use a default if allowed
         Location valueLocation = cursor.location();
         try {
-            boost::any value = sa.parser()->match(cursor);
+            ParsedValue value = sa.parser()->match(cursor);
             if (cursor.location() == valueLocation && sa.isRequired())
                 throw std::runtime_error("not found");
-            result.push_back(ParsedValue(value, valueLocation, cursor.substr(valueLocation), sa.parser()->valueSaver()));
+            result.push_back(value);
             ++retval;
         } catch (const std::runtime_error &e) {
             if (sa.isRequired())
@@ -714,7 +722,7 @@ size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*
         if (isLongSwitch && !cursor.atArgBegin() && !cursor.atEnd())
             throw extraTextAfterArgument(switchString, cursor, sa);
     }
-    explodeVector(result);
+    explode(result);
     guard.cancel();
     return retval;
 }
@@ -726,7 +734,7 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
     // If the switch has no declared arguments, then parse its default.
     if (arguments_.empty()) {
         ASSERT_require(cursor.atArgBegin() || cursor.atEnd());
-        result.push_back(ParsedValue(intrinsicValue_, NOWHERE, intrinsicValueString_, intrinsicValueParser_->valueSaver()));
+        result.push_back(intrinsicValue_);
         return;
     }
 
@@ -765,7 +773,7 @@ void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor
                                 ParsedValues &result /*out*/) const {
     // If the switch has no declared arguments, then parse its default.
     if (arguments_.empty()) {
-        result.push_back(ParsedValue(intrinsicValue_, NOWHERE, intrinsicValueString_, intrinsicValueParser_->valueSaver()));
+        result.push_back(intrinsicValue_);
         return;
     }
 
@@ -909,6 +917,7 @@ void ParserResult::insertValuesForSwitch(const ParsedValues &pvals, const Parser
                 BOOST_FOREACH (size_t idx, keyIndex_[key])
                     oldValues.push_back(values_[idx]);
                 ParsedValues newValues = (*f)(oldValues, pvals);
+                keyIndex_[key].clear();
                 BOOST_FOREACH (const ParsedValue &pval, newValues)
                     insertOneValue(pval, key, name);
                 sw->runActions(parser);

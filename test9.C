@@ -136,6 +136,20 @@ int main(int argc, char *argv[]) {
               .argument("editor_command")
               .whichValue(SAVE_ALL));                   // the default is SAVE_LAST
 
+    // Parsed values can also be appended to the end of STL vectors by providing a vector L-value as the parser storage
+    // location.  This doesn't actually store every value parsed into the vector, only those values that are part of the final
+    // ParserResult when the ParserResult::apply() method is invoked.
+    std::vector<double> multipliers;
+    ss.insert(Switch("multiplier")
+              .argument("multiplicand", realNumberParser(multipliers))
+              .whichValue(SAVE_ALL));
+
+    // Another switch can use the same storage vector.  This time we accept a list of multipliers in a single switch
+    // occurrence, like "--multipliers=1,2,3"
+    ss.insert(Switch("multipliers")
+              .argument("multiplicand-list", listParser(realNumberParser(multipliers))));
+
+
     // It's also possible that subsequent occurrences of a switch modify the value stored by the previous occurrence. A classic
     // example is a debug switch where each occurrence of the switch increments the debug level, storing only a single integer
     // rather than a list of integers.  One does that by registering a value augmenter and setting the whichProperty to
@@ -159,13 +173,13 @@ int main(int argc, char *argv[]) {
               .whichValue(SAVE_NONE));
 
     // A switch may have multiple values separated by the specified regular expression (default is a comma, colon, or semicolon
-    // followed by optional white space).  If a switch argument parses to an STL container, the container can be optionally
-    // exploded so "-I foo:bar" is (almost) indistinguishable from "-I foo -I bar" (almost, because the information about where
-    // each value came from on the command line is inaccurate).
+    // followed by optional white space).  If the listParser() is used, which returns a ListParser::ValueList container, the
+    // container can be optionally exploded so "-I foo:bar" is (almost) indistinguishable from "-I foo -I bar" (almost, because
+    // the information about where each value came from on the command line is inaccurate).
     ss.insert(Switch("incdir", 'I')
               .doc("List of directories to search.")
               .argument("directories", listParser(anyParser())) // each switch value is a list of strings
-              .explodeVector(true)                      // FIXME[Robb Matzke 2014-02-24]: should not be a verb
+              .explosiveLists(true)
               .whichValue(SAVE_ALL));                   // and the switch can appear multiple times
 
     // A switch can be one of an enumerated list.
@@ -305,6 +319,15 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::string> args;
 
+    // Values saved for various switches
+    std::cout <<"savedWide = " <<savedWide <<"\n";
+    std::cout <<"testRangeExceptions = " <<testRangeExceptions <<"\n";
+    std::cout <<"multipers = {";
+    for (size_t i=0; i<multipliers.size(); ++i)
+        std::cout <<" " <<multipliers[i];
+    std::cout <<" }\n";
+    std::cout <<"debugLevel = " <<debugLevel <<"\n";
+
     // Did we see an occurrence of the "--test" switch?  If so, get its value a few different ways.   The ParserResult also
     // stores quite a bit of information about where the value came from: command-line location, command-line string, switch
     // key, switch preferred name, matched switch string, switch location, etc.
@@ -313,9 +336,6 @@ int main(int argc, char *argv[]) {
         std::cout <<"value as floating point: " <<cmdline.parsed("test", 0).asDouble() <<"\n";
         std::cout <<"value as string: " <<cmdline.parsed("test", 0).asString() <<"\n"; // the double cast to a string
     }
-
-    // Since we called ParserResult::apply(), parsed values have been written to our variables.
-    std::cout <<"debugLevel for the --debug switch is: " <<debugLevel <<"\n";
 
     // Some queries that return parts of a command line...
     args = cmdline.allArgs();

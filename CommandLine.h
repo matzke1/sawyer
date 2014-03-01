@@ -225,6 +225,144 @@ public:
     }
 };
 
+// partial specialization for vector storage
+template<typename T>
+class TypedSaver<std::vector<T> >: public ValueSaver {
+    std::vector<T> &storage_;
+protected:
+    TypedSaver(std::vector<T> &storage): storage_(storage) {}
+public:
+    typedef boost::shared_ptr<TypedSaver> Ptr;
+    static Ptr instance(std::vector<T> &storage) { return Ptr(new TypedSaver(storage)); }
+    virtual void save(const boost::any &value) const /*override*/ {
+        T typed = boost::any_cast<T>(value);
+        storage_.push_back(typed);
+    }
+};
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Parsed value
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class Switch;
+
+/** Information about a parsed switch value.
+ *
+ *  Each time a switch argument is parsed to create a value, whether it comes from the program command line or a default value
+ *  string, a ParsedValue object is constructed to describe it.  These objects hold the value, the string from whence the value
+ *  was parsed, and information about where the value came from and with which switch it is associated.  This class also
+ *  provides a number of methods for conveniently and safely casting the value to other types. */
+class ParsedValue {
+    boost::any value_;
+    Location valueLocation_;                            // where this value came from on the command-line; or NOWHERE if dflt
+    std::string valueString_;                           // string representation of the value
+    std::string switchKey_;                             // key for the switch that parsed this value
+    Location switchLocation_;                           // where is the actual switch name in switchString_?
+    std::string switchString_;                          // prefix and switch name
+    size_t keySequence_, switchSequence_;               // relation of this value w.r.t. other values for same key and switch
+    ValueSaver::Ptr valueSaver_;                        // saves the value during ParserResult::apply()
+
+public:
+    ParsedValue(const boost::any value, const Location &loc, const std::string &str, const ValueSaver::Ptr &saver)
+        : value_(value), valueLocation_(loc), valueString_(str), keySequence_(0), switchSequence_(0), valueSaver_(saver) {}
+
+    // Update the switch information for the parsed value.
+    ParsedValue& switchInfo(const std::string &key, const Location &loc, const std::string &str) {
+        switchKey_ = key;
+        switchLocation_ = loc;
+        switchString_ = str;
+        return *this;
+    }
+
+    // Update sequence info
+    void sequenceInfo(size_t keySequence, size_t switchSequence) {
+        keySequence_ = keySequence;
+        switchSequence_ = switchSequence;
+    }
+
+public:
+    /** The parsed value.  Parsed values are represented by boost::any, which is capable of storing any type of parsed
+     *  value including void.  This is the most basic access to the value; the class also provides a variety of casting
+     *  accessors that are sometimes more convenient (their names start with "as").
+     * @{ */
+    const boost::any& value() const { return value_; }
+    void value(const boost::any &v) { value_ = v; }
+    /** @} */
+
+    /** Command-line location from whence this value came.  For values that are defaults which didn't come from the
+     *  command-line, the constant NOWHERE is returned. */
+    Location valueLocation() const { return valueLocation_; }
+    void valueLocation(const Location &loc) { valueLocation_ = loc; }
+
+    /** String representation.  This is the value as it appeared on the command-line or as a default string. */
+    const std::string &string() const { return valueString_; }
+
+    /** Convenience cast.  This returns the value cast to the specified type.  Whereas boost::any_cast requires an exact type
+     *  match for the cast to be successful, this method makes more of an effort to be successful.  It recognizes a variety of
+     *  common types; less common types will need to be explicitly converted by hand.  In any case, the original string
+     *  representation and parser are available if needed.
+     * @{ */
+    int asInt() const;
+    unsigned asUnsigned() const;
+    long asLong() const;
+    unsigned long asUnsignedLong() const;
+    boost::int64_t asInt64() const;
+    boost::uint64_t asUnsigned64() const;
+    double asDouble() const;
+    float asFloat() const;
+    bool asBool() const;
+    std::string asString() const;
+    /** @} */
+
+    /** Convenient any_cast.  This is a slightly less verbose way to get the value and perform a boost::any_cast. */
+    template<typename T> T as() const { return boost::any_cast<T>(value_); }
+
+    /** The key used by the switch that created this value. */
+    const std::string& switchKey() const { return switchKey_; }
+
+    /** The string for the switch that caused this value to be parsed.  This string includes the switch prefix and the switch
+     *  name in order to allow programs to distinguish between the same switch occuring with two different prefixes (like the
+     *  "-invert" vs "+invert" style which is sometimes used for Boolean-valued switches).
+     *
+     *  For nestled short switches, the string returned by this method doesn't necessarily appear anywhere in the program
+     *  command line.  For instance, this method might return "-b" when the command line was "-ab", because "-a" is a different
+     *  switch with presumably a different set of parsed values. */
+    const std::string& switchString() const { return switchString_; }
+
+    /** The command-line location of the switch to which this value belongs.  The return value indicates the start of the
+     *  switch name after any leading prefix.  For nestled single-character switches, the location's command line argument
+     *  index will be truthful, but the character offset will refer to the string returned by switchString(). */
+    Location switchLocation() const { return switchLocation_; }
+
+    /** How this value relates to others with the same key.  This method returns the sequence number for this value among all
+     *  values created for the same key. */
+    size_t keySequence() const { return keySequence_; }
+
+    /** How this value relates to others created by the same switch.  This method returns the sequence number for this value
+     *  among all values created for the same switch. */
+    size_t switchSequence() const { return switchSequence_; }
+
+    /** How to save a value at a user-supplied location. */
+    const ValueSaver::Ptr valueSaver() const { return valueSaver_; }
+
+    /** Save this value in switch-supplied storage. */
+    void save() const;
+
+    // Print some debug info
+    void print(std::ostream&) const;
+
+    // FIXME[Robb Matzke 2014-02-21]: A switch to receive the non-switch program arguments?
+};
+
+std::ostream& operator<<(std::ostream&, const ParsedValue&);
+
+/** A vector of parsed values. */
+typedef std::vector<ParsedValue> ParsedValues;
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Switch argument parsers
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -274,13 +412,13 @@ public:
     /** Parse the entire string and return a value.  The matching of the parser against the input is performed by calling
      *  match(), which may throw an exception if the input is matched but cannot be converted to a value (e.g., integer
      *  overflow).  If the parser did not match the entire string, then an std::runtime_error is thrown. */
-    boost::any matchString(const std::string&) /*final*/;
+    ParsedValue matchString(const std::string&) /*final*/;
 
     /** Parse a value from the beginning of the specified string.  If the parser does not recognize the input then it returns
      *  without updating the cursor, returning an empty boost::any.  If the parser recognizes the input but cannot convert it
      *  to a value (e.g., integer overflow) then the cursor should be updated to show the matching region before the matching
      *  operator throws an std::runtime_error exception. */
-    boost::any match(Cursor&) /*final*/;
+    ParsedValue match(Cursor&) /*final*/;
 
     /** The functor responsible for saving a parsed value in user storage.  Many of the ValueParser subclasses take an argument
      *  which is a reference to a user-defined storage location, such as:
@@ -303,8 +441,8 @@ public:
 private:
     /** Parse next input characters. Each subclass should implement one of these. See documentation for class ValueParser.
      *  @{ */
-    virtual boost::any operator()(Cursor&);
-    virtual boost::any operator()(const char *input, const char **endptr);
+    virtual ParsedValue operator()(Cursor&);
+    virtual ParsedValue operator()(const char *input, const char **endptr, const Location&);
     /** @} */
 };
 
@@ -318,7 +456,7 @@ public:
     static Ptr instance() { return Ptr(new AnyParser); }
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new AnyParser(valueSaver)); }
 private:
-    virtual boost::any operator()(Cursor&) /*override*/;
+    virtual ParsedValue operator()(Cursor&) /*override*/;
 };
 
 // used internally to cast one numeric type to another and throw a range_error with a decent message.
@@ -338,7 +476,14 @@ struct NumericCast {
         }
     }
 };
-            
+
+// partial specialization for std::vector<Target>
+template<typename Target, typename Source>
+struct NumericCast<std::vector<Target>, Source> {
+    static Target convert(Source from, const std::string &parsed) {
+        return NumericCast<Target, Source>::convert(from, parsed);
+    }
+};
 
 /** Parses an integer and converts it to numeric type @p T.  Matches an integer in the mathematical sense in C++ decimal,
  *  octal, or hexadecimal format, and attempts to convert it to the type @p T.  If the integer cannot be converted to type @p T
@@ -355,7 +500,7 @@ public:
     static Ptr instance() { return Ptr(new IntegerParser); }
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new IntegerParser(valueSaver)); }
 private:
-    virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
+    virtual ParsedValue operator()(const char *input, const char **rest, const Location &loc) /*override*/ {
         errno = 0;
         boost::int64_t big = strtoll(input, (char**)rest, 0);
         if (*rest==input)
@@ -364,7 +509,7 @@ private:
         std::string parsed(input, *rest-input);
         if (ERANGE==errno)
             throw std::range_error("integer overflow when parsing \""+parsed+"\"");
-        return NumericCast<T, boost::int64_t>::convert(big, parsed);
+        return ParsedValue(NumericCast<T, boost::int64_t>::convert(big, parsed), loc, parsed, valueSaver());
     }
 };
 
@@ -383,7 +528,7 @@ public:
     static Ptr instance() { return Ptr(new NonNegativeIntegerParser); }
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new NonNegativeIntegerParser(valueSaver)); }
 private:
-    virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
+    virtual ParsedValue operator()(const char *input, const char **rest, const Location &loc) /*override*/ {
         errno = 0;
         boost::uint64_t big = strtoull(input, (char**)rest, 0);
         if (*rest==input)
@@ -392,7 +537,7 @@ private:
         std::string parsed(input, *rest-input);
         if (ERANGE==errno)
             throw std::range_error("integer overflow when parsing \""+parsed+"\"");
-        return NumericCast<T, boost::uint64_t>::convert(big, parsed);
+        return ParsedValue(NumericCast<T, boost::uint64_t>::convert(big, parsed), loc, parsed, valueSaver());
     }
 };
 
@@ -411,13 +556,13 @@ public:
     static Ptr instance() { return Ptr(new RealNumberParser); }
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new RealNumberParser(valueSaver)); }
 private:
-    virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
+    virtual ParsedValue operator()(const char *input, const char **rest, const Location &loc) /*override*/ {
         double big = strtod(input, (char**)rest);
         if (*rest==input)
             throw std::runtime_error("real number expected");
         while (isspace(**rest)) ++*rest;
         std::string parsed(input, *rest-input);
-        return NumericCast<T, double>::convert(big, parsed);
+        return ParsedValue(NumericCast<T, double>::convert(big, parsed), loc, parsed, valueSaver());
     }
 };
 
@@ -434,7 +579,7 @@ public:
     static Ptr instance() { return Ptr(new BooleanParser); }
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new BooleanParser(valueSaver)); }
 private:
-    virtual boost::any operator()(const char *input, const char **rest) /*override*/ {
+    virtual ParsedValue operator()(const char *input, const char **rest, const Location &loc) /*override*/ {
         static const char *neg[] = {"false", "off", "no", "0", "f", "n"}; // longest to shortest
         static const char *pos[] = {"true",  "yes", "on", "1", "t", "y"};
         const char *start = input;
@@ -447,7 +592,7 @@ private:
                     *rest = input + strlen(list[i]);
                     while (isspace(**rest)) ++*rest;
                     std::string parsed(start, *rest-start);
-                    return NumericCast<T, bool>::convert(0!=negpos, parsed);
+                    return ParsedValue(NumericCast<T, bool>::convert(0!=negpos, parsed), loc, parsed, valueSaver());
                 }
             }
         }
@@ -478,7 +623,7 @@ public:
     /** @} */
 
 private:
-    virtual boost::any operator()(Cursor&) /*override*/;
+    virtual ParsedValue operator()(Cursor&) /*override*/;
 };
 
 /** Parses an enumerated constant. The template parameter is the enum type. Returns T. */
@@ -501,9 +646,9 @@ public:
         return boost::dynamic_pointer_cast<EnumParser>(shared_from_this());
     }
 private:
-    virtual boost::any operator()(Cursor &cursor) /*override*/ {
-        std::string str = boost::any_cast<std::string>(strParser_->match(cursor));
-        return members_[str];
+    virtual ParsedValue operator()(Cursor &cursor) /*override*/ {
+        ParsedValue strVal = strParser_->match(cursor);
+        return ParsedValue(members_[strVal.string()], strVal.valueLocation(), strVal.string(), valueSaver());
     }
 };
 
@@ -521,6 +666,7 @@ protected:
     }
 public:
     typedef boost::shared_ptr<ListParser> Ptr;
+    typedef std::list<ParsedValue> ValueList;
 
     /** Allocating constructor.  The @p firstElmtType is the parser for the first value (and the remaining values also if no
      *  subsequent parser is specified), and the @p separatorRe is the regular expression describing how values of this type
@@ -547,7 +693,7 @@ public:
     Ptr exactly(size_t length) { return limit(length, length); }
     /** @} */
 private:
-    virtual boost::any operator()(Cursor&) /*override*/;
+    virtual ParsedValue operator()(Cursor&) /*override*/;
 };
 
 /** Factory for value parsers.  A factory function is a more terse and convenient way of calling the instance() static
@@ -776,126 +922,6 @@ ShowHelp::Ptr showHelp();
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                      Parsed value
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-class Switch;
-
-/** Information about a parsed switch value.
- *
- *  Each time a switch argument is parsed to create a value, whether it comes from the program command line or a default value
- *  string, a ParsedValue object is constructed to describe it.  These objects hold the value, the string from whence the value
- *  was parsed, and information about where the value came from and with which switch it is associated.  This class also
- *  provides a number of methods for conveniently and safely casting the value to other types. */
-class ParsedValue {
-    boost::any value_;
-    Location valueLocation_;                            // where this value came from on the command-line; or NOWHERE if dflt
-    std::string valueString_;                           // string representation of the value
-    std::string switchKey_;                             // key for the switch that parsed this value
-    Location switchLocation_;                           // where is the actual switch name in switchString_?
-    std::string switchString_;                          // prefix and switch name
-    size_t keySequence_, switchSequence_;               // relation of this value w.r.t. other values for same key and switch
-    ValueSaver::Ptr valueSaver_;                        // saves the value during ParserResult::apply()
-
-private:
-    friend class Switch;
-    friend class ParserResult;
-    friend class Parser;
-
-    ParsedValue(const boost::any value, const Location &loc, const std::string &str, const ValueSaver::Ptr &saver)
-        : value_(value), valueLocation_(loc), valueString_(str), keySequence_(0), switchSequence_(0), valueSaver_(saver) {}
-
-    // Update the switch information for the parsed value.
-    ParsedValue& switchInfo(const std::string &key, const Location &loc, const std::string &str) {
-        switchKey_ = key;
-        switchLocation_ = loc;
-        switchString_ = str;
-        return *this;
-    }
-
-    // Update sequence info
-    void sequenceInfo(size_t keySequence, size_t switchSequence) {
-        keySequence_ = keySequence;
-        switchSequence_ = switchSequence;
-    }
-
-public:
-    /** The parsed value.  Parsed values are represented by boost::any, which is capable of storing any type of parsed
-     *  value including void.  This is the most basic access to the value; the class also provides a variety of casting
-     *  accessors that are sometimes more convenient (their names start with "as").
-     * @{ */
-    const boost::any& value() const { return value_; }
-    void value(const boost::any &v) { value_ = v; }
-    /** @} */
-
-    /** Command-line location from whence this value came.  For values that are defaults which didn't come from the
-     *  command-line, the constant NOWHERE is returned. */
-    Location valueLocation() const { return valueLocation_; }
-
-    /** String representation.  This is the value as it appeared on the command-line or as a default string. */
-    const std::string &string() const { return valueString_; }
-
-    /** Convenience cast.  This returns the value cast to the specified type.  Whereas boost::any_cast requires an exact type
-     *  match for the cast to be successful, this method makes more of an effort to be successful.  It recognizes a variety of
-     *  common types; less common types will need to be explicitly converted by hand.  In any case, the original string
-     *  representation and parser are available if needed.
-     * @{ */
-    int asInt() const;
-    unsigned asUnsigned() const;
-    long asLong() const;
-    unsigned long asUnsignedLong() const;
-    boost::int64_t asInt64() const;
-    boost::uint64_t asUnsigned64() const;
-    double asDouble() const;
-    float asFloat() const;
-    bool asBool() const;
-    std::string asString() const;
-    /** @} */
-
-    /** Convenient any_cast.  This is a slightly less verbose way to get the value and perform a boost::any_cast. */
-    template<typename T> T as() const { return boost::any_cast<T>(value_); }
-
-    /** The key used by the switch that created this value. */
-    const std::string& switchKey() const { return switchKey_; }
-
-    /** The string for the switch that caused this value to be parsed.  This string includes the switch prefix and the switch
-     *  name in order to allow programs to distinguish between the same switch occuring with two different prefixes (like the
-     *  "-invert" vs "+invert" style which is sometimes used for Boolean-valued switches).
-     *
-     *  For nestled short switches, the string returned by this method doesn't necessarily appear anywhere in the program
-     *  command line.  For instance, this method might return "-b" when the command line was "-ab", because "-a" is a different
-     *  switch with presumably a different set of parsed values. */
-    const std::string& switchString() const { return switchString_; }
-
-    /** The command-line location of the switch to which this value belongs.  The return value indicates the start of the
-     *  switch name after any leading prefix.  For nestled single-character switches, the location's command line argument
-     *  index will be truthful, but the character offset will refer to the string returned by switchString(). */
-    Location switchLocation() const { return switchLocation_; }
-
-    /** How this value relates to others with the same key.  This method returns the sequence number for this value among all
-     *  values created for the same key. */
-    size_t keySequence() const { return keySequence_; }
-
-    /** How this value relates to others created by the same switch.  This method returns the sequence number for this value
-     *  among all values created for the same switch. */
-    size_t switchSequence() const { return switchSequence_; }
-
-    /** Save this value in switch-supplied storage. */
-    void save() const;
-
-    // Print some debug info
-    void print(std::ostream&) const;
-
-    // FIXME[Robb Matzke 2014-02-21]: A switch to receive the non-switch program arguments?
-};
-
-std::ostream& operator<<(std::ostream&, const ParsedValue&);
-
-/** A vector of parsed values. */
-typedef std::vector<ParsedValue> ParsedValues;
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Switch value agumenters
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1011,10 +1037,8 @@ private:
     std::vector<SwitchAction::Ptr> actions_;            // what happens as soon as the switch is parsed
     WhichValue whichValue_;                             // which switch values should be saved
     ValueAugmenter::Ptr valueAugmenter_;                // used if whichValue_==SAVE_AUGMENTED
-    boost::any intrinsicValue_;                         // default when no arguments are present
-    std::string intrinsicValueString_;                  // string version of defaultValue_ (before parsing)
-    ValueParser::Ptr intrinsicValueParser_;             // what parsed the intrinsicValueString_
-    bool explodeVector_;                                // expand a vector value into separate values
+    ParsedValue intrinsicValue_;                        // value for switches that have no declared arguments
+    bool explosiveLists_;                               // expand ListParser::ValueList into separate values
 
 public:
     /** Switch declaration constructor.  Every switch must have either a long or short name (or both).  Neither name should
@@ -1026,8 +1050,8 @@ public:
      *  command-line argument then the first declaration wins--this includes being able to parse its arguments.  This feature
      *  is sometimes used to declare two switches with the same name but which take different types of arguments. */
     explicit Switch(const std::string &longName, char shortName='\0')
-        : hidden_(false), whichValue_(SAVE_LAST), intrinsicValue_(true), intrinsicValueString_("true"),
-          intrinsicValueParser_(booleanParser<bool>()), explodeVector_(false) {
+        : hidden_(false), whichValue_(SAVE_LAST), intrinsicValue_(ParsedValue(true, NOWHERE, "true", ValueSaver::Ptr())),
+          explosiveLists_(false) {
         init(longName, shortName);
     }
 
@@ -1233,21 +1257,19 @@ public:
      *  and missing (in which case that argument's default value is used).
      * @{ */
     Switch& intrinsicValue(const std::string &text, const ValueParser::Ptr &p = anyParser());
-    boost::any intrinsicValue() const { return intrinsicValue_; }
-    std::string intrinsicValueString() const { return intrinsicValueString_; }
-    const ValueParser::Ptr intrinsicValueParser() const { return intrinsicValueParser_; }
+    Switch& intrinsicValue(const ParsedValue &value) { intrinsicValue_ = value; return *this; }
+    ParsedValue intrinsicValue() const { return intrinsicValue_; }
     /** @} */
 
-    /** Whether to explode a vector value.  If parsing a switch results in a value which is an STL vector, then that value is
-     *  replaced with the individual elements of the vector.  This is useful for switches that can either occur multiple times
-     *  or take a vector as an argument, such as GCC's "-I" switch.
+    /** Whether to convert list value to individual values.  When using the ListParser (via listParser() factory) the parser
+     *  returns a single value of type ListParser::ValueList, an STL list containing parsed values.  If the explodeLists
+     *  property is true, then each switch argument that is a ListParser::ValueList is converted to multiple switch arguments.
      *
-     *  When a vector is exploded into multiple ParsedValue objects, all the new ParsedValue objects will have the same value
-     *  location and value string corresponding to the unexploded argument.  Exploding a value does not reparse the original
-     *  string to obtain the locations of the individual components.
+     *  This is useful for switches that can either occur multiple times on the command-line or take a list as an argument,
+     *  such as GCC's "-I" switch, where "-Ia:b:c" is the same as "-Ia -Ib -Ic".
      * @{ */
-    Switch& explodeVector(bool b) { explodeVector_ = b; return *this; }
-    bool explodeVector() const { return explodeVector_; }
+    Switch& explosiveLists(bool b) { explosiveLists_ = b; return *this; }
+    bool explosiveLists() const { return explosiveLists_; }
     /** @} */
 
     /** Action to occur each time a switch is parsed.  All switch occurrences cause a ParserResult object to be modified in
@@ -1285,8 +1307,9 @@ public:
      *
      *  A switch that has a list value (e.g., listParser) is treated as having a single value per occurrence, but if the list
      *  is exploded then it will be treated as if the switch occurred more than once.  In other words, SAVE_ONE will not
-     *  normaly raise an error for an occurrence like "--foo1=a,b,c" because it's considered to be a single value (a single
-     *  list), but would cause an error if the list were exploded into three values.
+     *  normaly raise an error for an occurrence like "--foo=a,b,c" because it's considered to be a single value (a single
+     *  list), but would cause an error if the list were exploded into three values since the exploding makes the command line
+     *  look more like "--foo=a --foo=b --foo=c".
      *
      *  Single letter switches that are nestled and repeated, like the somewhat common debug switch where more occurrences
      *  means more debugging output, like "-d" versus "-ddd" are counted as individual switches: -d is one, -ddd is three.
@@ -1341,8 +1364,8 @@ private:
     // each other in the program argument.
     size_t matchShortName(Cursor&/*in,out*/, const ParsingProperties &props, std::string &name) const;
 
-    // Explodes vector-valued elements of pvals, replacing pvals in place.
-    bool explodeVector(ParsedValues &pvals /*in,out*/) const;
+    // Explodes ListParser::ValueList elements of pvals, replacing pvals in place.
+    bool explode(ParsedValues &pvals /*in,out*/) const;
 
     // Parse long switch arguments when the cursor is positioned immediately after the switch name.  This matches the
     // switch/value separator if necessary and subsequent switch arguments.
