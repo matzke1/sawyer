@@ -11,7 +11,10 @@
 
 namespace Sawyer {
 
-/** Simple markup language. The original design was to provide a simple markup language for documenting command line switches.
+/** Simple markup language.
+ *
+ *  <em>THIS NAMESPACE IS NOT YET READY FOR END USERS</em>  The original design was to provide a simple markup language for
+ *  documenting command line switches.
  *
  *  Markup is indicated by a tag followed by zero or more arguments, usually enclosed in curly braces.  For instance, to
  *  indicate that some text is code, use "@code{strtol(s, &rest, 0)}".  Many of the commonly used tags have a one-character
