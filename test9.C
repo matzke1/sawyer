@@ -375,9 +375,8 @@ int main(int argc, char *argv[]) {
     // sets "width" to N.  And it does it all without a single template parameter.
     short width = 0;
     args = Parser()
-           .with(SwitchGroup()                          // FIXME: overload so we don't need the SwitchGroup
-                 .insert(Switch("width")
-                         .argument("n", integerParser(width))))
+           .with(Switch("width")
+                 .argument("n", integerParser(width)))
            .skipUnknownSwitches()
            .skipNonSwitches()
            .parse(argc, argv)

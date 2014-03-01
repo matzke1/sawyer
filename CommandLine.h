@@ -1603,8 +1603,11 @@ public:
         init();
     }
 
-    /** Add switch declarations. The specified group of switch declarations is copied into the parser. */
+    /** Add switch declarations. The specified group of switch declarations is copied into the parser.
+     * @{ */
     Parser& with(const SwitchGroup &sg) { switchGroups_.push_back(sg); return *this; }
+    Parser& with(const Switch &sw) { switchGroups_.push_back(SwitchGroup().insert(sw)); return *this; }
+    /** @} */
 
     /** Prefixes to use for long command-line switches.  The resetLongSwitches() clears the list (and adds prefixes) while
      *  longPrefix() only adds another prefix to the list.  The default long switch prefix on Unix-like systems is "--".
