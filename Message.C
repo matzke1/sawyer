@@ -46,7 +46,7 @@ std::string stringifyColor(AnsiColor color) {
     throw std::runtime_error("invalid color");
 }
 
-double timeval_delta(const timeval &begin, const timeval &end) {
+double timevalDelta(const timeval &begin, const timeval &end) {
     return (1.0*end.tv_sec-begin.tv_sec) + 1e-6*end.tv_usec - 1e-6*begin.tv_usec;
 }
 
@@ -316,7 +316,7 @@ void TimeFilter::initialDelay(double delta) {
 bool TimeFilter::shouldForward(const MesgProps&) {
     ++nPosted_;
     gettimeofday(&lastBakeTime_, NULL);
-    return  timeval_delta(prevMessageTime_, lastBakeTime_) >= minInterval_;
+    return  timevalDelta(prevMessageTime_, lastBakeTime_) >= minInterval_;
 
 }
 
@@ -449,7 +449,7 @@ std::string Prefix::toString(const Mesg &mesg, const MesgProps &props) const {
     if (showElapsedTime_ && startTime_) {
         timeval tv;
         if (-1 != gettimeofday(&tv, NULL)) {
-            double delta = timeval_delta(*startTime_, tv);
+            double delta = timevalDelta(*startTime_, tv);
             retval.precision(5);
             retval <<separator <<std::fixed <<delta <<"s";
             separator = " ";
@@ -1209,8 +1209,8 @@ void Facilities::print(std::ostream &log) const {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 DestinationPtr merr;
-Facility mlog("");
-Facilities facilities;
+Facility mlog("sawyer");
+Facilities mfacilities;
 bool isInitialized;
 
 bool initializeLibrary() {
@@ -1218,7 +1218,7 @@ bool initializeLibrary() {
         isInitialized = true;
         merr = FdSink::instance(2);
         mlog = Facility("", merr);
-        facilities.insert(mlog, "sawyer");
+        mfacilities.insert(mlog, "sawyer");
     }
     return true;
 }
