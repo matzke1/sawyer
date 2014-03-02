@@ -4,6 +4,11 @@ body, table, div, p, dl {
 	font: 400 14px/19px Roboto,sans-serif;
 }
 
+/* Robb: It's too hard to distinguish code from text, so make it stand out a bit. */
+code {
+	background-color: #f8eae0;
+}
+
 /* @group Heading Levels */
 
 h1.groupheader {
@@ -25,11 +30,31 @@ h2.groupheader {
 	padding-top: 8px;
 	padding-bottom: 4px;
 	width: 100%;
+	background-color: #f8eae0;
 }
 
 h3.groupheader {
 	font-size: 100%;
 }
+
+/* Robb: Section, subsection, subsubsection Headers are too large compared to groupheaders. For instance, an h1 section
+ * should have less emphasis than an h2.groupheader. */
+
+h1 {
+	font-size: 150%;
+        border-bottom: 1px solid #bbbbbb;
+}
+
+h2 {
+	font-size: 125%;
+}
+
+h3 {
+	font-size: 110%;
+}
+
+
+
 
 h1, h2, h3, h4, h5, h6 {
 	-webkit-transition: text-shadow 0.5s linear;
