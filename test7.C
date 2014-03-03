@@ -8,7 +8,7 @@ int main(int argc, char *argv[])
     // This is meant to be a SIMPLE example, so we use only the objects already defined by Sawyer.  This next line demonstrates
     // how to disable low-importance messages.  It's processed left-to-right: first disable everything, then enable things of
     // informational and greater importance.
-    facilities.control("none, >=info");
+    mfacilities.control("none, >=info");
 
     // Parse command-line switches. Sawyer configuration is separated from switch parsing so that you can parse switches
     // however you like.  Note that our error message might not show up because we might have disabled the very stream to which
@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     // error doesn't necessarily have to be in the first switch. E.g., "a.out --log=none --log=syntax_error".
     for (int argno=1; argno<argc; ++argno) {
         if (0==strncmp(argv[argno], "--log=", 6)) {
-            std::string errmesg = facilities.control(argv[argno]+6);
+            std::string errmesg = mfacilities.control(argv[argno]+6);
             if (!errmesg.empty())
                 mlog[ERROR] <<errmesg <<"\n";
         } else {
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     // output to std::cerr.  This is another benefit of Sawyer: std::cerr and mlog[INFO] etc are mostly interchangeable.
     std::cerr <<"The following message streams are enabled after command-line processing:\n"
               <<"'-' means disabled. Letters are (D)ebug, (T)race, (W)here, (I)nfo, (W)arning, (E)rror, and (F)atal.\n";
-    facilities.print(std::cerr);
+    mfacilities.print(std::cerr);
 
     // Demonstrate the results by emitting some messages
     std::cerr <<"\nAbout to emit one of each kind of message (only enabled streams will show):\n";

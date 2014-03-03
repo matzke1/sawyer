@@ -1,4 +1,4 @@
-/** Command-line switch parsing. */
+/* Command-line switch parsing. */
 #ifndef Sawyer_CommandLine_H
 #define Sawyer_CommandLine_H
 
@@ -25,61 +25,130 @@ namespace Sawyer { // documented in Sawyer.h
  *
  * @section defns Definitions
  *
- * <ul>
- *   <li>A <em>program command line</em> is the vector of strings passed to a program by the operating system or runtime.</li>
- *   <li>A <em>commmand line argument</em> is one element of the program command line vector.</li>
- *   <li>A <em>switch</em> is a named command line argument, usually introduced with a special character sequence followed
- *       by a name, such as "--color".</li>
- *   <li>A <em>switch argument</em> is an optional value specified on the program command line and associated with a switch,
- *       such as the word "red" in "--color=red" (or as two command line arguments, "--color", "red").</li>
- *   <li>A <em>switch value</em> is a switch argument that has been converted to a value within a program, such as the
- *       enumeration constant RED.</li>
- *   <li>A <em>non-switch</em> is a program argument that doesn't appear to be a switch. Another name for the same thing
- *       is <em>positional program argument</em>.</li>
- * </ul>
+ *  @li A <em>program command line</em> is the vector of strings passed to a program by the operating system or runtime.
+ *  @li A <em>commmand line argument</em> is one element of the program command line vector.
+ *  @li A <em>switch</em> is a named command line argument, usually introduced with a special character sequence followed
+ *      by a name, such as "\-\-color". The "\-\-" is the <em>switch prefix</em>, "color" is the <em>switch name</em>, and
+ *      "\-\-color" is the <em>switch string</em>.
+ *  @li A <em>switch argument</em> is an optional value specified on the program command line and associated with a switch,
+ *      such as the word "grey" in "\-\-color=grey" or "\-\-color grey" (as two command-line arguments).
+ *  @li A <em>switch value</em> is a switch argument that has been converted to a value within a program, such as the
+ *      enumeration constant <code>GRAY</code>, whether the string on the command line was "grey" or "gray".
+ *  @li A <em>non-switch</em> is a program argument that doesn't appear to be a switch. Another name for the same thing
+ *      is <em>positional program argument</em>.
  *
  * @section parts The major parts of the API
  *
- * Program command-line parsing consists of the following major components:
+ *  Program command-line parsing consists of the following major components:
  *
- * <ul>
- *   <li>Switch objects are used to define a switch and specify such things as the switch name and its arguments.</li>
- *   <li>SwitchGroup objects group related switches into collections.</li>
- *   <li>Parser objects match SwitchGroup objects agains a program command line to produce a ParserResult.</li>
- *   <li>ParserResult objects store all information about how a program command line was parsed by storing, among other things,
- *       a list of ParsedValue objects.</li>
- *   <li>ParsedValue objects store the details about each value parsed from a program command line, including such things as
- *       the switch with which the value is associated, and where the value came from on the program command line.</li>
- * <ul>
+ *  @li Switch objects are used to define a switch and specify such things as the switch name and its arguments.
+ *  @li SwitchGroup objects group related switches into collections.
+ *  @li Parser objects match SwitchGroup objects agains a program command line to produce a ParserResult.
+ *  @li ParserResult objects store all information about how a program command line was parsed by storing, among other things,
+ *      a list of ParsedValue objects.
+ *  @li ParsedValue objects store the details about each value parsed from a program command line, including the value's
+ *      string from the command line and information about the associated switch.
  *
  * @section desc Description
  *
- *  The library is used in three phases: first, the program is described in terms of switches and their arguments; then a
- *  parser is constructed and applied to the command line to obtain a result; and finally, the result is queried.
+ *  The library is used in three phases: first, the command line is described in terms of switches and their arguments; then a
+ *  parser is constructed and applied to the command line to obtain a result; and finally, the result is used by querying or
+ *  pushing results into variables.
  *
  *  Some of our goals in designing this library were influenced by other libraries. We wanted to take the good ideas of others
- *  but avoid the same pitfalls.
+ *  but avoid the same pitfalls.  Our goals are:
  *
- * <ul>
- *   <li>Keep the switch declaration API as simple and terse as reasonably possible without the loss of self-documenting
- *       code.  Our approach is to use small, optional property-setting functions that can be chained together rather than
- *       excessive function overloading or magical strings.</li>
- *   <li>The switch declaration API should be able to describe all the situations that routinely occur in command-line parsing
- *       including things like optional arguments and multiple arguments, various ways to handle multiple occurrences of the
- *       same switch, short and long switch names, various switch prefixes and value separators, nestling of short switches and
- *       their arguments, standard switch actions, etc.  We accomplish this by using a consistent API of switch properties.</li>
- *   <li>Parsing of the command line should not only recognize the syntax of the command line, but also parse switch values
- *       into a form that is easy to use within the program.  E.g., a string like "1234" should become an "int" in the
- *       program.</li>
- *   <li>Provide an extension mechanism that is easy for beginning programmers to grasp. One way we accomplish this is by
- *       avoiding excessive use of templates for generic programming and instead rely on polymorphic classes and smart
- *       pointers, both of which are common in other object oriented languages.</li>
- *   <li>The library should provide an API that is suitable for both library writers and application programmers.  In other
- *       words, a library that expects to be configured from the command line should provide a description of its command-line
- *       in a way that allows the application to augment it with its own switches, even to the extent that the application can
- *       rename library switches if it desires.</li>
- *   <li>The parser results should have a rich query API since this is the point at which it primarily interfaces with the
- *       program.  A program should not have to work hard to use the parsing results.</li>
+ *  @li Keep the switch declaration API as simple and terse as reasonably possible without the loss of self-documenting
+ *      code.  Our approach is to use small, optional property-setting functions that can be chained together rather than
+ *      excessive function overloading or magical strings.
+ *  @li The switch declaration API should be able to describe all the situations that routinely occur in command-line parsing
+ *      including things like optional arguments and multiple arguments, various ways to handle multiple occurrences of the
+ *      same switch, short and long switch names, various switch prefixes and value separators, nestling of short switches and
+ *      their arguments, standard switch actions, etc.  We accomplish this by using a consistent API of switch properties.
+ *  @li Parsing of the command line should not only recognize the syntax of the command line, but also parse switch arguments
+ *      into a form that is easy to use within the program.  E.g., a string like "1234" should become an <code>int</code> in
+ *      the program.
+ *  @li Provide an extension mechanism that is easy for beginning programmers to grasp. One way we accomplish this is by
+ *      avoiding excessive use of templates for generic programming and instead rely on polymorphic classes and smart
+ *      pointers, both of which are common in other object oriented languages.  Parsing command-line arguments is not typically
+ *      a performance bottleneck, and when we were faced with the alternatives of performance versus features we chose
+ *      features.
+ *  @li The library should provide an API that is suitable for both library writers and application programmers.  In other
+ *      words, a library that expects to be configured from the command line should provide a description of its command-line
+ *      in a way that allows the application to augment it with its own switches, even to the extent that the application can
+ *      rename library switches if it desires.
+ *  @li The parser results should have a rich query API since this is the point at which it primarily interfaces with the
+ *      program.  A program should not have to work hard to use the parsing results. The library provides both pull and
+ *      push capabilities for the results: the user can query results or the library can write them directly into user-supplied
+ *      variables.
+ *  @li Documentation should appear next to the thing it documents, and it should not be necessary to have more than one
+ *      source-level copy of documentation.  The library is able to generate complete Unix manual pages (TROFF format) which
+ *      can be converted to to a variety of other formats with standard tools.
+ *
+ * @section ex1 An example
+ *
+ *  Here's an example to give the basic flavor of the library.  This example doesn't include any documentation.
+ *
+ * @todo We need an example that shows documentation.  We should probably be using actual code for things this big.
+ *       FIXME[Robb Matzke 2014-03-02]
+ *
+ * @code
+ *  int main(int argc, char *argv[]) {
+ *      using namespace Sawyer::CommandLine;
+ *
+ *      // Some fairly standard switches
+ *      SwitchGroup standard;
+ *      standard.insert(Switch("help",'h')             // --help and -h
+ *                      .shortName('?')                // -? is another name
+ *                      .action(showHelp())            // display the man page
+ *                      .action(exitProgram(0)));      // then exit
+ *
+ *      standard.insert(Switch("version", 'V')         // --version and -V
+ *                      .action(showVersion("1.2.3")));
+ *
+ *      bool verbosity = false;
+ *      standard.insert(Switch("verbose", 'v')
+ *                      .intrinsicValue("true", booleanParser(verbosity)));
+ *      standard.insert(Switch("quiet", 'q')
+ *                      .intrinsicValue("false", booleanParser(verbosity)));
+ *
+ *      short debugLevel = 0;
+ *      standard.insert(Switch("debug", 'd')
+ *                      .intrinsicValue("1", integerParser(debugLevel))
+ *                      .valueAugmenter(sum<short>())  // increment the value each time
+ *                      .whichValue(SAVE_AUGMENTED));  // save the incremented value
+ *
+ *      // A few other switches
+ *      SwitchGroup tool;
+ *      tool.insert(Switch("incdir", 'I')              // a list of strings
+ *                  .argument("directories", listParser(anyParser()))
+ *                  .explosiveLists(true)              // as separate values
+ *                  .whichValue(SAVE_ALL));            // more than one occurrence
+ *
+ *      tool.insert(Switch("swap")                     // takes two arguments
+ *                  .argument("a", realNumberParser())
+ *                  .argument("b", realNumberParser()));
+ *
+ *      tool.insert(Switch("user")                     // one arg with default value
+ *                  .argument("user", anyParser(), "root"));
+ *
+ *      // Build the parser
+ *      Parser parser;
+ *      parser.with(standard).with(tool);
+ *
+ *      // Parse the command line
+ *      ParserResult cmdline = parser.parse(argc, argv);
+ *
+ *      // Push results to program variables
+ *      cmdline.apply();
+ *
+ *      // Query the results
+ *      if (cmdline.has("swap")) {
+ *          std::string aStr = cmdline.parsed("swap", 0).string();
+ *          double aVal = cmdline.parsed("swap", 0).asDouble();
+ *          std::cerr <<"came from " <<cmdline.parsed("swap", 0).location() <<"\n";
+ *      }
+ * @endcode
  */
 namespace CommandLine {
 
@@ -90,43 +159,77 @@ class Parser;
 //                                      Program argument cursor
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Position within a command-line. */
+/** Position within a command-line. A command line consists of an ordered set of strings of various lengths, and this object is
+ *  an index to a particular character of a particular string.  Location objects are used and manipulated by Cursor, which
+ *  always ensures that the @ref idx field is not greater than the number of strings in the ordered set (when equal, the
+ *  location is said to be at the end of the command-line), and the @ref offset is less than the size of that string (or
+ *  zero when @ref idx is at the end). */
 struct Location {
     size_t idx;                                                 /**< Index into some vector of program argument strings. */
     size_t offset;                                              /**< Character offset within a program argument string. */
+
+    /** Constructs the location of the first character of the first string.  For empty command-lines, this is also the end
+     *  location. */
     Location(): idx(0), offset(0) {}
+
+    /** Constructs a location that points to a particular character of a particular string.  The convension used by Cursor is
+     *  that the @p idx will never be larger than the number of strings, and @p offset will be less than the length of
+     *  that string (or zero when @p idx is equal to the number of strings).  Both values are zero-origin. */
     Location(size_t idx, size_t offset): idx(idx), offset(offset) {}
+
+    /** Equality. Returns true only when this location is equal to @p other. Two locations are equal only when their @ref idx
+     *  and @ref offset members are equal. */
     bool operator==(const Location &other) const { return idx==other.idx && offset==other.offset; }
+
+    /** Inequality. Returns true only when this location is not equal to @p other.  Two locations are not equal if either
+     *  their @ref idx or @ref offset members are not equal. */
     bool operator!=(const Location &other) const { return !(*this==other); }
+
+    /** Less than.  Returns true only when this location is less than @p other.  If both locations are referring to the same
+     * command-line, then this method returns true if this location points to an earlier character than @p other. */
     bool operator<(const Location &other) const { return idx<other.idx || (idx==other.idx && offset<other.offset); }
+
+    /** Less than or equal.  Returns true only when this location is less than or equal to @p other as determined by the
+     *  <code><</code> or <code>==</code> operators. */
     bool operator<=(const Location &other) const { return *this<other || *this==other; }
 };
 
+/** Print a location. Prints a location as the dotted pair <em>idx</em>.<em>offset</em>. */
 std::ostream& operator<<(std::ostream&, const Location&);
+
+/** Indicates an invalid location.  The library uses this to indicate that a string came from somewhere other than the
+ *  command-line.  The constant <code>NOWHERE</code> compares equal to itself but unequal to (less than) all valid
+ *  locations. */
 extern const Location NOWHERE;
 
 /** Input stream for command line arguments.
  *
- *  A cursor is a program command line and an associated position within the command line. */
+ *  A cursor is an ordered set of strings and a current position in that set. */
 class Cursor {
     std::vector<std::string> strings_;
     Location loc_;
 public:
-    /** Constructor. The cursor will reference the specified command line and be positioned at the first character of
-     *  the first command line argument.  The specified vector should not be destroyed before the cursor. */
-    Cursor(const std::vector<std::string> &strings): strings_(strings) {}
-    Cursor(const std::string &string): strings_(1, string) {}
+    /** Construct a cursor from an ordered set of strings.  The cursor's initial position is the first character of the first
+     *  string, or the end if the set contains no strings or contains only empty strings. */
+    Cursor(const std::vector<std::string> &strings): strings_(strings) { location(Location()); }
+
+    /** Constructs a cursor for a single string.  The cursor's initial position is the first character of the string, or the
+     *  end if the string is empty. */
+    Cursor(const std::string &string): strings_(1, string) { location(Location()); }
 
     /** All strings for the cursor. */
     const std::vector<std::string>& strings() const { return strings_; }
 
-    /** Current position of the cursor.
+    /** Property: current position of the cursor.  When a new location is provided it will be immediately adjusted so that the
+     * location's @c idx member is not greater than the number of strings in the cursor, and its @c offset member is less than
+     * the length of that string (or zero when @c idx is equal to the number of strings).
      *  @{ */
     const Location& location() const { return loc_; }
     Cursor& location(const Location &loc);
     /** @} */
 
-    /** Returns true if the cursor points to an argument and is at the beginning of that argument. */
+    /** True when the cursor is at the beginning of an argument. Returns true if the cursor points to an argument and is at the
+     * beginning of that argument. Returns false otherwise, including when @ref atEnd returns true. */
     bool atArgBegin() const { return loc_.idx<strings_.size() && 0==loc_.offset; }
 
     /** Returns true when the cursor is after all arguments. */
@@ -134,7 +237,7 @@ public:
 
     /** Return the entire current program argument regardless of where the cursor is in that argument.  A @p location can be
      *  specified to override the location that's inherent to this cursor without changing this cursor.  It is an error to call
-     *  this when atEnd() would return true.
+     *  this when @ref atEnd returns true.
      * @{ */
     const std::string& arg() const { return strings_[loc_.idx]; }
     const std::string& arg(const Location &location) const { return strings_[location.idx]; }
@@ -142,7 +245,7 @@ public:
 
     /** Return the part of an argument at and beyond the cursor.  If the cursor is at the end of an argument then an empty
      *  string is returned.   A @p location can be specified to override the location that's inherent to this cursor without
-     *  changing this cursor.  Returns an empty string if called whn atEnd() would return true.
+     *  changing this cursor.  Returns an empty string if called when @ref atEnd returns true.
      * @{ */
     std::string rest() const { return loc_.idx < strings_.size() ? strings_[loc_.idx].substr(loc_.offset) : std::string(); }
     std::string rest(const Location &location) const {
@@ -155,22 +258,25 @@ public:
     /** Returns all characters within limits.  Returns all the characters between this cursor's current location and the
      *  specified location, which may be left or right of the cursor's location.  The two argument version uses the two
      *  specified locations rather than this cursor's current location.  The @p separator string is inserted between text that
-     *  comes from two different program arguments.
+     *  comes from two different strings. @sa linearDistance
      * @{ */
     std::string substr(const Location &limit, const std::string &separator=" ") { return substr(loc_, limit, separator); }
     std::string substr(const Location &limit1, const Location &limit2, const std::string &separator=" ");
     /** @} */
 
     /** Replace the current string with new strings.  Repositions the cursor to the beginning of the first inserted
-     * string. Must not be called when atEnd() returns true. */
+     * string. Must not be called when @ref atEnd returns true. */
     void replace(const std::vector<std::string>&);
 
-    /** Advance the cursor N characters.  The location is not advanced to the beginning of the next argument if it
-     *  reaches the end of the current argument. */
+    /** Advance the cursor over characters. Advances the cursor's current location  @p nchars characters, stopping earlier
+     *  if the end of the strings is reached.  When advancing in a string, when the cursor reaches the end of the string it is
+     *  repositioned at the beginning of the next string (or at the end), in which case @ref atArgBeg (or @ref atEnd) will
+     *  return true. */
     void consumeChars(size_t nchars);
 
-    /** Advance the cursor to the beginning of the next argument. It is permissible to advance past the last argument, and to
-     *  call this method when atEnd() already returns true.
+    /** Advance the cursor to the beginning of the next string.  If the cursor is already positioned at the last string then it
+     * will be positioned to the end and @ref atEnd will return true.  It is permissible to call this method when @ref atEnd
+     * already returns true, in which case nothing happens.
      * @{ */
     void consumeArgs(size_t nargs) {
         loc_.idx = std::min(strings_.size(), loc_.idx+nargs);
@@ -179,17 +285,23 @@ public:
     void consumeArg() { consumeArgs(1); }
     /** @} */
 
-    /** Number of characters from the beginning of the cursor to its current location. */
+    /** Number of characters from the beginning of the cursor to its current location.  This is the same as calling
+     * @code
+     *  substr(Location(), "").size()
+     * @endcode
+     *  but faster. */
     size_t linearDistance() const;
 };
 
-/** Guards a cursor and restores it when destroyed.  If this object is destroyed without first calling its cancel() method then
- *  the associated cursor's location is reset to its location at the time this guard was constructed. */
+/** Guards a cursor and restores it when the guard is destroyed.  If the guard is destroyed without first calling its @ref
+ *  cancel method then the associated cursor's location is reset to its location at the time this guard was constructed. */
 class ExcursionGuard {
     Cursor &cursor_;
     Location loc_;
     bool canceled_;
 public:
+    /** Construct a guard for a cursor.  The guard remembers the cursor's location and restores the location if the
+     *  guard is destroyed before its @ref cancel method is called. */
     ExcursionGuard(Cursor &cursor): cursor_(cursor), loc_(cursor.location()), canceled_(false) {} // implicit
     ~ExcursionGuard() { if (!canceled_) cursor_.location(loc_); }
 
@@ -203,6 +315,7 @@ public:
 //                                      Switch value savers
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// used internally
 class ValueSaver {
 protected:
     ValueSaver() {}
@@ -212,6 +325,7 @@ public:
     virtual void save(const boost::any&) const = 0;
 };
 
+// used internally
 template<typename T>
 class TypedSaver: public ValueSaver {
     T &storage_;
@@ -255,19 +369,33 @@ class Switch;
  *  provides a number of methods for conveniently and safely casting the value to other types. */
 class ParsedValue {
     boost::any value_;
-    Location valueLocation_;                            // where this value came from on the command-line; or NOWHERE if dflt
-    std::string valueString_;                           // string representation of the value
-    std::string switchKey_;                             // key for the switch that parsed this value
-    Location switchLocation_;                           // where is the actual switch name in switchString_?
-    std::string switchString_;                          // prefix and switch name
-    size_t keySequence_, switchSequence_;               // relation of this value w.r.t. other values for same key and switch
-    ValueSaver::Ptr valueSaver_;                        // saves the value during ParserResult::apply()
+    Location valueLocation_;                            /**< Where this value came from on the command-line; or NOWHERE. */
+    std::string valueString_;                           /**< String representation of the value. */
+    std::string switchKey_;                             /**< Key for the switch that parsed this value. */
+    Location switchLocation_;                           /**< Start of the switch name in @c switchString_. */
+    std::string switchString_;                          /**< Prefix and switch name. */
+    size_t keySequence_;                                /**< Relation of this value w.r.t. other values for same key. */
+    size_t switchSequence_;                             /**< Relation of this value w.r.t. other values for the sam switch. */
+    ValueSaver::Ptr valueSaver_;                        /**< Saves the value during ParserResult::apply. */
 
 public:
+    /** Construct a new empty value.  The @ref isEmpty method will return true for values that are default constructed. */
+    ParsedValue(): keySequence_(0), switchSequence_(0) {}
+
+    /** Construct a new value. The type of the value is erased via <code>boost::any</code> so that templates do not need to be
+     *  used at the API level.  It is the responsibility of the user to remember the type of the value, although restoration of
+     *  the type information via <code>boost::any_cast</code> will check consistency.  The @p loc is the starting location of
+     *  the value on the command line, or the constant @ref NOWHERE.  The @p str is the string that was parsed to create the
+     *  value (or at least a string representation of the value).  The @p saver is an optional pointer to the functor that's
+     *  responsible for pushing the value to a user-specified variable when ParserResult::apply is called.
+     *
+     *  The arguments specified here are the values returned by @ref value, @ref valueLocation, @ref string, and @ref
+     *  valueSaver. */
     ParsedValue(const boost::any value, const Location &loc, const std::string &str, const ValueSaver::Ptr &saver)
         : value_(value), valueLocation_(loc), valueString_(str), keySequence_(0), switchSequence_(0), valueSaver_(saver) {}
 
-    // Update the switch information for the parsed value.
+    /** Update switch information.  This updates information about the switch that parsed the value. The arguments specified
+     *  here will be the values returned by  @ref switchKey, @ref switchLocation, and @ref switchString. */
     ParsedValue& switchInfo(const std::string &key, const Location &loc, const std::string &str) {
         switchKey_ = key;
         switchLocation_ = loc;
@@ -275,33 +403,37 @@ public:
         return *this;
     }
 
-    // Update sequence info
+private:
+    friend class ParserResult;
     void sequenceInfo(size_t keySequence, size_t switchSequence) {
         keySequence_ = keySequence;
         switchSequence_ = switchSequence;
     }
 
 public:
-    /** The parsed value.  Parsed values are represented by boost::any, which is capable of storing any type of parsed
-     *  value including void.  This is the most basic access to the value; the class also provides a variety of casting
-     *  accessors that are sometimes more convenient (their names start with "as").
+    /** Property: the parsed value.
+     *  Parsed values are represented by <code>boost::any</code>, which is capable of storing any type of
+     *  parsed value including void.  This is the most basic access to the value; the class also provides a variety of casting
+     *  accessors that are sometimes more convenient (their names start with the word "as").
      * @{ */
     const boost::any& value() const { return value_; }
     void value(const boost::any &v) { value_ = v; }
     /** @} */
 
-    /** Command-line location from whence this value came.  For values that are defaults which didn't come from the
-     *  command-line, the constant NOWHERE is returned. */
+    /** Property: command-line location from whence this value came.
+     *  For values that are defaults which didn't come from the command-line, the constant @ref NOWHERE is returned.
+     * @{ */
     Location valueLocation() const { return valueLocation_; }
     void valueLocation(const Location &loc) { valueLocation_ = loc; }
+    /** @} */
 
-    /** String representation.  This is the value as it appeared on the command-line or as a default string. */
+    /** String representation.  This is the string that was parsed to create the value. */
     const std::string &string() const { return valueString_; }
 
-    /** Convenience cast.  This returns the value cast to the specified type.  Whereas boost::any_cast requires an exact type
-     *  match for the cast to be successful, this method makes more of an effort to be successful.  It recognizes a variety of
-     *  common types; less common types will need to be explicitly converted by hand.  In any case, the original string
-     *  representation and parser are available if needed.
+    /** Convenience cast.  This returns the value cast to the specified type.  Whereas <code>boost::any_cast</code> requires an
+     *  exact type match for the cast to be successful, this method makes more of an effort to be successful.  It recognizes a
+     *  variety of common types; less common types will need to be explicitly converted by hand.  In any case, the original
+     *  string representation and parser are available if needed.
      * @{ */
     int asInt() const;
     unsigned asUnsigned() const;
@@ -315,7 +447,8 @@ public:
     std::string asString() const;
     /** @} */
 
-    /** Convenient any_cast.  This is a slightly less verbose way to get the value and perform a boost::any_cast. */
+    /** Convenient any_cast.  This is a slightly less verbose way to get the value and perform a
+     * <code>boost::any_cast</code>. */
     template<typename T> T as() const { return boost::any_cast<T>(value_); }
 
     /** The key used by the switch that created this value. */
@@ -325,36 +458,40 @@ public:
      *  name in order to allow programs to distinguish between the same switch occuring with two different prefixes (like the
      *  "-invert" vs "+invert" style which is sometimes used for Boolean-valued switches).
      *
-     *  For nestled short switches, the string returned by this method doesn't necessarily appear anywhere in the program
+     *  For nestled short switches, the string returned by this method doesn't necessarily appear anywhere on the program
      *  command line.  For instance, this method might return "-b" when the command line was "-ab", because "-a" is a different
      *  switch with presumably a different set of parsed values. */
     const std::string& switchString() const { return switchString_; }
 
     /** The command-line location of the switch to which this value belongs.  The return value indicates the start of the
      *  switch name after any leading prefix.  For nestled single-character switches, the location's command line argument
-     *  index will be truthful, but the character offset will refer to the string returned by switchString(). */
+     *  index will be truthful, but the character offset will refer to the string returned by @ref switchString. */
     Location switchLocation() const { return switchLocation_; }
 
     /** How this value relates to others with the same key.  This method returns the sequence number for this value among all
-     *  values created for the same key. */
+     *  values created for the same switch key. */
     size_t keySequence() const { return keySequence_; }
 
     /** How this value relates to others created by the same switch.  This method returns the sequence number for this value
      *  among all values created for the same switch. */
     size_t switchSequence() const { return switchSequence_; }
 
-    /** How to save a value at a user-supplied location. */
+    /** How to save a value at a user-supplied location.  These functors are used internally by the library and users don't
+     * usually see them. */
     const ValueSaver::Ptr valueSaver() const { return valueSaver_; }
 
-    /** Save this value in switch-supplied storage. */
+    /** Save this value in switch-supplied storage. This calls the functor returned by @ref valueSaver in order to save this
+     *  parsed value to a user-specified variable in a type-specific manner. */
     void save() const;
 
-    // Print some debug info
-    void print(std::ostream&) const;
+    /** True if the value is void. Returns true if this object has no value. */
+    bool isEmpty() const { return value_.empty(); }
 
-    // FIXME[Robb Matzke 2014-02-21]: A switch to receive the non-switch program arguments?
+    /** Print some debugging information. */
+    void print(std::ostream&) const;
 };
 
+/** Print some information about a parsed value. */
 std::ostream& operator<<(std::ostream&, const ParsedValue&);
 
 /** A vector of parsed values. */
@@ -370,28 +507,28 @@ typedef std::vector<ParsedValue> ParsedValues;
 /** Base class parsing a value from input.
  *
  *  A ValueParser is a functor that attempts to recognize the next few characters of a command-line and to convert those
- *  characters to a value of some time. These are two separate but closely related operations.  Subclasses of ValueParser must
- *  implement one of the operator() methods: either the one that takes a Cursor reference argument, or the one that takes
- *  pointers to C strings a la strtod().  The cursor-based approach allows a match to span across several program arguments,
- *  and the C string pointer approach is a very simple interface.
+ *  characters to a value of some type. These are two separate but closely related operations.  Subclasses of ValueParser must
+ *  implement one of the <code>operator()</code> methods: either the one that takes a Cursor reference argument, or the one
+ *  that takes pointers to C strings a la <code>strtod</code>.  The cursor-based approach allows a match to span across several
+ *  program arguments, and the C string pointer approach is a very simple interface.
  *
  *  If the parser is able to recognize the next characters of the input then it indicates so by advancing the cursor or
  *  updating the @p endptr argument; if no match occurs then the cursor is not changed and the @p endptr should point to the
- *  beginning of the string.
- *
- *  If the parser is able to convert the recognized characters into a value, then the value is returned as a boost::any,
- *  otherwise an std::runtime_error should be thrown.
+ *  beginning of the string, and the parser throws an <code>std::runtime_error</code>.  If, after recognizing and consuming
+ *  some input, the parser is able to convert the recognized input into a value, then the value is returned as a ParsedValue,
+ *  which includes information about where the value came from, otherwise an <code>std::runtime_error</code> is thrown. When an
+ *  error is thrown, the caller can distinguish between the two failure modes by examining whether characters were consumed.
  *
  *  For instance, a parser that recognizes non-negative decimal integers would match (consume) any positive number of
  *  consecutive digits. However, if that string represents a mathematical value which is too large to store in the return type,
- *  then the parser should throw an exception whose string describes the problem: "integer overflow", or "argument is too large
- *  to store in an 'int'".  The exception string should not include the string that was matched since that will be added by a
- *  higher layer.
+ *  then the parser should throw an exception whose string describes the problem, like "integer overflow", or "argument is too
+ *  large to store in an 'int'".
  *
  *  Value parsers are always allocated on the heap and reference counted.  Each value parser defines a class factory method,
- *  "instance", to allocate a new object and return a pointer to it. The pointer types are named "Ptr" and are defined within
- *  the class.  For convenience, the parsers built into the library also have global factory functions which have the same name
- *  as the class but start with an initial lower-case letter.  For instance:
+ *  <code>instance</code>, to allocate a new object and return a pointer to it. The pointer types are named <code>Ptr</code>
+ *  and are defined within the class.  For convenience, the parsers built into the library also have global factory functions
+ *  which have the same name as the class but start with an initial lower-case letter (see @ref parser_factories for details).
+ *  For instance:
  *
  * @code
  *  class IntegerParser;                                // recognizes integers
@@ -399,29 +536,50 @@ typedef std::vector<ParsedValue> ParsedValues;
  *  IntegerParser::Ptr ptr = integerParser();           // another constructor
  * @endcode
  *
- *  Users can create their own parsers (and are encouraged to do so) by following this same recipe. */
+ *  Most of the library-provided functors are template classes whose argument specifies the type to use when creating a
+ *  ParsedValue object. The constructors take an optional L-value in which to store the parsed value when the
+ *  ParserResult::apply method is called.  The factory functions are also templates with an optional argument, but template
+ *  argument can be inferred by the compiler.  As an example, here are three ways to call the factory function for the
+ *  IntegerParser classes:
+ *
+ * @code
+ *  IntegerParser::Ptr ip1 = integerParser();           // stores value in ParserResult as int
+ *  IntegerParser::Ptr ip2 = integerParser<short>();    // stores value in ParserResult as short
+ *  long x;
+ *  IntegerParser::Ptr ip3 = integerParser(x);          // stores value in ParserResult and x as long
+ * @endcode
+ *
+ *  The values are stored in a ParserResult object during the Parser::parse call, but are not moved into user-specified
+ *  L-values until ParserResult::apply is called.
+ *
+ *  Users can create their own parsers, and are encouraged to do so, by following this same recipe. */
 class ValueParser: public boost::enable_shared_from_this<ValueParser> {
     ValueSaver::Ptr valueSaver_;
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     ValueParser() {}
+
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     explicit ValueParser(const ValueSaver::Ptr &valueSaver): valueSaver_(valueSaver) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<ValueParser> Ptr;
+
     virtual ~ValueParser() {}
 
     /** Parse the entire string and return a value.  The matching of the parser against the input is performed by calling
-     *  match(), which may throw an exception if the input is matched but cannot be converted to a value (e.g., integer
-     *  overflow).  If the parser did not match the entire string, then an std::runtime_error is thrown. */
+     *  @ref match, which may throw an exception if the input is matched but cannot be converted to a value (e.g., integer
+     *  overflow).  If the parser did not match the entire string, then an <code>std::runtime_error</code> is thrown. */
     ParsedValue matchString(const std::string&) /*final*/;
 
-    /** Parse a value from the beginning of the specified string.  If the parser does not recognize the input then it returns
-     *  without updating the cursor, returning an empty boost::any.  If the parser recognizes the input but cannot convert it
+    /** Parse a value from the beginning of the specified string.  If the parser does not recognize the input then it throw an
+     *  <code>std::runtime_error</code> without updating the cursor.  If the parser recognizes the input but cannot convert it
      *  to a value (e.g., integer overflow) then the cursor should be updated to show the matching region before the matching
-     *  operator throws an std::runtime_error exception. */
+     *  operator throws the <code>std::runtime_error</code> exception. */
     ParsedValue match(Cursor&) /*final*/;
 
-    /** The functor responsible for saving a parsed value in user storage.  Many of the ValueParser subclasses take an argument
-     *  which is a reference to a user-defined storage location, such as:
+    /** Property: functor responsible for saving a parsed value in user storage.  Many of the ValueParser subclasses take an
+     *  argument which is a reference to a user-defined storage location, such as:
      *
      * @code
      *  bool verbose;
@@ -429,8 +587,8 @@ public:
      *      .intrinsicValue("true", booleanParser(verbose));
      * @endcode
      *
-     *  When a parser is created in such a way, a ValueSaver object is created an saved in this valueSaver property. After
-     *  parsing, if the user invokes ParserResult::apply(), the value for the switch is saved into the user location.  No value
+     *  When a parser is created in such a way, a ValueSaver object is created and recorded in this property. After
+     *  parsing, if the user invokes ParserResult::apply, the parsed value is saved into the user location.  No value
      *  is saved until apply is called--this allows command-lines to be parsed for their error side effects without actually
      *  changing any program state.
      * @{ */
@@ -439,21 +597,35 @@ public:
     /** @} */
 
 private:
-    /** Parse next input characters. Each subclass should implement one of these. See documentation for class ValueParser.
-     *  @{ */
+    /** Parse a string and return its value. See ValueParser class documentation and @ref match for semantics.
+     * @{ */
     virtual ParsedValue operator()(Cursor&);
     virtual ParsedValue operator()(const char *input, const char **endptr, const Location&);
     /** @} */
 };
 
-/** Parses any argument as plain text. Returns std::string. */
+/** Parses any argument as plain text. Returns a ParsedValue containing an <code>std::string</code> value.
+ * @sa @ref anyParser factory method, and @ref parser_factories */
 class AnyParser: public ValueParser {
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     AnyParser() {}
+
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     AnyParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<AnyParser> Ptr;
+
+    //FIXME[Robb Matzke 2014-03-02]: @ref anyParser doesn't point to the correct function. Same for sibling classes.
+    /** Allocating constructor. Returns a pointer to a new AnyParser object.  Uses will most likely want to use the @ref
+     *  anyParser factory instead, which requires less typing.
+     * @sa parser_factories */
     static Ptr instance() { return Ptr(new AnyParser); }
+
+    /** Allocating constructor. Returns a pointer to a new AnyParser object.  Uses will most likely want to use the @ref
+     *  anyParser factory instead, which takes the same arguments, but requires less typing.
+     * @sa parser_factories */
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new AnyParser(valueSaver)); }
 private:
     virtual ParsedValue operator()(Cursor&) /*override*/;
@@ -485,19 +657,35 @@ struct NumericCast<std::vector<Target>, Source> {
     }
 };
 
-/** Parses an integer and converts it to numeric type @p T.  Matches an integer in the mathematical sense in C++ decimal,
- *  octal, or hexadecimal format, and attempts to convert it to the type @p T.  If the integer cannot be converted to type @p T
- *  then an std::range_error is thrown (which is most likely caught by higher layers of the Sawyer::CommandLine library and
- *  converted to an std::runtime_error with additional information about the failure).  The syntax is that which is recognized
- *  by the strtoll() function, plus trailing white space. */
+/** Parses an integer and converts it to numeric type @p T.
+ *
+ *  Matches an integer in the mathematical sense in C++ decimal, octal, or hexadecimal format, and attempts to convert it to
+ *  the type @p T.  If the integer cannot be converted to type @p T then an <code>std::range_error</code> is thrown, which is
+ *  most likely caught by higher layers of the library and converted to an <code>std::runtime_error</code> with additional
+ *  information about the failure.  The syntax is that which is recognized by the @c strtoll function, plus trailing white
+ *  space.
+ *
+ * @sa @ref integerParser factory, and @ref parser_factories. */
 template<typename T>
 class IntegerParser: public ValueParser {
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     IntegerParser() {}
+
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     explicit IntegerParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<IntegerParser> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new IntegerParser object.  Uses will most likely want to use the @ref
+     *  integerParser factory instead, which requires less typing.
+     * @sa parser_factories */
     static Ptr instance() { return Ptr(new IntegerParser); }
+
+    /** Allocating constructor. Returns a pointer to a new IntegerParser object.  Uses will most likely want to use the @ref
+     *  integerParser factory instead, which takes the same arguments, but requires less typing.
+     * @sa parser_factories */
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new IntegerParser(valueSaver)); }
 private:
     virtual ParsedValue operator()(const char *input, const char **rest, const Location &loc) /*override*/ {
@@ -513,19 +701,35 @@ private:
     }
 };
 
-/** Parses a non-negative integer and converts it to numeric type @p T.  Matches a non-negative integer in the mathematical
- *  sense in C++ decimal, octal, or hexadecimal format, and attempts to convert it to the type @p T.  If the integer cannot be
- *  converted to type @p T then an std::range_error is thrown (which is most likely caught by higher layers of the
- *  Sawyer::CommandLine library and converted to an std::runtime_error with additional information about the failure).  The
- *  syntax is that which is recognized by the strtoull() function, plus trailing white space. */
+/** Parses a non-negative integer and converts it to numeric type @p T.
+ *
+ *  Matches a non-negative integer in the mathematical sense in C++ decimal, octal, or hexadecimal format, and attempts to
+ *  convert it to the type @p T.  If the integer cannot be converted to type @p T then an <code>std::range_error</code> is
+ *  thrown, which is most likely caught by higher layers of the library and converted to an <code>std::runtime_error</code>
+ *  with additional information about the failure.  The syntax is that which is recognized by the @c strtoull function, plus
+ *  trailing white space.
+ *
+ * @sa @ref integerParser factory, and @ref parser_factories. */
 template<typename T>
 class NonNegativeIntegerParser: public ValueParser {
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     NonNegativeIntegerParser() {}
+
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     NonNegativeIntegerParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<NonNegativeIntegerParser> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new NonNegativeIntegerParser object.  Uses will most likely want to use
+     *  the @ref nonNegativeIntegerParser factory instead, which requires less typing.
+     * @sa parser_factories */
     static Ptr instance() { return Ptr(new NonNegativeIntegerParser); }
+
+    /** Allocating constructor. Returns a pointer to a new NonNegativeIntegerParser object.  Uses will most likely want to use
+     *  the @ref nonNegativeIntegerParser factory instead, which takes the same arguments, but requires less typing.
+     * @sa parser_factories */
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new NonNegativeIntegerParser(valueSaver)); }
 private:
     virtual ParsedValue operator()(const char *input, const char **rest, const Location &loc) /*override*/ {
@@ -541,19 +745,35 @@ private:
     }
 };
 
-/** Parses a real number and converts it to numeric type @p T.  Matches a real number in the mathematical sense in C++
- *  floating-point representation, and attempts to convert it to the type @p T.  If the real number cannot be converted to type
- *  @p T then an std::range_error is thrown (which is most likely caught by higher layers of the Sawyer::CommandLine library
- *  and converted to an std::runtime_error with additional information about the failure).  The syntax is that which is
- *  recognized by the strtod() function, plus trailing white space. */
+/** Parses a real number and converts it to numeric type @p T.
+ *
+ *  Matches a real number in the mathematical sense in C++ floating-point representation, and attempts to convert it to the
+ *  type @p T.  If the real number cannot be converted to type @p T then an <code>std::range_error</code> is thrown, which is
+ *  most likely caught by higher layers of the library and converted to an <code>std::runtime_error</code> with additional
+ *  information about the failure.  The syntax is that which is recognized by the @c strtod function, plus trailing white
+ *  space.
+ *
+ * @sa @ref realNumberParser factory, and @ref parser_factories. */
 template<typename T>
 class RealNumberParser: public ValueParser {
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     RealNumberParser() {}
+
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     RealNumberParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<RealNumberParser> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new RealNumberParser object.  Uses will most likely want to use
+     *  the @ref realNumberParser factory instead, which requires less typing.
+     * @sa parser_factories */
     static Ptr instance() { return Ptr(new RealNumberParser); }
+
+    /** Allocating constructor. Returns a pointer to a new RealNumberParser object.  Uses will most likely want to use
+     *  the @ref realNumberParser factory instead, which takes the same arguments, but requires less typing.
+     * @sa parser_factories */
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new RealNumberParser(valueSaver)); }
 private:
     virtual ParsedValue operator()(const char *input, const char **rest, const Location &loc) /*override*/ {
@@ -566,17 +786,32 @@ private:
     }
 };
 
-/** Parses a boolean value and converts it to numeric type @p T. Matches any one of the strings "1", "t", "true", "y", "yes",
- * "on" (as a true value), "0", "f", "false", "n", "no", and "off" (as a false value) followed by white space and attempts to
- * convert it to the type @p T. */
+/** Parses a boolean value and converts it to numeric type @p T.
+ *
+ *  Matches any one of the strings "1", "t", "true", "y", "yes", "on" (as a true value), "0", "f", "false", "n", "no", and
+ *  "off" (as a false value) followed by white space and attempts to convert it to the type @p T.
+ *
+ * @sa @ref booleanParser factory, and @ref parser_factories. */
 template<typename T>
 class BooleanParser: public ValueParser {
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     BooleanParser() {}
+
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     BooleanParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<BooleanParser> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new BooleanParser object.  Uses will most likely want to use the @ref
+     *  booleanParser factory instead, which requires less typing.
+     * @sa parser_factories */
     static Ptr instance() { return Ptr(new BooleanParser); }
+
+    /** Allocating constructor. Returns a pointer to a new booleanParser object.  Uses will most likely want to use the @ref
+     *  booleanParser factory instead, which takes the same arguments, but requires less typing.
+     * @sa parser_factories */
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new BooleanParser(valueSaver)); }
 private:
     virtual ParsedValue operator()(const char *input, const char **rest, const Location &loc) /*override*/ {
@@ -600,15 +835,34 @@ private:
     }
 };
 
-/** Parses any one of a set of strings.  The return value is of type std::string. Returns std::string. */
+/** Parses any one of a set of strings.
+ *
+ *  Recognizes any of the strings register via @ref with method and returns a ParsedValue of type <code>std::string</code> for
+ *  the string that was matched.  Longer matches are preferred over shorter matches; if the input contains "bandana" and the
+ *  parser knows about "ban", "band", and "bandana", it will match "bandana". The return value is a ParsedValue whose value
+ *  is an <code>std::string</code>.
+ *
+ * @sa parser_factories */
 class StringSetParser: public ValueParser {
     std::vector<std::string> strings_;
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     StringSetParser() {}
+
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     StringSetParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<StringSetParser> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new StringSetParser object.  Uses will most likely want to use
+     *  the @ref stringSetParser factory instead, which requires less typing.
+     * @sa parser_factories */
     static Ptr instance() { return Ptr(new StringSetParser); }
+
+    /** Allocating constructor. Returns a pointer to a new StringSetParser object.  Uses will most likely want to use
+     *  the @ref stringSetParser factory instead, which takes the same arguments, but requires less typing.
+     * @sa parser_factories */
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new StringSetParser(valueSaver)); }
 
     /** Adds string members.  Inserts an additional string to be recognized in the input.
@@ -626,17 +880,35 @@ private:
     virtual ParsedValue operator()(Cursor&) /*override*/;
 };
 
-/** Parses an enumerated constant. The template parameter is the enum type. Returns T. */
+/** Parses an enumerated constant.
+ *
+ *  Parses one of the strings added via @ref with and returns the associated enumerated constant. The template parameter @p T
+ *  is the enum type. Returns  A ParsedValue whose value if type @p T.  This parser uses StringSetParser, thus it prefers to
+ *  match enum members with the longest names.
+ *
+ * @sa parser_factories */
 template<typename T>
 class EnumParser: public ValueParser {
     StringSetParser::Ptr strParser_;
     std::map<std::string, T> members_;
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     EnumParser(): strParser_(StringSetParser::instance()) {}
+
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     EnumParser(const ValueSaver::Ptr &valueSaver): ValueParser(valueSaver), strParser_(StringSetParser::instance()) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<EnumParser> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new EnumParser object.  Uses will most likely want to use the @ref
+     *  enumParser factory instead, which requires less typing.
+     * @sa parser_factories */
     static Ptr instance() { return Ptr(new EnumParser); }
+
+    /** Allocating constructor. Returns a pointer to a new EnumParser object.  Uses will most likely want to use the @ref
+     *  enumParser factory instead, which takes the same arguments, but requires less typing.
+     * @sa parser_factories */
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new EnumParser(valueSaver)); }
 
     /** Adds enum members.  Inserts an additional enumeration constant and its string name. */
@@ -652,42 +924,58 @@ private:
     }
 };
 
-/** Parses a list of values. The return value is an STL vector whose members are boost::any values returned by the value
- *  parsers.  A list parser may have one or more value parsers, the last of which is reused as often as necessary to parse the
- *  values of the list. */
+/** Parses a list of values.
+ *
+ *  Parses a list of values separated by specified regular expressions.  Each member of the list may have its own parser and
+ *  following separator. The final parser and separated are reused as often as necessary. The return value is a ParsedValue
+ *  whose value is an STL @c list with members that are the ParsedValue objects return by the list element parsers.
+ *
+ * @sa parser_factories */
 class ListParser: public ValueParser {
     typedef std::pair<ValueParser::Ptr, std::string> ParserSep;
     std::vector<ParserSep> elements_;
     size_t minLength_, maxLength_;                      // limits on the number of values permitted
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     ListParser(const ValueParser::Ptr &firstElmtType, const std::string &separatorRe)
         : minLength_(1), maxLength_((size_t)-1) {
         elements_.push_back(ParserSep(firstElmtType, separatorRe));
     }
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<ListParser> Ptr;
+
+    /** Value type for list ParsedValue. */
     typedef std::list<ParsedValue> ValueList;
 
-    /** Allocating constructor.  The @p firstElmtType is the parser for the first value (and the remaining values also if no
-     *  subsequent parser is specified), and the @p separatorRe is the regular expression describing how values of this type
-     *  are separated from subsequent values. The default separator is a comma, semicolon, or colon followed by zero or more
-     *  white space characters. */
+    /** Allocating constructor.
+     *
+     *  The @p firstElmtType is the parser for the first value (and the remaining values also if no subsequent parser is
+     *  specified), and the @p separatorRe is the regular expression describing how values of this type are separated from
+     *  subsequent values. The default separator is a comma, semicolon, or colon followed by zero or more white space
+     *  characters. Users will most likely want to use the @ref listParser factory instead, which takes the same arguments
+     *  but requires less typing. */
     static Ptr instance(const ValueParser::Ptr &firstElmtType, const std::string &separatorRe="[,;:]\\s*") {
         return Ptr(new ListParser(firstElmtType, separatorRe)); 
     }
 
-    /** Specifies element type and separator. Adds another element type and separator to this parser.  The specified values
-     *  are also used for all the following list members unless a subsequent type and separator are supplied.  I.e., the
-     *  final element type and separator are repeated as necessary when parsing. The default separator is a comma, semicolon,
-     *  or colon followed by zero ore more white space characters. */
+    /** Specifies element type and separator.
+     *
+     *  Adds another element type and separator to this parser.  The specified values are also used for all the following list
+     *  members unless a subsequent type and separator are supplied.  I.e., the final element type and separator are repeated
+     *  as necessary when parsing. The default separator is a comma, semicolon, or colon followed by zero ore more white space
+     *  characters. */
     Ptr nextMember(const ValueParser::Ptr &elmtType, const std::string &separatorRe="[,;:]\\s*") {
         elements_.push_back(ParserSep(elmtType, separatorRe));
         return boost::dynamic_pointer_cast<ListParser>(shared_from_this());
     }
 
-    /** Specify limits for the number of values parsed.  By default, a list parser parses zero or more values with no limit.
-     *  The limit() method provides separate lower and upper bounds (the one argument version sets only the upper bound), and
-     *  the exactly() method is a convenience to set the lower and upper bound to the same value.  @{ */
+    /** Specify limits for the number of values parsed.
+     *
+     *  By default, a list parser parses zero or more values with no limit.  The @ref limit method provides separate lower and
+     *  upper bounds (the one argument version sets only the upper bound), and the @ref exactly method is a convenience to set
+     *  the lower and upper bound to the same value.
+     * @{ */
     Ptr limit(size_t minLength, size_t maxLength);
     Ptr limit(size_t maxLength) { return limit(std::min(minLength_, maxLength), maxLength); }
     Ptr exactly(size_t length) { return limit(length, length); }
@@ -696,23 +984,44 @@ private:
     virtual ParsedValue operator()(Cursor&) /*override*/;
 };
 
-/** Factory for value parsers.  A factory function is a more terse and convenient way of calling the instance() static
- *  allocator for parser types and often alleviates the user from having to specify template arguments.  Most parser factories
- *  come in two varieties, and some in three varieties:
+/** @defgroup parser_factories Command line parser factories
+ *  
+ *  Factories for command line value parsers.
  *
- *  <ul>
- *    <li>Parser factories that take no function or template arguments.  These create a parser that uses a specific C++ type
- *        to represent its value and does not attempt to copy the parsed value to a user-specified storage location, but rather
- *        stores the value only in the ParserResult.  An example is <code>integerParser()</code>, which stores the parsed
- *        mathematical integer as a C++ "int" in the ParserResult.</li>
- *    <li>Parser factories that take a template typename argument.  These create a parser that uses the specified type to
- *        represent its value, but store the value only in the ParserResult.  An example is
- *        <code>integerParser<short>()</code>, which parses a mathematical integer and stores it in a C++ "short".</li>
- *    <li>Parser factories that take a function argument (and an inferred template argument) which is an L-value to
- *        indicate where the parsed value should be stored if ParserResult::apply() is called.  The value is also stored in the
- *        ParserResult and can be queried by the user.  An example is: <code>long foo; integerParser(foo)</code>.</li>
- *  </ul>
- *  @{ */
+ *  A factory function is a more terse and convenient way of calling the @c instance static allocators for parser types and
+ *  often alleviates the user from having to specify template arguments.  Most parser factories come in two varieties, and some
+ *  in three varieties:
+ *
+ *  @li A factory that takes no function or template arguments creates a parser that uses a specific, hard-coded C++ type
+ *      to represent its value and does not attempt to copy the parsed value to a user-specified storage location. The value,
+ *      assuming it is kept, is stored only in the ParserResult.
+ *  @li A factory that takes a template typename argument creates a parser that uses the specified type to represent its value,
+ *      and does not attempt to copy the parsed value to a user-supplied storage location. The value, assuming it is kept, is
+ *      stored only in the ParserResult.
+ *  @li A factory that takes a function argument that is an L-value (and an inferred template argument) creates a parser that
+ *      uses the inferred type to represent its value and also stores that value in the user-supplied location when
+ *      ParserResult::apply is called.
+ *
+ *  The @ref integerParser factory is an example for all three of these varieties:
+ *
+ * @code
+ *  integerParser()         // saves an @c int value in ParserResult
+ *  integerParser<short>()  // saves a @c short value in ParserResult
+ *  long result;
+ *  integerParser(result);  // saves a @c long value in ParserResult and @ result
+ * @endcode
+ *
+ * @section factories Factories
+ */
+
+
+/** @ingroup parser_factories
+ *  @brief Factory for value parsers.
+ *
+ *  A factory function is a more terse and convenient way of calling the @c instance static allocator for parser types and
+ *  often alleviates the user from having to specify template arguments.  Most parser factories come in two varieties, and some
+ *  in three varieties. See @ref parser_factories and the @ref ValueParser class for details.
+ * @{ */
 AnyParser::Ptr anyParser(std::string &storage);
 AnyParser::Ptr anyParser();
 
@@ -790,34 +1099,39 @@ ListParser::Ptr listParser(const ValueParser::Ptr&, const std::string &sepRe="[,
 //                                      Switch argument descriptors
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Describes one argument of a command-line switch. Some switches may have more than one argument ("--swap a b"), or an
- *  argument that is a list ("--swap a,b"), or appear more than once to create a list ("--swap a --swap b"); these are
- *  described at the Switch level, not the SwitchArgument level.  An argument parses one single entity (although the "a,b" in
- *  "--swap a,b" could be handled as a single entity that is a list).  Users don't usually use this directly, but rather via
- *  the argument() factory. */
+/** Describes one argument of a command-line switch.
+ *
+ *  A SwitchArgument declares one argument for a switch. Each argument should have a string name that will appear in
+ *  documentation and error messages.  Each argument also has a ValueParser for parsing the argument, and an optional default
+ *  value to use if the argument is missing (the presence of a default value makes the argument optional). If a default value
+ *  is specified then it must be parsable by the specified parser.
+ *
+ *  A SwitchArgument declares only one argument. Some switches may have more than one argument, like "\-\-swap a b", in which
+ *  case their declaration would have two SwitchArgument objects.  Some switches take one argument which is a list of values,
+ *  like "\-\-swap a,b", which is describe by declaring a single argument with @c listParser.  Some switches may occur multiple
+ *  times to specify their arguments, like "\-\-swap a \-\-swap b", in which case the switch is declared to have one argument
+ *  and saving values from all occurrences (see Switch::whichValue).
+ *
+ *  Users seldom use this class directly, but rather call Switch::argument() to declare arguments. */
 class SwitchArgument {
     std::string name_;                                  // argument name for synopsis
     ValueParser::Ptr parser_;                           // how to match and parse this argument
-    boost::any defaultValue_;                           // default value if the argument is optional
-    std::string defaultValueString_;                    // string from which the default value is parsed
+    ParsedValue defaultValue_;                          // default value if the argument is optional
 public:
-    SwitchArgument() {}
-
-    /** Construct a new switch required argument. The @p name is used in documentation and error messages and need not be
+    /** Construct a new required argument. The @p name is used in documentation and error messages and need not be
      *  unique. */
     explicit SwitchArgument(const std::string &name, const ValueParser::Ptr &parser = anyParser())
         : name_(name), parser_(parser) {}
 
     /** Construct a new switch optional argument.  The @p name is used in documentation and error messages and need not be
-     *  unique. The @p defaultValueString is immediately parsed via supplied parser and stored; an exception is thrown if it
-     *  cannot be parsed. */
+     *  unique. The @p defaultValueString is immediately parsed via supplied parser and stored; an
+     *  <code>std::runtime_error</code> exception is thrown if it cannot be parsed. */
     SwitchArgument(const std::string &name, const ValueParser::Ptr &parser, const std::string &defaultValueString)
-        : name_(name), parser_(parser), defaultValue_(parser->matchString(defaultValueString)),
-          defaultValueString_(defaultValueString)  {}
+        : name_(name), parser_(parser), defaultValue_(parser->matchString(defaultValueString)) {}
 
-    /** Returns true if this argument is required. */
+    /** Returns true if this argument is required. An argument is a required argument if it has no default value. */
     bool isRequired() const {
-        return defaultValue_.empty();
+        return defaultValue_.isEmpty();
     }
 
     /** Returns true if this argument is not required.  Any argument that is not a required argument will have a default value
@@ -826,12 +1140,14 @@ public:
         return !isRequired();
     }
 
-    /** Returns the name. The name is used for documentation and error messages. */
+    // FIXME[Robb Matzke 2014-03-02]: documentation might need to know the difference between literals and variables
+    /** Argument name. The name is used for documentation and error messages.  It need not look like a variable. For instance,
+     *  it could be "on|off|auto" to indicate that three values are possible, or "INT|wide" to indicate that the value can be
+     *  any integer or the string "wide".  No special parsing of the string occurs. */
     const std::string &name() const { return name_; }
 
-    /** The parsed default value.  Returns an empty boost::any if the argument is required, but since such values are also
-     *  valid parsed default values, one should call isRequired() or isOptional() to make that determination. */
-    const boost::any& defaultValue() const {
+    /** The parsed default value. The ParsedValue::isEmpty() will return true if this argument is required. */
+    const ParsedValue& defaultValue() const {
         return defaultValue_;
     }
 
@@ -839,14 +1155,11 @@ public:
      *  the argument is required, but since such values are also valid default values one should call isRequired() or
      *  isOptional() to make that determination. */
     const std::string& defaultValueString() const {
-        return defaultValueString_;
+        return defaultValue_.string();
     }
 
     /** Returns a pointer to the parser.  Parsers are reference counted and should not be explicitly destroyed. */
     const ValueParser::Ptr& parser() const { return parser_; }
-
-    // FIXME[Robb Matzke 2014-02-21]: a way to store values directly into user-supplied areas rather than (or in addition to)
-    // storing them in the ParserResults.
 };
 
 
@@ -989,8 +1302,6 @@ struct ParsingProperties {
     ParsingProperties inherit(const ParsingProperties &base) const;
 };
 
-// FIXME[Robb Matzke 2014-02-25]: How do these work when the switch has more than one argument?
-
 /** Describes how to handle switches that occur multiple times. */
 enum WhichValue {
     SAVE_NONE,                                          /**< Switch is disabled. Any occurrence will be an error. */
@@ -1118,7 +1429,7 @@ public:
     /** Detailed description.  This is the description of the switch in a simple markup language.
      *
      *  Parts of the text can be marked by surrounding the text in curly braces and prepending an "@" and a tag name.  For
-     *  instance, @b{foo} makes the word "foo" bold and @i{foo} makes it italic.  The tags "bold" and "italic" can be used
+     *  instance, \@b{foo} makes the word "foo" bold and \@i{foo} makes it italic.  The tags "bold" and "italic" can be used
      *  instead of "b" and "i", but the longer names make the documentation less readable in the C++ source code.
      *
      *  The text between the curly braces can be any length, and if it contains curly braces they must either balance or be
@@ -1128,14 +1439,14 @@ public:
      *  word @b foo is in bold face."
      *
      *  Besides describing the format of a piece of text, markup is also used to describe the intent of a piece of text--that a
-     *  word is a switch (@s), a variable (@v), or a reference to a Unix man page (@man).  The "@s" switch tag's argument
+     *  word is a switch (\@s), a variable (\@v), or a reference to a Unix man page (\@man).  The "@s" switch tag's argument
      *  should be a single word or single letter without leading hyphens and which is interpretted as a command-line
      *  switch. The library will add the correct prefix (probably "--" for long names and "-" for short names, but whatever is
      *  specified in the switch declaration). Even switches that haven't been declared can be marked with "@s".  The "@v"
      *  tag marks a word as a variable, usually the name of a switch argument.  The "@man" tag takes two arguments: the name of
      *  a Unix man page and the section in which the page appears: "the @man(ls)(1) command lists contents of a directory".
      *
-     *  The @prop tag takes one argument which is a property name and evaluates to the property value as a string.  The
+     *  The \@prop tag takes one argument which is a property name and evaluates to the property value as a string.  The
      *  following properties are defined:
      *
      *  <ul>

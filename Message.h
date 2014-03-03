@@ -1512,6 +1512,11 @@ extern Facilities mfacilities;
 //                                      The most commonly used stuff
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/** Commonly used message types.
+ *
+ *  This namespace exists so that users can say <code>using namespace Sawyer::Message::Common</code> to be able to use the most
+ *  important message types without name qualification and without also bringing in all the things that are less frequently
+ *  used.  In particular, this does not include Sawyer::Message::mlog since users often name their own facilities "mlog". */
 namespace Common {
 
 using Message::DEBUG;

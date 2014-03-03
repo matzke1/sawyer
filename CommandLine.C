@@ -715,7 +715,7 @@ size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*
         } catch (const std::runtime_error &e) {
             if (sa.isRequired())
                 throw missingArgument(switchString, cursor, sa, e.what());
-            result.push_back(ParsedValue(sa.defaultValue(), NOWHERE, sa.defaultValueString(), sa.parser()->valueSaver()));
+            result.push_back(sa.defaultValue());
         }
 
         // Long switch arguments must end aligned with a program argument
@@ -731,7 +731,7 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
                                 ParsedValues &result /*out*/) const {
     ExcursionGuard guard(cursor);
 
-    // If the switch has no declared arguments, then parse its default.
+    // If the switch has no declared arguments use its intrinsic value.
     if (arguments_.empty()) {
         ASSERT_require(cursor.atArgBegin() || cursor.atEnd());
         result.push_back(intrinsicValue_);

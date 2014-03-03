@@ -2,7 +2,7 @@
 #include "Message.h"
 #include <iostream>
 
-using namespace Sawyer::Message;
+using namespace Sawyer::Message::Common;
 
 static Facility facility1("default");
 
@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
 
     // Now try changing the destinations to what we really want: buffered I/O.  We'll use stdout so we can distinguish the
     // output from the default, which was stderr.
-    facility1.initStreams(StreamSink::instance(std::cout));
+    facility1.initStreams(Sawyer::Message::StreamSink::instance(std::cout));
     facility1[INFO] <<"this should be on standard output now\n";
 
     return 0;
