@@ -28,10 +28,10 @@ namespace Sawyer { // documented in Sawyer.h
  *  @li A <em>program command line</em> is the vector of strings passed to a program by the operating system or runtime.
  *  @li A <em>commmand line argument</em> is one element of the program command line vector.
  *  @li A <em>switch</em> is a named command line argument, usually introduced with a special character sequence followed
- *      by a name, such as "\-\-color". The "\-\-" is the <em>switch prefix</em>, "color" is the <em>switch name</em>, and
- *      "\-\-color" is the <em>switch string</em>.
+ *      by a name, such as <code>-\-color</code>. The "-\-" is the <em>switch prefix</em>, "color" is the <em>switch name</em>,
+ *      and "-\-color" is the <em>switch string</em>.
  *  @li A <em>switch argument</em> is an optional value specified on the program command line and associated with a switch,
- *      such as the word "grey" in "\-\-color=grey" or "\-\-color grey" (as two command-line arguments).
+ *      such as the word "grey" in <code>-\-color=grey</code> or <code>-\-color grey</code> (as two command-line arguments).
  *  @li A <em>switch value</em> is a switch argument that has been converted to a value within a program, such as the
  *      enumeration constant <code>GRAY</code>, whether the string on the command line was "grey" or "gray".
  *  @li A <em>non-switch</em> is a program argument that doesn't appear to be a switch. Another name for the same thing
@@ -268,9 +268,9 @@ public:
      * string. Must not be called when @ref atEnd returns true. */
     void replace(const std::vector<std::string>&);
 
-    /** Advance the cursor over characters. Advances the cursor's current location  @p nchars characters, stopping earlier
-     *  if the end of the strings is reached.  When advancing in a string, when the cursor reaches the end of the string it is
-     *  repositioned at the beginning of the next string (or at the end), in which case @ref atArgBeg (or @ref atEnd) will
+    /** Advance the cursor over characters. Advances the cursor's current location @p nchars characters, stopping earlier if
+     *  the end of the strings is reached.  When advancing in a string, when the cursor reaches the end of the string it is
+     *  repositioned at the beginning of the next string (or at the end), in which case @ref atArgBegin (or @ref atEnd) will
      *  return true. */
     void consumeChars(size_t nchars);
 
@@ -424,7 +424,7 @@ public:
      *  For values that are defaults which didn't come from the command-line, the constant @ref NOWHERE is returned.
      * @{ */
     Location valueLocation() const { return valueLocation_; }
-    void valueLocation(const Location &loc) { valueLocation_ = loc; }
+    ParsedValue& valueLocation(const Location &loc) { valueLocation_ = loc; return *this; }
     /** @} */
 
     /** String representation.  This is the string that was parsed to create the value. */
@@ -451,8 +451,11 @@ public:
      * <code>boost::any_cast</code>. */
     template<typename T> T as() const { return boost::any_cast<T>(value_); }
 
-    /** The key used by the switch that created this value. */
+    /** Property: switch key. The key used by the switch that created this value.
+     * @{ */
+    ParsedValue& switchKey(const std::string &s) { switchKey_ = s; return *this; }
     const std::string& switchKey() const { return switchKey_; }
+    /** @} */
 
     /** The string for the switch that caused this value to be parsed.  This string includes the switch prefix and the switch
      *  name in order to allow programs to distinguish between the same switch occuring with two different prefixes (like the
@@ -552,14 +555,17 @@ typedef std::vector<ParsedValue> ParsedValues;
  *  The values are stored in a ParserResult object during the Parser::parse call, but are not moved into user-specified
  *  L-values until ParserResult::apply is called.
  *
- *  Users can create their own parsers, and are encouraged to do so, by following this same recipe. */
+ *  Users can create their own parsers, and are encouraged to do so, by following this same recipe.
+ *
+ * @sa
+ *  @ref parser_factories */
 class ValueParser: public boost::enable_shared_from_this<ValueParser> {
     ValueSaver::Ptr valueSaver_;
 protected:
-    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
+    /** Constructor for derived classes. Non-subclass users should use @c instance or factories instead. */
     ValueParser() {}
 
-    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
+    /** Constructor for derived classes. Non-subclass users should use @c instance or factories instead. */
     explicit ValueParser(const ValueSaver::Ptr &valueSaver): valueSaver_(valueSaver) {}
 public:
     /** Reference counting pointer for this class. */
@@ -986,11 +992,19 @@ private:
 
 /** @defgroup parser_factories Command line parser factories
  *  
- *  Factories for command line value parsers.
+ *  Factories for creating instances of Sawyer::CommandLine::ValueParser subclasses.
  *
- *  A factory function is a more terse and convenient way of calling the @c instance static allocators for parser types and
- *  often alleviates the user from having to specify template arguments.  Most parser factories come in two varieties, and some
- *  in three varieties:
+ *  A factory function is a more terse and convenient way of calling the @c instance allocating constructors for the various
+ *  subclasses of @ref ValueParser, and they sometimes alleviate the user from having to specify template arguments.  They take
+ *  the same arguments as the @c instance method(s) and have the same name as the class they return, except their initial
+ *  letter is lower case.  These two calls are equivalent:
+ *
+ * @code
+ *  ValueParser::Ptr parser1 = IntegerParser::instance<short>(storage);
+ *  ValueParser::Ptr parser2 = integerParser(storage);
+ * @endcode
+ *
+ *  Most parser factories come in two varieties, and some in three varieties:
  *
  *  @li A factory that takes no function or template arguments creates a parser that uses a specific, hard-coded C++ type
  *      to represent its value and does not attempt to copy the parsed value to a user-specified storage location. The value,
@@ -1018,9 +1032,14 @@ private:
 /** @ingroup parser_factories
  *  @brief Factory for value parsers.
  *
- *  A factory function is a more terse and convenient way of calling the @c instance static allocator for parser types and
- *  often alleviates the user from having to specify template arguments.  Most parser factories come in two varieties, and some
- *  in three varieties. See @ref parser_factories and the @ref ValueParser class for details.
+ *  A factory function is a more terse and convenient way of calling the @c instance allocating constructors for ValueParser
+ *  subclasses and often alleviates the user from having to specify template arguments.  Most parser factories come in two
+ *  varieties, and some in three varieties.
+ *
+ * @sa
+ * @li @ref parser_factories
+ * @li @ref ValueParser base class
+ * @li Documentation for the returned class
  * @{ */
 AnyParser::Ptr anyParser(std::string &storage);
 AnyParser::Ptr anyParser();
@@ -1106,11 +1125,11 @@ ListParser::Ptr listParser(const ValueParser::Ptr&, const std::string &sepRe="[,
  *  value to use if the argument is missing (the presence of a default value makes the argument optional). If a default value
  *  is specified then it must be parsable by the specified parser.
  *
- *  A SwitchArgument declares only one argument. Some switches may have more than one argument, like "\-\-swap a b", in which
- *  case their declaration would have two SwitchArgument objects.  Some switches take one argument which is a list of values,
- *  like "\-\-swap a,b", which is describe by declaring a single argument with @c listParser.  Some switches may occur multiple
- *  times to specify their arguments, like "\-\-swap a \-\-swap b", in which case the switch is declared to have one argument
- *  and saving values from all occurrences (see Switch::whichValue).
+ *  A SwitchArgument declares only one argument. Some switches may have more than one argument, like <code>-\-swap a b</code>,
+ *  in which case their declaration would have two SwitchArgument objects.  Some switches take one argument which is a list of
+ *  values, like <code>-\-swap a,b</code>, which is describe by declaring a single argument with @c listParser.  Some switches
+ *  may occur multiple times to specify their arguments, like <code>-\-swap a -\-swap b</code>, in which case the switch is
+ *  declared to have one argument and saving values from all occurrences (see Switch::whichValue).
  *
  *  Users seldom use this class directly, but rather call Switch::argument() to declare arguments. */
 class SwitchArgument {
@@ -1167,70 +1186,174 @@ public:
 //                                      Switch immediate actions
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// FIXME[Robb Matzke 2014-02-21]: Finish this design
 
+/** Base class for immediate switch actions.
+ *
+ *  An immediate switch action is some action that occurs as soon as a switch is parsed, before parsing continues further in
+ *  the command line, before the ParserResult is returned, and before the user decides what to do with the results.  It is due
+ *  to this last condition that immediate switch actions should be used very sparingly; there use prevents a user from asking
+ *  "is this a valid command line?" without incuring side effects.  In fact, this API might even be removed from the library
+ *  entirely.
+ *
+ *  Actions are always allocated on the heap and reference counted.  Each action defines a class factory method,
+ *  <code>instance</code>, to allocate a new object and return a pointer to it. The pointer types are named <code>Ptr</code>
+ *  and are defined within the class.  For convenience, the actions built into the library also have global factory functions
+ *  which have the same name as the class but start with an initial lower-case letter (see @ref action_factories for details).
+ *  For instance:
+ *
+ * @code
+ *  SwitchAction::Ptr action1 = UserAction::instance<MyFunctor>(myFunctor);
+ *  SwitchAction::Ptr action2 = userAction(myFunctor);
+ * @endcode */
 class SwitchAction {
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<SwitchAction> Ptr;
     virtual ~SwitchAction() {}
+
+    /** Runs the action.  Calling this method will cause the function operator to be invoked with the parser argument. */
     void run(const Parser *parser) /*final*/ { (*this)(parser); }
 private:
     virtual void operator()(const Parser*) = 0;
 };
 
+/** Functor to cause the program to exit. */
 class ExitProgram: public SwitchAction {
     int exitStatus_;
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     explicit ExitProgram(int exitStatus): exitStatus_(exitStatus) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<ExitProgram> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new ExitProgram object.  Uses will most likely want to use the @ref
+     *  exitProgram factory instead, which requires less typing.
+     *
+     * @sa @ref action_factories, and the @ref SwitchAction class. */
     static Ptr instance(int exitStatus) { return Ptr(new ExitProgram(exitStatus)); }
 private:
     virtual void operator()(const Parser*) /*override*/;
 };
 
+/** Functor to print a version string. The string supplied to the constructor is printed to standard error followed by a line
+ *  feed. Although the string is intended to be a version number, it can be anything you like. Sometimes people use this action
+ *  to aid debugging of the parsing. */
 class ShowVersion: public SwitchAction {
     std::string versionString_;
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     explicit ShowVersion(const std::string &versionString): versionString_(versionString) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<ShowVersion> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new ShowVersion object.  Uses will most likely want to use the @ref
+     *  showVersion factory instead, which requires less typing.
+     *
+     * @sa @ref action_factories, and the @ref SwitchAction class. */
     static Ptr instance(const std::string &versionString) { return Ptr(new ShowVersion(versionString)); }
 private:
     virtual void operator()(const Parser*) /*overload*/;
 };
 
+/** Functor to print the Unix man page.  This functor, when applied, creates a Unix manual page from available documentation in
+ *  the parser, and then invokes standard Unix commands to format the text and page it to standard output. Strange things might
+ *  happen if standard input is not the terminal, since the pager will probably be expecting to read commands from standard
+ *  input. */
 class ShowHelp: public SwitchAction {
+protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
+    ShowHelp() {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<ShowHelp> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new ShowHelp object.  Uses will most likely want to use the @ref
+     *  showHelp factory instead, which requires less typing.
+     *
+     * @sa @ref action_factories, and the @ref SwitchAction class. */
     static Ptr instance() { return Ptr(new ShowHelp); }
 private:
     virtual void operator()(const Parser*) /*override*/;
 };
 
-// A more convenient way for users to create their own actions since it doesn't require that the user's functor follow
-// the boost shared-pointer paradigm used by Sawyer.
+/** Wrapper around a user functor.  User code doesn't often use reference counting smart pointers for functors, but more often
+ *  creates functors in global data or on the stack.  The purpose of UserAction is to be a wrapper around these functors, to
+ *  be a bridge between the world of reference counting pointers and objects or object references.  For example, say the
+ *  user has a function like this:
+ *
+ * @code
+ *  void showRawManPage(const Parser *parser) {
+ *      std::cout <<parser->manpage();
+ *      exit(0);
+ *  }
+ * @endcode
+ *
+ *  Then the functor/function can be used like this:
+ *
+ * @code
+ *  switchGroup.insert(Switch("raw-man")
+ *                     .action(userAction(showRawManPage))
+ *                     .doc("Prints the raw nroff man page to standard output."));
+ * @endcode */
 template<class Functor>
 class UserAction: public SwitchAction {
     const Functor &functor_;
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     UserAction(const Functor &f): functor_(f) {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<class UserAction> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new UserAction object.  Uses will most likely want to use the @ref
+     *  userAction factory instead, which requires less typing.
+     *
+     * @sa @ref action_factories, and the @ref SwitchAction class. */
     static Ptr instance(const Functor &f) { return Ptr(new UserAction(f)); }
 private:
     virtual void operator()(const Parser *parser) /*override*/ { (functor_)(parser); }
 };
 
+/** @defgroup action_factories Command line action factories
+ *
+ *  Factories for creating instances of Sawyer::CommandLine::SwitchAction subclasses.
+ *
+ *  A factory function is a more terse and convenient way of calling the @c instance allocating constructors for the various
+ *  subclasses of @ref SwitchAction, and they sometimes alleviate the user from having to supply template arguments.  They take
+ *  the same arguments as the @c instance method(s) and have the same name as the class they return, except their initial
+ *  letter is lower-case. These two calls are equivalent:
+ *
+ * @code
+ *  SwitchAction::Ptr action1 = UserAction::instance<MyFunctor>(myFunctor);
+ *  SwitchAction::Ptr action2 = userAction(myFunctor);
+ * @endcode
+ *
+ * @section factories Factories */
+
+/** @ingroup action_factories
+ *  @brief Factory for switch action.
+ *
+ *  A factory function is a more terse and convenient way of calling the @c instance allocating constructors for @ref
+ *  SwitchAction subclasses and often alleviates the user from having to specify template arguments.
+ *
+ * @sa
+ *  @li @ref action_factories
+ *  @li @ref SwitchAction base class
+ *  @li Documentation for the returned class.
+ * @{ */
+ExitProgram::Ptr exitProgram(int exitStatus);
+
+ShowVersion::Ptr showVersion(const std::string &versionString);
+
+ShowHelp::Ptr showHelp();
+
 template<class Functor>
 typename UserAction<Functor>::Ptr userAction(const Functor &functor) {
     return UserAction<Functor>::instance(functor);
 }
-
-
-ExitProgram::Ptr exitProgram(int exitStatus);
-ShowVersion::Ptr showVersion(const std::string &versionString);
-ShowHelp::Ptr showHelp();
+/** @} */
 
 
 
@@ -1238,13 +1361,23 @@ ShowHelp::Ptr showHelp();
 //                                      Switch value agumenters
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Base class for value agumentors.  A ValueAugmenter is invoked after a switch argument (explicit or default) is passed to
- *  combine a previously parsed value with the currently parsed value, replacing the previously parsed value.  The augmenter is
- *  invoked only if the switch's whichValue property is SAVE_AUGMENTED.
+/** Base class for value agumentors.
  *
- *  Value augmentors are reference counted entities following the same paradigm as described for ValueParser. */
+ *  A ValueAugmenter is invoked after a switch argument (explicit or default) is parsed and somehow merges the newly parsed
+ *  value with previous values.  The augmenter is called only when the switch @c whichProperty is set to @ref SAVE_AUGMENTED.
+ *
+ *  The merge is performed by the function operator, which is given two sets of parsed values: the values that were previously
+ *  parsed and stored in a ParserResult for the same switch key, and the values that were recently parsed for the switch.  The
+ *  method should combine the two in some way and return a new set of values that replace all previous and recently parsed
+ *  values.  The return values should contain appropriate information for the @c valueLocation, @c valueString, @c
+ *  switchLocation, @c switchString, and @c valueSaver properties.  Most of the time these properties can be initialized from
+ *  parsed values passed to the function operator.
+ *
+ *  Most subclasses will have factory functions to instantiate reference counted, allocated objects. See @ref
+ *  augmenter_factories for a list. */
 class ValueAugmenter {
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<ValueAugmenter> Ptr;
     virtual ~ValueAugmenter() {}
 
@@ -1255,14 +1388,33 @@ public:
     virtual ParsedValues operator()(const ParsedValues &savedValues, const ParsedValues &newValues) = 0;
 };
 
-/** Sums all previous and current values. The template argument must match the type of the summed values. */
+/** Sums all previous and current values. The template argument must match the type of the summed values.
+ *
+ *  This augmenter can be used for switches that increment a value, such as a debug switch where each occurrence of the switch
+ *  increments a debug level:
+ *
+ * @code
+ *  int debugLevel = 0;
+ *  switchGroup.insert(Switch("debug", "d")
+ *                     .intrinsicValue("1", integerParser(debugLevel))
+ *                     .valueAugmenter(sum<int>())
+ *                     .whichValue(SAVE_AUGMENTED));
+ * @endcode */
 template<typename T>
 class Sum: public ValueAugmenter {
 protected:
+    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     Sum() {}
 public:
+    /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<Sum> Ptr;
+
+    /** Allocating constructor. Returns a pointer to a new Sum object.  Uses will most likely want to use the @ref
+     *  sum factory instead, which requires less typing.
+     *
+     * @sa @ref augmenter_factories, and the @ref ValueAugmenter class. */
     static Ptr instance() { return Ptr(new Sum<T>); }
+
     virtual ParsedValues operator()(const ParsedValues &savedValues, const ParsedValues &newValues) /*override*/ {
         ASSERT_forbid(newValues.empty());
         T sum = 0;
@@ -1278,11 +1430,40 @@ public:
     }
 };
 
-/** Replace the previous parsed value with the sum of the previous and current values. */
+/** @defgroup augmenter_factories Command line value augmenter factories
+ *
+ *  Factories for creating instances of Sawyer::CommandLine::ValueAugmenter subclasses.
+ *
+ *  A factory function is a more terse and convenient way of calling the @c instance allocating constructors for the various
+ *  subclasses of @ref ValueAugmenter, and they sometimes alleviate the user from having to supply template arguments.  They
+ *  take the same arguments as the @c instance method(s) and have the same name as the class they return, except their initial
+ *  letter is lower-case.  These two calls are equivalent:
+ *
+ * @code
+ *  ValueAugmenter::Ptr a1 = Sum::instance<int>();
+ *  ValueAugmenter::Ptr a2 = sum<int>();
+ * @endcode
+ *
+ * @section factories Factories */
+
+/** @ingroup augmenter_factories
+ *  @brief Factory for value agumenter.
+ *
+ *  A factory function is a more terse and convenient way of calling the @c instance allocating constructors for @ref
+ *  ValueAugmenter subclasses and often alleviates the user from having to specify template arguments.
+ *
+ * @sa
+ *  @li @ref augmenter_factories
+ *  @li @ref ValueAugmenter base class
+ *  @li Documentation for the returned class.
+ *
+ * @{ */
 template<typename T>
 typename Sum<T>::Ptr sum() {
     return Sum<T>::instance();
 }
+/** @} */
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1304,8 +1485,8 @@ struct ParsingProperties {
 
 /** Describes how to handle switches that occur multiple times. */
 enum WhichValue {
-    SAVE_NONE,                                          /**< Switch is disabled. Any occurrence will be an error. */
-    SAVE_ONE,                                           /**< Switch cannot appear more than once. */
+    SAVE_NONE,                                          /**< The switch is disabled. Any occurrence will be an error. */
+    SAVE_ONE,                                           /**< The switch cannot occur more than once. */
     SAVE_LAST,                                          /**< Use only the last occurrence and ignore all previous. */
     SAVE_FIRST,                                         /**< Use only the first occurrence and ignore all previous. */
     SAVE_ALL,                                           /**< Save all values as a vector. */
@@ -1336,46 +1517,54 @@ enum WhichValue {
  */
 class Switch {
 private:
-    std::vector<std::string> longNames_;                // long name of switch, or empty string
-    std::string shortNames_;                            // optional short names for this switch
-    std::string key_;                                   // unique key, usually the long name or the first short name
-    ParsingProperties properties_;                      // properties valid at multiple levels of the hierarchy
-    std::string synopsis_;                              // user-defined synopsis or empty string
-    std::string documentation_;                         // main documentation for the switch
-    std::string documentationKey_;                      // for sorting documentation
-    bool hidden_;                                       // hide documentation?
-    std::vector<SwitchArgument> arguments_;             // arguments with optional default values
-    std::vector<SwitchAction::Ptr> actions_;            // what happens as soon as the switch is parsed
-    WhichValue whichValue_;                             // which switch values should be saved
-    ValueAugmenter::Ptr valueAugmenter_;                // used if whichValue_==SAVE_AUGMENTED
-    ParsedValue intrinsicValue_;                        // value for switches that have no declared arguments
-    bool explosiveLists_;                               // expand ListParser::ValueList into separate values
+    std::vector<std::string> longNames_;                /**< Long name of switch, or empty string. */
+    std::string shortNames_;                            /**< Optional short names for this switch. */
+    std::string key_;                                   /**< Unique key, usually the long name or the first short name. */
+    ParsingProperties properties_;                      /**< Properties valid at multiple levels of the hierarchy. */
+    std::string synopsis_;                              /**< User-defined synopsis or empty string. */
+    std::string documentation_;                         /**< Main documentation for the switch. */
+    std::string documentationKey_;                      /**< For sorting documentation. */
+    bool hidden_;                                       /**< Whether to hide documentation. */
+    std::vector<SwitchArgument> arguments_;             /**< Arguments with optional default values. */
+    std::vector<SwitchAction::Ptr> actions_;            /**< What happens as soon as the switch is parsed. */
+    WhichValue whichValue_;                             /**< Which switch values should be saved. */
+    ValueAugmenter::Ptr valueAugmenter_;                /**< Used if <code>whichValue_==SAVE_AUGMENTED</code>. */
+    ParsedValue intrinsicValue_;                        /**< Value for switches that have no declared arguments. */
+    bool explosiveLists_;                               /**< Whether to expand ListParser::ValueList into separate values. */
 
 public:
-    /** Switch declaration constructor.  Every switch must have either a long or short name (or both).  Neither name should
-     *  include prefix characters such as hyphens, and the short name should be one character (or empty if none).  The best
-     *  practice is to provide a long name for every switch and short names only for the most commonly used switches.  The
-     *  constructor should provide the canonical names when there are more than one (additional names can be specified with the
-     *  longName() and shortName() methods) because the names specified in the constructor are used to create keys (although
-     *  the key() method can override this).  Names of switches need not be unique.  If more than one switch is able to parse a
-     *  command-line argument then the first declaration wins--this includes being able to parse its arguments.  This feature
-     *  is sometimes used to declare two switches with the same name but which take different types of arguments. */
+    /** Constructs a switch declaration.  Every switch must have either a long or short name (or both), neither of which should
+     *  include prefix characters such as hyphens. The best practice is to provide a long name for every switch and short names
+     *  only for the most commonly used switches.
+     *  
+     *  Additional names can be specified with the @ref longName and @ref shortName methods, but the constructor should be
+     *  provided the canonical names.  The canonical names will be used to create the initial value for the @ref key property,
+     *  and will be used for organizing parsed values by switch. They also appear in some error messages when command-line text
+     *  is not available, and they will appear first in documentation.
+     *
+     *  Names of switches need not be unique.  If more than one switch is able to parse a command-line argument then the first
+     *  declaration wins.  This feature is sometimes used to declare two switches having identical names but different
+     *  arguments or argument types. */
     explicit Switch(const std::string &longName, char shortName='\0')
         : hidden_(false), whichValue_(SAVE_LAST), intrinsicValue_(ParsedValue(true, NOWHERE, "true", ValueSaver::Ptr())),
           explosiveLists_(false) {
         init(longName, shortName);
     }
 
-    /** Long name of the switch. Either adds another name to the list of permissible names, or returns a vector of permissible
-     * names. The primary name is the first name and is usually specified in the constructor.
+    // FIXME[Robb Matzke 2014-03-03]: test that "--prefix=5" works when names are "pre" and "prefix" in that order
+    /** Property: switch long name.  Long names normally consist of multiple letters and use prefixes that are different than
+     *  the short (single-letter) names.  Also, the value for long-name switches is usually separated from the switch by a
+     *  special character (like "=") or by appearing in the next program argument.
      * @{ */
     Switch& longName(const std::string &name);
     const std::string& longName() const { return longNames_.front(); }
     const std::vector<std::string>& longNames() const { return longNames_; }
     /** @} */
 
-    /** Short name of the switch. If an argument is specified it is added to the list of permissible short names. With no
-     *  arguments, this method returns a string containing all the valid short names  in the order they were declared.
+    /** Property: switch short name. Short names are single letters and use a different set of prefixes than long names (which
+     *  can also be a single letter).  Also, when a short-name switch has an argument the value for the argument can be
+     *  adjacent to the switch, like <code>-n5</code>, but long-name switches usually separate the switch from the value with a
+     *  special string, like <code>-\-number=5</code>.
      * @{ */
     Switch& shortName(char c) { if (c) shortNames_ += std::string(1, c); return *this; }
     const std::string& shortNames() const { return shortNames_; }
@@ -1385,29 +1574,24 @@ public:
      *  long names. */
     std::string preferredName() const { return longNames_.empty() ? std::string(1, shortNames_[0]) : longNames_[0]; }
 
-    /** Key used when parsing this switch.  When a switch value is parsed (or an intrinsic or default value is used) to create
-     *  a ParsedValue object, the object will be associated with the switch key.  This allows different switches to write to
-     *  the same result locations and is useful for different keys that refer to the same concept, like "--verbose" and
-     *  "--quiet". The default is to use the long switch name if specified in the constructor, or else the single letter name
-     *  name specified in the constructor (one or the other must be present).  The switch prefix (e.g., "-") should generally
-     *  not be part of the key.
+    /** Property: value storage key.  When a switch value is parsed (or an intrinsic or default value is used) to create a
+     *  ParsedValue object, the object will be associated with the switch key.  This allows different switches to write to the
+     *  same result locations and is useful for different keys that refer to the same concept, like <code>-\-verbose</code> and
+     *  <code>-\-quiet</code>. The default is to use the long (or short, if no long) name specified in the constructor.  The
+     *  switch prefix (e.g., "-") should generally not be part of the key because it becomes confusing when it appears in error
+     *  messages (it looks like a switch occurrence string yet might be completely unrelated to what appeared on the command
+     *  line).
      * @{ */
     Switch& key(const std::string &s) { key_ = s; return *this; }
     const std::string &key() const { return key_; }
     /** @} */
 
-    /** Abstract summary of the switch syntax.  The synopsis is normally generated automatically from other information
-     *  specified for the switch, but the user may provide a synopsis to override the generated one.  A synopsis should
-     *  be a comma-separated list of alternative switch sytax specifications using markup to specify things such as the
-     *  switch name and switch/value separator.  Using markup will cause the synopsis to look correct regardless of
-     *  the operating system or output media.  See the doc() method for details.  For example:
-     *
-     * @code
-     *  @s{branches} [@v{pattern}], @s{tags} [@v{pattern}], @s{remotes} [@v{pattern}]
-     * @endcode
-     *
-     *  The reason a user may want to override the synopsis is to be able to document related switches together.  For
-     *  instance, the git-rev-parse(1) man page has the following documentation for these three switches:
+    /** Property: abstract summary of the switch syntax.  The synopsis is normally generated automatically from other
+     *  information specified for the switch, but the user may provide a synopsis to override the generated one.  A synopsis
+     *  should be a semi-colon separated list of alternative switch sytax specifications using markup to specify things such as
+     *  the switch name and switch/value separator.  Using markup will cause the synopsis to look correct regardless of the
+     *  operating system or output media.  See the @ref doc method for details.  For example, the git-rev-parse(1) man page
+     *  has the following documentation for three related switches:
      *
      * @code
      *  --branches[=PATTERN], --tags[=PATTERN], --remotes[=PATTERN]
@@ -1418,47 +1602,58 @@ public:
      *      by appending a slash followed by an asterisk.
      * @endcode
      *
-     *  The previous example can be accomplished by documenting only one of the three switches (with a user-specified
-     *  synopsis) and making the other switches hidden. Setting the synopsis property to the empty string will cause the
-     *  library to generate one automatically.
+     *  This library handles that situation by attaching the documentation to a single switch, say "branches", and hiding
+     *  documentation for the other two switches.  But this also requires that the synopsis for "branches" be changed from
+     *  its library-generated vesion:
+     * 
+     * @code
+     *  Switch("branches")
+     *         .doc("@s{branches} [@v{pattern}]; @s{tags} [@v{pattern}]; @s{remotes} [@v{pattern}]")
+     * @endcode
+     *
+     *  Note: the git man pages separate alternative switches with commas, but this library uses semicolons since commas also
+     *  frequirently appear within the syntax description of a single switch.
+     *
+     * @sa @ref doc
+     *
      * @{ */
     Switch& synopsis(const std::string &s) { synopsis_ = s; return *this; }
     std::string synopsis() const;
     /** @} */
 
-    /** Detailed description.  This is the description of the switch in a simple markup language.
+    /** Property: detailed description.  This is the description of the switch in a simple markup language.
      *
-     *  Parts of the text can be marked by surrounding the text in curly braces and prepending an "@" and a tag name.  For
-     *  instance, \@b{foo} makes the word "foo" bold and \@i{foo} makes it italic.  The tags "bold" and "italic" can be used
-     *  instead of "b" and "i", but the longer names make the documentation less readable in the C++ source code.
+     *  Parts of the text can be marked by surrounding the text in curly braces and prepending an tag consisting of an "@"
+     *  followed by a word.  For instance, <code>\@b{foo}</code> makes the word "foo" bold and <code>\@i{foo}</code> makes it
+     *  italic.  The tags <code>\@bold</code> and <code>\@italic</code> can be used instead of <code>\@b</code> and
+     *  <code>\@i</code>, but the longer names make the documentation less readable in the C++ source code.
      *
      *  The text between the curly braces can be any length, and if it contains curly braces they must either balance or be
      *  escaped with a preceding backslash (or two backslashes if they're inside a C++ string literal).  The delimiters (), [],
      *  or <> may be used instead of curly braces. The delimiter must immediately follow the tag name with no intervening white
-     *  space: "@b<foo> @i(bar)". Readability can be improved even more by substituting white space for the delimiters: "the
-     *  word @b foo is in bold face."
+     *  space: <code>\@b<foo> \@i(bar)</code>. Readability can be improved even more by substituting white space for the
+     *  delimiters: <code>the word \@b foo is in bold face.</code>
      *
      *  Besides describing the format of a piece of text, markup is also used to describe the intent of a piece of text--that a
-     *  word is a switch (\@s), a variable (\@v), or a reference to a Unix man page (\@man).  The "@s" switch tag's argument
-     *  should be a single word or single letter without leading hyphens and which is interpretted as a command-line
-     *  switch. The library will add the correct prefix (probably "--" for long names and "-" for short names, but whatever is
-     *  specified in the switch declaration). Even switches that haven't been declared can be marked with "@s".  The "@v"
-     *  tag marks a word as a variable, usually the name of a switch argument.  The "@man" tag takes two arguments: the name of
-     *  a Unix man page and the section in which the page appears: "the @man(ls)(1) command lists contents of a directory".
+     *  word is a switch string (<code>\@s</code>), a variable (<code>\@v</code>), or a reference to a Unix man page
+     *  (<code>\@man</code>).  The <code>\@s</code> argument should be a single word or single letter without leading hyphens and
+     *  which is interpretted as a command-line switch. The library will add the correct prefix--probably "-\-" for long names
+     *  and "-" for short names, but whatever is specified in the switch declaration. Even switches that haven't been declared
+     *  can be marked with <code>\@s</code>.  The <code>\@v</code> tag marks a word as a variable, usually the name of a switch
+     *  argument.  The <code>\@man</code> tag takes two arguments: the name of a Unix man page and the section in which the page
+     *  appears: <code>the \@man(ls)(1) command lists contents of a directory.</code>
      *
-     *  The \@prop tag takes one argument which is a property name and evaluates to the property value as a string.  The
-     *  following properties are defined:
+     *  The <code>\@prop</code> tag takes one argument which is a property name and evaluates to the property value as a string.
+     *  The following properties are defined:
      *
-     *  <ul>
-     *    <li><em>inclusionPrefix</em> is the preferred (first) string returned by Parser::inclusionPrefixes().</li>
-     *    <li><em>terminationSwitch</em> is the preferred (first) switch returned by Parser::terminationSwitches().</li>
-     *    <li><em>programName</em> is the string returned by Parser::programName().</li>
-     *    <li><em>purpose</em> is the string returned by Parser::purpose().</li>
-     *    <li><em>versionString</em> is the first member of the pair returned by Parser::version().</li>
-     *    <li><em>versionDate</em> is the second member of the pair returned by Parser::version().</li>
-     *    <li><em>chapterNumber</em> is the first member of the pair returned by Parser::chapter().</li>
-     *    <li><em>chapterName</em> is the second member of the pair returned by Parser::chapter().</li>
-     *  </ul>
+     *  @li @c inclusionPrefix is the preferred (first) string returned by Parser::inclusionPrefixes.
+     *  @li @c terminationSwitch is the preferred (first) switch returned by Parser::terminationSwitches.
+     *  @li @c programName is the string returned by Parser::programName.
+     *  @li @c purpose is the string returned by Parser::purpose.
+     *  @li @c versionString is the first member of the pair returned by Parser::version.
+     *  @li @c versionDate is the second member of the pair returned by Parser::version.
+     *  @li @c chapterNumber is the first member of the pair returned by Parser::chapter.
+     *  @li @c chapterName is the second member of the pair returned by Parser::chapter.
      *
      *  Even switches with no documentation will show up in the generated documentation--they will be marked as "Not
      *  documented".  To suppress them entirely, set their "hidden" property to true.
@@ -1467,26 +1662,28 @@ public:
     const std::string& doc() const { return documentation_; }
     /** @} */
 
-    /** Key to control order of documentation.  Normally, documentation for a group of switches is sorted according to the
-     *  long name of the switch (or the short name when there is no long name).  Specifying a key causes the key string to be
-     *  used instead of the switch names.
+    /** Property: key to control order of documentation.  Normally, documentation for a group of switches is sorted according
+     *  to the switche's @ref preferredName.  Specifying a docKey string causes that string to be used instead of the switch
+     *  names.  The key string itself never appears in any documentation.
      *  @{ */
     Switch& docKey(const std::string &s) { documentationKey_ = s; return *this; }
     const std::string &docKey() const { return documentationKey_; }
     /** @} */
     
-    /** Whether this switch appears in documentation. A hidden switch still participates when parsing command lines, but will
-     *  not show up in documentation.  This is ofen used for a switch when that switch is documented as part of some other
-     *  switch. */
+    /** Property: whether this switch appears in documentation. A hidden switch still participates when parsing command lines,
+     *  but will not show up in documentation.  This is ofen used for a switch when that switch is documented as part of some
+     *  other switch.
+     * @{ */
     Switch& hidden(bool b) { hidden_ = b; return *this; }
     bool hidden() const { return hidden_; }
+    /** @} */
 
-    /** Prefix strings for long names.  A long name prefix is the characters that introduce a long switch, usually "--" and
-     *  sometimes "-" or "+"). Prefixes are specified in the parser, the switch group, and the switch, each entity inheriting
-     *  and augmenting the list from the earlier entity.  To prevent inheritance use the resetLongPrefixes() method, which also
-     *  takes a list of new prefixes.  In any case, additional prefixes can be added with longPrefix(), which should be after
-     *  resetLongPrefixes() if both are used.  The empty string is a valid prefix and is sometimes used in conjunction with "="
-     *  as a value separator to describe switches of the form "bs=1024".
+    /** Property: prefixes for long names.  A long name prefix is the characters that introduce a long switch, usually "-\-"
+     *  and sometimes "-" or "+"). Prefixes are specified in the parser, the switch group, and the switch, each entity
+     *  inheriting and augmenting the list from the earlier entity.  To prevent inheritance use the @ref resetLongPrefixes
+     *  method, which also takes an optional list of new prefixes.  In any case, additional prefixes can be added with @ref
+     *  longPrefix, which should be after @ref resetLongPrefixes if both are used.  The empty string is a valid prefix and is
+     *  sometimes used in conjunction with "=" as a value separator to describe dd(1)-style switches of the form "bs=1024".
      *
      *  It is generally unwise to override prefixes without inheritance since the parser itself chooses the basic prefixes
      *  based on the conventions used by the operating system.  Erasing these defaults might get you a command line syntax
@@ -1498,12 +1695,12 @@ public:
     const std::vector<std::string>& longPrefixes() const { return properties_.longPrefixes; }
     /** @} */
 
-    /** Prefix strings for short names.  A short name prefix is the characters that introduce a short switch, usually
+    /** Property: prefixes for short names.  A short name prefix is the characters that introduce a short switch, usually
      *  "-". Prefixes are specified in the parser, the switch group, and the switch, each entity inheriting and augmenting the
-     *  list from the earlier entity.  To prevent inheritance use the resetShortPrefixes() method, which also 
-     *  takes a list of new prefixes.  In any case, additional prefixes can be added with shortPrefix(), which should be after
-     *  resetShortPrefixes() if both are used.  The empty string is a valid short prefix to be able to parse tar-like switches
-     *  like "xvf".
+     *  list from the earlier entity.  To prevent inheritance use the @ref resetShortPrefixes method, which also takes an
+     *  optional list of new prefixes.  In any case, additional prefixes can be added with @ref shortPrefix, which should be
+     *  after @ref resetShortPrefixes if both are used.  The empty string is a valid short prefix to be able to parse
+     *  tar(1)-like switches like "xvf".
      *
      *  It is generally unwise to override prefixes without inheritance since the parser itself chooses the basic prefixes
      *  based on the conventions used by the operating system.  Erasing these defaults might get you a command line syntax
@@ -1515,14 +1712,17 @@ public:
     const std::vector<std::string>& shortPrefixes() const { return properties_.shortPrefixes; }
     /** @} */
 
-    /** Strings that separate a long switch from its value. A value separator is the string that separates a long switch name
-     *  from its value and is usually "=" and/or " ".  The " " string has special meaning: it indicates that the value must be
-     *  separated from the switch by being in the following command line argument.  Separators are specified in the parser, the
-     *  switch group, and the switch, each entity inheriting and augmenting the list from the earlier entity.  To prevent
-     *  inheritance use the resetValueSeparators() method, which also takes a list of new separators.  In any case, additional
-     *  separators can be added with valueSeparator(), which should be after resetValueSeparators() if both are used.  The
-     *  empty string is a valid separator although typically not used since it leads to things like "--authormatzke" as an
-     *  alternative to "--author=matzke".
+    /** Property: strings that separate a long switch from its value. A value separator is the string that separates a long
+     *  switch name from its value and is usually "=" and/or " ".  The " " string has special meaning: it indicates that the
+     *  value must be separated from the switch by being in the following command line argument.  Separators are specified in
+     *  the parser, the switch group, and the switch, each entity inheriting and augmenting the list from the earlier entity.
+     *  To prevent inheritance use the @ref resetValueSeparators method, which also takes an optional list of new separators.
+     *  In any case, additional separators can be added with @ref valueSeparator, which should be after @ref
+     *  resetValueSeparators if both are used.
+     *
+     *  The empty string is a valid separator although typically not used since it leads to hacks like <code>-\-liberty</code>
+     *  as an alternative to <code>-\-lib=irty</code>, and confusing error messages like "switch '-\-lib' is mutually exclusive
+     *  with '-\-no-libs'" (and the user says, "I didn't use '-\-lib' anywhere, something's wrong with the parser").
      *
      *  It is generally unwise to override the separators without inheritance since the parser itself chooses the basic
      *  separators based on the conventions used by the operating system.  Erasing these defaults might get you a command line
@@ -1534,35 +1734,48 @@ public:
     const std::vector<std::string>& valueSeparators() const { return properties_.valueSeparators; }
     /** @} */
 
-    /** Switch argument.  A switch argument declares how text after the switch name is parsed to form a value.  If a default is
-     *  specified then the argument will be optional and the parser will behave as if the default value string appeared on the
-     *  command line at the point where the argument was expected.  This also means that the default value string must be
-     *  parsable as if it were truly present.  The default parser, an instance of AnyParser, will allow the argument to be any
-     *  non-empty string stored as an std::string.
+    // FIXME[Robb Matzke 2014-03-03]: formatting for argument names in the documentation when there is no user-defined synopsis
+    /** Property: switch argument.  A switch argument declares how text after the switch name is parsed to form a value.  An
+     *  argument specifier contains a name, a parser, and an optional default value.
+     *
+     *  The @p name is used in error messages and documentation and should be chosen to be a descriptive but terse. Good
+     *  examples are (here juxtaposed with their switch): -\-lines=N, -\-author=NAME, -\-image-type=rgb|gray.  If the string
+     *  is a single upper-case word (underscores and digits included) then the documentation system will format it as a
+     *  variable, otherwise it is used verbatim.  It should not include markup since markup is not expanded in error messages.
+     *
+     *  The value @p parser is normally created with one of the @ref parser_factories.  It defaults to the @ref AnyParser,
+     *  which accepts any string from the command line and stores it as an <code>std::string</code>.
+     *
+     *  If a default is specified then the argument will be optional and the parser will behave as if the default value string
+     *  appeared on the command line at the point where the argument was expected.  This also means that the default value
+     *  string must be parsable as if it were truly present.
      *
      *  Although switches usually have either no arguments or one argument, it is possible to declare switches that have
      *  multiple arguments.  This is different from a switch that occurs multiple times or from a switch that has one argument
      *  which is a list.  Each switch argument must be separated from the previous switch argument by occuring in a subsequent
-     *  program command line argument.  E.g., "--swap a b" as three program arguments, or "--swap=a b" as two program
-     *  arguments; but "--swap=a,b" is one switch argument that happens to look like a list, and "--swap=a --swap=b" is
-     *  obviously two switches with one switch argument each.
-     *
-     *  The @p name is used in documentation and error messages and need not be unique.
-     *  @{ */
-    Switch& argument(const std::string &name, const ValueParser::Ptr &p = anyParser());
-    Switch& argument(const std::string &name, const ValueParser::Ptr&, const std::string &defaultValue);
+     *  program command line argument.  E.g., <code>-\-swap a b</code> as three program arguments, or <code>-\-swap=a b</code> as
+     *  two program arguments; but <code>-\-swap=a,b</code> is one switch argument that happens to look like a list, and
+     *  <code>-\-swap=a -\-swap=b</code> is obviously two switches with one switch argument each.
+     * @{ */
+    Switch& argument(const std::string &name, const ValueParser::Ptr &parser = anyParser());
+    Switch& argument(const std::string &name, const ValueParser::Ptr &parser, const std::string &defaultValue);
     Switch& argument(const SwitchArgument &arg) { arguments_.push_back(arg); return *this; }
-    size_t nArguments() const { return arguments_.size(); }
-    size_t nRequiredArguments() const;
     const SwitchArgument& argument(size_t idx) const { return arguments_[idx]; }
     const std::vector<SwitchArgument>& arguments() const { return arguments_; }
     /** @} */
 
-    /** The value for a switch that has no arguments declared.  A switch with no declared arguments (not even optional
+    /** Total number of arguments.  This is the total number of arguments currently declared for the switch. */
+    size_t nArguments() const { return arguments_.size(); }
+
+    /** Number of required arguments. This is the number of arguments which do not have default values and which therefore must
+     *  appear on the command line for each occurrence of the switch. */
+    size_t nRequiredArguments() const;
+
+    /** Property: value for a switch that has no declared arguments.  A switch with no declared arguments (not even optional
      *  arguments) is always parsed as if it had one argument--it's intrinsic value--the string "true" parsed and stored as
-     *  type "bool" by the BooleanParser.  The intrinsicValue property can specify a different value and type for the switch.
-     *  For instance, "--laconic" and "--effusive" might be two switches that use the same key "verbosity" and have intrinsic
-     *  values of "1" and "2" as integers (or even "laconic" and "effusive" as enums).
+     *  type "bool" by the @ref BooleanParser.  The intrinsicValue property can specify a different value and type for the
+     *  switch.  For instance, <code>-\-laconic</code> and <code>-\-effusive</code> might be two switches that use the same key
+     *  "verbosity" and have intrinsic values of "1" and "2" as integers (or even @c LACONIC and @c EFFUSIVE as enums).
      *
      *  If a switch has at least one declared argument then this property is not consulted, even if that argument is optional
      *  and missing (in which case that argument's default value is used).
@@ -1572,24 +1785,45 @@ public:
     ParsedValue intrinsicValue() const { return intrinsicValue_; }
     /** @} */
 
-    /** Whether to convert list value to individual values.  When using the ListParser (via listParser() factory) the parser
-     *  returns a single value of type ListParser::ValueList, an STL list containing parsed values.  If the explodeLists
-     *  property is true, then each switch argument that is a ListParser::ValueList is converted to multiple switch arguments.
+    /** Property: whether to convert a list value to individual values.  The @ref ListParser returns a single value of type
+     *  ListParser::ValueList, an <code>std::list</code> containing parsed values.  If the explodeLists property is true, then
+     *  each switch argument that is a ListParser::ValueList is exploded into multiple switch arguments.
      *
      *  This is useful for switches that can either occur multiple times on the command-line or take a list as an argument,
-     *  such as GCC's "-I" switch, where "-Ia:b:c" is the same as "-Ia -Ib -Ic".
+     *  such as GCC's <code>-I</code> switch, where <code>-Ia:b:c</code> is the same as <code>-Ia -Ib -Ic</code>.  It is also
+     *  useful when one wants to store a list argument in a user-supplied <code>std::vector</code> during the
+     *  ParserResult::apply call.  Here's an example that stores the aforementioned <code>-I</code> switch arguments in a
+     *  vector:
+     *
+     * @code
+     *  std::vector<std::string> includeDirectories;
+     *  switchGroup.insert(Switch("incdir", 'I')
+     *                     .argument("directories", listParser(anyParser(includeDirectories)))
+     *                     .explosiveLists(true));
+     * @endcode
+     *
+     *  If the explosiveLists property was false (its default) and the command line was <code>-Ia:b:c</code>, then the library
+     *  would try to store a ListParser::ValueList as the first element of @c includeDirectories, resulting in an
+     *  <code>std::runtime_error</code> regarding an invalid type conversion.
+     *
      * @{ */
     Switch& explosiveLists(bool b) { explosiveLists_ = b; return *this; }
     bool explosiveLists() const { return explosiveLists_; }
     /** @} */
 
-    /** Action to occur each time a switch is parsed.  All switch occurrences cause a ParserResult object to be modified in
-     *  some way and eventually returned by the parser, which the user then queries.  However, sometimes it's necessary for a
-     *  switch to also cause something to happen as soon as it's recognized, and that's the purpose of this property. The
-     *  specified actions are invoked in the order they were declared after the switch and its arguments are parsed.
+    /** Property: action to occur each time a switch is parsed.  All switch occurrences cause a @ref ParserResult object to be
+     *  modified in some way and eventually returned by the parser, which the user then queries.  However, sometimes it's
+     *  desireable for a switch to also cause something to happen as soon as it's recognized on the command line, and that's
+     *  the purpose of this property. The specified actions are invoked in the order they were declared after the switch and
+     *  its arguments are parsed.
      *
-     *  The library provides a few actions, all of which are derived from SwitchAction, and the user can provide additional
-     *  actions.  For instance, two commonly used switches are:
+     *  @todo This design may change.  As mentioned in the SwitchAction class, performing actions having side effects
+     *  immediately upon recognizing a switch makes it impossible for users to safely parse a command-line for the mere purpose
+     *  of determining whether the command-line is valid.  Their query results in side effects, perhaps even causing the
+     *  program to exit!
+     *
+     *  The library provides a few actions, all of which are derived from @ref SwitchAction, and the user can provide
+     *  additional actions.  For instance, two commonly used switches are:
      *
      * @code
      *  sg.insert(Switch("help", 'h')             // allow "--help" and "-h"
@@ -1604,36 +1838,43 @@ public:
     const std::vector<SwitchAction::Ptr>& actions() const { return actions_; }
     /** @} */
 
-    /** Describes what to do if a switch occurs more than once.  Normally, if a switch occurs more than once on the command
-     *  line then only its final value is made available in the parser result since this is usually what one wants for most
-     *  switches.  The "whichValue" property can be adjusted to change this behavior (see documentation for the WhichValue
-     *  enumeration for possibilities).  The SAVE_AUGMENTED mode also needs a valueAugmentor, otherwise it behaves the same as
-     *  SAVE_LAST.
+    /** Property: how to handle multiple occurrences. Describes what to do if a switch occurs more than once.  Normally, if a
+     *  switch occurs more than once on the command line then only its final value is made available in the parser result since
+     *  this is usually what one wants for most switches.  The @c whichValue property can be adjusted to change this behavior
+     *  (see documentation for the @ref WhichValue enumeration for possibilities).  The @ref SAVE_AUGMENTED mode also needs a
+     *  @ref valueAugmenter, otherwise it behaves the same as @ref SAVE_LAST.
      *
-     *  The whichValue property is applied per switch occurrence, but applied using the switch's key, which it may share with
-     *  other switches.  For example, if two switches, --foo1 and --foo2 both use the key "foo" and both have the SAVE_ONE
-     *  mode, then an error will be raised if the command line is "--foo1 --foo2".  But if --foo1 uses SAVE_ONE and --foo2 uses
-     *  SAVE_ALL, then no error is raised because at the point in the command line when the --foo1 occurrence is checked,
-     *  --foo2 hasn't occurred yet.
+     *  The @c whichValue property is applied per switch occurrence, but applied using the switch's key, which it may share
+     *  with other switches.  For example, if two switches, "foo1" and "foo2" both use the key "foo" and both have the @ref
+     *  SAVE_ONE mode, then an error will be raised if the command line is <code>-\-foo1 -\-foo2</code>.  But if "foo1" uses @ref
+     *  SAVE_ONE and "foo2" uses @ref SAVE_ALL, then no error is raised because at the point in the command line when the
+     *  <code>-\-foo1</code> occurrence is checked, <code>-\-foo2</code> hasn't occurred yet.
      *
-     *  A switch that has a list value (e.g., listParser) is treated as having a single value per occurrence, but if the list
-     *  is exploded then it will be treated as if the switch occurred more than once.  In other words, SAVE_ONE will not
-     *  normaly raise an error for an occurrence like "--foo=a,b,c" because it's considered to be a single value (a single
-     *  list), but would cause an error if the list were exploded into three values since the exploding makes the command line
-     *  look more like "--foo=a --foo=b --foo=c".
+     *  A switch that has a list value (i.e., from @ref ListParser) is treated as having a single value per occurrence, but if
+     *  the list is exploded (@ref explosiveLists) then it will be treated as if the switch occurred more than once.  In other
+     *  words, @ref SAVE_ONE will not normaly raise an error for an occurrence like <code>-\-foo=a,b,c</code> because it's
+     *  considered to be a single value (a single list), but would cause an error if the list were exploded into three values
+     *  since the exploding makes the command line look more like <code>-\-foo=a -\-foo=b -\-foo=c</code>.
      *
      *  Single letter switches that are nestled and repeated, like the somewhat common debug switch where more occurrences
-     *  means more debugging output, like "-d" versus "-ddd" are counted as individual switches: -d is one, -ddd is three.
+     *  means more debugging output, like <code>-d</code> for a little debugging versus <code>-ddd</code> for extensive
+     *  debugging, are counted as individual switches: <code>-ddd</code> is equivalent to <code>-d -d -d</code>.
      *
-     *  If a switch with SAVE_LAST is processed, it deletes all the previously saved values for the same key even if they came
-     *  from other switches having the same key but not the same SAVE_LAST configuration. */
+     *  If a switch with @ref SAVE_LAST is processed, it deletes all the previously saved values for the same key even if they
+     *  came from other switches having the same key but not the same @ref SAVE_LAST configuration.
+     * @{ */
     Switch& whichValue(WhichValue s) { whichValue_ = s; return *this; }
     WhichValue whichValue() const { return whichValue_; }
     /** @} */
 
-    /** The functor to call when augmenting a previously saved value. The whichValue property must be SAVE_AUGMENTED in order
-     *  for the specified functor to be invoked.
-     *  @{ */
+    /** Property: functor to agument values. This is the functor that is called to augment a previously parsed values by
+     *  merging them with newly parsed values.  The @ref whichValue property must be @ref SAVE_AUGMENTED in order for the
+     *  specified functor to be invoked.
+     *
+     * @sa
+     *  @li @ref augmenter_factories
+     *  @li @ref ValueAugmenter base class
+     * @{ */
     Switch& valueAugmenter(const ValueAugmenter::Ptr &f) { valueAugmenter_ = f; return *this; }
     ValueAugmenter::Ptr valueAugmenter() const { return valueAugmenter_; }
     /** @} */
@@ -1646,58 +1887,58 @@ private:
 
     const ParsingProperties& properties() const { return properties_; }
 
-    // Constructs an exception describing that there is no separator between the switch name and its value.
+    /** @internal Constructs an exception describing that there is no separator between the switch name and its value. */
     std::runtime_error noSeparator(const std::string &switchString, const Cursor&, const ParsingProperties&) const;
 
-    // Constructs an exception describing that there is unexpected extra text after a switch argument.
+    /** @internal Constructs an exception describing that there is unexpected extra text after a switch argument. */
     std::runtime_error extraTextAfterArgument(const std::string &switchString, const Cursor&) const;
     std::runtime_error extraTextAfterArgument(const std::string &switchString, const Cursor&, const SwitchArgument&) const;
 
-    // Constructs an exception describing that we couldn't parse all the required arguments
+    /** @internal Constructs an exception describing that we couldn't parse all the required arguments. */
     std::runtime_error notEnoughArguments(const std::string &switchString, const Cursor&, size_t nargs) const;
 
-    // Constructs an exception describing an argument that is missing.
+    /** @internal Constructs an exception describing an argument that is missing. */
     std::runtime_error missingArgument(const std::string &switchString, const Cursor &cursor,
                                        const SwitchArgument &sa, const std::string &reason) const;
 
-    // Determines if this switch can match against the specified program argument when considering only this switch's long
-    // names.  If program argument starts with a valid long name prefix and then matches the switch name, this this function
-    // returns true (the number of characters matched).  Switches that take no arguments must match to the end of the string,
-    // but switches that have arguments (even if they're optional or wouldn't match the rest of the string) do not have to
-    // match entirely as long as a value separator is found when they don't match entirely.
+    /** @internal Determines if this switch can match against the specified program argument when considering only this
+     *  switch's long names.  If program argument starts with a valid long name prefix and then matches the switch name, this
+     *  this function returns true (the number of characters matched).  Switches that take no arguments must match to the end of
+     *  the string, but switches that have arguments (even if they're optional or wouldn't match the rest of the string) do not
+     *  have to match entirely as long as a value separator is found when they don't match entirely. */
     size_t matchLongName(Cursor&/*in,out*/, const ParsingProperties &props) const;
 
-    // Matches a short switch name.  Although the cursor need not be at the beginning of the program argument, this method
-    // first matches a short name prefix at the beginning of the argument.  If the prefix ends at or before the cursor then the
-    // prefix must be immediately followed by a single-letter switch name, otherwise the prefix may be followed by one or more
-    // characters before a switch name is found exactly at the cursor.  In any case, if a name is found the cursor is advanced
-    // to the character after the name.  The returned name is the prefix and the character even if they don't occur next to
-    // each other in the program argument.
+    /** @internal Matches a short switch name.  Although the cursor need not be at the beginning of the program argument, this
+     *  method first matches a short name prefix at the beginning of the argument.  If the prefix ends at or before the cursor
+     *  then the prefix must be immediately followed by a single-letter switch name, otherwise the prefix may be followed by
+     *  one or more characters before a switch name is found exactly at the cursor.  In any case, if a name is found the cursor
+     *  is advanced to the character after the name.  The returned name is the prefix and the character even if they don't
+     *  occur next to each other in the program argument. */
     size_t matchShortName(Cursor&/*in,out*/, const ParsingProperties &props, std::string &name) const;
 
-    // Explodes ListParser::ValueList elements of pvals, replacing pvals in place.
+    /** @internal Explodes ListParser::ValueList elements of pvals, replacing pvals in place. */
     bool explode(ParsedValues &pvals /*in,out*/) const;
 
-    // Parse long switch arguments when the cursor is positioned immediately after the switch name.  This matches the
-    // switch/value separator if necessary and subsequent switch arguments.
+    /** @internal Parse long switch arguments when the cursor is positioned immediately after the switch name.  This matches
+     *  the switch/value separator if necessary and subsequent switch arguments. */
     void matchLongArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
                             ParsedValues &result /*out*/) const;
 
-    // Parse short switch arguments when the cursor is positioned immediately after the switch name.
+    /** @internal Parse short switch arguments when the cursor is positioned immediately after the switch name. */
     void matchShortArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
                              ParsedValues &result /*out*/) const;
 
-    // Parses switch arguments from the command-line arguments to obtain switch values.  Upon entry, the cursor should point to
-    // the first character after the switch name; it will be updated to point to the first position after the last parsed
-    // argument upon return.  If anything goes wrong an exception is thrown (cursor and result might be invalid).  Returns the
-    // number of argument values parsed, not counting those created from default values.
+    /** @internal Parses switch arguments from the command-line arguments to obtain switch values.  Upon entry, the cursor
+     *  should point to the first character after the switch name; it will be updated to point to the first position after the
+     *  last parsed argument upon return.  If anything goes wrong an exception is thrown (cursor and result might be invalid).
+     *  Returns the number of argument values parsed, not counting those created from default values. */
     size_t matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, ParsedValues &result /*out*/,
                           bool isLongSwitch) const;
 
-    // Run the actions associated with this switch.
+    /** @internal Run the actions associated with this switch. */
     void runActions(const Parser*) const;
 
-    // Return synopsis markup for a single argument.
+    /** @internal Return synopsis markup for a single argument. */
     std::string synopsisForArgument(const SwitchArgument&) const;
 };
 
@@ -1707,49 +1948,57 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-/** A collection of related switches. */
+/** A collection of related switch declarations.
+ *
+ *  A switch group is an important concept in that it allows different software components to declare their own command lines,
+ *  and those declarations can be used by some higher layer. The higher layer builds a parser from the various switch groups in
+ *  order to simultaneously parse switches for all the software components.  Tools that are unable to simultaneously parse on
+ *  behalf of multiple software components (presumably because they're not using this library), sometimes run into problems
+ *  where the argument for a switch which is not part of the current parsing language looks like a valid switch in the current
+ *  language.  Consider a tool that uses single-hyphen prefixes for its long switches and has a switch name "go" that takes an
+ *  argument, and lets say that this tool must also accept all the switches for the find(1) command but it doesn't actually
+ *  know them--it just passes along all command line arguments it doesn't recognize to the find-like software component.  If
+ *  the command line contained <code>-perm -go=w -print</code> then the tool will extract the <code>-go=w</code> switch that it
+ *  recognizes, and pass along <code>-perm -print</code> to the other component component. Unfortunately, the
+ *  <code>-go=w</code> that it recognized as its own was actually the argument for the <code>-perm</code> switch that it didn't
+ *  recognize.
+ *
+ *  When creating a switch group, switch declarations (@ref Switch) are copied into the switch group.  Eventually the switch
+ *  group itself is copied into a parser. */
 class SwitchGroup {
     std::vector<Switch> switches_;
     ParsingProperties properties_;
 public:
-    /** See Switch::resetLongPrefixes(). */
+    /** @copydoc Switch::resetLongPrefixes
+     * @{ */
     SwitchGroup& resetLongPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                    const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
-
-    /** See Switch::longPrefix(). */
     SwitchGroup& longPrefix(const std::string &s1) { properties_.longPrefixes.push_back(s1); return *this; }
-
-    /** See Switch::longPrefixes(). */
     const std::vector<std::string>& longPrefixes() const { return properties_.longPrefixes; }
+    /** @} */
 
-    /** See Switch::resetShortPrefixes(). */
+    /** @copydoc Switch::resetShortPrefixes
+     * @{ */
     SwitchGroup& resetShortPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                     const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
-
-    /** See Switch::shortPrefix(). */
     SwitchGroup& shortPrefix(const std::string &s1) { properties_.shortPrefixes.push_back(s1); return *this; }
-
-    /** See Switch::shortPrefixes(). */
     const std::vector<std::string>& shortPrefixes() const { return properties_.shortPrefixes; }
+    /** @} */
 
-    /** See Switch::resetValueSeparators(). */
+    /** @copydoc Switch::resetValueSeparators
+     * @{ */
     SwitchGroup& resetValueSeparators(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                       const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
-
-    /** See Switch::valueSeparator(). */
     SwitchGroup& valueSeparator(const std::string &s1) { properties_.valueSeparators.push_back(s1); return *this; }
-
-    /** See Switch::valueSeparators(). */
     const std::vector<std::string>& valueSeparators() const { return properties_.valueSeparators; }
+    /** @} */
 
     /** Number of switches declared. */
     size_t nSwitches() const { return switches_.size(); }
 
-    /** List of all declared switches. */
+    /** List of all declared switches. The return value contains the switch declarations in the order they were inserted into
+     *  this switch group. */
     const std::vector<Switch>& switches() const { return switches_; }
-
-    /** Switch declaration at the specified index. */
-    const Switch& getByIndex(size_t idx) const { return switches_[idx]; }
 
     /** Returns true if a switch with the specified name exists.  Both long and short names are checked. */
     bool nameExists(const std::string &switchName);
@@ -1764,15 +2013,18 @@ public:
     /** Returns the first switch with the specified key.  Throws an exception if no switch exists having that key. */
     const Switch& getByKey(const std::string &switchKey);
 
-    /** Insert a switch into the group. */
+    /** Insert a switch into the group.  The switch declaration is copied into the group. */
     SwitchGroup& insert(const Switch&);
 
-    /** Remove a switch from the group.
-     * @{ */
-    SwitchGroup& removeByIndex(size_t idx);
+    /** Remove a switch from the group. The <em>n</em>th switch is removed, as returned by @ref switches. */
+    SwitchGroup& removeByIndex(size_t n);
+
+    /** Remove a switch from the group.  The first declaration with the specified name is erased from this group. Both long and
+     *  short names are checked. */
     SwitchGroup& removeByName(const std::string &switchName);
+
+    /** Remove a switch from the group.  The first declaration with the specified key is erased from this group. */
     SwitchGroup& removeByKey(const std::string &switchKey);
-    /** @} */
 
 private:
     friend class Parser;
@@ -1784,7 +2036,32 @@ private:
 //                                      Parser result
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** A result returned by parsing a command line. */
+/** The result from parsing a command line.
+ *
+ *  The Parser::parse methods parse a command line without causing any side effects, placing all results in a ParserResult
+ *  return value.  If parsing is successful, the user then queries the result (a "pull" paradigm) or applies the result (a
+ *  "push" paradigm), or both.  In fact, even when the user only needs the pull paradigm for its own switches, it should still
+ *  call @ref apply anyway so that other software layers whose switch groups may have been included in the parser will receive
+ *  values for their program variables.
+ *
+ *  @todo Parsing is not side-effect free if immediate actions (see SwitchAction) are present.
+ *
+ * @code
+ *  SwitchGroup switches;
+ *  Parser parser;
+ *  parser.insert(switches);
+ *  ParserResult cmdline = parser.parse(argc, argv);
+ *  cmdline.apply();
+ * @endcode
+ *
+ *  In fact, if the user doesn't need to do any querying (they use only the push paradigm), there's no reason he even needs to
+ *  keep the parser result (or even the parser) in a variable:
+ *
+ * @code
+ *  SwitchGroup switches;
+ *  Parser().with(switches).parse(argc, argv).apply();
+ * @endcode
+ */
 class ParserResult {
     Cursor cursor_;
     ParsedValues values_;
@@ -1813,7 +2090,8 @@ private:
     ParserResult(const std::vector<std::string> &argv): cursor_(argv) {}
 
 public:
-    /** Saves parsed values in switch-supplied locations. */
+    /** Saves parsed values in switch-specified locations.  This method implements the @e push paradigm mentioned in the class
+     *  documentation (see @ref ParserResult). */
     const ParserResult& apply() const;
 
     /** Returns the number of values for the specified key.  Since switches that have no declared argument are given a value,
@@ -1822,46 +2100,74 @@ public:
     size_t have(const std::string &switchKey) { return keyIndex_[switchKey].size(); }
 
     /** Returns values for a key.  This is the usual method for obtaining a value for a switch.  During parsing, the arguments
-     *  of the switch are converted to ParsedValue objects and stored according to the key of the switch that did the parsing.
-     *  For example, if "--verbose" has an intrinsic value of int "1", and "--quiet" has a value of int "0", and both use a
-     *  "verbosity" key to store their result, here's how you would obtain the value for the last occurrence of either of these
-     *  switches:
+     *  of the switch are converted to @ref ParsedValue objects and stored according to the key of the switch that did the
+     *  parsing.  For example, if <code>-\-verbose</code> has an intrinsic value of 1, and <code>-\-quiet</code> has a value of
+     *  0, and both use a "verbosity" key to store their result, here's how one would obtain the value for the last occurrence
+     *  of either of these switches:
      *
      * @code
-     *  ParserResult cmdline = parser.parse(argc, argv);
      *  int verbosity = cmdline.parsed("verbosity").last().asInt();
      * @endcode
-     */
+     *
+     *  If it is known that the switches both had a Switch::whichValue property that was @ref SAVE_LAST then the more efficient
+     *  version of @c parse with an index can be used:
+     *
+     * @code
+     *  int verbosity = cmdline.parsed("verbosity", 0).asInt();
+     * @endcode
+     *
+     * @{ */
     const ParsedValue& parsed(const std::string &switchKey, size_t idx);
     ParsedValues parsed(const std::string &switchKey);
+    /** @} */
 
-    /** Program arguments that were skipped over during parsing.  Returns arguments skipped for any reason, because there's no
-     *  way to know with certainty what they are--they could be switch arguments that couldn't be parsed for some reason (e.g.,
-     *  a switch that takes an optional integer argument but a non-integer string was accidentally supplied), they could be
-     *  switch arguments for a switch that we didn't recognize (switch name was accidentally misspelled), or they could be
-     *  program positional arguments. The program arguments are returned in the order they appeared, with processed file
-     *  inclusion switches expanded. */
+    /** Program arguments that were skipped over during parsing.
+     *
+     *  If the Parser::skipUnknownSwitches or Parser::skipNonSwitches properties are true, then this method returns those
+     *  command-line arguments that the parser skipped.  The library makes no distinction between these two classes of skipping
+     *  because in general, it is impossible to be accurate about it (see @ref SwitchGroup for an example).
+     *
+     *  Program arguments inserted into the command line due to file inclusion will be returned in place of the file inclusion
+     *  switch itself.
+     *
+     * @sa unparsedArgs */
     std::vector<std::string> skippedArgs() const;
 
-    /** Returns program arguments that were not reached during parsing. These are the arguments left over when the parser
-     *  stopped. */
+    /** Returns program arguments that were not reached during parsing.
+     *
+     *  These are the arguments left over when the parser stopped. Program arguments inserted into the command line due to file
+     *  inclusion will be returned in place of the file inclusion switch itself.
+     *
+     * @sa unparsedArgs */
     std::vector<std::string> unreachedArgs() const;
 
-    /** The skippedArgs() and unreachedArgs() along with termination switches.  This is basically the original program command
-     *  line with the parsed stuff removed.  Note that terminator switches (like "--") will be present in this list if @p
-     *  includeTerminators is true even if they were parsed. Processed file inclusion switches are expanded. If you're using
-     *  the parser to remove the part of the command line that it recognizes, then you probably want @p includeTerminators to
-     *  be true. That way, if the original command line is "--theirs --mine -- --other" and the parser recognizes "--mine" and
-     *  the "--" terminator, you'll be left with "--theirs -- --other" rather than only "--theirs --other". */
+    /** Returns unparsed switches.
+     *
+     *  Unparsed switches are those returned by @ref skippedArgs and @ref unreachedArgs.
+     *
+     *  The returned list includes termination switches (like <code>-\-</code>) if @p includeTerminators is true even if those
+     *  switches were parsed. This can be useful when the parser is being used to remove recognized switches from a
+     *  command-line.  If the original command line was <code>-\-theirs -\-mine -\- -\-other</code> and the parser recognizes
+     *  only <code>-\-mine</code> and the <code>-\-</code> terminator, then the caller would probably want to pass
+     *  <code>-\-theirs -\- -\-other</code> to the next software layer, which is exactly what this method returns when
+     *  @p includeTerminators is true.  @b Beware: removing command-line arguments that are recognized by a parser that has an
+     *  incomplete picture of the entire language is not wise--see @ref SwitchGroup for an example that fails.
+     *
+     *  Program arguments inserted into the command-line due to file inclusion will be returned in place of the file inclusion
+     *  switch itself. */
     std::vector<std::string> unparsedArgs(bool includeTerminators=false) const;
 
-    /** Returns the program arguments that were processed. This includes terminator switches that were parsed. Processed file
-     * inclusion switches are is expanded. */
+    /** Returns the program arguments that were processed. This includes terminator switches that were parsed.
+     *
+     *  Program arguments inserted into the command-line due to file inclusion will be returned in place of the file inclusion
+     *  switch itself. */
     std::vector<std::string> parsedArgs() const;
 
-    /** The original command line, except with processed file inclusion switches expanded. */
+    /** The original command line.
+     *
+     *  This returns the original command line except that program arguments inserted into the command-line due to file
+     *  inclusion will be returned in place of the file inclusion switch itself. */
     const std::vector<std::string>& allArgs() const { return cursor_.strings(); }
-
 
 private:
     // Insert more parsed values.  Values should be inserted one switch's worth at a time (or fewer)
@@ -1882,46 +2188,51 @@ private:
 //                                      Parser
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Parser for a program command line. A parser is configured to describe the valid program switches, their arguments, and
- *  other information.  The parser is then applied to a program command line to return a ParserResult. */
+/** The parser for a program command line.
+ *
+ *  A parser is configured to describe the valid program switches, their arguments, and other information, and then the parser
+ *  is then applied to a program command line to return a ParserResult. The process of parsing a command line is free of
+ *  side-effects other than creating the result.
+ *
+ * @todo Parsing a command line is not free of side effects when switch immediate actions are present (SwitchAction). */
 class Parser {
-    std::vector<SwitchGroup> switchGroups_;
-    ParsingProperties properties_;
-    std::vector<std::string> terminationSwitches_;      // special switch to terminate parsing; default is "--"
-    bool shortMayNestle_;                               // is "-ab" the same as "-a -b"?
-    std::vector<std::string> inclusionPrefixes_;        // prefixes that mark command line file inclusion (e.g., "@")
-    bool skipNonSwitches_;                              // skip over non-switch arguments?
-    bool skipUnknownSwitches_;                          // skip over switches we don't recognize?
-    mutable std::string programName_;                   // name of program, or "" to get (and cache) name from the OS
-    std::string purpose_;                               // one-line program purpose for makewhatis (everything after the "-")
-    std::string versionString_;                         // version string, defaults to "alpha"
-    mutable std::string dateString_;                    // version date, defaults to current month and year
-    int chapterNumber_;                                 // standard Unix man page chapters 0 through 9
-    std::string chapterName_;                           // chapter name, or "" to use standard Unix chapter names
+    std::vector<SwitchGroup> switchGroups_;             /**< Declarations for all recognized switches. */
+    ParsingProperties properties_;                      /**< Some properties inherited by switch groups and switches. */
+    std::vector<std::string> terminationSwitches_;      /**< Special switch to terminate parsing; default is "-\-". */
+    bool shortMayNestle_;                               /**< Whether "-ab" is the same as "-a -b". */
+    std::vector<std::string> inclusionPrefixes_;        /**< Prefixes that mark command line file inclusion (e.g., "@"). */
+    bool skipNonSwitches_;                              /**< Whether to skip over non-switch arguments. */
+    bool skipUnknownSwitches_;                          /**< Whether to skip over switches we don't recognize. */
+    mutable std::string programName_;                   /**< Name of program, or "" to get (and cache) name from the OS. */
+    std::string purpose_;                               /**< One-line program purpose for makewhatis (part after the "-"). */
+    std::string versionString_;                         /**< Version string defaulting to "alpha". */
+    mutable std::string dateString_;                    /**< Version date defaulting to current month and year. */
+    int chapterNumber_;                                 /**< Standard Unix man page chapters 0 through 9. */
+    std::string chapterName_;                           /**< Chapter name, or "" to use standard Unix chapter names. */
     typedef std::map<std::string, std::string> StringStringMap;
-    StringStringMap sectionDoc_;                        // extra documentation for any section by lower-case section name
-    StringStringMap sectionOrder_;                      // maps section keys to section names
-    Message::SProxy errorStream_;                       // send errors here and exit instead of throwing runtime_error
-    boost::optional<std::string> exitMessage_;          // additional message before exit when errorStream_ is not empty
+    StringStringMap sectionDoc_;                        /**< Extra documentation for any section by lower-case section name. */
+    StringStringMap sectionOrder_;                      /**< Maps section keys to section names. */
+    Message::SProxy errorStream_;                       /**< Send errors here and exit instead of throwing runtime_error. */
+    boost::optional<std::string> exitMessage_;          /**< Additional message before exit when errorStream_ is not empty. */
     
 public:
-
     /** Default constructor.  The default constructor sets up a new parser with defaults suitable for the operating
-     *  system. The switch declarations need to be added (via with()) before the parser is useful. */
+     *  system. The switch declarations need to be added (via @ref with) before the parser is useful. */
     Parser()
         : shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false), versionString_("alpha"),
           chapterNumber_(1), chapterName_("User Commands") {
         init();
     }
 
-    /** Add switch declarations. The specified group of switch declarations is copied into the parser.
+    /** Add switch declarations. The specified switch declaration or group of switch declarations is copied into the parser.
      * @{ */
     Parser& with(const SwitchGroup &sg) { switchGroups_.push_back(sg); return *this; }
     Parser& with(const Switch &sw) { switchGroups_.push_back(SwitchGroup().insert(sw)); return *this; }
     /** @} */
 
-    /** Prefixes to use for long command-line switches.  The resetLongSwitches() clears the list (and adds prefixes) while
-     *  longPrefix() only adds another prefix to the list.  The default long switch prefix on Unix-like systems is "--".
+    /** Prefixes to use for long command-line switches.  The @ref resetLongPrefixes clears the list (and adds prefixes) while
+     *  @ref longPrefix only adds another prefix to the list.  The default long switch prefix on Unix-like systems is
+     *  <code>-\-</code>, but this can be overridden or augmented by switch groups and switch declarations.
      * @{ */
     Parser& resetLongPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                               const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
@@ -1929,8 +2240,9 @@ public:
     const std::vector<std::string>& longPrefixes() const { return properties_.longPrefixes; }
     /** @} */
 
-    /** Prefixes to use for short command-line switches.  The resetShortSwitches() clears the list (and adds prefixes) while
-     *  shortPrefix() only adds another prefix to the list.  The default short switch prefix on Unix-like systems is "-".
+    /** Prefixes to use for short command-line switches.  The @ref resetShortPrefixes clears the list (and adds prefixes) while
+     *  @ref shortPrefix only adds another prefix to the list.  The default short switch prefix on Unix-like systems is
+     *  <code>-</code>, but this can be overridden or augmented by switch groups and switch declarations.
      * @{ */
     Parser& resetShortPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
@@ -1938,10 +2250,11 @@ public:
     const std::vector<std::string>& shortPrefixes() const { return properties_.shortPrefixes; }
     /** @} */
 
-    /** Strings that separate a long switch from its value.  The resetValueSeparators() clears the list (and adds separators)
-     *  while valueSeparator() only adds another separator to the list.  The separator " " is special: it indicates that the
-     *  argument for a switch must appear in a separate program argument (i.e., "--author matzke" as opposed to
-     *  "--author=matzke").  The default value separators on Unix-like systems are "=" and " ".
+    /** Strings that separate a long switch from its value.  The @ref resetValueSeparators clears the list (and adds
+     *  separators) while @ref valueSeparator only adds another separator to the list.  The separator " " is special: it
+     *  indicates that the argument for a switch must appear in a separate program argument (i.e., <code>-\-author matzke</code>
+     *  as opposed to <code>-\-author=matzke</code>).  The default value separators on Unix-like systems are "=" and " ", but
+     *  this can be overridden or augmented by switch groups and switch declarations.
      * @{ */
     Parser& resetValueSeparators(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                 const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
@@ -1949,9 +2262,9 @@ public:
     const std::vector<std::string>& valueSeparators() const { return properties_.valueSeparators; }
     /** @} */
 
-    /** Strings that indicate the end of the argument list.  The resetTerminationSwitches() clears the list (and adds
-     *  terminators) while terminationSwitch() only adds another terminator to the list.  The default terminator on Unix-like
-     *  systems is "--".
+    /** Strings that indicate the end of the argument list.  The @ref resetTerminationSwitches clears the list (and adds
+     *  terminators) while @ref terminationSwitch only adds another terminator to the list.  The default terminator on
+     *  Unix-like systems is <code>-\-</code>.
      * @{ */
     Parser& resetTerminationSwitches(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,
                                    const std::string &s3=STR_NONE, const std::string &s4=STR_NONE);
@@ -1959,19 +2272,23 @@ public:
     const std::vector<std::string>& terminationSwitches() const { return terminationSwitches_; }
     /** @} */
 
-    /** Indicates whether short switches can nestle together.  If short switches are allowed to nestle, then "-ab" is the same
-     *  as "-a -b" in two separate program arguments.  This even works if the short switch takes an argument as long as the
-     *  argument parsing ends at the next short switch name.  For instance, if "-a" takes an integer argument then "-a100b"
-     *  will be parsed as "-a100 -b", but if "-a" takes a string argument the entire "100b" will be parsed as the value for the
-     *  "-a" switch.  The default on Unix-like systems is that short switches may nestle.
+    /** Indicates whether short switches can nestle together.  If short switches are allowed to nestle, then <code>-ab</code>
+     *  is the same as <code>-a -b</code> in two separate program arguments.  This even works if the short switch takes an
+     *  argument as long as the argument parsing ends at the next short switch name.  For instance, if "a" takes an integer
+     *  argument then <code>-a100b</code> will be parsed as <code>-a100 -b</code>, but if "a" takes a string argument the
+     *  entire "100b" will be parsed as the value for the "a" switch.  The default on Unix-like systems is that short switches
+     *  may nestle.
      * @{ */
     Parser& shortMayNestle(bool b) { shortMayNestle_ = b; return *this; }
     bool shortMayNestle() const { return shortMayNestle(); }
     /** @} */
 
-    /** Strings that indicate that arguments are to be read from a file.  The resetInclusionPrefixes() clears the list (and
-     *  adds prefixes) while inclusionPrefix() only adds another prefix to the list.  The default inclusion prefix on
-     *  Unix-like systems is "@".  For instance, to make file inclusion look like a normal switch,
+    /** Strings that indicate that arguments are to be read from a file.  The @ref resetInclusionPrefixes clears the list (and
+     *  adds prefixes) while @ref inclusionPrefix only adds another prefix to the list.  The default inclusion prefix on
+     *  Unix-like systems is <code>\@</code>.  That is, a program argument <code>\@foo.conf</code> will be replaced with
+     *  arguments read from the file "foo.conf". See @ref readArgsFromFile for details.
+     *
+     *  For instance, to make file inclusion look like a normal switch,
      * @code
      *  Parser parser();
      *  parser.resetInclusionPrefixes("--file=");
@@ -1985,8 +2302,10 @@ public:
 
     /** Whether to skip over non-switch arguments when parsing.  If false, parsing stops at the first non-switch, otherwise
      *  non-switches are simply skipped over and added to the parsing result that's eventually returned. In either case,
-     *  parsing stops when a terminator switch (usually "--") is found. Anything that looks like a switch but doesn't match a
-     *  declaration continues to result in an error regardless of this property.
+     *  parsing stops when a terminator switch (usually <code>-\-</code>) is found. Anything that looks like a switch but
+     *  doesn't match a declaration continues to result in an error regardless of this property.
+     *
+     * @sa ParserResult::skippedArgs ParserResult::unparsedArgs
      * @{ */
     Parser& skipNonSwitches(bool b=true) { skipNonSwitches_ = b; return *this; }
     bool skippingNonSwitches() const { return skipNonSwitches_; }
@@ -1994,18 +2313,21 @@ public:
 
     /** Whether to skip over unrecognized switches.  An unrecognized switch is any program argument that looks like a switch
      *  but which doesn't match the name of any declared switch.  When not skipping (the default) such program arguments throw
-     *  an "unrecognized switch" std::runtime_error.
+     *  an "unrecognized switch" <code>std::runtime_error</code>.
+     *
+     * @sa ParserResult::skippedArgs ParserResult::unparsedArgs
      * @{ */
     Parser& skipUnknownSwitches(bool b=true) { skipUnknownSwitches_ = b; return *this; }
     bool skippingUnkownSwitches() const { return skipUnknownSwitches_; }
     /** @} */
 
     /** Specifies a message stream to which errors are sent.  If non-null, when a parse method encounters an error it writes
-     *  the error message to this stream and exits.  The default, when null, is that errors cause an std::runtime_error to
-     *  be thrown.  The various "skip" properties suppress certain kinds of errors entirely.
+     *  the error message to this stream and exits.  The default, when null, is that errors cause an
+     *  <code>std::runtime_error</code> to be thrown.  The various "skip" properties suppress certain kinds of errors entirely.
      *
-     *  SProxy objects are intermediaries returned by the "[]" operator of Message::Facility, and users don't normally interact
-     *  with them explicitly.  They're only present because c++11 std::move semantics aren't widely available yet.
+     *  Note, Message::SProxy objects are intermediaries returned by the <code>[]</code> operator of Message::Facility, and
+     *  users don't normally interact with them explicitly.  They're only present because c++11 <code>std::move</code>
+     *  semantics aren't widely available yet.
      *
      *  For example, to cause command-line parsing errors to use the Sawyer-wide FATAL stream, say this:
      *
@@ -2013,23 +2335,26 @@ public:
      *  Parser parser;
      *  parser.errorStream(Message::mlog[Message::FATAL]);
      * @endcode
+     *
+     * @sa @ref skipNonSwitches @ref skipUnknownSwitches
      * @{ */
     Parser& errorStream(const Message::SProxy &stream) { errorStream_ = stream; return *this; }
     const Message::SProxy& errorStream() const { return errorStream_; }
     /** @} */
 
-    /** Extra text to print befor calling exit() when the errorStream property is non-null.  The default is to emit the
-     *  message "invoke with '--help' to see usage information." if a switch with the name "help" is present, or nothing
-     *  otherwise.
+    /** Extra text to print befor exit. This is only used when the @ref errorStream property is non-null.  The default is to
+     *  emit the message "invoke with '-\-help' to see usage information." if a switch with the name "help" is present, or
+     *  nothing otherwise.
+     *
+     * @sa @ref errorStream
      * @{ */
     Parser& exitMessage(const std::string &s) { exitMessage_ = s; return *this; }
     std::string exitMessage() const { return exitMessage_ ? *exitMessage_ : std::string(); }
     /** @} */
 
-
     /** Parse program arguments.  The first program argument, <code>argv[0]</code>, is considered to be the name of the program
      *  and is not parsed as a program argument.  This function does not require that <code>argv[argc]</code> be a member of
-     *  the argv array (normally, <code>argv[argc]==NULL</code>) in main(). */
+     *  the argv array (normally, <code>argv[argc]==NULL</code> in <code>main</code>). */
     ParserResult parse(int argc, char *argv[]);
 
     /** Parse program arguments.  The vector should be only the program arguments, not a program name or final empty string. */
@@ -2044,7 +2369,7 @@ public:
     }
 
     /** Read a text file to obtain arguments.  The specified file is opened and each line is read to obtain a vector of
-     *  arguments.  Blank lines and lines whose first non-space character is '#' are ignored.  The remaining lines are split
+     *  arguments.  Blank lines and lines whose first non-space character is "#" are ignored.  The remaining lines are split
      *  into one or more arguments at white space.  Single and double quoted regions within a line are treated as single
      *  arguments (the quotes are removed).  The backslash can be used to escape quotes, white space, and backslash; any other
      *  use of the backspace is not special. */
@@ -2075,17 +2400,15 @@ public:
 
     /** Manual chapter. Every Unix manual page belongs to a specific chapter.  The chapters are:
      *
-     *  <ul>
-     *    <li><em>1</em> -- User commands that may be started by everyone.</li>
-     *    <li><em>2</em> -- System calls, that is, functions provided by the kernel.</li>
-     *    <li><em>3</em> -- Subroutines, that is, library functions.</li>
-     *    <li><em>4</em> -- Devices, that is, special files in the /dev directory.</li>
-     *    <li><em>5</em> -- File format descriptions, e.g. /etc/passwd.</li>
-     *    <li><em>6</em> -- Games, self-explanatory.</li>
-     *    <li><em>7</em> -- Miscellaneous, e.g. macro packages, conventions.</li>
-     *    <li><em>8</em> -- System administration tools that only root can execute.</li>
-     *    <li><em>9</em> -- Another (Linux specific) place for kernel routine documentation.</li>
-     *  </ul>
+     *  @li @e 1 -- User commands that may be started by everyone.
+     *  @li @e 2 -- System calls, that is, functions provided by the kernel.
+     *  @li @e 3 -- Subroutines, that is, library functions.
+     *  @li @e 4 -- Devices, that is, special files in the /dev directory.
+     *  @li @e 5 -- File format descriptions, e.g. /etc/passwd.
+     *  @li @e 6 -- Games, self-explanatory.
+     *  @li @e 7 -- Miscellaneous, e.g. macro packages, conventions.
+     *  @li @e 8 -- System administration tools that only root can execute.
+     *  @li @e 9 -- Another (Linux specific) place for kernel routine documentation.
      *
      *  Do not use chapters "n", "o", or "l" (in fact, only those listed integers are accepted).  If a name is supplied it
      *  overrides the default name of that chapter.  If no chapter is specified, "1" is assumed.
@@ -2101,6 +2424,8 @@ public:
      *  The sections "Name", "Synopsis", "Description", and "Options" are always present in that order.  If text is given for
      *  the "Options" section it will appear before the list of program switches, but text for the other sections replaces what
      *  would be generated automatically.
+     *
+     *  The documentation is specified with a simple markup languge described by Switch::doc.
      * @{ */
     Parser& doc(const std::string &sectionName, const std::string &docKey, const std::string &text);
     Parser& doc(const std::string &sectionName, const std::string &text) { return doc(sectionName, sectionName, text); }
@@ -2108,7 +2433,8 @@ public:
     std::string docForSection(const std::string &sectionName) const;
     /** @} */
 
-    /** Generate manpage documentation. */
+    /** Generate manpage documentation. The returned string is in the TROFF language normally used for Unix manual pages. The
+     *  string can be processed by various Unix commands to convert it to text, HTML, TeX, and a variety of other formats. */
     std::string manpage() const;
 
     /** Print documentation to standard output. Use a pager if possible. */

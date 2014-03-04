@@ -942,6 +942,7 @@ void ParserResult::insertOneValue(const ParsedValue &pval, const std::string &ke
     // Insert the parsed value and update all the indexes
     size_t idx = values_.size();
     values_.push_back(pval);
+    values_.back().switchKey(key);
     values_.back().sequenceInfo(keySequence, switchSequence);
     keyIndex_[key].push_back(idx);
     switchIndex_[name].push_back(idx);

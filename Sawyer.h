@@ -25,7 +25,9 @@
  *
  *  @li A simple, extensible, terse markup language that lets users write documentation that can be turned into TROFF, HTML,
  *      Doxygen, PerlDoc, TeX, etc. The markup language supports calling of C++ functors to transform the text as it is
- *      processed. */
+ *      processed.
+ *
+ *  <b>Good starting places for reading documentation are the namespaces.</b> */
 
 /** Name space for the entire library.  All Sawyer functionality except for some C preprocessor macros exists inside this
  * namespace.  Most of the macros begin with the string "SAWYER_". */
