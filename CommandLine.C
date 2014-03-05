@@ -624,26 +624,24 @@ std::runtime_error Switch::missingArgument(const std::string &switchString, cons
     return std::runtime_error(str);
 }
     
-size_t Switch::matchLongName(Cursor &cursor, const ParsingProperties &props) const {
+size_t Switch::matchLongName(Cursor &cursor, const ParsingProperties &props, const std::string &name) const {
     ASSERT_require(cursor.atArgBegin());
     BOOST_FOREACH (const std::string &prefix, props.longPrefixes) {
         if (boost::starts_with(cursor.arg(), prefix)) {
             std::string rest = cursor.arg().substr(prefix.size());
-            BOOST_FOREACH (const std::string &name, longNames_) {
-                if (boost::starts_with(rest, name)) {
-                    size_t retval = prefix.size() + name.size();
-                    rest = rest.substr(name.size());
-                    if (rest.empty()) {
+            if (boost::starts_with(rest, name)) {
+                size_t retval = prefix.size() + name.size();
+                rest = rest.substr(name.size());
+                if (rest.empty()) {
+                    cursor.consumeChars(retval);
+                    return retval;                  // switch name matches to end of program argument
+                }
+                if (0==arguments_.size())
+                    continue;                       // switch name does not match to end, but has no declared args
+                BOOST_FOREACH (const std::string &sep, props.valueSeparators) {
+                    if (0!=sep.compare(" ") && boost::starts_with(rest, sep)) {
                         cursor.consumeChars(retval);
-                        return retval;                  // switch name matches to end of program argument
-                    }
-                    if (0==arguments_.size())
-                        continue;                       // switch name does not match to end, but has no declared args
-                    BOOST_FOREACH (const std::string &sep, props.valueSeparators) {
-                        if (0!=sep.compare(" ") && boost::starts_with(rest, sep)) {
-                            cursor.consumeChars(retval);
-                            return retval;              // found prefix, name, and separator for switch with args
-                        }
+                        return retval;              // found prefix, name, and separator for switch with args
                     }
                 }
             }
@@ -1276,6 +1274,10 @@ bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
     return false;
 }
 
+static bool decreasingLength(const std::string &a, const std::string &b) {
+    return a.size() < b.size();
+}
+
 // Parse one long switch and advance the cursor over the switch name and arguments.
 const Switch* Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues,
                                       boost::optional<std::runtime_error> &saved_error) {
@@ -1284,21 +1286,25 @@ const Switch* Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
-            ExcursionGuard guard(cursor);
             ParsingProperties swProps = sw.properties().inherit(sgProps);
-            Location switchLocation = cursor.location();
-            if (sw.matchLongName(cursor, swProps)) {
-                const std::string switchString = cursor.substr(switchLocation);
-                try {
-                    ParsedValues pvals;
-                    sw.matchLongArguments(switchString, cursor, swProps, pvals /*out*/);
-                    BOOST_FOREACH (ParsedValue &pv, pvals)
-                        pv.switchInfo(sw.key(), switchLocation, switchString);
-                    parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end()); // may throw
-                    guard.cancel();
-                    return &sw;
-                } catch (const std::runtime_error &e) {
-                    saved_error = e;
+            std::vector<std::string> longNames = sw.longNames();
+            std::sort(longNames.begin(), longNames.end(), decreasingLength);
+            BOOST_FOREACH (const std::string &longName, longNames) {
+                ExcursionGuard guard(cursor);
+                Location switchLocation = cursor.location();
+                if (sw.matchLongName(cursor, swProps, longName)) {
+                    const std::string switchString = cursor.substr(switchLocation);
+                    try {
+                        ParsedValues pvals;
+                        sw.matchLongArguments(switchString, cursor, swProps, pvals /*out*/);
+                        BOOST_FOREACH (ParsedValue &pv, pvals)
+                            pv.switchInfo(sw.key(), switchLocation, switchString);
+                        parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end()); // may throw
+                        guard.cancel();
+                        return &sw;
+                    } catch (const std::runtime_error &e) {
+                        saved_error = e;
+                    }
                 }
             }
         }

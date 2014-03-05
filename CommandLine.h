@@ -1876,12 +1876,12 @@ private:
     std::runtime_error missingArgument(const std::string &switchString, const Cursor &cursor,
                                        const SwitchArgument &sa, const std::string &reason) const;
 
-    /** @internal Determines if this switch can match against the specified program argument when considering only this
-     *  switch's long names.  If program argument starts with a valid long name prefix and then matches the switch name, this
+    /** @internal Determines if this switch can match against the specified program argument when considering only the
+     *  specified long name.  If program argument starts with a valid long name prefix and then matches the switch name, this
      *  this function returns true (the number of characters matched).  Switches that take no arguments must match to the end of
      *  the string, but switches that have arguments (even if they're optional or wouldn't match the rest of the string) do not
      *  have to match entirely as long as a value separator is found when they don't match entirely. */
-    size_t matchLongName(Cursor&/*in,out*/, const ParsingProperties &props) const;
+    size_t matchLongName(Cursor&/*in,out*/, const ParsingProperties &props, const std::string &name) const;
 
     /** @internal Matches a short switch name.  Although the cursor need not be at the beginning of the program argument, this
      *  method first matches a short name prefix at the beginning of the argument.  If the prefix ends at or before the cursor
