@@ -7,6 +7,7 @@
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/regex.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/regex.hpp>
 #include <cerrno>
@@ -261,19 +262,14 @@ ListParser::Ptr listParser(const ValueParser::Ptr &p, const std::string &sep) {
  *                                      Actions
  *******************************************************************************************************************************/
 
-void ExitProgram::operator()(const Parser*) {
-    exit(exitStatus_);
-}
-
-void ShowVersion::operator()(const Parser*) {
+void ShowVersion::operator()(const ParserResult&) {
     std::cerr <<versionString_ <<"\n";
 }
 
-void ShowHelp::operator()(const Parser *parser) {
-    parser->emitDocumentationToPager();
+void ShowHelp::operator()(const ParserResult &parserResult) {
+    parserResult.parser().emitDocumentationToPager();
 }
 
-ExitProgram::Ptr exitProgram(int exitStatus) { return ExitProgram::instance(exitStatus); }
 ShowVersion::Ptr showVersion(const std::string &versionString) { return ShowVersion::instance(versionString); }
 ShowHelp::Ptr showHelp() { return ShowHelp::instance(); }
 
@@ -436,6 +432,15 @@ std::ostream& operator<<(std::ostream &o, const ParsedValue &x) {
     return o;
 }
 
+/*******************************************************************************************************************************
+ *                                      Switch arguments declarations
+ *******************************************************************************************************************************/
+
+std::string SwitchArgument::nameAsText() const {
+    std::ostringstream ss;
+    Markup::Parser().parse(name_).emit(ss, Markup::TextFormatter::instance());
+    return ss.str();
+}
 
 /*******************************************************************************************************************************
  *                                      Switch Descriptors
@@ -479,7 +484,16 @@ std::string Switch::synopsisForArgument(const SwitchArgument &sa) const {
     std::string retval;
     if (sa.isOptional())
         retval += "[";
-    retval += "@v{" + sa.name() + "}";
+
+    // If the name is a single word that is all lower-case (digits, hyphens, and underscores are also allowed except as the
+    // leading character) then format it as a variable.
+    const std::string s = sa.name();
+    if (boost::find_regex(s, boost::regex("^[a-z][-_a-z0-9]*$"))) {
+        retval += "@v{" + s + "}";
+    } else {
+        retval += s;
+    }
+
     if (sa.isOptional())
         retval += "]";
     return retval;
@@ -563,12 +577,6 @@ Switch& Switch::intrinsicValue(const std::string &text, const ValueParser::Ptr &
     return *this;
 }
 
-Switch& Switch::action(const SwitchAction::Ptr &action) {
-    if (action!=NULL)
-        actions_.push_back(action);
-    return *this;
-}
-
 size_t Switch::nRequiredArguments() const {
     size_t retval = 0;
     BOOST_FOREACH (const SwitchArgument &sa, arguments_) {
@@ -604,14 +612,13 @@ std::runtime_error Switch::extraTextAfterArgument(const std::string &switchStrin
 
 std::runtime_error Switch::extraTextAfterArgument(const std::string &switchString, const Cursor &cursor,
                                                   const SwitchArgument &sa) const {
-    std::string str = "unexpected extra text after " + switchString + " " +
-                      boost::to_upper_copy(sa.name()) + " argument: \"" + cursor.rest() + "\"";
-    return std::runtime_error(str);
+    return std::runtime_error("unexpected extra text after " + switchString + " argument; " +
+                              sa.nameAsText() + " was followed by \"" + cursor.rest() + "\"");
 }
     
 std::runtime_error Switch::missingArgument(const std::string &switchString, const Cursor &cursor,
                                            const SwitchArgument &sa, const std::string &reason) const {
-    std::string str = switchString + " argument " + boost::to_upper_copy(sa.name()) + " is missing";
+    std::string str = switchString + " argument for " + sa.nameAsText() + " is missing";
     if (!reason.empty())
         str += ": " + reason;
     return std::runtime_error(str);
@@ -783,12 +790,6 @@ void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor
         throw notEnoughArguments(switchString, cursor, nValuesParsed);
 }
 
-void Switch::runActions(const Parser *parser) const {
-    BOOST_FOREACH (const SwitchAction::Ptr &action, actions_)
-        action->run(parser);
-}
-
-
 /*******************************************************************************************************************************
  *                                      SwitchGroup
  *******************************************************************************************************************************/
@@ -886,6 +887,7 @@ const Switch& SwitchGroup::getByKey(const std::string &s) {
 // Do not save the 'sw' pointer because we have no control over when the user will destroy the object.
 // This should be called for at most one switch occurrence at a time.
 void ParserResult::insertValuesForSwitch(const ParsedValues &pvals, const Parser *parser, const Switch *sw) {
+    ASSERT_not_null(sw);
     std::string key = sw->key();
     std::string name = sw->preferredName();
 
@@ -919,8 +921,7 @@ void ParserResult::insertValuesForSwitch(const ParsedValues &pvals, const Parser
                 ParsedValues newValues = (*f)(oldValues, pvals);
                 keyIndex_[key].clear();
                 BOOST_FOREACH (const ParsedValue &pval, newValues)
-                    insertOneValue(pval, key, name);
-                sw->runActions(parser);
+                    insertOneValue(pval, sw);
                 return;
             }
             keyIndex_[key].clear();                 // act like SAVE_LAST
@@ -929,12 +930,14 @@ void ParserResult::insertValuesForSwitch(const ParsedValues &pvals, const Parser
 
     if (shouldSave) {
         BOOST_FOREACH (const ParsedValue &pval, pvals)
-            insertOneValue(pval, key, name);
-        sw->runActions(parser);
+            insertOneValue(pval, sw);
     }
 }
 
-void ParserResult::insertOneValue(const ParsedValue &pval, const std::string &key, const std::string &name) {
+void ParserResult::insertOneValue(const ParsedValue &pval, const Switch *sw) {
+    const std::string &key = sw->key();
+    const std::string &name = sw->preferredName();
+
     // Get sequences for this value and update the value.
     size_t keySequence = keyIndex_[key].size();
     size_t switchSequence = switchIndex_[name].size();
@@ -947,6 +950,7 @@ void ParserResult::insertOneValue(const ParsedValue &pval, const std::string &ke
     keyIndex_[key].push_back(idx);
     switchIndex_[name].push_back(idx);
     argvIndex_[pval.switchLocation()].push_back(idx);
+    actions_[key] = sw->action();
 
 #if 1 /*DEBUGGING [Robb Matzke 2014-02-18]*/
     std::cerr <<"    " <<values_.back() <<"\n";
@@ -962,11 +966,18 @@ void ParserResult::terminator(const Location &loc) {
 }
 
 const ParserResult& ParserResult::apply() const {
+    // Save values into variables
     for (NameIndex::const_iterator ki=keyIndex_.begin(); ki!=keyIndex_.end(); ++ki) {
         BOOST_FOREACH (size_t idx, ki->second) {
             values_[idx].save();
         }
     }
+    // Run actions
+    for (std::map<const std::string, SwitchAction::Ptr>::const_iterator ai=actions_.begin(); ai!=actions_.end(); ++ai) {
+        if (ai->second)
+            ai->second->run(*this);
+    }
+
     return *this;
 }
 
@@ -1155,7 +1166,7 @@ ParserResult Parser::parse(const std::vector<std::string> &programArguments) {
 }
 
 ParserResult Parser::parseInternal(const std::vector<std::string> &programArguments) {
-    ParserResult result(programArguments);
+    ParserResult result(*this, programArguments);
     Cursor &cursor = result.cursor();
 
     while (!cursor.atEnd()) {

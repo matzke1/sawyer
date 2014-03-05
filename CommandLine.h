@@ -100,8 +100,7 @@ namespace Sawyer { // documented in Sawyer.h
  *      SwitchGroup standard;
  *      standard.insert(Switch("help",'h')             // --help and -h
  *                      .shortName('?')                // -? is another name
- *                      .action(showHelp())            // display the man page
- *                      .action(exitProgram(0)));      // then exit
+ *                      .action(showHelp()));          // display the man page
  *
  *      standard.insert(Switch("version", 'V')         // --version and -V
  *                      .action(showVersion("1.2.3")));
@@ -153,7 +152,9 @@ namespace Sawyer { // documented in Sawyer.h
 namespace CommandLine {
 
 extern const std::string STR_NONE;
+class Switch;
 class Parser;
+class ParserResult;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Program argument cursor
@@ -359,8 +360,6 @@ public:
 //                                      Parsed value
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class Switch;
-
 /** Information about a parsed switch value.
  *
  *  Each time a switch argument is parsed to create a value, whether it comes from the program command line or a default value
@@ -375,7 +374,7 @@ class ParsedValue {
     Location switchLocation_;                           /**< Start of the switch name in @c switchString_. */
     std::string switchString_;                          /**< Prefix and switch name. */
     size_t keySequence_;                                /**< Relation of this value w.r.t. other values for same key. */
-    size_t switchSequence_;                             /**< Relation of this value w.r.t. other values for the sam switch. */
+    size_t switchSequence_;                             /**< Relation of this value w.r.t. other values for the switch name. */
     ValueSaver::Ptr valueSaver_;                        /**< Saves the value during ParserResult::apply. */
 
 public:
@@ -476,7 +475,7 @@ public:
     size_t keySequence() const { return keySequence_; }
 
     /** How this value relates to others created by the same switch.  This method returns the sequence number for this value
-     *  among all values created for the same switch. */
+     *  among all values created for switches with the same Switch::preferredName. */
     size_t switchSequence() const { return switchSequence_; }
 
     /** How to save a value at a user-supplied location.  These functors are used internally by the library and users don't
@@ -623,7 +622,6 @@ public:
     /** Reference counting pointer for this class. */
     typedef boost::shared_ptr<AnyParser> Ptr;
 
-    //FIXME[Robb Matzke 2014-03-02]: @ref anyParser doesn't point to the correct function. Same for sibling classes.
     /** Allocating constructor. Returns a pointer to a new AnyParser object.  Uses will most likely want to use the @ref
      *  anyParser factory instead, which requires less typing.
      * @sa parser_factories */
@@ -1159,11 +1157,15 @@ public:
         return !isRequired();
     }
 
-    // FIXME[Robb Matzke 2014-03-02]: documentation might need to know the difference between literals and variables
     /** Argument name. The name is used for documentation and error messages.  It need not look like a variable. For instance,
-     *  it could be "on|off|auto" to indicate that three values are possible, or "INT|wide" to indicate that the value can be
-     *  any integer or the string "wide".  No special parsing of the string occurs. */
+     *  it could be "on|off|auto" to indicate that three values are possible, or "\@v{int}|wide" to indicate that the value can
+     *  be any integer or the string "wide".  The string may contain markup, which is removed when used in error messages. As a
+     *  convenience, if the string begins with a lower-case letter and contains only lower-case letters, hyphens, and
+     *  underscores then it will be treated as a variable.  That is, the string "foo" is shorthand for "\@v{foo}". */
     const std::string &name() const { return name_; }
+
+    /** Returns the name without markup. @sa name */
+    std::string nameAsText() const;
 
     /** The parsed default value. The ParsedValue::isEmpty() will return true if this argument is required. */
     const ParsedValue& defaultValue() const {
@@ -1183,17 +1185,13 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                      Switch immediate actions
+//                                      Switch actions
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-/** Base class for immediate switch actions.
+/** Base class for switch actions.
  *
- *  An immediate switch action is some action that occurs as soon as a switch is parsed, before parsing continues further in
- *  the command line, before the ParserResult is returned, and before the user decides what to do with the results.  It is due
- *  to this last condition that immediate switch actions should be used very sparingly; there use prevents a user from asking
- *  "is this a valid command line?" without incuring side effects.  In fact, this API might even be removed from the library
- *  entirely.
+ *  These objects represent some action that occurs after all switches are parsed and the ParserResult::apply method is
+ *  called.
  *
  *  Actions are always allocated on the heap and reference counted.  Each action defines a class factory method,
  *  <code>instance</code>, to allocate a new object and return a pointer to it. The pointer types are named <code>Ptr</code>
@@ -1211,29 +1209,10 @@ public:
     typedef boost::shared_ptr<SwitchAction> Ptr;
     virtual ~SwitchAction() {}
 
-    /** Runs the action.  Calling this method will cause the function operator to be invoked with the parser argument. */
-    void run(const Parser *parser) /*final*/ { (*this)(parser); }
+    /** Runs the action.  Calling this method will cause the function operator to be invoked with the parser results. */
+    void run(const ParserResult &parserResult) /*final*/ { (*this)(parserResult); }
 private:
-    virtual void operator()(const Parser*) = 0;
-};
-
-/** Functor to cause the program to exit. */
-class ExitProgram: public SwitchAction {
-    int exitStatus_;
-protected:
-    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
-    explicit ExitProgram(int exitStatus): exitStatus_(exitStatus) {}
-public:
-    /** Reference counting pointer for this class. */
-    typedef boost::shared_ptr<ExitProgram> Ptr;
-
-    /** Allocating constructor. Returns a pointer to a new ExitProgram object.  Uses will most likely want to use the @ref
-     *  exitProgram factory instead, which requires less typing.
-     *
-     * @sa @ref action_factories, and the @ref SwitchAction class. */
-    static Ptr instance(int exitStatus) { return Ptr(new ExitProgram(exitStatus)); }
-private:
-    virtual void operator()(const Parser*) /*override*/;
+    virtual void operator()(const ParserResult&) = 0;
 };
 
 /** Functor to print a version string. The string supplied to the constructor is printed to standard error followed by a line
@@ -1254,7 +1233,7 @@ public:
      * @sa @ref action_factories, and the @ref SwitchAction class. */
     static Ptr instance(const std::string &versionString) { return Ptr(new ShowVersion(versionString)); }
 private:
-    virtual void operator()(const Parser*) /*overload*/;
+    virtual void operator()(const ParserResult&) /*overload*/;
 };
 
 /** Functor to print the Unix man page.  This functor, when applied, creates a Unix manual page from available documentation in
@@ -1275,7 +1254,7 @@ public:
      * @sa @ref action_factories, and the @ref SwitchAction class. */
     static Ptr instance() { return Ptr(new ShowHelp); }
 private:
-    virtual void operator()(const Parser*) /*override*/;
+    virtual void operator()(const ParserResult&) /*override*/;
 };
 
 /** Wrapper around a user functor.  User code doesn't often use reference counting smart pointers for functors, but more often
@@ -1313,7 +1292,7 @@ public:
      * @sa @ref action_factories, and the @ref SwitchAction class. */
     static Ptr instance(const Functor &f) { return Ptr(new UserAction(f)); }
 private:
-    virtual void operator()(const Parser *parser) /*override*/ { (functor_)(parser); }
+    virtual void operator()(const ParserResult &parserResult) /*override*/ { (functor_)(parserResult); }
 };
 
 /** @defgroup action_factories Command line action factories
@@ -1343,7 +1322,6 @@ private:
  *  @li @ref SwitchAction base class
  *  @li Documentation for the returned class.
  * @{ */
-ExitProgram::Ptr exitProgram(int exitStatus);
 
 ShowVersion::Ptr showVersion(const std::string &versionString);
 
@@ -1526,7 +1504,7 @@ private:
     std::string documentationKey_;                      /**< For sorting documentation. */
     bool hidden_;                                       /**< Whether to hide documentation. */
     std::vector<SwitchArgument> arguments_;             /**< Arguments with optional default values. */
-    std::vector<SwitchAction::Ptr> actions_;            /**< What happens as soon as the switch is parsed. */
+    SwitchAction::Ptr action_;                          /**< Optional action to perform during ParserResult::apply. */
     WhichValue whichValue_;                             /**< Which switch values should be saved. */
     ValueAugmenter::Ptr valueAugmenter_;                /**< Used if <code>whichValue_==SAVE_AUGMENTED</code>. */
     ParsedValue intrinsicValue_;                        /**< Value for switches that have no declared arguments. */
@@ -1734,14 +1712,13 @@ public:
     const std::vector<std::string>& valueSeparators() const { return properties_.valueSeparators; }
     /** @} */
 
-    // FIXME[Robb Matzke 2014-03-03]: formatting for argument names in the documentation when there is no user-defined synopsis
     /** Property: switch argument.  A switch argument declares how text after the switch name is parsed to form a value.  An
      *  argument specifier contains a name, a parser, and an optional default value.
      *
      *  The @p name is used in error messages and documentation and should be chosen to be a descriptive but terse. Good
-     *  examples are (here juxtaposed with their switch): -\-lines=N, -\-author=NAME, -\-image-type=rgb|gray.  If the string
-     *  is a single upper-case word (underscores and digits included) then the documentation system will format it as a
-     *  variable, otherwise it is used verbatim.  It should not include markup since markup is not expanded in error messages.
+     *  examples are (here juxtaposed with their switch): -\-lines=<em>n</em>, -\-author=<em>name</em>, -\-image-type=rgb|gray.
+     *  The string may contain simple markup which is removed when used in error messages. As a convenience, if the string
+     *  looks like a lower-case variable name then it will be formatted in the documentation like a variable.
      *
      *  The value @p parser is normally created with one of the @ref parser_factories.  It defaults to the @ref AnyParser,
      *  which accepts any string from the command line and stores it as an <code>std::string</code>.
@@ -1811,16 +1788,15 @@ public:
     bool explosiveLists() const { return explosiveLists_; }
     /** @} */
 
-    /** Property: action to occur each time a switch is parsed.  All switch occurrences cause a @ref ParserResult object to be
-     *  modified in some way and eventually returned by the parser, which the user then queries.  However, sometimes it's
-     *  desireable for a switch to also cause something to happen as soon as it's recognized on the command line, and that's
-     *  the purpose of this property. The specified actions are invoked in the order they were declared after the switch and
-     *  its arguments are parsed.
+    /** Property: action to occur.  Each switch may define an action that will be called by ParserResult::apply. When a
+     *  switch is recognized on the command line and added to the @ref ParserResult eventually returned by Parser::parse, an
+     *  optional action functor is saved.
      *
-     *  @todo This design may change.  As mentioned in the SwitchAction class, performing actions having side effects
-     *  immediately upon recognizing a switch makes it impossible for users to safely parse a command-line for the mere purpose
-     *  of determining whether the command-line is valid.  Their query results in side effects, perhaps even causing the
-     *  program to exit!
+     *  Actions are associted with the @ref key of parsed switches, with at most one action per key--the last action (or
+     *  non-action if null) for a key is the one which is saved in the ParserResult for that key.  In other words, if two
+     *  switches share the same key but have two different actions, the action for the switch that's parsed last will be the
+     *  action called by ParserResult::apply.  A switch with a null action, when recognized on the command-line, cancels any
+     *  action that was previously associated with the same key in the ParserResult from a previously recognized switch.
      *
      *  The library provides a few actions, all of which are derived from @ref SwitchAction, and the user can provide
      *  additional actions.  For instance, two commonly used switches are:
@@ -1828,14 +1804,13 @@ public:
      * @code
      *  sg.insert(Switch("help", 'h')             // allow "--help" and "-h"
      *            .shortName('?')                 // also "-?"
-     *            .action(showHelp(std::cout))    // show documentation
-     *            .action(exitProgram(0)));       // and then exit
+     *            .action(showHelp()))            // show documentation
      *  sg.insert(Switch("version", 'V')          // allow "--version" and "-V"
      *            .action(showVersion("1.2.3"))); // emit "1.2.3"
      * @endcode
      * @{ */
-    Switch& action(const SwitchAction::Ptr&);
-    const std::vector<SwitchAction::Ptr>& actions() const { return actions_; }
+    Switch& action(const SwitchAction::Ptr &f) { action_ = f; return *this; }
+    const SwitchAction::Ptr& action() const { return action_; }
     /** @} */
 
     /** Property: how to handle multiple occurrences. Describes what to do if a switch occurs more than once.  Normally, if a
@@ -1935,9 +1910,6 @@ private:
     size_t matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, ParsedValues &result /*out*/,
                           bool isLongSwitch) const;
 
-    /** @internal Run the actions associated with this switch. */
-    void runActions(const Parser*) const;
-
     /** @internal Return synopsis markup for a single argument. */
     std::string synopsisForArgument(const SwitchArgument&) const;
 };
@@ -2036,153 +2008,6 @@ private:
 //                                      Parser result
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** The result from parsing a command line.
- *
- *  The Parser::parse methods parse a command line without causing any side effects, placing all results in a ParserResult
- *  return value.  If parsing is successful, the user then queries the result (a "pull" paradigm) or applies the result (a
- *  "push" paradigm), or both.  In fact, even when the user only needs the pull paradigm for its own switches, it should still
- *  call @ref apply anyway so that other software layers whose switch groups may have been included in the parser will receive
- *  values for their program variables.
- *
- *  @todo Parsing is not side-effect free if immediate actions (see SwitchAction) are present.
- *
- * @code
- *  SwitchGroup switches;
- *  Parser parser;
- *  parser.insert(switches);
- *  ParserResult cmdline = parser.parse(argc, argv);
- *  cmdline.apply();
- * @endcode
- *
- *  In fact, if the user doesn't need to do any querying (they use only the push paradigm), there's no reason he even needs to
- *  keep the parser result (or even the parser) in a variable:
- *
- * @code
- *  SwitchGroup switches;
- *  Parser().with(switches).parse(argc, argv).apply();
- * @endcode
- */
-class ParserResult {
-    Cursor cursor_;
-    ParsedValues values_;
-
-    // Maps a name to indexes into the values_ vector.
-    typedef std::map<std::string, std::vector<size_t> > NameIndex;
-    NameIndex keyIndex_;                                // Values per switch key
-    NameIndex switchIndex_;                             // Values per switch preferred name
-
-    // List of parsed values organized by their location on the command line.  The location is for the switch itself even if
-    // the values are spread out across subsequent argv members. We do it this way because many of the values are defaults that
-    // don't actually have an argv location.  The integers are indexes into the values_ vector. In other words, this is a
-    // mapping from switch location to values_ elements for the switch's values.
-    typedef std::map<Location, std::vector<size_t> > ArgvIndex;
-    ArgvIndex argvIndex_;
-
-    // Information about program arguments that the parser skipped over. Indexes into argv_.
-    typedef std::vector<size_t> SkippedIndex;
-    SkippedIndex skippedIndex_;
-
-    // Information about terminator switches like "--". Indexes into argv_.
-    SkippedIndex terminators_;
-
-private:
-    friend class Parser;
-    ParserResult(const std::vector<std::string> &argv): cursor_(argv) {}
-
-public:
-    /** Saves parsed values in switch-specified locations.  This method implements the @e push paradigm mentioned in the class
-     *  documentation (see @ref ParserResult). */
-    const ParserResult& apply() const;
-
-    /** Returns the number of values for the specified key.  Since switches that have no declared argument are given a value,
-     *  and since switches seldom take more than one argument, this is also a good approximation for the number of times a
-     *  switch appeared on the command line. */
-    size_t have(const std::string &switchKey) { return keyIndex_[switchKey].size(); }
-
-    /** Returns values for a key.  This is the usual method for obtaining a value for a switch.  During parsing, the arguments
-     *  of the switch are converted to @ref ParsedValue objects and stored according to the key of the switch that did the
-     *  parsing.  For example, if <code>-\-verbose</code> has an intrinsic value of 1, and <code>-\-quiet</code> has a value of
-     *  0, and both use a "verbosity" key to store their result, here's how one would obtain the value for the last occurrence
-     *  of either of these switches:
-     *
-     * @code
-     *  int verbosity = cmdline.parsed("verbosity").last().asInt();
-     * @endcode
-     *
-     *  If it is known that the switches both had a Switch::whichValue property that was @ref SAVE_LAST then the more efficient
-     *  version of @c parse with an index can be used:
-     *
-     * @code
-     *  int verbosity = cmdline.parsed("verbosity", 0).asInt();
-     * @endcode
-     *
-     * @{ */
-    const ParsedValue& parsed(const std::string &switchKey, size_t idx);
-    ParsedValues parsed(const std::string &switchKey);
-    /** @} */
-
-    /** Program arguments that were skipped over during parsing.
-     *
-     *  If the Parser::skipUnknownSwitches or Parser::skipNonSwitches properties are true, then this method returns those
-     *  command-line arguments that the parser skipped.  The library makes no distinction between these two classes of skipping
-     *  because in general, it is impossible to be accurate about it (see @ref SwitchGroup for an example).
-     *
-     *  Program arguments inserted into the command line due to file inclusion will be returned in place of the file inclusion
-     *  switch itself.
-     *
-     * @sa unparsedArgs */
-    std::vector<std::string> skippedArgs() const;
-
-    /** Returns program arguments that were not reached during parsing.
-     *
-     *  These are the arguments left over when the parser stopped. Program arguments inserted into the command line due to file
-     *  inclusion will be returned in place of the file inclusion switch itself.
-     *
-     * @sa unparsedArgs */
-    std::vector<std::string> unreachedArgs() const;
-
-    /** Returns unparsed switches.
-     *
-     *  Unparsed switches are those returned by @ref skippedArgs and @ref unreachedArgs.
-     *
-     *  The returned list includes termination switches (like <code>-\-</code>) if @p includeTerminators is true even if those
-     *  switches were parsed. This can be useful when the parser is being used to remove recognized switches from a
-     *  command-line.  If the original command line was <code>-\-theirs -\-mine -\- -\-other</code> and the parser recognizes
-     *  only <code>-\-mine</code> and the <code>-\-</code> terminator, then the caller would probably want to pass
-     *  <code>-\-theirs -\- -\-other</code> to the next software layer, which is exactly what this method returns when
-     *  @p includeTerminators is true.  @b Beware: removing command-line arguments that are recognized by a parser that has an
-     *  incomplete picture of the entire language is not wise--see @ref SwitchGroup for an example that fails.
-     *
-     *  Program arguments inserted into the command-line due to file inclusion will be returned in place of the file inclusion
-     *  switch itself. */
-    std::vector<std::string> unparsedArgs(bool includeTerminators=false) const;
-
-    /** Returns the program arguments that were processed. This includes terminator switches that were parsed.
-     *
-     *  Program arguments inserted into the command-line due to file inclusion will be returned in place of the file inclusion
-     *  switch itself. */
-    std::vector<std::string> parsedArgs() const;
-
-    /** The original command line.
-     *
-     *  This returns the original command line except that program arguments inserted into the command-line due to file
-     *  inclusion will be returned in place of the file inclusion switch itself. */
-    const std::vector<std::string>& allArgs() const { return cursor_.strings(); }
-
-private:
-    // Insert more parsed values.  Values should be inserted one switch's worth at a time (or fewer)
-    void insertValuesForSwitch(const ParsedValues&, const Parser*, const Switch*);
-    void insertOneValue(const ParsedValue&, const std::string &key, const std::string &switchName);
-
-    // Indicate that we're skipping over a program argument
-    void skip(const Location&);
-
-    // Add a terminator
-    void terminator(const Location&);
-
-    Cursor& cursor() { return cursor_; }
-};
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Parser
@@ -2192,9 +2017,7 @@ private:
  *
  *  A parser is configured to describe the valid program switches, their arguments, and other information, and then the parser
  *  is then applied to a program command line to return a ParserResult. The process of parsing a command line is free of
- *  side-effects other than creating the result.
- *
- * @todo Parsing a command line is not free of side effects when switch immediate actions are present (SwitchAction). */
+ *  side-effects other than creating the result. */
 class Parser {
     std::vector<SwitchGroup> switchGroups_;             /**< Declarations for all recognized switches. */
     ParsingProperties properties_;                      /**< Some properties inherited by switch groups and switches. */
@@ -2360,6 +2183,7 @@ public:
     /** Parse program arguments.  The vector should be only the program arguments, not a program name or final empty string. */
     ParserResult parse(const std::vector<std::string>&);
 
+#if 0 /* [Robb Matzke 2014-03-04] */
     /** Parse program arguments. The arguments are specified as iterators to strings and should be only program arguments, not
      *  a program name or final empty string. */
     template<typename Iterator>
@@ -2367,6 +2191,7 @@ public:
         std::vector<std::string> args(begin, end);
         return parse(args);
     }
+#endif
 
     /** Read a text file to obtain arguments.  The specified file is opened and each line is read to obtain a vector of
      *  arguments.  Blank lines and lines whose first non-space character is "#" are ignored.  The remaining lines are split
@@ -2477,6 +2302,157 @@ private:
     // a yaml config file, etc.
 
 
+};
+
+/** The result from parsing a command line.
+ *
+ *  The Parser::parse methods parse a command line without causing any side effects, placing all results in a ParserResult
+ *  return value.  If parsing is successful, the user then queries the result (a "pull" paradigm) or applies the result (a
+ *  "push" paradigm), or both.  In fact, even when the user only needs the pull paradigm for its own switches, it should still
+ *  call @ref apply anyway so that other software layers whose switch groups may have been included in the parser will receive
+ *  values for their program variables and have their actions called.
+ *
+ * @code
+ *  SwitchGroup switches;
+ *  Parser parser;
+ *  parser.insert(switches);
+ *  ParserResult cmdline = parser.parse(argc, argv);
+ *  cmdline.apply();
+ * @endcode
+ *
+ *  In fact, if the user doesn't need to do any querying (they use only the push paradigm), there's no reason he even needs to
+ *  keep the parser result (or even the parser) in a variable:
+ *
+ * @code
+ *  SwitchGroup switches;
+ *  Parser().with(switches).parse(argc, argv).apply();
+ * @endcode
+ */
+class ParserResult {
+    Parser parser_;
+    Cursor cursor_;
+    ParsedValues values_;
+
+    // Maps a name to indexes into the values_ vector.
+    typedef std::map<std::string, std::vector<size_t> > NameIndex;
+    NameIndex keyIndex_;                                // Values per switch key
+    NameIndex switchIndex_;                             // Values per switch preferred name
+
+    // List of parsed values organized by their location on the command line.  The location is for the switch itself even if
+    // the values are spread out across subsequent argv members. We do it this way because many of the values are defaults that
+    // don't actually have an argv location.  The integers are indexes into the values_ vector. In other words, this is a
+    // mapping from switch location to values_ elements for the switch's values.
+    typedef std::map<Location, std::vector<size_t> > ArgvIndex;
+    ArgvIndex argvIndex_;
+
+    // Information about program arguments that the parser skipped over. Indexes into argv_.
+    typedef std::vector<size_t> SkippedIndex;
+    SkippedIndex skippedIndex_;
+
+    // Information about terminator switches like "--". Indexes into argv_.
+    SkippedIndex terminators_;
+
+    /** Switch actions to be called by @ref apply. We save one action per key. */
+    std::map<std::string, SwitchAction::Ptr> actions_; 
+
+private:
+    friend class Parser;
+    ParserResult(const Parser &parser, const std::vector<std::string> &argv): parser_(parser), cursor_(argv) {}
+
+public:
+    /** Saves parsed values in switch-specified locations.  This method implements the @e push paradigm mentioned in the class
+     *  documentation (see @ref ParserResult). */
+    const ParserResult& apply() const;
+
+    /** Returns the number of values for the specified key.  Since switches that have no declared argument are given a value,
+     *  and since switches seldom take more than one argument, this is also a good approximation for the number of times a
+     *  switch appeared on the command line. */
+    size_t have(const std::string &switchKey) { return keyIndex_[switchKey].size(); }
+
+    /** Returns values for a key.  This is the usual method for obtaining a value for a switch.  During parsing, the arguments
+     *  of the switch are converted to @ref ParsedValue objects and stored according to the key of the switch that did the
+     *  parsing.  For example, if <code>-\-verbose</code> has an intrinsic value of 1, and <code>-\-quiet</code> has a value of
+     *  0, and both use a "verbosity" key to store their result, here's how one would obtain the value for the last occurrence
+     *  of either of these switches:
+     *
+     * @code
+     *  int verbosity = cmdline.parsed("verbosity").last().asInt();
+     * @endcode
+     *
+     *  If it is known that the switches both had a Switch::whichValue property that was @ref SAVE_LAST then the more efficient
+     *  version of @c parse with an index can be used:
+     *
+     * @code
+     *  int verbosity = cmdline.parsed("verbosity", 0).asInt();
+     * @endcode
+     *
+     * @{ */
+    const ParsedValue& parsed(const std::string &switchKey, size_t idx);
+    ParsedValues parsed(const std::string &switchKey);
+    /** @} */
+
+    /** Program arguments that were skipped over during parsing.
+     *
+     *  If the Parser::skipUnknownSwitches or Parser::skipNonSwitches properties are true, then this method returns those
+     *  command-line arguments that the parser skipped.  The library makes no distinction between these two classes of skipping
+     *  because in general, it is impossible to be accurate about it (see @ref SwitchGroup for an example).
+     *
+     *  Program arguments inserted into the command line due to file inclusion will be returned in place of the file inclusion
+     *  switch itself.
+     *
+     * @sa unparsedArgs */
+    std::vector<std::string> skippedArgs() const;
+
+    /** Returns program arguments that were not reached during parsing.
+     *
+     *  These are the arguments left over when the parser stopped. Program arguments inserted into the command line due to file
+     *  inclusion will be returned in place of the file inclusion switch itself.
+     *
+     * @sa unparsedArgs */
+    std::vector<std::string> unreachedArgs() const;
+
+    /** Returns unparsed switches.
+     *
+     *  Unparsed switches are those returned by @ref skippedArgs and @ref unreachedArgs.
+     *
+     *  The returned list includes termination switches (like <code>-\-</code>) if @p includeTerminators is true even if those
+     *  switches were parsed. This can be useful when the parser is being used to remove recognized switches from a
+     *  command-line.  If the original command line was <code>-\-theirs -\-mine -\- -\-other</code> and the parser recognizes
+     *  only <code>-\-mine</code> and the <code>-\-</code> terminator, then the caller would probably want to pass
+     *  <code>-\-theirs -\- -\-other</code> to the next software layer, which is exactly what this method returns when
+     *  @p includeTerminators is true.  @b Beware: removing command-line arguments that are recognized by a parser that has an
+     *  incomplete picture of the entire language is not wise--see @ref SwitchGroup for an example that fails.
+     *
+     *  Program arguments inserted into the command-line due to file inclusion will be returned in place of the file inclusion
+     *  switch itself. */
+    std::vector<std::string> unparsedArgs(bool includeTerminators=false) const;
+
+    /** Returns the program arguments that were processed. This includes terminator switches that were parsed.
+     *
+     *  Program arguments inserted into the command-line due to file inclusion will be returned in place of the file inclusion
+     *  switch itself. */
+    std::vector<std::string> parsedArgs() const;
+
+    /** The original command line.
+     *
+     *  This returns the original command line except that program arguments inserted into the command-line due to file
+     *  inclusion will be returned in place of the file inclusion switch itself. */
+    const std::vector<std::string>& allArgs() const { return cursor_.strings(); }
+
+    const Parser& parser() const { return parser_; }
+
+private:
+    // Insert more parsed values.  Values should be inserted one switch's worth at a time (or fewer)
+    void insertValuesForSwitch(const ParsedValues&, const Parser*, const Switch*);
+    void insertOneValue(const ParsedValue&, const Switch*);
+
+    // Indicate that we're skipping over a program argument
+    void skip(const Location&);
+
+    // Add a terminator
+    void terminator(const Location&);
+
+    Cursor& cursor() { return cursor_; }
 };
 
 } // namespace

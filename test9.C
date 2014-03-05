@@ -4,8 +4,8 @@ using namespace Sawyer::CommandLine;
     
 enum WhenColor { NEVER, AUTO, ALWAYS };
 
-void showRawManPage(const Parser *parser) {
-    std::cout <<parser->manpage();
+void showRawManPage(const ParserResult &parserResult) {
+    std::cout <<parserResult.parser().manpage();
     exit(0);
 }
 
@@ -48,18 +48,15 @@ int main(int argc, char *argv[]) {
     ss.insert(Switch("log")
               .resetLongPrefixes("-rose:"));
     
-    // A switch can cause some action to immediately occur each time it is processed.  The showVersion() is an action
-    // provided by Sawyer, but user actions are also allowed.
+    // A switch can register some action to be called after the command-line is parsed.  The showVersion() and showHelp() are
+    // two actions provided by the library.  Actions are called when a parser result is applied (ParserResult::apply), which
+    // means that parsing itself is free of side effects and allows users to ask whether a command-line is valid without
+    // actually causing any configuration changes.
     ss.insert(Switch("version", 'V')
               .action(showVersion("1.2.3")));
-
-    // A switch can have more than one action. They're processed in the order they're declared.  The showHelp() and
-    // exitProgram() actions are predefined.  The alternative is an intermediate user-defined action that calls the two or more
-    // things, but that's more verbose (one goal of this API is that switch declarations are succinct).
     ss.insert(Switch("help", 'h')
               .shortName('?')
-              .action(showHelp())
-              .action(exitProgram(0)));
+              .action(showHelp()));
 
     // Here's a user defined action the shortest way possible.  User's can also use the boost shared pointer paradigm used
     // throughout Sawyer itself, but this way is a little shorter and more STL-like. The functor should expect one argument, a
@@ -184,7 +181,7 @@ int main(int argc, char *argv[]) {
 
     // A switch can be one of an enumerated list.
     ss.insert(Switch("untracked-files", 'u')
-              .argument("mode",
+              .argument("no|normal|all",
                         stringSetParser()->with("no")->with("normal")->with("all")));
 
     // It is possible for the same switch to have multiple syntaxes. They're tried in the order they're declared. Here's a
@@ -277,6 +274,14 @@ int main(int argc, char *argv[]) {
     };
     ss.insert(Switch("module", 'M')
               .argument("module-name", MyParser::instance()));
+
+    // When one switch is a prefix of the other, longer prefixes are matched first.
+    ss.insert(Switch("pre").argument("arg1"));
+    ss.insert(Switch("prefix").argument("arg1"));
+
+    ss.insert(Switch("home")
+              .longName("homework")
+              .argument("arg1"));
 
     // One switch can be an alias for another.  The other switch need not be defined in the same SwitchGroup as
     // long as the other switch's definition is available when parsing.

@@ -52,7 +52,6 @@ int main(int argc, char *argv[]) {
                    .doc("Prints the git suite version that the git program came from."));
     general.insert(Switch("help")
                    .action(showHelp())
-                   .action(exitProgram(0))
                    .doc("Prints the synopsis and a list of the most commonly used commands.  If the option @s all "
                         "or @s a is given then all available commands are printed.  If a git command is named, this "
                         "option will bring up the manual page for that command.\n\n"
@@ -60,7 +59,7 @@ int main(int argc, char *argv[]) {
                         "for more information, because '@prop{programName} @s{help} ...' is converted internally into "
                         "'@prop{programName} help ...'"));
     general.insert(Switch("", 'c')
-                   .argument("name=value")
+                   .argument("@v{name}=@v{value}")
                    .doc("Pass a configuration parameter to the command.  The value given will override values from "
                         "configuration files.  The @v name is expected in the same format as listed by @man git-config 1 "
                         "(subkeys separated by dots)."));
@@ -166,7 +165,7 @@ int main(int argc, char *argv[]) {
                .doc("Specify the directory from which templates will be used; (See the 'TEMPLATE DIRECTORY' section of "
                     "@man{git-init}{1}.)"));
     cmd.insert(Switch("config", 'c')
-               .argument("key=value")
+               .argument("@v{key}=@v{value}")
                .doc("Set a configuration variable in the newly-created repository; this takes effect immediately after the "
                     "repository is initialized, but before the remote history is fetched or any files checked out. The key "
                     "is in the same format as expected by @man{git-config}{1} (e.g., core.eol=true). If multiple values are "
@@ -280,10 +279,8 @@ int main(int argc, char *argv[]) {
         .errorStream(Message::mlog[Message::FATAL]) // exit on error instead of throwing std::runtime_error
 
         // Finally, parse the command line!  This returns a ParserResult which we don't use in this example.
-        .parse(argc, argv);
+        .parse(argc, argv)
 
-    // If our demo didn't exit by now (no --help, which we said should cause an exit), then print the raw nroff man page
-    // for debugging purposes.  This is also an easy way to create a manpage for your program.
-    std::cout <<parser.manpage();
-    
+        // Cause actions to run and values to be saved.
+        .apply();
 }
