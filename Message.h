@@ -607,10 +607,10 @@ public:
 
     /** Adds a child node to this node of the lattice.  An <code>std::runtime_error</code> is thrown if the addition of this
      *  child would cause the lattice to become malformed by having a cycle. @sa to */
-    void addDestination(const DestinationPtr&);
+    MultiplexerPtr addDestination(const DestinationPtr&);
 
     /** Removes the specified child from this node of the lattice. @sa to */
-    void removeDestination(const DestinationPtr&);
+    MultiplexerPtr removeDestination(const DestinationPtr&);
 
     /** Add a child nodes to this node of the lattice and returns this node.  It is often more convenient to call this
      *  method instead of @ref addDestination.
@@ -668,7 +668,7 @@ public:
     /** Property: number of initial messages to skip. The first @p n messages sent through this filter are discarded.
      *  @{ */
     size_t nSkip() const { return nSkip_; }
-    void nSkip(size_t n) { nSkip_ = n; }
+    SequenceFilterPtr nSkip(size_t n) { nSkip_ = n; return boost::dynamic_pointer_cast<SequenceFilter>(shared_from_this()); }
     /** @} */
 
     /** Property: rate of messages to emit after initial messages are skipped.  A rate of @e n means the first message of
@@ -676,14 +676,14 @@ public:
      *  same thing as a rate of one--every message is forwarded.
      * @{ */
     size_t rate() const { return rate_; }
-    void rate(size_t n) { rate_ = n; }
+    SequenceFilterPtr rate(size_t n) { rate_ = n; return boost::dynamic_pointer_cast<SequenceFilter>(shared_from_this()); }
     /** @} */
 
     /** Property: total number of messages forwarded.  At most @e n messages are forwarded to children in the lattice, after
      *  which messages are discarded. A value of zero means no limit is in effect.
      *  @{ */
     size_t limit() const { return limit_; }
-    void limit(size_t n) { limit_ = n; }
+    SequenceFilterPtr limit(size_t n) { limit_ = n; return boost::dynamic_pointer_cast<SequenceFilter>(shared_from_this()); }
     /** @} */
 
     /** Number of messages processed.  This includes messages forwarded and messages not forwarded. */
@@ -719,14 +719,14 @@ public:
      *  that was forwarded to children in the lattice will be discarded.
      *  @{ */
     double minInterval() const { return minInterval_; }
-    void minInterval(double d);
+    TimeFilterPtr minInterval(double d);
     /** @} */
 
     /** Property: delay before the next message. Any message arriving within the specified number of seconds from this call
      *  will be discarded.
      *  @{ */
     double initialDelay() const { return initialDelay_; }
-    void initialDelay(double d);
+    TimeFilterPtr initialDelay(double d);
     /** @} */
 
     /** Number of messages processed.  This includes messages forwarded and messages not forwarded. */
@@ -760,7 +760,10 @@ public:
      *  to children in the lattice, and those that are disable are discarded.
      *  @{ */
     bool enabled(Importance imp) const { return enabled_[imp]; }
-    void enabled(Importance imp, bool b) { enabled_[imp] = b; }
+    ImportanceFilterPtr enabled(Importance imp, bool b) {
+        enabled_[imp] = b;
+        return boost::dynamic_pointer_cast<ImportanceFilter>(shared_from_this());
+    }
     /** @} */
 
     /** Enable an importance level.  Returns this node so that the method can be chained. */
@@ -818,7 +821,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** Information printed at the beginning of each free-format message. */
-class Prefix {
+class Prefix: public boost::enable_shared_from_this<Prefix> {
     enum When { NEVER=0, SOMETIMES=1, ALWAYS=2 };
     ColorSet colorSet_;                                 /**< Colors to use if <code>props.useColor</code> is true. */
     boost::optional<std::string> programName_;          /**< Name of program as it will be displayed (e.g., "a.out[12345]"). */
@@ -856,7 +859,7 @@ public:
      *  @sa setProgramName showProgramName
      * @{ */
     const boost::optional<std::string>& programName() const { return programName_; }
-    void programName(const std::string &s) { programName_ = s; }
+    PrefixPtr programName(const std::string &s) { programName_ = s; return shared_from_this(); }
     /** @} */
 
     /** Reset the program name from operating system information. @sa programName showProgramName */
@@ -865,20 +868,20 @@ public:
     /** Property: whether to show the program name in the message prefix area.  The default is true. @sa programName
      * @{ */
     bool showProgramName() const { return showProgramName_; }
-    void showProgramName(bool b) { showProgramName_ = b; }
+    PrefixPtr showProgramName(bool b) { showProgramName_ = b; return shared_from_this(); }
     /** @} */
 
     /** Property: whether to show the thread ID in the message prefix area.  The default is true.
      * @{ */
     bool showThreadId() const { return showThreadId_; }
-    void showThreadId(bool b) { showThreadId_ = b; }
+    PrefixPtr showThreadId(bool b) { showThreadId_ = b; return shared_from_this(); }
     /** @} */
 
     /** Property: start time when emitting time deltas.  On some systems the start time will be the time at which this object
      *  was created. @sa setStartTime showElapsedTime
      * @{ */
     const boost::optional<timeval> startTime() const { return startTime_; }
-    void startTime(timeval t) { startTime_ = t; }
+    PrefixPtr startTime(timeval t) { startTime_ = t; return shared_from_this(); }
     /** @} */
 
     /** Reset the start time from operating system information.  On some systems this will be the time at which the first
@@ -890,7 +893,7 @@ public:
      *  @sa startTime setStartTime
      * @{ */
     bool showElapsedTime() const { return showElapsedTime_; }
-    void showElapsedTime(bool b) { showElapsedTime_ = b; }
+    PrefixPtr showElapsedTime(bool b) { showElapsedTime_ = b; return shared_from_this(); }
     /** @} */
 
     /** Property: whether to show the facilityName property. When set to SOMETIMES, the facility name is shown when it differs
@@ -898,13 +901,13 @@ public:
      *  value.
      * @{ */
     When showFacilityName() const { return showFacilityName_; }
-    void showFacilityName(When w) { showFacilityName_ = w; }
+    PrefixPtr showFacilityName(When w) { showFacilityName_ = w; return shared_from_this(); }
     /** @} */
 
     /** Property: whether to show the importance property. In any case, the importance level is not shown if it has no value.
      * @{ */
     bool showImportance() const { return showImportance_; }
-    void showImportance(bool b) { showImportance_ = b; }
+    PrefixPtr showImportance(bool b) { showImportance_ = b; return shared_from_this(); }
     /** @} */
 
     /** Return a prefix string. Generates a string from this prefix object. */
@@ -935,14 +938,20 @@ public:
      *  be chosen manually sometimes for the output to be coordinated.  See Gang::instanceForId() and Gang::instanceForTty().
      * @{ */
     const GangPtr& gang() const { return gang_; }
-    void gang(const GangPtr &g) { gang_ = g; }          // cause this sink to be coordinated with others
+    UnformattedSinkPtr gang(const GangPtr &g) {
+        gangInternal(g);
+        return boost::dynamic_pointer_cast<UnformattedSink>(shared_from_this());
+    }
     /** @} */
 
     /** Property: how to generate message prefixes. This is a pointer to the object that is responsible for generating the
      *  string that appears at the beginning of each line and usually contains such things as the program and importance level.
      * @{ */
     const PrefixPtr& prefix() const { return prefix_; }
-    void prefix(const PrefixPtr &p) { prefix_ = p; }
+    UnformattedSinkPtr prefix(const PrefixPtr &p) {
+        prefix_ = p;
+        return boost::dynamic_pointer_cast<UnformattedSink>(shared_from_this());
+    }
     /** @} */
 
     /** Support function for emitting a message.  This string terminates the previous partial message from the same gang. This
@@ -968,6 +977,9 @@ public:
     /** Support function for emitting a message.  The return string is constructed by calling @ref maybeTerminatePrior,
      *  @ref maybePrefix, @ref maybeBody, and @ref maybeFinal one time each (because some of them have side effects). */
     virtual std::string render(const Mesg&, const MesgProps&);
+protected:
+    /** Cause this sink to be coordinated with others. */
+    void gangInternal(const GangPtr &g) { gang_ = g; }
 private:
     void init();
 };
@@ -1258,9 +1270,10 @@ public:
     const DestinationPtr& destination() const {
         return streambuf_->destination_;
     }
-    void destination(const DestinationPtr &d) {
+    Stream& destination(const DestinationPtr &d) {
         assert(d!=NULL);
         streambuf_->destination_ = d;
+        return *this;
     }
     /** @} */
 
@@ -1326,7 +1339,7 @@ public:
 
     /** Cause all streams to use the specified destination.  This can be called for facilities that already have streams and
      *  destinations, but it can also be called to initialize the streams for a default-constructed facility. */
-    void initStreams(const DestinationPtr&);
+    Facility& initStreams(const DestinationPtr&);
 };
 
 /** Collection of facilities.
@@ -1366,7 +1379,7 @@ public:
     /** Add or remove a default importance level. The specified level is inserted or removed from the set of default enabled
      *  importance levels without affecting any member facility objects.  Calling this function also prevents the first @ref
      *  insert from initializing the set of default importance levels. See Facilities class documentation for details. */
-    void impset(Importance, bool enabled);
+    Facilities& impset(Importance, bool enabled);
 
     /** Register a facility so it can be controlled as part of a collection of facilities.  The optional @p name is the @e
      *  FACILITY_NAME string of the control language for the inserted @p facility, and defaults to the facility's name (see
@@ -1383,17 +1396,18 @@ public:
      *  The @p facility is incorporated by reference and should not be destroyed until after this facility group is
      *  destroyed.
      * @{ */
-    void insert(Facility &facility, std::string name="");
-    void insertAndAdjust(Facility &facility, std::string name="");
+    Facilities& insert(Facility &facility, std::string name="");
+    Facilities& insertAndAdjust(Facility &facility, std::string name="");
     /** @} */
 
     /** Remove a facility by name. */
-    void erase(const std::string &name) {
+    Facilities& erase(const std::string &name) {
         facilities_.erase(name);
+        return *this;
     }
 
     /** Remove all occurrences of the facility. */
-    void erase(Facility &facility);
+    Facilities& erase(Facility &facility);
 
     /** Parse a single command-line switch and enable/disable the indicated streams.  Returns an empty string on success, or an
      *  error message on failure.  No configuration changes are made if a failure occurs.
@@ -1436,30 +1450,30 @@ public:
      *  this facility group's default importance levels.  It is as if we called @ref disable then @ref enable for each
      *  message facility by name. See Facilities class documentation for details. @sa impset
      * @{ */
-    void reenable();
-    void reenableFrom(const Facilities &other);
+    Facilities& reenable();
+    Facilities& reenableFrom(const Facilities &other);
     /** @} */
 
     /** Enable/disable specific importance level across all facilities.  This method also affects the set of "current
      *  importance levels" used when enabling an entire facility. @sa impset
      * @{ */
-    void enable(Importance, bool b=true);
-    void disable(Importance imp) { enable(imp, false); }
+    Facilities& enable(Importance, bool b=true);
+    Facilities& disable(Importance imp) { return enable(imp, false); }
     /** @} */
 
     /** Enable/disable a facility by name. When disabling, all importance levels of the specified facility are disabled. When
      *  enabling, only the current importance levels are enabled for the facility.  If the facility is not found then nothing
      *  happens.
      * @{ */
-    void disable(const std::string &switch_name) { enable(switch_name, false); }
-    void enable(const std::string &switch_name, bool b=true);
+    Facilities& disable(const std::string &switch_name) { return enable(switch_name, false); }
+    Facilities& enable(const std::string &switch_name, bool b=true);
     /** @} */
 
     /** Enable/disable all facilities.  When disabling, all importance levels of all facilities are disabled.  When enabling,
      *  only the current importance levels are enabled for each facility.
      * @{ */
-    void enable(bool b=true);
-    void disable() { enable(false); }
+    Facilities& enable(bool b=true);
+    Facilities& disable() { return enable(false); }
     /** @} */
 
     /** Print the list of facilities and their states. This is mostly for debugging purposes. The output may have internal

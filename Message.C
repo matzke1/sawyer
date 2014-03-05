@@ -236,7 +236,7 @@ void Multiplexer::post(const Mesg &mesg, const MesgProps &props) {
     assert(!"messages should not be posted to multiplexers");
 }
 
-void Multiplexer::addDestination(const DestinationPtr &destination) {
+MultiplexerPtr Multiplexer::addDestination(const DestinationPtr &destination) {
     assert(destination!=NULL);
 
     // Make sure this doesn't introduce a cycle
@@ -252,10 +252,12 @@ void Multiplexer::addDestination(const DestinationPtr &destination) {
     
     // Add it as the last child
     destinations_.push_back(destination);
+    return boost::dynamic_pointer_cast<Multiplexer>(shared_from_this());
 }
 
-void Multiplexer::removeDestination(const DestinationPtr &destination) {
+MultiplexerPtr Multiplexer::removeDestination(const DestinationPtr &destination) {
     destinations_.erase(std::remove(destinations_.begin(), destinations_.end(), destination), destinations_.end());
+    return boost::dynamic_pointer_cast<Multiplexer>(shared_from_this());
 }
 
 MultiplexerPtr Multiplexer::to(const DestinationPtr &destination) {
@@ -301,7 +303,7 @@ bool SequenceFilter::shouldForward(const MesgProps&) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void TimeFilter::initialDelay(double delta) {
+TimeFilterPtr TimeFilter::initialDelay(double delta) {
     if (delta > 0.0) {
         initialDelay_ = delta;
         if (0==nPosted_) {
@@ -311,6 +313,7 @@ void TimeFilter::initialDelay(double delta) {
             lastBakeTime_.tv_usec = round(1e6 * then_frac);
         }
     }
+    return boost::dynamic_pointer_cast<TimeFilter>(shared_from_this());
 }
 
 bool TimeFilter::shouldForward(const MesgProps&) {
@@ -550,10 +553,10 @@ std::string UnformattedSink::render(const Mesg &mesg, const MesgProps &props) {
 
 void FdSink::init() {
     if (isatty(fd_)) {
-        gang(Gang::instanceForTty());
+        gangInternal(Gang::instanceForTty());
         defaultProperties().useColor = true;            // use color if the user doesn't care
     } else {
-        gang(Gang::instanceForId(fd_));
+        gangInternal(Gang::instanceForId(fd_));
         overrideProperties().useColor = false;          // force false; user can still set this if they really want color
     }
     defaultProperties().isBuffered = 2!=fd_;            // assume stderr is unbuffered and the rest are buffered
@@ -581,10 +584,10 @@ void FdSink::post(const Mesg &mesg, const MesgProps &props) {
 
 void FileSink::init() {
     if (isatty(fileno(file_))) {
-        gang(Gang::instanceForTty());
+        gangInternal(Gang::instanceForTty());
         overrideProperties().useColor = true;           // use color if the user doesn't care
     } else {
-        gang(Gang::instanceForId(fileno(file_)));
+        gangInternal(Gang::instanceForId(fileno(file_)));
         overrideProperties().useColor = false;          // force false; user can still set this if they really want color
     }
     defaultProperties().isBuffered = 2!=fileno(file_);  // assume stderr is unbuffered and the rest are buffered
@@ -790,7 +793,7 @@ SProxy::operator bool() const {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Facility::initStreams(const DestinationPtr &destination) {
+Facility& Facility::initStreams(const DestinationPtr &destination) {
     if (streams_.empty()) {
         for (int i=0; i<N_IMPORTANCE; ++i)
             streams_.push_back(new Stream(name_, (Importance)i, destination));
@@ -798,6 +801,7 @@ void Facility::initStreams(const DestinationPtr &destination) {
         for (size_t i=0; i<streams_.size(); ++i)
             streams_[i]->destination(destination);
     }
+    return *this;
 }
 
 Stream& Facility::get(Importance imp) {
@@ -818,16 +822,17 @@ Stream& Facility::get(Importance imp) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Facilities::impset(Importance imp, bool enabled) {
+Facilities& Facilities::impset(Importance imp, bool enabled) {
     if (enabled) {
         impset_.insert(imp);
     } else {
         impset_.erase(imp);
     }
     impsetInitialized_ = true;
+    return *this;
 }
 
-void Facilities::insert(Facility &facility, std::string name) {
+Facilities& Facilities::insert(Facility &facility, std::string name) {
     if (name.empty())
         name = facility.name();
     if (name.empty())
@@ -852,9 +857,10 @@ void Facilities::insert(Facility &facility, std::string name) {
         }
         impsetInitialized_ = true;
     }
+    return *this;
 }
 
-void Facilities::insertAndAdjust(Facility &facility, std::string name) {
+Facilities& Facilities::insertAndAdjust(Facility &facility, std::string name) {
     ImportanceSet imps = impset_;
     insert(facility, name); // throws
 
@@ -864,26 +870,29 @@ void Facilities::insertAndAdjust(Facility &facility, std::string name) {
         Importance mi = (Importance)i;
         facility[mi].enable(imps.find(mi)!=imps.end());
     }
+    return *this;
 }
 
-void Facilities::erase(Facility &facility) {
+Facilities& Facilities::erase(Facility &facility) {
     FacilityMap map = facilities_;;
     for (FacilityMap::iterator fi=map.begin(); fi!=map.end(); ++fi) {
         if (fi->second == &facility)
             facilities_.erase(fi->first);
     }
+    return *this;
 }
 
-void Facilities::reenable() {
+Facilities& Facilities::reenable() {
     for (FacilityMap::iterator fi=facilities_.begin(); fi!=facilities_.end(); ++fi) {
         for (int i=0; i<N_IMPORTANCE; ++i) {
             Importance imp = (Importance)i;
             fi->second->get(imp).enable(impset_.find(imp)!=impset_.end());
         }
     }
+    return *this;
 }
 
-void Facilities::reenableFrom(const Facilities &other) {
+Facilities& Facilities::reenableFrom(const Facilities &other) {
     for (FacilityMap::const_iterator fi_src=other.facilities_.begin(); fi_src!=other.facilities_.end(); ++fi_src) {
         FacilityMap::iterator fi_dst = facilities_.find(fi_src->first);
         if (fi_dst!=facilities_.end()) {
@@ -893,9 +902,10 @@ void Facilities::reenableFrom(const Facilities &other) {
             }
         }
     }
+    return *this;
 }
 
-void Facilities::enable(const std::string &switch_name, bool b) {
+Facilities& Facilities::enable(const std::string &switch_name, bool b) {
     FacilityMap::iterator found = facilities_.find(switch_name);
     if (found != facilities_.end()) {
         if (b) {
@@ -908,9 +918,10 @@ void Facilities::enable(const std::string &switch_name, bool b) {
                 found->second->get((Importance)i).disable();
         }
     }
+    return *this;
 }
     
-void Facilities::enable(Importance imp, bool b) {
+Facilities& Facilities::enable(Importance imp, bool b) {
     if (b) {
         impset_.insert(imp);
     } else {
@@ -918,9 +929,10 @@ void Facilities::enable(Importance imp, bool b) {
     }
     for (FacilityMap::iterator fi=facilities_.begin(); fi!=facilities_.end(); ++fi)
         fi->second->get(imp).enable(b);
+    return *this;
 }
 
-void Facilities::enable(bool b) {
+Facilities& Facilities::enable(bool b) {
     for (FacilityMap::iterator fi=facilities_.begin(); fi!=facilities_.end(); ++fi) {
         Facility *facility = fi->second;
         if (b) {
@@ -933,6 +945,7 @@ void Facilities::enable(bool b) {
                 facility->get((Importance)i).disable();
         }
     }
+    return *this;
 }
 
 std::string Facilities::ControlTerm::toString() const {
