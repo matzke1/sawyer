@@ -279,10 +279,6 @@ int main(int argc, char *argv[]) {
     ss.insert(Switch("pre").argument("arg1"));
     ss.insert(Switch("prefix").argument("arg1"));
 
-    ss.insert(Switch("home")
-              .longName("homework")
-              .argument("arg1"));
-
     // One switch can be an alias for another.  The other switch need not be defined in the same SwitchGroup as
     // long as the other switch's definition is available when parsing.
     // FIXME[Robb Matzke 2014-02-13]

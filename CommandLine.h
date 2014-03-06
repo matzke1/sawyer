@@ -1865,6 +1865,9 @@ private:
     /** @internal Constructs an exception describing that there is no separator between the switch name and its value. */
     std::runtime_error noSeparator(const std::string &switchString, const Cursor&, const ParsingProperties&) const;
 
+    /** @internal Constructs an error describing extra text that appears after a switch. */
+    std::runtime_error extraTextAfterSwitch(const std::string &switchString, const Cursor&, const ParsingProperties&) const;
+
     /** @internal Constructs an exception describing that there is unexpected extra text after a switch argument. */
     std::runtime_error extraTextAfterArgument(const std::string &switchString, const Cursor&) const;
     std::runtime_error extraTextAfterArgument(const std::string &switchString, const Cursor&, const SwitchArgument&) const;
@@ -2439,6 +2442,7 @@ public:
      *  inclusion will be returned in place of the file inclusion switch itself. */
     const std::vector<std::string>& allArgs() const { return cursor_.strings(); }
 
+    /** That parser that created this result.  This is a copy of the parser that was used to create this result. */
     const Parser& parser() const { return parser_; }
 
 private:

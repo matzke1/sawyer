@@ -47,3 +47,6 @@ target_link_libraries(test10 sawyer ${Boost_LIBRARIES})
 
 add_executable(test11 test11.C)
 target_link_libraries(test11 sawyer ${Boost_LIBRARIES})
+
+add_executable(test12 test12.C)
+target_link_libraries(test12 sawyer ${Boost_LIBRARIES})

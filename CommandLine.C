@@ -597,12 +597,30 @@ std::runtime_error Switch::notEnoughArguments(const std::string &switchString, c
 
 std::runtime_error Switch::noSeparator(const std::string &switchString, const Cursor &cursor,
                                        const ParsingProperties &props) const {
-    std::string str = "expected one of the following separators between " + switchString + " and its argument:";
-    BOOST_FOREACH (std::string sep, props.valueSeparators) {
-        if (0!=sep.compare(" "))
-            str += " \"" + sep + "\"";
+    std::string s;
+    bool hasSpaceSeparator = matchAnyString(props.valueSeparators, " ");
+    if ((cursor.atArgBegin() || cursor.atEnd()) && hasSpaceSeparator) {
+        s = "expected an argument for " + switchString;
+    } else {
+        s = "expected one of the following separators between " + switchString + " and its argument:";
+        BOOST_FOREACH (std::string sep, props.valueSeparators) {
+            if (0!=sep.compare(" "))
+                s += " \"" + sep + "\"";
+        }
     }
-    return std::runtime_error(str);
+    return std::runtime_error(s);
+}
+
+std::runtime_error Switch::extraTextAfterSwitch(const std::string &switchString, const Cursor &cursor,
+                                                const ParsingProperties &props) const {
+    BOOST_FOREACH (std::string sep, props.valueSeparators) {
+        if (0!=sep.compare(" ")) {
+            if (boost::starts_with(cursor.rest(), sep))
+                return std::runtime_error("unexpected argument for " + switchString);
+        }
+    }
+
+    return std::runtime_error("unrecognized switch " + switchString + cursor.rest());
 }
 
 std::runtime_error Switch::extraTextAfterArgument(const std::string &switchString, const Cursor &cursor) const {
@@ -636,8 +654,10 @@ size_t Switch::matchLongName(Cursor &cursor, const ParsingProperties &props, con
                     cursor.consumeChars(retval);
                     return retval;                  // switch name matches to end of program argument
                 }
-                if (0==arguments_.size())
-                    continue;                       // switch name does not match to end, but has no declared args
+                if (0==arguments_.size()) {
+                    cursor.consumeChars(retval);
+                    return retval;
+                }
                 BOOST_FOREACH (const std::string &sep, props.valueSeparators) {
                     if (0!=sep.compare(" ") && boost::starts_with(rest, sep)) {
                         cursor.consumeChars(retval);
@@ -738,7 +758,8 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
 
     // If the switch has no declared arguments use its intrinsic value.
     if (arguments_.empty()) {
-        ASSERT_require(cursor.atArgBegin() || cursor.atEnd());
+        if (!cursor.atArgBegin() && !cursor.atEnd())
+            throw extraTextAfterSwitch(switchString, cursor, props);
         result.push_back(intrinsicValue_);
         return;
     }
