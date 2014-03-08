@@ -309,6 +309,10 @@ public:
     /** Cancel the excursion guard.  The associated cursor will not be reset to its initial location when this guard is
      *  destroyed. */
     void cancel() { canceled_ = true; }
+
+    /** Starting location.  This is the location to which the cursor is restored when the guard is destroyed, unless @ref
+     *  cancel has been called. */
+    const Location &startingLocation() const { return loc_; }
 };
 
 
@@ -710,7 +714,8 @@ private:
  *  Matches a non-negative integer in the mathematical sense in C++ decimal, octal, or hexadecimal format, and attempts to
  *  convert it to the type @p T.  If the integer cannot be converted to type @p T then an <code>std::range_error</code> is
  *  thrown, which is most likely caught by higher layers of the library and converted to an <code>std::runtime_error</code>
- *  with additional information about the failure.  The syntax is that which is recognized by the @c strtoull function, plus
+ *  with additional information about the failure.  The syntax is that which is recognized by the @c strtoull function except
+ *  that a leading minus sign is not allowed (yes, strtoull parses negative numbers and returns them as unsigned), plus
  *  trailing white space.
  *
  * @sa @ref integerParser factory, and @ref parser_factories. */
@@ -738,6 +743,9 @@ public:
 private:
     virtual ParsedValue operator()(const char *input, const char **rest, const Location &loc) /*override*/ {
         errno = 0;
+        while (isspace(*input)) ++input;
+        if ('+'!=*input && !isdigit(*input))
+            throw std::runtime_error("unsigned integer expected");
         boost::uint64_t big = strtoull(input, (char**)rest, 0);
         if (*rest==input)
             throw std::runtime_error("unsigned integer expected");
@@ -1144,7 +1152,9 @@ public:
      *  unique. The @p defaultValueString is immediately parsed via supplied parser and stored; an
      *  <code>std::runtime_error</code> exception is thrown if it cannot be parsed. */
     SwitchArgument(const std::string &name, const ValueParser::Ptr &parser, const std::string &defaultValueString)
-        : name_(name), parser_(parser), defaultValue_(parser->matchString(defaultValueString)) {}
+        : name_(name), parser_(parser), defaultValue_(parser->matchString(defaultValueString)) {
+        defaultValue_.valueLocation(NOWHERE);
+    }
 
     /** Returns true if this argument is required. An argument is a required argument if it has no default value. */
     bool isRequired() const {
@@ -1879,6 +1889,10 @@ private:
     std::runtime_error missingArgument(const std::string &switchString, const Cursor &cursor,
                                        const SwitchArgument &sa, const std::string &reason) const;
 
+    /** @internal Constructs an exception describing an argument that is malformed or invalid. */
+    std::runtime_error malformedArgument(const std::string &switchString, const Cursor &cursor,
+                                         const SwitchArgument &sa, const std::string &reason) const;
+
     /** @internal Determines if this switch can match against the specified program argument when considering only the
      *  specified long name.  If program argument starts with a valid long name prefix and then matches the switch name, this
      *  this function returns true (the number of characters matched).  Switches that take no arguments must match to the end of
@@ -2448,7 +2462,7 @@ public:
 private:
     // Insert more parsed values.  Values should be inserted one switch's worth at a time (or fewer)
     void insertValuesForSwitch(const ParsedValues&, const Parser*, const Switch*);
-    void insertOneValue(const ParsedValue&, const Switch*);
+    void insertOneValue(const ParsedValue&, const Switch*, bool save=true);
 
     // Indicate that we're skipping over a program argument
     void skip(const Location&);

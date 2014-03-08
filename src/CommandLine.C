@@ -131,12 +131,23 @@ ParsedValue ValueParser::operator()(Cursor &cursor) {
     std::string str = cursor.rest();
     const char *s = str.c_str();
     const char *rest = s;
-    ParsedValue retval = (*this)(s, &rest, cursor.location());
-    if (NULL!=rest) {
-        ASSERT_require(rest>=s && rest<= s+strlen(s));
-        cursor.consumeChars(rest-s);
+    try {
+        ParsedValue retval = (*this)(s, &rest, cursor.location());
+        if (NULL!=rest) {
+            ASSERT_require(rest>=s && rest<= s+strlen(s));
+            cursor.consumeChars(rest-s);
+        }
+        return retval;
+    } catch (const std::runtime_error &e) {
+        // We must update the cursor location even if an exception is thrown because it indicates that a value
+        // was syntactically correct, but not semantically correct. E.g., a mathematical integer that could not be
+        // stored as an unsigned type.
+        if (NULL!=rest) {
+            ASSERT_require(rest>=s && rest<= s+strlen(s));
+            cursor.consumeChars(rest-s);
+        }
+        throw;
     }
-    return retval;
 }
 
 // only called by ValueParser::operator()(Cursor&)
@@ -600,7 +611,7 @@ std::runtime_error Switch::noSeparator(const std::string &switchString, const Cu
     std::string s;
     bool hasSpaceSeparator = matchAnyString(props.valueSeparators, " ");
     if ((cursor.atArgBegin() || cursor.atEnd()) && hasSpaceSeparator) {
-        s = "expected an argument for " + switchString;
+        s = "required argument for " + switchString + " is missing";
     } else {
         s = "expected one of the following separators between " + switchString + " and its argument:";
         BOOST_FOREACH (std::string sep, props.valueSeparators) {
@@ -636,12 +647,20 @@ std::runtime_error Switch::extraTextAfterArgument(const std::string &switchStrin
     
 std::runtime_error Switch::missingArgument(const std::string &switchString, const Cursor &cursor,
                                            const SwitchArgument &sa, const std::string &reason) const {
-    std::string str = switchString + " argument for " + sa.nameAsText() + " is missing";
+    std::string str = "required argument for " + switchString + " is missing; for " + sa.nameAsText();
     if (!reason.empty())
         str += ": " + reason;
     return std::runtime_error(str);
 }
-    
+
+std::runtime_error Switch::malformedArgument(const std::string &switchString, const Cursor &cursor,
+                                             const SwitchArgument &sa, const std::string &reason) const {
+    std::string str = "argument for " + switchString + " is invalid; for " + sa.nameAsText();
+    if (!reason.empty())
+        str += ": " + reason;
+    return std::runtime_error(str);
+}
+
 size_t Switch::matchLongName(Cursor &cursor, const ParsingProperties &props, const std::string &name) const {
     ASSERT_require(cursor.atArgBegin());
     BOOST_FOREACH (const std::string &prefix, props.longPrefixes) {
@@ -724,6 +743,10 @@ size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*
                               bool isLongSwitch) const {
     ExcursionGuard guard(cursor);
     size_t retval = 0;
+    size_t switchIdx = cursor.location().idx;
+    if (switchIdx>0 && (cursor.atArgBegin() || cursor.atEnd()))
+        --switchIdx;
+
     BOOST_FOREACH (const SwitchArgument &sa, arguments_) {
         // Second and subsequent arguments must start at the beginning of a program argument
         if (retval>0 && !cursor.atArgBegin())
@@ -738,14 +761,24 @@ size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*
             result.push_back(value);
             ++retval;
         } catch (const std::runtime_error &e) {
-            if (sa.isRequired())
-                throw missingArgument(switchString, cursor, sa, e.what());
+            if (sa.isRequired()) {
+                if (cursor.location()==valueLocation)
+                    throw missingArgument(switchString, cursor, sa, e.what());
+                throw malformedArgument(switchString, cursor, sa, e.what());
+            }
             result.push_back(sa.defaultValue());
         }
 
-        // Long switch arguments must end aligned with a program argument
-        if (isLongSwitch && !cursor.atArgBegin() && !cursor.atEnd())
-            throw extraTextAfterArgument(switchString, cursor, sa);
+        if (!cursor.atArgBegin() && !cursor.atEnd()) {
+            if (isLongSwitch) {
+                // Long switch arguments must end aligned with a program argument
+                throw extraTextAfterArgument(switchString, cursor, sa);
+            } else if (cursor.location().idx > switchIdx) {
+                // Short switch arguments must end aligned with a program argument except when it is part of the same program
+                // argument as the switch name.  I.e., "-n123a" is ok ("-a" is the next switch), but "-n 123a" is not okay.
+                throw extraTextAfterArgument(switchString, cursor, sa);
+            }
+        }
     }
     explode(result);
     guard.cancel();
@@ -947,33 +980,32 @@ void ParserResult::insertValuesForSwitch(const ParsedValues &pvals, const Parser
             break;
     }
 
-    if (shouldSave) {
-        BOOST_FOREACH (const ParsedValue &pval, pvals)
-            insertOneValue(pval, sw);
-    }
+    BOOST_FOREACH (const ParsedValue &pval, pvals)
+        insertOneValue(pval, sw, shouldSave);
 }
 
-void ParserResult::insertOneValue(const ParsedValue &pval, const Switch *sw) {
+void ParserResult::insertOneValue(const ParsedValue &pval, const Switch *sw, bool saveValue) {
+    // Get sequences for this value and update the value.
     const std::string &key = sw->key();
     const std::string &name = sw->preferredName();
-
-    // Get sequences for this value and update the value.
     size_t keySequence = keyIndex_[key].size();
     size_t switchSequence = switchIndex_[name].size();
-
-    // Insert the parsed value and update all the indexes
     size_t idx = values_.size();
     values_.push_back(pval);
     values_.back().switchKey(key);
     values_.back().sequenceInfo(keySequence, switchSequence);
-    keyIndex_[key].push_back(idx);
-    switchIndex_[name].push_back(idx);
     argvIndex_[pval.switchLocation()].push_back(idx);
-    actions_[key] = sw->action();
+
+    // Associate the value with a key and switch name
+    if (saveValue) {
+        keyIndex_[key].push_back(idx);
+        switchIndex_[name].push_back(idx);
+        actions_[key] = sw->action();
 
 #if 1 /*DEBUGGING [Robb Matzke 2014-02-18]*/
-    std::cerr <<"    " <<values_.back() <<"\n";
+        std::cerr <<"    " <<values_.back() <<"\n";
 #endif
+    }
 }
     
 void ParserResult::skip(const Location &loc) {
