@@ -161,10 +161,9 @@ class ParserResult;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** Position within a command-line. A command line consists of an ordered set of strings of various lengths, and this object is
- *  an index to a particular character of a particular string.  Location objects are used and manipulated by Cursor, which
- *  always ensures that the @ref idx field is not greater than the number of strings in the ordered set (when equal, the
- *  location is said to be at the end of the command-line), and the @ref offset is less than the size of that string (or
- *  zero when @ref idx is at the end). */
+ *  an index to a particular character of a particular string.
+ *
+ * @sa Cursor::location */
 struct Location {
     size_t idx;                                                 /**< Index into some vector of program argument strings. */
     size_t offset;                                              /**< Character offset within a program argument string. */
@@ -173,9 +172,7 @@ struct Location {
      *  location. */
     Location(): idx(0), offset(0) {}
 
-    /** Constructs a location that points to a particular character of a particular string.  The convension used by Cursor is
-     *  that the @p idx will never be larger than the number of strings, and @p offset will be less than the length of
-     *  that string (or zero when @p idx is equal to the number of strings).  Both values are zero-origin. */
+    /** Constructs a location that points to a particular character of a particular string. */
     Location(size_t idx, size_t offset): idx(idx), offset(offset) {}
 
     /** Equality. Returns true only when this location is equal to @p other. Two locations are equal only when their @ref idx
@@ -221,10 +218,23 @@ public:
     /** All strings for the cursor. */
     const std::vector<std::string>& strings() const { return strings_; }
 
-    /** Property: current position of the cursor.  When a new location is provided it will be immediately adjusted so that the
-     * location's @c idx member is not greater than the number of strings in the cursor, and its @c offset member is less than
-     * the length of that string (or zero when @c idx is equal to the number of strings).
-     *  @{ */
+    /** Property: current position of the cursor.
+     *
+     *  The following semantics apply to the location:
+     *
+     *  @li The location's @c idx member will either point to a valid string in the cursor's @ref strings vector, or it will be
+     *      equal to the size of that vector.
+     *  @li When the @c idx member is equal to the size of the cursor's @ref strings vector, the cursor is said to be at the
+     *      end of its input and @ref atEnd returns true.
+     *  @li The location's @c offset member is zero whenever @ref atEnd returns true.
+     *  @li When @ref atEnd returns false, the @c offset is less than or equal to the length of the string indexed by @c idx.
+     *  @li When @ref atEnd returns false and @c offset is equal to the string length, then the cursor is said to be
+     *      positioned at the end of an argument and @ref atArgEnd returns true.
+     *
+     *  When a new location is provided it will be immediately adjusted so that the @c idx member is not greater than the
+     *  number of strings in the cursor, and its @c offset member is less than or equal to the length of that string (or zero
+     *  when @c idx is equal to the number of strings).
+     * @{ */
     const Location& location() const { return loc_; }
     Cursor& location(const Location &loc);
     /** @} */
@@ -233,27 +243,32 @@ public:
      * beginning of that argument. Returns false otherwise, including when @ref atEnd returns true. */
     bool atArgBegin() const { return loc_.idx<strings_.size() && 0==loc_.offset; }
 
-    /** Returns true when the cursor is after all arguments. */
-    bool atEnd() const { return loc_.idx>=strings_.size(); }
+    /** True when the cursor is at the end of an argument.  Returns true if the cursor points to an argument and is positioned
+     *  past the end of that string.  Returns false otherwise, including when @ref atEnd returns true. */
+    bool atArgEnd() const { return loc_.idx<strings_.size() && loc_.offset>=strings_[loc_.idx].size(); }
+
+    /** Returns true when the cursor is after all arguments. When the cursor is after all arguments, then @ref atArgBegin and
+     *  @ref atArgEnd both return false. A @p locaton can be specified to override the location that's inherent to this cursor
+     *  without changing this cursor.
+     * @{ */
+    bool atEnd() const { return atEnd(loc_); }
+    bool atEnd(const Location &location) const { return location.idx >= strings_.size(); }
+    /** @} */
 
     /** Return the entire current program argument regardless of where the cursor is in that argument.  A @p location can be
      *  specified to override the location that's inherent to this cursor without changing this cursor.  It is an error to call
      *  this when @ref atEnd returns true.
      * @{ */
-    const std::string& arg() const { return strings_[loc_.idx]; }
-    const std::string& arg(const Location &location) const { return strings_[location.idx]; }
+    const std::string& arg() const { return arg(loc_); }
+    const std::string& arg(const Location &location) const;
     /** @} */
 
-    /** Return the part of an argument at and beyond the cursor.  If the cursor is at the end of an argument then an empty
-     *  string is returned.   A @p location can be specified to override the location that's inherent to this cursor without
-     *  changing this cursor.  Returns an empty string if called when @ref atEnd returns true.
+    /** Return the part of an argument at and beyond the cursor location.  If the cursor is positioned at the end of an
+     *  argument then an empty string is returned.  A @p location can be specified to override the location that's inherent to
+     *  this cursor without changing this cursor.  Returns an empty string if called when @ref atEnd returns true.
      * @{ */
-    std::string rest() const { return loc_.idx < strings_.size() ? strings_[loc_.idx].substr(loc_.offset) : std::string(); }
-    std::string rest(const Location &location) const {
-        return (location.idx < strings_.size() && location.offset < strings_[location.idx].size() ?
-                strings_[location.idx].substr(location.offset) :
-                std::string());
-    }
+    std::string rest() const { return rest(loc_); }
+    std::string rest(const Location &location) const;
     /** @} */
 
     /** Returns all characters within limits.  Returns all the characters between this cursor's current location and the
@@ -269,10 +284,9 @@ public:
      * string. Must not be called when @ref atEnd returns true. */
     void replace(const std::vector<std::string>&);
 
-    /** Advance the cursor over characters. Advances the cursor's current location @p nchars characters, stopping earlier if
-     *  the end of the strings is reached.  When advancing in a string, when the cursor reaches the end of the string it is
-     *  repositioned at the beginning of the next string (or at the end), in which case @ref atArgBegin (or @ref atEnd) will
-     *  return true. */
+    /** Advance over characters.  Advances the cursor's current location by @p nchars characters.  The cursor must be
+     *  positioned so that at least @p nchars characters can be skipped in the current string.  This call does not advance the
+     *  cursor to the next string. */
     void consumeChars(size_t nchars);
 
     /** Advance the cursor to the beginning of the next string.  If the cursor is already positioned at the last string then it
@@ -1879,8 +1893,7 @@ private:
     std::runtime_error extraTextAfterSwitch(const std::string &switchString, const Cursor&, const ParsingProperties&) const;
 
     /** @internal Constructs an exception describing that there is unexpected extra text after a switch argument. */
-    std::runtime_error extraTextAfterArgument(const std::string &switchString, const Cursor&) const;
-    std::runtime_error extraTextAfterArgument(const std::string &switchString, const Cursor&, const SwitchArgument&) const;
+    std::runtime_error extraTextAfterArgument(const Cursor&, const ParsedValue &va) const;
 
     /** @internal Constructs an exception describing that we couldn't parse all the required arguments. */
     std::runtime_error notEnoughArguments(const std::string &switchString, const Cursor&, size_t nargs) const;
@@ -1911,21 +1924,28 @@ private:
     /** @internal Explodes ListParser::ValueList elements of pvals, replacing pvals in place. */
     bool explode(ParsedValues &pvals /*in,out*/) const;
 
-    /** @internal Parse long switch arguments when the cursor is positioned immediately after the switch name.  This matches
-     *  the switch/value separator if necessary and subsequent switch arguments. */
+    /** Parse long switch arguments.  The the cursor is initialially positioned immediately after the switch name.  This
+     *  matches the switch/value separator if necessary and subsequent switch arguments. On success, the cursor will be
+     *  positioned at the beginning of the program argument following the last switch argument (or switch if no arguments) or
+     *  at the end of the input.  Throws an <code>std::runtime_error</code> on failure without adjusting the cursor. */
     void matchLongArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
                             ParsedValues &result /*out*/) const;
 
-    /** @internal Parse short switch arguments when the cursor is positioned immediately after the switch name. */
+    /** Parse short switch arguments.  The cursor is initially positioned immediately after the switch name.  On success, the
+     *  cursor will be positioned at the first character after the last argument. This may be in the middle of a program
+     *  argument or at the beginning of a program argument. */
     void matchShortArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
-                             ParsedValues &result /*out*/) const;
+                             ParsedValues &result /*out*/, bool mayNestle) const;
 
-    /** @internal Parses switch arguments from the command-line arguments to obtain switch values.  Upon entry, the cursor
-     *  should point to the first character after the switch name; it will be updated to point to the first position after the
-     *  last parsed argument upon return.  If anything goes wrong an exception is thrown (cursor and result might be invalid).
-     *  Returns the number of argument values parsed, not counting those created from default values. */
-    size_t matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, ParsedValues &result /*out*/,
-                          bool isLongSwitch) const;
+    /** Parses switch arguments from the command-line arguments to obtain switch values.  Upon entry, the cursor should be
+     *  positioned at the first character of the first argument. On success, for long switches the cursor will be positioned at
+     *  the beginning of a subsequent program argument; for short switches it will either be positioned at the beginning of a
+     *  subsequent program argument (like for long switches) or in the middle (neither beginning nor end) of a program argument
+     *  at the character following the last argument.  The return value is the number of switch arguments parsed from the
+     *  command-line and doesn't count switch arguments that came from argument default values. On failure, an
+     *  <code>std::runtime_error</code> is thrown and the cursor is not adjusted. */
+    size_t matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
+                          ParsedValues &result /*out*/, bool isLongSwitch) const;
 
     /** @internal Return synopsis markup for a single argument. */
     std::string synopsisForArgument(const SwitchArgument&) const;
@@ -2295,12 +2315,23 @@ private:
     // declaration can be found, then throw an error.  The cursor will not be modified when an error is thrown.
     bool parseOneSwitch(Cursor&, ParserResult&/*out*/);
 
-    // Parse one switch if possible.  Returns the swtich and updates the cursor and parsed values if a switch can be parsed.
-    // Returns null if the next program argument doesn't look like a switch (even a misspelled switch). Throws an exception
-    // otherwise, without changing the cursor or parsed values.  The returned pointer is valid only as long as this parser
-    // is allocated.
+    /** Parse one long switch.  Upon entry, the cursor should be positioned at the beginning of a program argument. On success,
+     *  the cursor will be positioned at the beginning of a subsequent program argument, or at the end of input.  If a switch
+     *  is successfully parsed, a pointer to the switch is returned and values are appended to @p parsedValues (the returned
+     *  pointer is valid only as long as this parser is allocated). If no switch is available for parsing then the null pointer
+     *  is returned. If some other parsing error occurs then a null value is returned and the @p saved_error is updated to
+     *  reflect the nature of the error.  This function does not throw <code>std::runtime_error</code> exceptions. */
     const Switch* parseLongSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&);
-    const Switch* parseShortSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&);
+
+    /** Parse one short switch.  Upon entry, the cursor is either at the beginning of a program argument, or at the beginning
+     *  of a (potential) short switch name. On success, for non-nestled switches the cursor will be positioned at the beginning
+     *  of a subsequent program argument, but for nestled switches it may be in the middle of a program argument (neither the
+     *  beginning nor the end).  If a switch is successfully parsed, a pointer to the switch is returned and values are
+     *  appended to @p parsedValues (the returned pointer is valid only as long as this parser is allocated). If no switch is
+     *  available for parsing then the null pointer is returned. If some other parsing error occurs then a null value is
+     *  returned and the @p saved_error is updated to reflect the nature of the error.  This function does not throw
+     *  <code>std::runtime_error</code> exceptions. */
+    const Switch* parseShortSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&, bool mayNestle);
 
     // Returns true if the program argument at the cursor looks like it might be a switch.  Apparent switches are any program
     // argument that starts with a long or short prefix.
