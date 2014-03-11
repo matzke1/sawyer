@@ -50,6 +50,23 @@ These design goals are used throughout Sawyer:
   made to have an efficient implementation, but when there is a choice
   between functionality and efficiencey, functionality wins.
 
+Installing
+==========
+
+Run the CMake configuration in your compilation directroy:
+
+    $ mkdir /path/for/your/compilation/directory
+    $ cd /path/for/your/compilation/directory
+    $ cmake "${SAWYER_SOURCE}" -DBOOST_ROOT="${BOOST_HOME}" -DCMAKE_INSTALL_PREFIX:PATH="/path/for/installation"
+
+This will generate your build files, which may then be used to compile Sawyer:
+
+    $ make
+
+Finally, install Sawyer's shared library and header files:
+
+    $ make install
+
 Emitting Diagnostics
 ====================
 
