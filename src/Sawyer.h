@@ -21,6 +21,8 @@
  *      dd. Additionally, documentation can be provided in the C++ source code for each switch and Unix man pages can be
  *      produced. See Sawyer::CommandLine for details.
  *
+ *  Design goals for this library can be found in the [Design goals](group__design__goals.html) page.
+ *
  *  Other things on the way but not yet ready:
  *
  *  @li A simple, extensible, terse markup language that lets users write documentation that can be turned into TROFF, HTML,
