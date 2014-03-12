@@ -463,6 +463,32 @@ void test19(const DestinationPtr &sink) {
     log[INFO] <<"one message, two destinations\n";
 }
 
+// Printing an empty string creates no message.
+void test20(const DestinationPtr &sink) {
+    banner("test20 - empty message");
+    Facility log("test20", sink);
+    log[INFO] <<"\n";
+    log[INFO] <<std::endl;
+    log[INFO] <<"no messages before this one\n";
+}
+
+// Make sure std::endl works.
+void test21(const DestinationPtr &sink) {
+    banner("test21 - std::endl");
+    Facility log("test21", sink);
+    log[INFO] <<"message one" <<std::endl;
+    log[INFO] <<"message two" <<std::endl;
+    log[INFO] <<"message three\n";
+}
+
+// Printing a message containing only white space does not behave in any special way.
+void test22(const DestinationPtr &sink) {
+    banner("test22 - white space only");
+    Facility log("test22", sink);
+    log[INFO] <<" " <<"\n";
+    log[INFO] <<"previous message contained only white space\n";
+}
+
 int main()
 {
 
@@ -503,5 +529,8 @@ int main()
     test17(merr);
     test18(merr);
     test19(merr);
+    test20(merr);
+    test21(merr);
+    test22(merr);
     return 0;
 }
