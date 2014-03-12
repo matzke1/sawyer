@@ -1,5 +1,7 @@
 #include "Message.h"
 
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/find.hpp>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -210,6 +212,10 @@ void Mesg::insert(char ch) {
 void Mesg::post(const BakedDestinations &baked) const {
     for (BakedDestinations::const_iterator bi=baked.begin(); bi!=baked.end(); ++bi)
         bi->first->post(*this, bi->second);
+}
+
+bool Mesg::hasText() const {
+    return boost::find_token(text_, boost::is_graph());
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -634,7 +640,7 @@ void SyslogSink::post(const Mesg &mesg, const MesgProps &props) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void StreamBuf::post() {
-    if (enabled_ && !message_.isEmpty() && (message_.isComplete() || anyUnbuffered_)) {
+    if (enabled_ && message_.hasText() && (message_.isComplete() || anyUnbuffered_)) {
         assert(isBaked_);
         message_.post(baked_);
     }
@@ -680,7 +686,12 @@ std::streamsize StreamBuf::xsputn(const char *s, std::streamsize &n) {
             completeMessage();
         } else if ('\r'!=s[i]) {
             message_.insert(s[i]);
-            bake();
+            for (std::streamsize i=0; i<n; ++i) {
+                if (isgraph(s[i])) {
+                    bake();
+                    break;
+                }
+            }
         }
     }
     post();

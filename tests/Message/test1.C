@@ -481,12 +481,13 @@ void test21(const DestinationPtr &sink) {
     log[INFO] <<"message three\n";
 }
 
-// Printing a message containing only white space does not behave in any special way.
+// Messages consisting of only white space are treated as if they were empty
 void test22(const DestinationPtr &sink) {
     banner("test22 - white space only");
     Facility log("test22", sink);
     log[INFO] <<" " <<"\n";
-    log[INFO] <<"previous message contained only white space\n";
+    log[INFO] <<"\t \r\f\n";
+    log[INFO] <<"no messages before this one\n";
 }
 
 int main()

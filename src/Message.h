@@ -516,8 +516,13 @@ public:
      *  are being destroyed. */
     bool isCanceled() const { return isCanceled_; }
 
-    /** Returns true if the message has no text. */
+    /** Returns true if the message has no text. This is similar, but not identical to the the inverse of the @ref
+     *  hasText method. */
     bool isEmpty() const { return text_.empty(); }
+
+    /** Returns true if the message has text other than white space. This is similar, but not identical to the inverse
+     *  of the @ref isEmpty method. */
+    bool hasText() const;
 
     /** Returns a reference to message properties. Once a message's properties are "baked" by sending them through the
      *  plumbing lattice, changing the message properties has no effect on the text that is emitted by the message
