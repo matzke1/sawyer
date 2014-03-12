@@ -14,6 +14,7 @@ color_name(Color c)
         case GREEN: return "GREEN";
         case BLUE: return "BLUE";
         case ORANGE: FIXME("I have no idea how to do this [Robb Matzke 2014-01-18]");
+        case OTHER: ASSERT_not_implemented("");
         // BTW, the citation on the previous line can be entered by typing "~~~" in Emacs Pilf mode.
     }
     ASSERT_not_reachable("impossible color");
