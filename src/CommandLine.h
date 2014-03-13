@@ -41,12 +41,12 @@ namespace Sawyer { // documented in Sawyer.h
  *
  *  Program command-line parsing consists of the following major components:
  *
- *  @li Switch objects are used to define a switch and specify such things as the switch name and its arguments.
- *  @li SwitchGroup objects group related switches into collections.
- *  @li Parser objects match SwitchGroup objects agains a program command line to produce a ParserResult.
- *  @li ParserResult objects store all information about how a program command line was parsed by storing, among other things,
+ *  @li The Switch class declares a switch and specifies such things as the switch name and its arguments.
+ *  @li The SwitchGroup class groups related switches into collections.
+ *  @li The Parser class parses a program command line to produce a ParserResult.
+ *  @li The ParserResult class holds information about how a program command line was parsed by storing, among other things,
  *      a list of ParsedValue objects.
- *  @li ParsedValue objects store the details about each value parsed from a program command line, including the value's
+ *  @li The ParsedValue class holds details about each value parsed from a program command line, including the value's
  *      string from the command line and information about the associated switch.
  *
  * @section desc Description
@@ -1039,10 +1039,10 @@ private:
  *  The @ref integerParser factory is an example for all three of these varieties:
  *
  * @code
- *  integerParser()         // saves an @c int value in ParserResult
- *  integerParser<short>()  // saves a @c short value in ParserResult
+ *  integerParser()         // saves an int value in ParserResult
+ *  integerParser<short>()  // saves a short value in ParserResult
  *  long result;
- *  integerParser(result);  // saves a @c long value in ParserResult and @ result
+ *  integerParser(result);  // saves a long value in ParserResult and in result
  * @endcode
  *
  * @section factories Factories
@@ -1147,11 +1147,11 @@ ListParser::Ptr listParser(const ValueParser::Ptr&, const std::string &sepRe="[,
  *
  *  A SwitchArgument declares only one argument. Some switches may have more than one argument, like <code>-\-swap a b</code>,
  *  in which case their declaration would have two SwitchArgument objects.  Some switches take one argument which is a list of
- *  values, like <code>-\-swap a,b</code>, which is describe by declaring a single argument with @c listParser.  Some switches
+ *  values, like <code>-\-swap a,b</code>, which is described by declaring a single argument with @c listParser.  Some switches
  *  may occur multiple times to specify their arguments, like <code>-\-swap a -\-swap b</code>, in which case the switch is
- *  declared to have one argument and saving values from all occurrences (see Switch::whichValue).
+ *  declared to have one argument and to save a value for each occurrence (see Switch::whichValue).
  *
- *  Users seldom use this class directly, but rather call Switch::argument() to declare arguments. */
+ *  Users seldom use this class directly, but rather call Switch::argument to declare arguments. */
 class SwitchArgument {
     std::string name_;                                  // argument name for synopsis
     ValueParser::Ptr parser_;                           // how to match and parse this argument
@@ -1508,7 +1508,7 @@ enum WhichValue {
  *
  * @code
  *  SwitchGroup outputSwitches;
- *  outputSwitches.insert(Switch("use-color", "C")
+ *  outputSwitches.insert(Switch("use-color", 'C')
  *                        .argument("when",                         // argument name
  *                                  (enumParser<WhenColor>()        // WhenColor must be declared at global scope
  *                                   ->with("never",  NEVER)        // possible values
@@ -1625,7 +1625,7 @@ public:
 
     /** Property: detailed description.  This is the description of the switch in a simple markup language.
      *
-     *  Parts of the text can be marked by surrounding the text in curly braces and prepending an tag consisting of an "@"
+     *  Parts of the text can be marked by surrounding the text in curly braces and prepending a tag consisting of an "@"
      *  followed by a word.  For instance, <code>\@b{foo}</code> makes the word "foo" bold and <code>\@i{foo}</code> makes it
      *  italic.  The tags <code>\@bold</code> and <code>\@italic</code> can be used instead of <code>\@b</code> and
      *  <code>\@i</code>, but the longer names make the documentation less readable in the C++ source code.
@@ -1658,7 +1658,7 @@ public:
      *  @li @c chapterName is the second member of the pair returned by Parser::chapter.
      *
      *  Even switches with no documentation will show up in the generated documentation--they will be marked as "Not
-     *  documented".  To suppress them entirely, set their "hidden" property to true.
+     *  documented".  To suppress them entirely, set their @ref hidden property to true.
      * @{ */
     Switch& doc(const std::string &s) { documentation_ = s; return *this; }
     const std::string& doc() const { return documentation_; }
@@ -2412,9 +2412,8 @@ public:
      *  documentation (see @ref ParserResult). */
     const ParserResult& apply() const;
 
-    /** Returns the number of values for the specified key.  Since switches that have no declared argument are given a value,
-     *  and since switches seldom take more than one argument, this is also a good approximation for the number of times a
-     *  switch appeared on the command line. */
+    /** Returns the number of values for the specified key. This is the number of values actually stored for switches using
+     * this key, which might be fewer than the number of values parsed.  See Switch::whichValue. */
     size_t have(const std::string &switchKey) { return keyIndex_[switchKey].size(); }
 
     /** Returns values for a key.  This is the usual method for obtaining a value for a switch.  During parsing, the arguments
