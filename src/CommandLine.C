@@ -166,13 +166,6 @@ ParsedValue ValueParser::operator()(const char *s, const char **rest, const Loca
     throw std::runtime_error("subclass must implement an operator() with a cursor or C strings");
 }
 
-ParsedValue AnyParser::operator()(Cursor &cursor) {
-    Location startLoc = cursor.location();
-    std::string s = cursor.rest();
-    cursor.consumeChars(s.size());
-    return ParsedValue(s, startLoc, s, valueSaver());
-}
-
 ParsedValue StringSetParser::operator()(Cursor &cursor) {
     Location locStart = cursor.location();
     std::string input = cursor.rest();
@@ -258,14 +251,6 @@ ParsedValue ListParser::operator()(Cursor &cursor) {
 
     guard.cancel();
     return ParsedValue(values, startLoc, cursor.substr(startLoc), valueSaver());
-}
-
-AnyParser::Ptr anyParser(std::string &storage) {
-    return AnyParser::instance(TypedSaver<std::string>::instance(storage));
-}
-
-AnyParser::Ptr anyParser() {
-    return AnyParser::instance();
 }
 
 StringSetParser::Ptr stringSetParser(std::string &storage) {
@@ -757,7 +742,7 @@ size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*
         Location valueLocation = cursor.location();
         try {
             ParsedValue value = sa.parser()->match(cursor);
-            if (cursor.location() == valueLocation && sa.isRequired())
+            if (cursor.location() == valueLocation && sa.isRequired() && !cursor.atArgEnd())
                 throw std::runtime_error("not found");
             result.push_back(value);
             ++nValuesParsed;

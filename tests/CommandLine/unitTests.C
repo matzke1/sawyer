@@ -711,6 +711,56 @@ static void test19() {
     mustNotParse("--none is illegal here", p, "--none=1");
 }
 
+// Empty program arguments
+static void test20() {
+    std::string s;
+    int i = 0;
+    std::vector<std::string> v;
+    Parser p;
+    p.with(Switch("str", 's').argument("username", anyParser(s)));
+    p.with(Switch("int", 'i').argument("width", integerParser(i)));
+    p.with(Switch("vec", 'v').argument("vector", listParser(anyParser(v))));
+
+    mustParse(0, p, "");
+
+    mustParse(1, p, "--str=", "aaa");
+    ASSERT_require(s=="");
+
+    mustParse(2, p, "--str", "", "aaa");
+    ASSERT_require(s=="");
+
+    mustParse(2, p, "--str", "--", "aaa");
+    ASSERT_require(s=="--");
+
+    mustParse(2, p, "-s", "", "aaa");
+    ASSERT_require(s=="");
+
+    mustParse(2, p, "-s", "--", "aaa");
+    ASSERT_require(s=="--");
+
+    v.clear();
+    mustParse(1, p, "--vec=a,,b", "aaa");
+    ASSERT_require(3==v.size());
+    ASSERT_require(v[0]=="a");
+    ASSERT_require(v[1]=="");
+    ASSERT_require(v[2]=="b");
+
+    mustNotParse("required argument for --int is missing; for width: integer expected", p, "--int", "", "123");
+    mustNotParse("required argument for --int is missing; for width: integer expected", p, "--int=", "123");
+}
+
+// Using boost::lexical_cast via anyParser
+static void test21() {
+    Parser p;
+    short i = 0;
+    p.with(Switch("int", 'i').argument("arg1", anyParser(i)));
+
+    mustParse(1, p, "--int=123", "aaa");
+    ASSERT_require(i==123);
+
+    mustNotParse("bad lexical cast", p, "--int=123x", "aaa");
+}
+
 int main(int argc, char *argv[]) {
     test01();
     test02();
@@ -731,4 +781,8 @@ int main(int argc, char *argv[]) {
     test17();
     test18();
     test19();
+    test20();
+    test21();
+    std::cout <<"All tests passed\n";
+    return 0;
 }

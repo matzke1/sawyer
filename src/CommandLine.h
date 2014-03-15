@@ -627,8 +627,48 @@ private:
     /** @} */
 };
 
-/** Parses any argument as plain text. Returns a ParsedValue containing an <code>std::string</code> value.
+// used internally to convert from one type to another via boost::lexical_cast or throw a runtime_error with a decent message.
+template<typename T>
+struct LexicalCast {
+    static T convert(const std::string &src) {
+        try {
+            return boost::lexical_cast<T>(src);
+        } catch (const boost::bad_lexical_cast &e) {
+            throw std::runtime_error(e.what());
+        }
+    }
+};
+template<typename T>
+struct LexicalCast<std::vector<T> > {
+    static T convert(const std::string &src) {
+        return LexicalCast<T>::convert(src);
+    }
+};
+
+/** Parses any argument as plain text.
+ *
+ *  This parser consumes the entire following string and then attempts to convert it to type T, or throw an
+ *  <code>std::runtime_error</code>. This differs from most other parsers which consume only those characters they recognize.
+ *  For instance:
+ *
+ * @code
+ *  int i;
+ *  anyParser(i);
+ *  integerParser(i);
+ * @endcode
+ *
+ *  The <code>anyParser(i)</code> will throw an error for a command line like <code>-n123x</code>, but the
+ *  <code>integerParser(i)</code> will consume only the "123" and leave "x" alone (which is presumably the "-x" nestled short
+ *  switch).  The <code>integerParser</code> will also provide more informative error messages for overflows.
+ *
+ *  This parser is primarily intended for parsing arbitrary strings as <code>std::string</code>, and uses that type when no
+ *  other type is provided by template argument or constructor argument.
+ *
+ *  The <code>boost::lexical_cast</code> package is used for the conversion, but <code>boost::bad_lexical_cast</code>
+ *  exceptions are caught and rethrown as <code>std::runtime_error</code> as required by the ValueParser interface.
+ *
  * @sa @ref anyParser factory method, and @ref parser_factories */
+template<typename T>
 class AnyParser: public ValueParser {
 protected:
     /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
@@ -650,7 +690,12 @@ public:
      * @sa parser_factories */
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new AnyParser(valueSaver)); }
 private:
-    virtual ParsedValue operator()(Cursor&) /*override*/;
+    virtual ParsedValue operator()(Cursor &cursor) /*override*/ {
+        Location startLoc = cursor.location();
+        std::string s = cursor.rest();
+        cursor.consumeChars(s.size());
+        return ParsedValue(LexicalCast<T>::convert(s), startLoc, s, valueSaver());
+    }
 };
 
 // used internally to cast one numeric type to another and throw a range_error with a decent message.
@@ -1061,8 +1106,18 @@ private:
  * @li @ref ValueParser base class
  * @li Documentation for the returned class
  * @{ */
-AnyParser::Ptr anyParser(std::string &storage);
-AnyParser::Ptr anyParser();
+template<typename T>
+typename AnyParser<T>::Ptr anyParser(T &storage) {
+    return AnyParser<T>::instance(TypedSaver<T>::instance(storage));
+}
+template<typename T>
+typename AnyParser<T>::Ptr anyParser() {
+    return AnyParser<T>::instance();
+}
+AnyParser<std::string>::Ptr anyParser() {
+    return AnyParser<std::string>::instance();
+}
+
 
 template<typename T>
 typename IntegerParser<T>::Ptr integerParser(T &storage) {
