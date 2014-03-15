@@ -79,7 +79,7 @@ namespace ProgressBarSettings {
  * @endcode
  *
  *  The progress bar is created with a name and capacity. As the progress bar is incremented the bar will increase.  Messages
- *  printed while the progress bar is active do not interfere with the progress bar. When the progress bar object is destructed
+ *  printed while the progress bar is active do not interfere with the progress bar. When the progress bar object is destroyed
  *  the progress bar disappears. */
 template<typename T>
 class ProgressBar {

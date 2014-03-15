@@ -1069,7 +1069,7 @@ private:
  *  ValueParser::Ptr parser2 = integerParser(storage);
  * @endcode
  *
- *  Most parser factories come in two varieties, and some in three varieties:
+ *  Most parser factories come in three varieties:
  *
  *  @li A factory that takes no function or template arguments creates a parser that uses a specific, hard-coded C++ type
  *      to represent its value and does not attempt to copy the parsed value to a user-specified storage location. The value,
@@ -1079,7 +1079,8 @@ private:
  *      stored only in the ParserResult.
  *  @li A factory that takes a function argument that is an L-value (and an inferred template argument) creates a parser that
  *      uses the inferred type to represent its value and also stores that value in the user-supplied location when
- *      ParserResult::apply is called.
+ *      ParserResult::apply is called.  If the L-value is an <code>std::vector</code> then parsed values are pushed onto the
+ *      back of the the vector.
  *
  *  The @ref integerParser factory is an example for all three of these varieties:
  *
@@ -1088,6 +1089,8 @@ private:
  *  integerParser<short>()  // saves a short value in ParserResult
  *  long result;
  *  integerParser(result);  // saves a long value in ParserResult and in result
+ *  std::vector<int> results;
+ *  integerParser(results); // saves more than one integer
  * @endcode
  *
  * @section factories Factories
