@@ -109,7 +109,7 @@ namespace Sawyer { // documented in Sawyer.h
  *      standard.insert(Switch("verbose", 'v')
  *                      .intrinsicValue("true", booleanParser(verbosity)));
  *      standard.insert(Switch("quiet", 'q')
- *                      .intrinsicValue("false", booleanParser(verbosity)));
+ *                      .intrinsicValue(false, verbosity)); // a shortcut
  *
  *      short debugLevel = 0;
  *      standard.insert(Switch("debug", 'd')
@@ -1836,10 +1836,48 @@ public:
      *  switch.  For instance, <code>-\-laconic</code> and <code>-\-effusive</code> might be two switches that use the same key
      *  "verbosity" and have intrinsic values of "1" and "2" as integers (or even @c LACONIC and @c EFFUSIVE as enums).
      *
+     *  Intrinsic values can either be supplied as a string and a parser, or as the value itself.  If a value is supplied
+     *  directly, then it must have a printing operator (<code>operator<<(std::ostream, const T&)</code>) so that its
+     *  string representation can be returned if the user asks the ParserResult for it.
+     *
      *  If a switch has at least one declared argument then this property is not consulted, even if that argument is optional
      *  and missing (in which case that argument's default value is used).
+     *
+     *  Some examples:
+     *
+     * @code
+     *  bool b1, b2;
+     *  Switch("bool1").intrinsicValue("true", booleanParser(b1));
+     *  Switch("bool2").intrinsicValue(true, b2);
+     *
+     *  int i1, i2;
+     *  Switch("int1").intrinsicValue("123", integerParser(i1));
+     *  Switch("int2").intrinsicValue(123, i2);
+     *
+     *  std::string s1, s2;
+     *  Switch("str1").intrinsicValue("hello world", anyParser(s1));
+     *  Switch("str2").intrinsicValue(std::string("hello world"), s2);
+     * @endcode
      * @{ */
-    Switch& intrinsicValue(const std::string &text, const ValueParser::Ptr &p = anyParser());
+    template<typename T>
+    Switch& intrinsicValue(const T &value, T &storage) {
+        intrinsicValue_ = ParsedValue(value, NOWHERE, boost::lexical_cast<std::string>(value), TypedSaver<T>::instance(storage));
+        return *this;
+    }
+    Switch& intrinsicValue(const char *value, std::string &storage) {
+        intrinsicValue_ = ParsedValue(std::string(value), NOWHERE, value, TypedSaver<std::string>::instance(storage));
+        return *this;
+    }
+    Switch& intrinsicValue(const std::string &text, const ValueParser::Ptr &p) {
+        intrinsicValue_ = p->matchString(text);
+        intrinsicValue_.valueLocation(NOWHERE);
+        return *this;
+    }
+    Switch& intrinsicValue(const std::string &text) {
+        intrinsicValue_ = anyParser()->matchString(text);
+        intrinsicValue_.valueLocation(NOWHERE);
+        return *this;
+    }
     Switch& intrinsicValue(const ParsedValue &value) { intrinsicValue_ = value; return *this; }
     ParsedValue intrinsicValue() const { return intrinsicValue_; }
     /** @} */
@@ -2008,7 +2046,6 @@ private:
     /** @internal Return synopsis markup for a single argument. */
     std::string synopsisForArgument(const SwitchArgument&) const;
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Switch groups

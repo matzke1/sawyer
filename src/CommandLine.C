@@ -578,12 +578,6 @@ Switch& Switch::argument(const std::string &name, const ValueParser::Ptr &parser
     return argument(SwitchArgument(name, parser, defaultValueStr));
 }
 
-Switch& Switch::intrinsicValue(const std::string &text, const ValueParser::Ptr &p) {
-    intrinsicValue_ = p->matchString(text);
-    intrinsicValue_.valueLocation(NOWHERE);
-    return *this;
-}
-
 size_t Switch::nRequiredArguments() const {
     size_t retval = 0;
     BOOST_FOREACH (const SwitchArgument &sa, arguments_) {
