@@ -149,8 +149,8 @@ static void test06() {
     mustNotParse("unrecognized switch", p, "-log");
 }
 
-// Saving intrinsic values
-static void test07() {
+// Saving intrinsic values using a parser
+static void test07a() {
     bool b;
     int i;
     double d;
@@ -179,6 +179,51 @@ static void test07() {
     ASSERT_require(b==false);
     ASSERT_require(i==0);
     ASSERT_require(d!=0);
+
+    d = i = b = 0;
+    mustParse(3, p, "--int", "--bool", "--dbl");
+    ASSERT_require(b==true);
+    ASSERT_require(i==1);
+    ASSERT_require(d!=0);
+}
+
+// Saving intrinsic values without a parser
+static void test07b() {
+    bool b;
+    int i;
+    double d;
+    std::string s;
+    Parser p;
+    p.with(Switch("bool")
+           .intrinsicValue(true, b));
+    p.with(Switch("int")
+           .intrinsicValue(1, i));
+    p.with(Switch("dbl")
+           .intrinsicValue(3.14, d));
+    p.with(Switch("str")
+           .intrinsicValue("hello", s));
+
+    d = i = b = 0;
+    mustParse(1, p, "--bool");
+    ASSERT_require(b==true);
+    ASSERT_require(i==0);
+    ASSERT_require(d==0);
+
+    d = i = b = 0;
+    mustParse(1, p, "--int");
+    ASSERT_require(b==false);
+    ASSERT_require(i==1);
+    ASSERT_require(d==0);
+
+    d = i = b = 0;
+    mustParse(1, p, "--dbl");
+    ASSERT_require(b==false);
+    ASSERT_require(i==0);
+    ASSERT_require(d!=0);
+
+    s = "";
+    mustParse(1, p, "--str");
+    ASSERT_require(s=="hello");
 
     d = i = b = 0;
     mustParse(3, p, "--int", "--bool", "--dbl");
@@ -761,6 +806,43 @@ static void test21() {
     mustNotParse("bad lexical cast", p, "--int=123x", "aaa");
 }
 
+// Saving user-defined intrinsic values without a parser
+class UserDef1 {
+    int i;
+    std::string s;
+public:
+    UserDef1(): i(0) {}
+    UserDef1(int i, const std::string &s): i(i), s(s){}
+    bool operator==(const UserDef1 &other) const {
+        return i==other.i && s==other.s;
+    }
+    friend std::ostream& operator<<(std::ostream &o, const UserDef1 &u) {
+        o <<"{" <<u.i <<"," <<u.s <<"}";
+        return o;
+    }
+};
+
+
+static void test22() {
+    Parser p;
+    UserDef1 v1, v2;
+    p.with(Switch("v1")
+           .intrinsicValue(UserDef1(1, "one"), v1));
+    p.with(Switch("v2")
+           .intrinsicValue(UserDef1(2, "two"), v2));
+
+    ASSERT_require(v1==UserDef1());
+    ASSERT_require(v2==UserDef1());
+
+    mustParse(1, p, "--v1", "aaa");
+    ASSERT_require(v1==UserDef1(1, "one"));
+    ASSERT_require(v2==UserDef1());
+
+    mustParse(2, p, "--v1", "--v2");
+    ASSERT_require(v1==UserDef1(1, "one"));
+    ASSERT_require(v2==UserDef1(2, "two"));
+}
+
 int main(int argc, char *argv[]) {
     test01();
     test02();
@@ -768,7 +850,8 @@ int main(int argc, char *argv[]) {
     test04();
     test05();
     test06();
-    test07();
+    test07a();
+    test07b();
     test08();
     test09();
     test10();
@@ -783,6 +866,7 @@ int main(int argc, char *argv[]) {
     test19();
     test20();
     test21();
+    test22();
     std::cout <<"All tests passed\n";
     return 0;
 }
