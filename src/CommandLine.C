@@ -613,15 +613,29 @@ std::runtime_error Switch::noSeparator(const std::string &switchString, const Cu
 }
 
 std::runtime_error Switch::extraTextAfterSwitch(const std::string &switchString, const Location &endOfSwitch,
-                                                const Cursor &cursor, const ParsingProperties &props) const {
+                                                const Cursor &cursor, const ParsingProperties &props,
+                                                const ParsedValues &values) const {
+
+    std::string extraText = cursor.rest();
+    if (!values.empty()) {
+        if (extraText.empty()) {
+            return std::runtime_error("unexpected empty-string argument after " + switchString +
+                                      " default argument \"" + values.back().string() + "\"");
+        } else {
+            return std::runtime_error("extra text after " + switchString + " default argument \"" +
+                                      values.back().string() + "\"; extra text is \"" + extraText + "\"");
+        }
+    }
+    
+
     BOOST_FOREACH (std::string sep, props.valueSeparators) {
         if (0!=sep.compare(" ")) {
-            if (boost::starts_with(cursor.rest(), sep))
+            if (boost::starts_with(cursor.rest(endOfSwitch), sep))
                 return std::runtime_error("unexpected argument for " + switchString);
         }
     }
 
-    return std::runtime_error("unrecognized switch " + switchString + cursor.substr(endOfSwitch) + cursor.rest());
+    return std::runtime_error("unrecognized switch " + switchString + cursor.substr(endOfSwitch) + extraText);
 }
 
 std::runtime_error Switch::extraTextAfterArgument(const Cursor &cursor, const ParsedValue &value) const {
@@ -741,15 +755,14 @@ size_t Switch::matchArguments(const std::string &switchString, const Location &e
         try {
             ParsedValue value = sa.parser()->match(cursor);
             parsedValues.push_back(value);
-            ++nValuesParsed;
-            lastParsedArgument = &sa;
-            lastParsedValue = value;
-
             if (cursor.atArgEnd()) {
                 cursor.consumeArg();
             } else if (finalAlignment || argno>0) {
                 throw extraTextAfterArgument(cursor, value);
             }
+            ++nValuesParsed;
+            lastParsedArgument = &sa;
+            lastParsedValue = value;
         } catch (const std::runtime_error &e) {
             if (sa.isRequired()) {
                 throw cursor.location()==valueLocation ?
@@ -769,7 +782,7 @@ size_t Switch::matchArguments(const std::string &switchString, const Location &e
         if (lastParsedArgument) {
             throw extraTextAfterArgument(cursor, lastParsedValue);
         } else {
-            throw extraTextAfterSwitch(switchString, endOfSwitch, cursor, props);
+            throw extraTextAfterSwitch(switchString, endOfSwitch, cursor, props, parsedValues);
         }
     }
 
@@ -787,7 +800,7 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
     // If the switch has no declared arguments use its intrinsic value.
     if (arguments_.empty()) {
         if (!cursor.atArgEnd())
-            throw extraTextAfterSwitch(switchString, cursor.location(), cursor, props);
+            throw extraTextAfterSwitch(switchString, cursor.location(), cursor, props, result);
         result.push_back(intrinsicValue_);
         cursor.consumeArg();
         guard.cancel();
@@ -830,7 +843,7 @@ void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor
         if (cursor.atArgEnd()) {
             cursor.consumeArg();
         } else if (!mayNestle) {
-            throw extraTextAfterSwitch(switchString, guard.startingLocation(), cursor, props);
+            throw extraTextAfterSwitch(switchString, guard.startingLocation(), cursor, props, result);
         }
         result.push_back(intrinsicValue_);
         guard.cancel();

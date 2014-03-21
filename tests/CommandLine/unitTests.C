@@ -3,11 +3,20 @@
 
 using namespace Sawyer::CommandLine;
 
-static void mustParse(size_t nParsed, Parser &p, const std::vector<std::string> &args) {
-    std::cout <<"command line:";
-    BOOST_FOREACH (const std::string arg, args)
-        std::cout <<" " <<arg;
+static void showCommandLine(const std::vector<std::string> &args) {
+    std::cout <<"  command line:";
+    BOOST_FOREACH (const std::string arg, args) {
+        if (arg.empty()) {
+            std::cout <<" \"\"";
+        } else {
+            std::cout <<" " <<arg;
+        }
+    }
     std::cout <<"\n";
+}
+
+static void mustParse(size_t nParsed, Parser &p, const std::vector<std::string> &args) {
+    showCommandLine(args);
     ParserResult pr = p.parse(args);
     ASSERT_require2(pr.parsedArgs().size()==nParsed,
                     "must have parsed exactly " + boost::lexical_cast<std::string>(nParsed) +
@@ -38,10 +47,7 @@ static void mustParse(size_t nParsed, Parser &p, const std::string &a1, const st
 }
 
 static void mustNotParse(const std::string &errmesg, Parser &p, const std::vector<std::string> &args) {
-    std::cout <<"command line:";
-    BOOST_FOREACH (const std::string arg, args)
-        std::cout <<" " <<arg;
-    std::cout <<"\n";
+    showCommandLine(args);
     try {
         p.parse(args);
         ASSERT_not_reachable("parser should have failed but didn't");
@@ -82,6 +88,7 @@ static void mustNotParse(const std::string &errmesg, Parser &p, const std::strin
 
 // Most basic switch possible
 static void test01() {
+    std::cerr <<"test01: most basic switch possible\n";
     Parser p;
     p.with(Switch("sw"));
     mustParse(0, p);
@@ -95,6 +102,7 @@ static void test01() {
 
 // Short names
 static void test02() {
+    std::cerr <<"test02: short names\n";
     Parser p;
     p.with(Switch("", 's'));
     mustParse(1, p, "-s");
@@ -105,6 +113,7 @@ static void test02() {
 
 // Long and short names are the same
 static void test03() {
+    std::cerr <<"test03: long and short names are the same\n";
     Parser p;
     p.with(Switch("s", 's'));
     mustParse(1, p, "--s");
@@ -113,6 +122,7 @@ static void test03() {
 
 // Multiple long names
 static void test04() {
+    std::cerr <<"test04: multiple long names\n";
     Parser p;
     p.with(Switch("gray", 'g')
            .longName("grey")
@@ -128,6 +138,7 @@ static void test04() {
 
 // Reset long prefixes
 static void test05() {
+    std::cerr <<"test05: reset long prefixes\n";
     Parser p;
     p.with(Switch("log", 'l')
            .resetLongPrefixes("-rose:"));
@@ -140,6 +151,7 @@ static void test05() {
 
 // Additional long prefixes
 static void test06() {
+    std::cerr <<"test06: additional long prefixes\n";
     Parser p;
     p.with(Switch("log", 'l')
            .longPrefix("-rose:"));
@@ -151,6 +163,7 @@ static void test06() {
 
 // Saving intrinsic values using a parser
 static void test07a() {
+    std::cerr <<"test07a: saving intrinsic values using a parser\n";
     bool b;
     int i;
     double d;
@@ -189,6 +202,7 @@ static void test07a() {
 
 // Saving intrinsic values without a parser
 static void test07b() {
+    std::cerr <<"test07b: saving intrinsic values without a parser\n";
     bool b;
     int i;
     double d;
@@ -234,6 +248,7 @@ static void test07b() {
 
 // Required argument
 static void test08() {
+    std::cerr <<"test08: required argument\n";
     Parser p;
     p.with(Switch("sw", 's')
            .argument("arg1"));
@@ -247,6 +262,7 @@ static void test08() {
 
 // Required argument that is saved
 static void test09() {
+    std::cerr <<"test09: required argument that is saved\n";
     std::string arg;
     Parser p;
     p.with(Switch("any", 'a')
@@ -270,6 +286,7 @@ static void test09() {
 
 // Integer parser
 static void test10() {
+    std::cerr <<"test10: integer parser\n";
     int si;
     short ss;
     unsigned int ui;
@@ -394,6 +411,7 @@ static void test10() {
 
 // non-negative integer parser
 static void test11() {
+    std::cerr <<"test11: non-negative integer parser\n";
     int si;
     short ss;
     unsigned int ui;
@@ -501,6 +519,7 @@ static void test11() {
 
 // Boolean parser
 static void test12() {
+    std::cerr <<"test12: Boolean parser\n";
     bool b1=false, b2=false;
     Parser p;
     p.with(Switch("first", 'f').argument("boolean", booleanParser(b1)));
@@ -547,6 +566,7 @@ static void test12() {
 
 // String set parser
 static void test13() {
+    std::cerr <<"test13: string set parser\n";
     std::string s;
     Parser p;
     p.with(Switch("bkg", 'd')
@@ -574,6 +594,7 @@ static void test13() {
 // Enum parser
 enum TestColor { RED, REDDISH, ISH };
 static void test14() {
+    std::cerr <<"test14: enum parser\n";
     TestColor s;
     Parser p;
     p.with(Switch("bkg", 'd')
@@ -600,6 +621,7 @@ static void test14() {
 
 // List parser
 static void test15() {
+    std::cerr <<"test15: list parser\n";
     int v1, v2;
     std::string s1, s2;
     Parser p;
@@ -628,6 +650,7 @@ static void test15() {
 
 // Optional argument
 static void test16() {
+    std::cerr <<"test16: optional argument\n";
     int width = 0;
     Parser p;
     p.with(Switch("width", 'w')
@@ -655,7 +678,7 @@ static void test16() {
     ASSERT_require(width==40);
 
     width = 0;
-    mustNotParse("unrecognized switch --width=", p, "--width=");
+    mustNotParse("unexpected empty-string argument after --width default argument", p, "--width=");
     ASSERT_require(width==0);
 
     width = 0;
@@ -665,6 +688,7 @@ static void test16() {
 
 // Value separators
 static void test17() {
+    std::cerr <<"test17: value separators\n";
     int height = 0;
     Parser p;
     p.with(Switch("height", '1')
@@ -689,6 +713,7 @@ static void test17() {
 
 // Multiple arguments
 static void test18() {
+    std::cerr <<"test18: multiple arguments\n";
     int v1=0, v2=0;
     Parser p;
     p.with(Switch("swap", 'S')
@@ -709,6 +734,7 @@ static void test18() {
 
 // Capturing values for all occurrences
 static void test19() {
+    std::cerr <<"test19: capturing values for all occurrences\n";
     std::vector<int> v1;
     Parser p;
     p.with(Switch("first")
@@ -758,6 +784,7 @@ static void test19() {
 
 // Empty program arguments
 static void test20() {
+    std::cerr <<"test20: empty program arguments\n";
     std::string s;
     int i = 0;
     std::vector<std::string> v;
@@ -796,6 +823,7 @@ static void test20() {
 
 // Using boost::lexical_cast via anyParser
 static void test21() {
+    std::cerr <<"test21: using boost::lexical cast via anyParser\n";
     Parser p;
     short i = 0;
     p.with(Switch("int", 'i').argument("arg1", anyParser(i)));
@@ -822,8 +850,8 @@ public:
     }
 };
 
-
 static void test22() {
+    std::cerr <<"test22: saving user-defined intrinsic values without a parser\n";
     Parser p;
     UserDef1 v1, v2;
     p.with(Switch("v1")

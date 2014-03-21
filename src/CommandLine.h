@@ -691,6 +691,8 @@ public:
     static Ptr instance(const ValueSaver::Ptr &valueSaver) { return Ptr(new AnyParser(valueSaver)); }
 private:
     virtual ParsedValue operator()(Cursor &cursor) /*override*/ {
+        if (cursor.atEnd())
+            throw std::runtime_error("string expected");
         Location startLoc = cursor.location();
         std::string s = cursor.rest();
         cursor.consumeChars(s.size());
@@ -1987,7 +1989,7 @@ private:
 
     /** @internal Constructs an error describing extra text that appears after a switch. */
     std::runtime_error extraTextAfterSwitch(const std::string &switchString, const Location &endOfSwitch, const Cursor&,
-                                            const ParsingProperties&) const;
+                                            const ParsingProperties&, const ParsedValues&) const;
 
     /** @internal Constructs an exception describing that there is unexpected extra text after a switch argument. */
     std::runtime_error extraTextAfterArgument(const Cursor&, const ParsedValue &va) const;
