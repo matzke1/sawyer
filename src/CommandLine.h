@@ -276,8 +276,8 @@ public:
      *  specified locations rather than this cursor's current location.  The @p separator string is inserted between text that
      *  comes from two different strings. @sa linearDistance
      * @{ */
-    std::string substr(const Location &limit, const std::string &separator=" ") { return substr(loc_, limit, separator); }
-    std::string substr(const Location &limit1, const Location &limit2, const std::string &separator=" ");
+    std::string substr(const Location &limit, const std::string &separator=" ") const { return substr(loc_, limit, separator); }
+    std::string substr(const Location &limit1, const Location &limit2, const std::string &separator=" ") const;
     /** @} */
 
     /** Replace the current string with new strings.  Repositions the cursor to the beginning of the first inserted
@@ -1986,7 +1986,8 @@ private:
     std::runtime_error noSeparator(const std::string &switchString, const Cursor&, const ParsingProperties&) const;
 
     /** @internal Constructs an error describing extra text that appears after a switch. */
-    std::runtime_error extraTextAfterSwitch(const std::string &switchString, const Cursor&, const ParsingProperties&) const;
+    std::runtime_error extraTextAfterSwitch(const std::string &switchString, const Location &endOfSwitch, const Cursor&,
+                                            const ParsingProperties&) const;
 
     /** @internal Constructs an exception describing that there is unexpected extra text after a switch argument. */
     std::runtime_error extraTextAfterArgument(const Cursor&, const ParsedValue &va) const;
@@ -2040,8 +2041,8 @@ private:
      *  at the character following the last argument.  The return value is the number of switch arguments parsed from the
      *  command-line and doesn't count switch arguments that came from argument default values. On failure, an
      *  <code>std::runtime_error</code> is thrown and the cursor is not adjusted. */
-    size_t matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
-                          ParsedValues &result /*out*/, bool isLongSwitch) const;
+    size_t matchArguments(const std::string &switchString, const Location &endOfSwitch, Cursor &cursor /*in,out*/,
+                          const ParsingProperties &props, ParsedValues &result /*out*/, bool isLongSwitch) const;
 
     /** @internal Return synopsis markup for a single argument. */
     std::string synopsisForArgument(const SwitchArgument&) const;
@@ -2072,7 +2073,16 @@ private:
 class SwitchGroup {
     std::vector<Switch> switches_;
     ParsingProperties properties_;
+    std::string name_;
 public:
+    /** Construct an unnamed group. */
+    SwitchGroup() {}
+
+    /** Construct a named group.  Naming a group prevents its switches from being globally sorted with other groups when the
+     *  documentation is produced.  The @p name will appear as the name of a subsection for the switches and should be
+     *  capitalized like a title (initial capital letters). */
+    explicit SwitchGroup(const std::string &name): name_(name) {}
+
     /** @copydoc Switch::resetLongPrefixes
      * @{ */
     SwitchGroup& resetLongPrefixes(const std::string &s1=STR_NONE, const std::string &s2=STR_NONE,

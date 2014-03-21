@@ -60,7 +60,7 @@ std::string Cursor::rest(const Location &location) const {
             std::string());
 }
 
-std::string Cursor::substr(const Location &limit1, const Location &limit2, const std::string &separator) {
+std::string Cursor::substr(const Location &limit1, const Location &limit2, const std::string &separator) const {
     std::string retval;
     Location begin = limit1, end = limit2;
     if (end < begin)
@@ -612,8 +612,8 @@ std::runtime_error Switch::noSeparator(const std::string &switchString, const Cu
     return std::runtime_error(s);
 }
 
-std::runtime_error Switch::extraTextAfterSwitch(const std::string &switchString, const Cursor &cursor,
-                                                const ParsingProperties &props) const {
+std::runtime_error Switch::extraTextAfterSwitch(const std::string &switchString, const Location &endOfSwitch,
+                                                const Cursor &cursor, const ParsingProperties &props) const {
     BOOST_FOREACH (std::string sep, props.valueSeparators) {
         if (0!=sep.compare(" ")) {
             if (boost::starts_with(cursor.rest(), sep))
@@ -621,7 +621,7 @@ std::runtime_error Switch::extraTextAfterSwitch(const std::string &switchString,
         }
     }
 
-    return std::runtime_error("unrecognized switch " + switchString + cursor.rest());
+    return std::runtime_error("unrecognized switch " + switchString + cursor.substr(endOfSwitch) + cursor.rest());
 }
 
 std::runtime_error Switch::extraTextAfterArgument(const Cursor &cursor, const ParsedValue &value) const {
@@ -721,54 +721,61 @@ bool Switch::explode(ParsedValues &pvals /*in,out*/) const {
 }
 
 // cursor is initially at the first character of the first switch argument
-size_t Switch::matchArguments(const std::string &switchString, Cursor &cursor /*in,out*/, const ParsingProperties &props,
-                              ParsedValues &result /*out*/, bool finalAlignment) const {
+size_t Switch::matchArguments(const std::string &switchString, const Location &endOfSwitch, Cursor &cursor /*in,out*/,
+                              const ParsingProperties &props, ParsedValues &result /*out*/, bool finalAlignment) const {
     ASSERT_forbid(arguments_.empty());
 
+    ParsedValues parsedValues;
     ExcursionGuard guard(cursor);
     size_t nValuesParsed = 0;
     size_t switchIdx = cursor.location().idx;           // which program argument holds the switch name
     if (switchIdx>0 && (cursor.atArgBegin() || cursor.atEnd()))
         --switchIdx;
 
-    BOOST_FOREACH (const SwitchArgument &sa, arguments_) {
-        // Parse the argument value if possible, otherwise use a default if allowed
+    // Parse arguments, or use defaults if allowed.
+    const SwitchArgument *lastParsedArgument = NULL;
+    ParsedValue lastParsedValue;
+    for (size_t argno=0; argno<arguments_.size(); ++argno) {
+        const SwitchArgument &sa = arguments_[argno];
         Location valueLocation = cursor.location();
         try {
             ParsedValue value = sa.parser()->match(cursor);
-            if (cursor.location() == valueLocation && sa.isRequired() && !cursor.atArgEnd())
-                throw std::runtime_error("not found");
-            result.push_back(value);
+            parsedValues.push_back(value);
             ++nValuesParsed;
-            if (finalAlignment && !cursor.atArgEnd())
-                throw extraTextAfterArgument(cursor, value);
+            lastParsedArgument = &sa;
+            lastParsedValue = value;
+
             if (cursor.atArgEnd()) {
                 cursor.consumeArg();
-                finalAlignment = true; // 2nd and later args of nestled switches need to have final alignment
+            } else if (finalAlignment || argno>0) {
+                throw extraTextAfterArgument(cursor, value);
             }
         } catch (const std::runtime_error &e) {
             if (sa.isRequired()) {
-                if (cursor.location()==valueLocation)
-                    throw missingArgument(switchString, cursor, sa, e.what());
-                throw malformedArgument(switchString, cursor, sa, e.what());
+                throw cursor.location()==valueLocation ?
+                    missingArgument(switchString, cursor, sa, e.what()) :
+                    malformedArgument(switchString, cursor, sa, e.what());
             }
-            result.push_back(sa.defaultValue());
+            cursor.location(valueLocation);
+            parsedValues.push_back(sa.defaultValue());
         }
     }
 
-    // Post conditions
-    if (nValuesParsed < nRequiredArguments())
-        throw notEnoughArguments(switchString, cursor, nValuesParsed);
-    if (0==nValuesParsed && finalAlignment && cursor.location().idx==switchIdx) {
-        if (cursor.atArgEnd()) {
-            cursor.consumeArg();                        // like "--switch=" (with nothing after the '=')
+    // Regardless of whether we parsed arguments, we need to check final alignment.  However, if the last value was a parsed
+    // value from the loop above (as opposed to a default value) then we've already checked this and advanced to the next
+    // program argument.
+    bool lastArgWasParsed = !parsedValues.empty() && NOWHERE!=parsedValues.back().valueLocation();
+    if (finalAlignment && !lastArgWasParsed && !cursor.atArgBegin() && !cursor.atEnd()) {
+        if (lastParsedArgument) {
+            throw extraTextAfterArgument(cursor, lastParsedValue);
         } else {
-            throw extraTextAfterSwitch(switchString, cursor, props); // like "--switch=x" but "x" never consumed
+            throw extraTextAfterSwitch(switchString, endOfSwitch, cursor, props);
         }
     }
 
     explode(result);
     guard.cancel();
+    result.insert(result.end(), parsedValues.begin(), parsedValues.end());
     return nValuesParsed;
 }
 
@@ -780,7 +787,7 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
     // If the switch has no declared arguments use its intrinsic value.
     if (arguments_.empty()) {
         if (!cursor.atArgEnd())
-            throw extraTextAfterSwitch(switchString, cursor, props);
+            throw extraTextAfterSwitch(switchString, cursor.location(), cursor, props);
         result.push_back(intrinsicValue_);
         cursor.consumeArg();
         guard.cancel();
@@ -788,10 +795,11 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
     }
 
     // Try to match the name/value separator.  Advance the cursor to the first character of the first value.
-    bool matchedSeparator = false;
+    Location endOfSwitch = cursor.location();
+    bool didMatchSeparator = false;
     if (cursor.atArgEnd()) {
         if (matchAnyString(props.valueSeparators, " ")) {
-            matchedSeparator = true;
+            didMatchSeparator = true;
             cursor.consumeArg();
         }
     } else {
@@ -799,16 +807,16 @@ void Switch::matchLongArguments(const std::string &switchString, Cursor &cursor 
         BOOST_FOREACH (const std::string &sep, props.valueSeparators) {
             if (boost::starts_with(s, sep)) {
                 cursor.consumeChars(sep.size());
-                matchedSeparator = true;
+                didMatchSeparator = true;
                 break;
             }
         }
     }
-    if ((!matchedSeparator || cursor.atEnd()) && nRequiredArguments()>0)
+    if ((!didMatchSeparator || cursor.atEnd()) && nRequiredArguments()>0)
         throw noSeparator(switchString, cursor, props);
 
     // Parse the arguments for this switch now that we've consumed the prefix, switch name, and argument separators.
-    matchArguments(switchString, cursor, props, result /*out*/, true /*finalAlignment*/);
+    matchArguments(switchString, endOfSwitch, cursor, props, result /*out*/, true /*finalAlignment*/);
     guard.cancel();
 }
 
@@ -822,7 +830,7 @@ void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor
         if (cursor.atArgEnd()) {
             cursor.consumeArg();
         } else if (!mayNestle) {
-            throw extraTextAfterSwitch(switchString, cursor, props);
+            throw extraTextAfterSwitch(switchString, guard.startingLocation(), cursor, props);
         }
         result.push_back(intrinsicValue_);
         guard.cancel();
@@ -837,7 +845,7 @@ void Switch::matchShortArguments(const std::string &switchString, Cursor &cursor
     }
 
     // Parse the arguments for this switch.
-    matchArguments(switchString, cursor, props, result /*out*/, finalAlignment);
+    matchArguments(switchString, guard.startingLocation(), cursor, props, result /*out*/, finalAlignment);
     guard.cancel();
 }
 
@@ -1345,7 +1353,7 @@ const Switch* Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues
                     try {
                         ParsedValues pvals;
                         sw.matchLongArguments(switchString, cursor, swProps, pvals /*out*/);
-                        ASSERT_require(cursor.atArgBegin() || cursor.atEnd());
+                        ASSERT_require2(cursor.atArgBegin() || cursor.atEnd(), "invalid cursor position after long arguments");
                         BOOST_FOREACH (ParsedValue &pv, pvals)
                             pv.switchInfo(sw.key(), switchLocation, switchString);
                         parsedValues.insert(parsedValues.end(), pvals.begin(), pvals.end()); // may throw

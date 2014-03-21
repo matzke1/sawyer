@@ -654,9 +654,9 @@ static void test16() {
     mustParse(1, p, "-w30w40", "41");
     ASSERT_require(width==40);
 
-    // FIXME[Robb Matzke 2014-03-08]: this should be an error because it looks like an explicit switch
-    // argument whose value is the empty string.
-    mustParse(1, p, "--width=");
+    width = 0;
+    mustNotParse("unrecognized switch --width=", p, "--width=");
+    ASSERT_require(width==0);
 
     width = 0;
     mustNotParse("unrecognized switch: -w80x", p, "-w80x");
