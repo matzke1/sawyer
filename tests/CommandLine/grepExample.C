@@ -323,14 +323,14 @@ int main(int argc, char *argv[]) {
     // Build the parser
     Parser parser;
     parser
-        .with(generic,          "0")                    // The strings force an order for the documentation. They can
-        .with(matcher,          "1")                    // be anything you like and are sorted alphabetically.
-        .with(control,          "2")
-        .with(output,           "3")
-        .with(prefix,           "4")
-        .with(context,          "5")
-        .with(selection,        "6")
-        .with(misc,             "7");
+        .with(generic)
+        .with(matcher)
+        .with(control)
+        .with(output)
+        .with(prefix)
+        .with(context)
+        .with(selection)
+        .with(misc);
 
     // Add some top-level documentation.
     parser

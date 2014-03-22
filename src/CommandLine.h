@@ -156,6 +156,19 @@ class Switch;
 class Parser;
 class ParserResult;
 
+/** The order in which things are sorted in the documentation. */
+enum SortOrder {
+    INSERTION_ORDER,                                    /**< Entities appear in the documentation in the same order they
+                                                         *   are inserted into the container.  For instance, manual page
+                                                         *   sections will appear in the order of the Parser::doc calls, or
+                                                         *   switches are sorted within a switch group according to the order
+                                                         *   they were inserted into the group. */
+    DOCKEY_ORDER,                                       /**< Entities are sorted according to their documentation keys.
+                                                         *   Documentation keys, which default to lower-case entity names, are
+                                                         *   used to sort the entities within their container. This is the
+                                                         *   default. */
+};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Program argument cursor
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2196,13 +2209,14 @@ class Parser {
     StringStringMap sectionOrder_;                      /**< Maps section keys to section names. */
     Message::SProxy errorStream_;                       /**< Send errors here and exit instead of throwing runtime_error. */
     boost::optional<std::string> exitMessage_;          /**< Additional message before exit when errorStream_ is not empty. */
+    SortOrder switchGroupOrder_;                        /**< Order of switch groups in the documentation. */
     
 public:
     /** Default constructor.  The default constructor sets up a new parser with defaults suitable for the operating
      *  system. The switch declarations need to be added (via @ref with) before the parser is useful. */
     Parser()
         : shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false), versionString_("alpha"),
-          chapterNumber_(1), chapterName_("User Commands") {
+          chapterNumber_(1), chapterName_("User Commands"), switchGroupOrder_(INSERTION_ORDER) {
         init();
     }
 
@@ -2435,6 +2449,15 @@ public:
 
     /** Print documentation to standard output. Use a pager if possible. */
     void emitDocumentationToPager() const;
+
+    /** Property: How to order switch groups in documentation.  If the parser contains named switch groups then switches will
+     *  be organized into subsections based on the group names, and this property controls how those subsections are ordered
+     *  with respect to each other.  The subsections can be sorted according to the order they were inserted into the parser,
+     *  or alphabetically by their documentation keys or names.
+     * @{ */
+    SortOrder switchGroupOrder() const { return switchGroupOrder_; }
+    Parser& switchGroupOrder(SortOrder order) { switchGroupOrder_ = order; return *this; }
+    /** @} */
 
 private:
     void init();

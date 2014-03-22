@@ -1660,34 +1660,73 @@ public:
     }
 };
 
+template<typename Pair>
+static bool sortPairByFirst(const Pair &a, const Pair &b) {
+    return a.first < b.first;
+}
+
 // Returns documentation for all the switches
 std::string Parser::docForSwitches() const {
-    typedef std::map<std::string, StringStringMap> SwitchDocs;
-    StringStringMap groupTitles;                        // groupTitles[groupDocKey] => groupTitle
-    SwitchDocs doc;                                     // doc[groupDocKey][switchDocKey] => markup
+    typedef std::pair<std::string /*switchKey*/, const Switch*> KeySwitchPair;
+    typedef std::vector<KeySwitchPair> KeySwitchPairs;
+    typedef std::map<std::string /*groupKey*/, KeySwitchPairs> GroupSwitches;
+
+    // Partition documented switches according to their groups' keys
+    StringStringMap groupTitles;
+    GroupSwitches groupSwitches;
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
-        std::string sgDocKey = sg.docKey();
-        if (sgDocKey.empty())
-            sgDocKey = boost::to_lower_copy(sg.name());
-        groupTitles[sgDocKey] = sg.name();
+        std::string groupKey = sg.docKey().empty() ? boost::to_lower_copy(sg.name()) : sg.docKey();
+        groupTitles[groupKey] = sg.name();
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
             if (!sw.hidden()) {
-                const std::string &swDoc = sw.doc();
-                doc[sgDocKey][sw.docKey()] = "@defn{" + sw.synopsis() + "}"
-                                              "{" + (swDoc.empty() ? std::string("Not documented.") : sw.doc()) + "}\n";
+                std::string switchKey = sw.docKey();    // never empty
+                groupSwitches[groupKey].push_back(KeySwitchPair(switchKey, &sw));
             }
         }
     }
 
-    std::string retval;
-    BOOST_FOREACH (const SwitchDocs::value_type &docpair, doc) {
-        std::string groupTitle = groupTitles[docpair.first];
-        if (!groupTitle.empty())
-            retval += "@ssection{" + groupTitle + "}{";
-        BOOST_FOREACH (const StringStringMap::value_type &keyDocPair, docpair.second)
-            retval += keyDocPair.second;
-        if (!groupTitle.empty())
-            retval += "}\n";
+    // Sort the switches in each group.
+    BOOST_FOREACH (GroupSwitches::value_type &pair, groupSwitches)
+        std::sort(pair.second.begin(), pair.second.end(), sortPairByFirst<KeySwitchPair>);
+
+    // Generate the documentation string
+    std::string retval, notDocumented("Not documented.");
+    switch (switchGroupOrder_) {
+        case DOCKEY_ORDER: {
+            BOOST_FOREACH (GroupSwitches::value_type &sgPair, groupSwitches) {
+                const std::string &groupTitle = groupTitles[sgPair.first];
+                if (!groupTitle.empty())
+                    retval += "@subsection{" + groupTitle + "}{";
+                BOOST_FOREACH (KeySwitchPair &swPair, sgPair.second) {
+                    std::string synopsis = swPair.second->synopsis();
+                    const std::string &doc = swPair.second->doc();
+                    retval += "@defn{" + synopsis + "}{" + (doc.empty() ? notDocumented : doc) + "}\n";
+                }
+                if (!groupTitle.empty())
+                    retval += "}\n";
+            }
+            break;
+        }
+
+        case INSERTION_ORDER: {
+            std::set<std::string> sgKeysSeen;
+            BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
+                std::string groupKey = sg.docKey().empty() ? boost::to_lower_copy(sg.name()) : sg.docKey();
+                if (sgKeysSeen.insert(groupKey).second) {
+                    const std::string &groupTitle = groupTitles[groupKey];
+                    if (!groupTitle.empty())
+                        retval += "@subsection{" + groupTitle + "}{";
+                    BOOST_FOREACH (KeySwitchPair &swPair, groupSwitches[groupKey]) {
+                        std::string synopsis = swPair.second->synopsis();
+                        const std::string &doc = swPair.second->doc();
+                        retval += "@defn{" + synopsis + "}{" + (doc.empty() ? notDocumented : doc) + "}\n";
+                    }
+                    if (!groupTitle.empty())
+                        retval += "}\n";
+                }
+            }
+            break;
+        }
     }
     return retval;
 }
