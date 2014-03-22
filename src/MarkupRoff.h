@@ -49,6 +49,7 @@ public:
 
     // internal stuff
     void checkArgs(const TagPtr&, size_t nArgs, const TagArgs&) const;
+    void checkIsInside(const TagPtr&, const std::string &required) const;
     void checkNotInside(const TagPtr&, const std::string &prohibited) const;
     void checkNotInArg(const TagPtr&) const;
     void nextLine();

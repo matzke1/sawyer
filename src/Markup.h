@@ -60,6 +60,7 @@ typedef boost::shared_ptr<class Tag>            TagPtr;
 typedef boost::shared_ptr<class NullTag>        NullTagPtr;
 typedef boost::shared_ptr<class CommentTag>     CommentTagPtr;
 typedef boost::shared_ptr<class SectionTag>     SectionTagPtr;
+typedef boost::shared_ptr<class SubSectionTag>  SubSectionTagPtr;
 typedef boost::shared_ptr<class BoldTag>        BoldTagPtr;
 typedef boost::shared_ptr<class ItalicTag>      ItalicTagPtr;
 typedef boost::shared_ptr<class VariableTag>    VariableTagPtr;
@@ -115,6 +116,14 @@ protected:
     SectionTag(): Tag("section", 2) {}
 public:
     static SectionTagPtr instance() { return SectionTagPtr(new SectionTag); }
+};
+
+// Subsection. First arg is name, second is content.
+class SubSectionTag: public Tag {
+protected:
+    SubSectionTag(): Tag("subsection", 2) {}
+public:
+    static SubSectionTagPtr instance() { return SubSectionTagPtr(new SubSectionTag); }
 };
 
 // Named bullet. First arg is the name, second is the content.

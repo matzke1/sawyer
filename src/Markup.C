@@ -153,6 +153,8 @@ void ParserResult::emit(std::ostream &stream, const FormatterPtr &formatter) {
 void Parser::init() {
     registerTag(CommentTag::instance(),         "comment");
     registerTag(SectionTag::instance(),         "section");
+    registerTag(SubSectionTag::instance(),      "subsection");
+    registerTag(SubSectionTag::instance(),      "ssection");
     registerTag(NameBulletTag::instance(),      "defn");
     registerTag(BoldTag::instance(),            "bold");
     registerTag(BoldTag::instance(),            "b");

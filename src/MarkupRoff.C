@@ -121,11 +121,21 @@ void RoffFormatter::checkArgs(const TagPtr &tag, size_t nArgs, const TagArgs &ar
     }
 }
 
+void RoffFormatter::checkIsInside(const TagPtr &tag, const std::string &required) const {
+    BOOST_FOREACH (const TagPtr &inside, tagStack_) {
+        if (inside->name() == required)
+            return;
+    }
+    std::ostringstream ss;
+    ss <<"@" <<tag->name() <<" must be enclosed inside " <<(tag->name()==required?"another ":"") <<"@" <<required;
+    throw std::runtime_error(ss.str());
+}
+
 void RoffFormatter::checkNotInside(const TagPtr &tag, const std::string &prohibited) const {
     BOOST_FOREACH (const TagPtr &inside, tagStack_) {
         if (inside->name() == prohibited) {
             std::ostringstream ss;
-            ss <<"@" <<tag->name() <<" is prohibited inside " <<(inside->name()==prohibited?"another ":"") <<"@" <<prohibited;
+            ss <<"@" <<tag->name() <<" is prohibited inside " <<(tag->name()==prohibited?"another ":"") <<"@" <<prohibited;
             throw std::runtime_error(ss.str());
         }
     }
@@ -146,26 +156,41 @@ void RoffFormatter::nextLine() {
 
 bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagArgs &args) {
     bool recurse = true;                                // allow children to recursively emit
-    if (tag->name() == "section") {
+    if (tag->name() == "section" || tag->name() == "subsection") {
         checkArgs(tag, 2, args);
-        checkNotInside(tag, "section");
-        checkNotInside(tag, "namebullet");
-        checkNotInArg(tag);
+        std::string cmd;
+        int shouldConvertToUpper = 0;
+        if (tag->name() == "section") {
+            checkNotInside(tag, "section");
+            checkNotInside(tag, "subsection");
+            checkNotInside(tag, "namebullet");
+            checkNotInArg(tag);
+            cmd = ".SH";
+            shouldConvertToUpper = 1;
+        } else {
+            ASSERT_require(tag->name() == "subsection");
+            checkIsInside(tag, "section");
+            checkNotInside(tag, "subsection");
+            checkNotInside(tag, "namebullet");
+            checkNotInArg(tag);
+            cmd = ".SS";
+        }
+        tagStack_.push_back(tag);
 
         inArg_ = tag;
         bufferedOutput_ <<"\n";
         std::streampos shPosition = bufferedOutput_.tellp();
-        bufferedOutput_ <<".SH \"";
-        ++convertToUpper_;
+        bufferedOutput_ <<cmd <<" \"";
+        convertToUpper_ += shouldConvertToUpper;
         args[0]->emit(stream, self());
-        --convertToUpper_;
+        convertToUpper_ -= shouldConvertToUpper;
         bufferedOutput_ <<"\"";
         nextLine();
         inArg_.reset();
 
-        // We don't want to emit an .SH command if there's no body, but since it's too late by now to go back and fix
-        // it, and since we can't expect to have c++11 move semantics, the only way to undo the .SH command is to seek
-        // back and overwrite it with an nroff comment.
+        // We don't want to emit an .SH/.SS command if there's no body, but since it's too late by now to go back and fix it,
+        // and since we can't expect to have c++11 move semantics, the only way to undo the .SH/.SS command is to seek back and
+        // overwrite it with an nroff comment.
         std::streampos startOfBody = bufferedOutput_.tellp();
         args[1]->emit(stream, self());
         if (boost::trim_copy(bufferedOutput_.str().substr(startOfBody)).empty()) {
@@ -179,9 +204,9 @@ bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagA
 
     } else if (tag->name() == "namebullet") {
         checkArgs(tag, 2, args);
-        checkNotInside(tag, "section");
         checkNotInside(tag, "namebullet");
         checkNotInArg(tag);
+        tagStack_.push_back(tag);
 
         bufferedOutput_ <<"\n.TP";
         nextLine();
@@ -199,6 +224,8 @@ bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagA
         checkNotInside(tag, "bold");
         checkNotInside(tag, "variable");
         checkNotInside(tag, "italic");
+        tagStack_.push_back(tag);
+
         bufferedOutput_ <<"\\fB";
         args[0]->emit(stream, self());
         bufferedOutput_ <<"\\fR";
@@ -209,6 +236,8 @@ bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagA
         checkNotInside(tag, "bold");
         checkNotInside(tag, "variable");
         checkNotInside(tag, "italic");
+        tagStack_.push_back(tag);
+
         bufferedOutput_ <<"\\fI";
         ++convertToUpper_;
         args[0]->emit(stream, self());
@@ -221,6 +250,8 @@ bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagA
         checkNotInside(tag, "bold");
         checkNotInside(tag, "variable");
         checkNotInside(tag, "italic");
+        tagStack_.push_back(tag);
+
         bufferedOutput_ <<"\\fI";
         args[0]->emit(stream, self());
         bufferedOutput_ <<"\\fR";
@@ -229,6 +260,8 @@ bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagA
     } else if (tag->name() == "comment") {
         checkArgs(tag, 1, args);
         checkNotInArg(tag);
+        tagStack_.push_back(tag);
+
         inArg_ = tag;
         bufferedOutput_ <<".\\\" ";
         args[0]->emit(stream, self());
@@ -239,7 +272,6 @@ bool RoffFormatter::beginTag(std::ostream &stream, const TagPtr &tag, const TagA
     } else {
         throw std::runtime_error("unknown tag for nroff formatter: @" + tag->name());
     }
-    tagStack_.push_back(tag);
     return recurse;
 }
 
