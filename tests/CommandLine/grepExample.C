@@ -41,9 +41,16 @@ static void showHelpAndExit(const ParserResult &cmdline) {
 
 int main(int argc, char *argv[]) {
 
+    // Command-line parsing will "push" parsed values into members of this struct when ParserResult::apply is called.
+    // Alternatively, we could have used a "pull" paradigm in which we query the ParserResult to obtain the values. In
+    // fact, nothing prevents us from doing both, except if we use a pull paradigm we would probably want to set some
+    // of the Switch::key properties so related switches (like -E, -F, -G, -P) all store their result in the same place
+    // within the ParserResult.
     Options opt;
 
-    SwitchGroup generic;
+    // We split the switches into individual groups only to make the documentation better.  The name supplied to the
+    // switch group constructor is the subsection under which the documentation for those switches appears.
+    SwitchGroup generic("Generic Program Information");
     generic.insert(Switch("help")
                    .action(userAction(showHelpAndExit))
                    .doc("Print a usage message briefly summarizing these command-line options and the bug-reporting "
@@ -53,7 +60,7 @@ int main(int argc, char *argv[]) {
                    .doc("Print the version number of @prop{programName} to the standard output stream. This version "
                         "number should be included in all bug reports (see below)."));
 
-    SwitchGroup matcher;
+    SwitchGroup matcher("Matcher Selection");
     matcher.insert(Switch("extended-regexp", 'E')
                    .intrinsicValue(MATCHER_EXTENDED, opt.matcher)
                    .doc("Interpret @v{pattern} as an extended regular expression (ERE, see below). (@s{E} is specified "
@@ -70,7 +77,7 @@ int main(int argc, char *argv[]) {
                    .doc("Interpret @v{pattern} as a Perl regular expression.  This is highly experimental and "
                         "@prop{programName} @s{P} may warn of unimplemented features."));
 
-    SwitchGroup control;
+    SwitchGroup control("Matching Control");
     control.insert(Switch("regexp", 'e')
                    .argument("pattern", anyParser(opt.pattern))
                    .doc("Use @v{pattern} as the pattern.  This can be used to specify multiple search patterns, or to "
@@ -100,7 +107,7 @@ int main(int argc, char *argv[]) {
                    .whichValue(SAVE_NONE)
                    .doc("Obsolete synonym for @s{i}."));
 
-    SwitchGroup output;
+    SwitchGroup output("General Output Control");
     output.insert(Switch("count", 'c')
                   .intrinsicValue(true, opt.count)
                   .doc("Suppress normal output; instead print a count of matching lines for each input file.  With "
@@ -159,7 +166,7 @@ int main(int argc, char *argv[]) {
                        "scripts should avoid both @s{q} and @s{s} and should redirect standard and error "
                        "output to /dev/null instead.  (@s{s} is specified by POSIX.)"));
 
-    SwitchGroup prefix;
+    SwitchGroup prefix("Output Line Prefix Control");
     prefix.insert(Switch("byte-offset", 'b')
                   .intrinsicValue(true, opt.byteOffset)
                   .doc("Print the 0-based byte offset within the input file before each line of output. "
@@ -206,7 +213,7 @@ int main(int argc, char *argv[]) {
                        "can be used with commands like \"find -print0\", \"perl -0\", \"sort -z\", and \"xargs "
                        "-0\" to process arbitrary file names, even those that contain newline characters."));
 
-    SwitchGroup context;
+    SwitchGroup context("Context Line Control");
     context.insert(Switch("after-context", 'A')
                    .argument("num", nonNegativeIntegerParser(opt.afterContext))
                    .doc("Print @v{num} lines of trailing context after matching lines.  Places a line containing "
@@ -223,7 +230,7 @@ int main(int argc, char *argv[]) {
                         "(\"--\") between contigous groups of matches.  With the @s{o} or @s{only-matching} "
                         "option, this has no effect and a warning is given."));
 
-    SwitchGroup selection;
+    SwitchGroup selection("File and Directory Selection");
     selection.insert(Switch("text", 'a')
                      .intrinsicValue(BIN_TEXT, opt.binaryFile)
                      .doc("Process a binary file as if it were text; this is the equivalent to the "
@@ -286,7 +293,7 @@ int main(int argc, char *argv[]) {
                      .doc("Read all files under each directory, recursively; this is equivalent to the "
                           "\"@s{d} recurse\" option."));
 
-    SwitchGroup misc;
+    SwitchGroup misc("Other Options");
     misc.insert(Switch("line-buffered")
                 .intrinsicValue(true, opt.lineBuffered)
                 .doc("Use line buffering on output.  This can cause a performance penalty."));
@@ -316,14 +323,14 @@ int main(int argc, char *argv[]) {
     // Build the parser
     Parser parser;
     parser
-        .with(generic)
-        .with(matcher)
-        .with(control)
-        .with(output)
-        .with(prefix)
-        .with(context)
-        .with(selection)
-        .with(misc);
+        .with(generic,          "0")                    // The strings force an order for the documentation. They can
+        .with(matcher,          "1")                    // be anything you like and are sorted alphabetically.
+        .with(control,          "2")
+        .with(output,           "3")
+        .with(prefix,           "4")
+        .with(context,          "5")
+        .with(selection,        "6")
+        .with(misc,             "7");
 
     // Add some top-level documentation.
     parser
