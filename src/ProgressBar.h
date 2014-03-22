@@ -45,7 +45,9 @@ public:
     void updateTextMesg(double ratio);                  // update the textMesg_
 };
 
-/** Global settings for progress bars. */
+/** Global settings for progress bars. 
+ *
+ * @sa The @ref ProgressBar class contains the top-level documentation for progress bars. */
 namespace ProgressBarSettings {
     /** Delay before first message is emitted. A relatively large delay produces fewer messages by avoiding messages when
      *  the entire task can be completed quickly.  The default is 5 seconds. This value is global, applying to all progress

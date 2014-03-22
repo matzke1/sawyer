@@ -3,7 +3,7 @@
 
 /** @mainpage
  *
- *  Sawyer is a library that provides the following:
+ *  %Sawyer is a library that provides the following:
  *
  *  @li Conditionally enable streams for program diagnostics.  These are C++ std::ostreams organized by software component
  *      and message importance and which can be enabled/disabled with a simple language. A complete plumbing system similar to
@@ -135,7 +135,7 @@
  * @endcode */
 
 
-/** Name space for the entire library.  All Sawyer functionality except for some C preprocessor macros exists inside this
+/** Name space for the entire library.  All %Sawyer functionality except for some C preprocessor macros exists inside this
  * namespace.  Most of the macros begin with the string "SAWYER_". */
 namespace Sawyer {
 
