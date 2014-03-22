@@ -51,6 +51,7 @@ int main(int argc, char *argv[]) {
     // We split the switches into individual groups only to make the documentation better.  The name supplied to the
     // switch group constructor is the subsection under which the documentation for those switches appears.
     SwitchGroup generic("Generic Program Information");
+    generic.switchOrder(INSERTION_ORDER);
     generic.insert(Switch("help")
                    .action(userAction(showHelpAndExit))
                    .doc("Print a usage message briefly summarizing these command-line options and the bug-reporting "
@@ -61,6 +62,7 @@ int main(int argc, char *argv[]) {
                         "number should be included in all bug reports (see below)."));
 
     SwitchGroup matcher("Matcher Selection");
+    matcher.switchOrder(INSERTION_ORDER);
     matcher.insert(Switch("extended-regexp", 'E')
                    .intrinsicValue(MATCHER_EXTENDED, opt.matcher)
                    .doc("Interpret @v{pattern} as an extended regular expression (ERE, see below). (@s{E} is specified "
@@ -78,6 +80,7 @@ int main(int argc, char *argv[]) {
                         "@prop{programName} @s{P} may warn of unimplemented features."));
 
     SwitchGroup control("Matching Control");
+    control.switchOrder(INSERTION_ORDER);
     control.insert(Switch("regexp", 'e')
                    .argument("pattern", anyParser(opt.pattern))
                    .doc("Use @v{pattern} as the pattern.  This can be used to specify multiple search patterns, or to "
@@ -108,6 +111,7 @@ int main(int argc, char *argv[]) {
                    .doc("Obsolete synonym for @s{i}."));
 
     SwitchGroup output("General Output Control");
+    output.switchOrder(INSERTION_ORDER);
     output.insert(Switch("count", 'c')
                   .intrinsicValue(true, opt.count)
                   .doc("Suppress normal output; instead print a count of matching lines for each input file.  With "
@@ -167,6 +171,7 @@ int main(int argc, char *argv[]) {
                        "output to /dev/null instead.  (@s{s} is specified by POSIX.)"));
 
     SwitchGroup prefix("Output Line Prefix Control");
+    prefix.switchOrder(INSERTION_ORDER);
     prefix.insert(Switch("byte-offset", 'b')
                   .intrinsicValue(true, opt.byteOffset)
                   .doc("Print the 0-based byte offset within the input file before each line of output. "
@@ -214,6 +219,7 @@ int main(int argc, char *argv[]) {
                        "-0\" to process arbitrary file names, even those that contain newline characters."));
 
     SwitchGroup context("Context Line Control");
+    context.switchOrder(INSERTION_ORDER);
     context.insert(Switch("after-context", 'A')
                    .argument("num", nonNegativeIntegerParser(opt.afterContext))
                    .doc("Print @v{num} lines of trailing context after matching lines.  Places a line containing "
@@ -231,6 +237,7 @@ int main(int argc, char *argv[]) {
                         "option, this has no effect and a warning is given."));
 
     SwitchGroup selection("File and Directory Selection");
+    selection.switchOrder(INSERTION_ORDER);
     selection.insert(Switch("text", 'a')
                      .intrinsicValue(BIN_TEXT, opt.binaryFile)
                      .doc("Process a binary file as if it were text; this is the equivalent to the "
@@ -294,6 +301,7 @@ int main(int argc, char *argv[]) {
                           "\"@s{d} recurse\" option."));
 
     SwitchGroup misc("Other Options");
+    misc.switchOrder(INSERTION_ORDER);
     misc.insert(Switch("line-buffered")
                 .intrinsicValue(true, opt.lineBuffered)
                 .doc("Use line buffering on output.  This can cause a performance penalty."));

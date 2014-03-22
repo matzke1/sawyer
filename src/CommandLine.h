@@ -2090,15 +2090,17 @@ class SwitchGroup {
     ParsingProperties properties_;
     std::string name_;
     std::string docKey_;
+    SortOrder switchOrder_;
 public:
     /** Construct an unnamed group. */
-    SwitchGroup() {}
+    SwitchGroup(): switchOrder_(DOCKEY_ORDER) {}
 
     /** Construct a named group.  Naming a group prevents its switches from being globally sorted with other groups when the
      *  documentation is produced.  The @p name will appear as the name of a subsection for the switches and should be
      *  capitalized like a title (initial capital letters). The optional @p docKey is used to sort the groups in relation to
      *  each other (the default is to sort by group name). */
-    explicit SwitchGroup(const std::string &name, const std::string &docKey=""): name_(name), docKey_(docKey) {}
+    explicit SwitchGroup(const std::string &name, const std::string &docKey="")
+        : name_(name), docKey_(docKey), switchOrder_(DOCKEY_ORDER) {}
 
     /** @copydoc Switch::resetLongPrefixes
      * @{ */
@@ -2170,9 +2172,26 @@ public:
      *  use the lower-case group title (which may also be the empty string).  If more than one switch group has the same
      *  documentation key but different names, then only one of those names is arbitrarily chosen as the subsection name in the
      *  documentation.
+     *
+     * @sa SwitchGroup::switchOrder
      * @{ */
     const std::string& docKey() const { return docKey_; }
     SwitchGroup& docKey(const std::string &key) { docKey_ = key; return *this; }
+    /** @} */
+
+    /** Property: Order of switches in documentation.  This property controls the sorting of keys within the group.  If the
+     *  property's value is @ref DOCKEY_ORDER, the default, then switches are sorted according to the Switch::docKey values; if
+     *  the property is INSERTION_ORDER then switch documentation keys are ignored and switches are presented in the order they
+     *  were added to the group.
+     *
+     *  Since documentation will combine into a single subsection all the switches from groups having the same name, it is
+     *  possible that the subsection will have conflicting orderings.  When this happens, the last group to be inserted is
+     *  the one whose value is used for the entire subsection.
+     *
+     * @sa SwitchGroup::docKey
+     * @{ */
+    const SortOrder& switchOrder() const { return switchOrder_; }
+    SwitchGroup& switchOrder(SortOrder order) { switchOrder_ = order; return *this; }
     /** @} */
 
 private:

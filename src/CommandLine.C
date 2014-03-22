@@ -1670,13 +1670,16 @@ std::string Parser::docForSwitches() const {
     typedef std::pair<std::string /*switchKey*/, const Switch*> KeySwitchPair;
     typedef std::vector<KeySwitchPair> KeySwitchPairs;
     typedef std::map<std::string /*groupKey*/, KeySwitchPairs> GroupSwitches;
+    typedef std::map<std::string /*groupKey*/, SortOrder> GroupSortOrders;
 
     // Partition documented switches according to their groups' keys
     StringStringMap groupTitles;
     GroupSwitches groupSwitches;
+    GroupSortOrders groupSortOrders;
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         std::string groupKey = sg.docKey().empty() ? boost::to_lower_copy(sg.name()) : sg.docKey();
         groupTitles[groupKey] = sg.name();
+        groupSortOrders[groupKey] = sg.switchOrder();
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
             if (!sw.hidden()) {
                 std::string switchKey = sw.docKey();    // never empty
@@ -1686,9 +1689,16 @@ std::string Parser::docForSwitches() const {
     }
 
     // Sort the switches in each group.
-    BOOST_FOREACH (GroupSwitches::value_type &pair, groupSwitches)
-        std::sort(pair.second.begin(), pair.second.end(), sortPairByFirst<KeySwitchPair>);
-
+    BOOST_FOREACH (GroupSwitches::value_type &pair, groupSwitches) {
+        switch (groupSortOrders[pair.first]) {
+            case DOCKEY_ORDER:
+                std::sort(pair.second.begin(), pair.second.end(), sortPairByFirst<KeySwitchPair>);
+                break;
+            case INSERTION_ORDER:
+                break;
+        }
+    }
+    
     // Generate the documentation string
     std::string retval, notDocumented("Not documented.");
     switch (switchGroupOrder_) {
