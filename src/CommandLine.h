@@ -2181,8 +2181,8 @@ public:
 
     /** Property: Order of switches in documentation.  This property controls the sorting of keys within the group.  If the
      *  property's value is @ref DOCKEY_ORDER, the default, then switches are sorted according to the Switch::docKey values; if
-     *  the property is INSERTION_ORDER then switch documentation keys are ignored and switches are presented in the order they
-     *  were added to the group.
+     *  the property is @ref INSERTION_ORDER then switch documentation keys are ignored and switches are presented in the order
+     *  they were added to the group.
      *
      *  Since documentation will combine into a single subsection all the switches from groups having the same name, it is
      *  possible that the subsection will have conflicting orderings.  When this happens, the last group to be inserted is

@@ -34,6 +34,8 @@
 
 /** @defgroup design_goals Library design goals
  *
+ *  Goals that influence the design of this library.
+ *
  *  @li The API should be well documented and tested.  Every public symbol is documented with doxygen and includes all
  *      pertinent information about what it does, how it relates to other parts of the library, restrictions and caveats, etc.
  *      This kind of information is not evident from the C++ interface itself and is often omitted in other libraries'
@@ -54,8 +56,10 @@
 
 /** @defgroup smart_pointers Reference counting smart pointers
  *
- *  The library makes extensive use of referencing count smart pointers.  It uses the following paradigm consistently for any
- *  class that intends to be reference counted.
+ *  Pointers that automatically delete the underlying object.
+ *
+ *  The library makes extensive use of referencing counting smart pointers.  It uses the following paradigm consistently for
+ *  any class that intends to be reference counted.
  *
  *  @li The class shall mark all of its normal C++ constructors as having protected access.  This is to prevent users from
  *      allocating such objects statically or on the stack, yet allowing subclasses to use them.
@@ -105,6 +109,8 @@
 
 
 /** @defgroup class_properties Class properties
+ *
+ *  Data members that that store a simple value.
  *
  *  Class data members that act like user-accessible properties are declared with private access. As with all private data
  *  members, they end with an underscore.  The class provides a pair of methods for accessing each property--one for reading the
