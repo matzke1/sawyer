@@ -2076,14 +2076,16 @@ class SwitchGroup {
     std::vector<Switch> switches_;
     ParsingProperties properties_;
     std::string name_;
+    std::string docKey_;
 public:
     /** Construct an unnamed group. */
     SwitchGroup() {}
 
     /** Construct a named group.  Naming a group prevents its switches from being globally sorted with other groups when the
      *  documentation is produced.  The @p name will appear as the name of a subsection for the switches and should be
-     *  capitalized like a title (initial capital letters). */
-    explicit SwitchGroup(const std::string &name): name_(name) {}
+     *  capitalized like a title (initial capital letters). The optional @p docKey is used to sort the groups in relation to
+     *  each other (the default is to sort by group name). */
+    explicit SwitchGroup(const std::string &name, const std::string &docKey=""): name_(name), docKey_(docKey) {}
 
     /** @copydoc Switch::resetLongPrefixes
      * @{ */
@@ -2142,15 +2144,28 @@ public:
     /** Remove a switch from the group.  The first declaration with the specified key is erased from this group. */
     SwitchGroup& removeByKey(const std::string &switchKey);
 
+    /** Property: Name of the switch group.  A switch group may have a subsection name for documentation.  The name should be
+     *  capitalized like a title.
+     * @{ */
+    const std::string& name() const { return name_; }
+    SwitchGroup& name(const std::string &name) { name_ = name; return *this; }
+    /** @} */
+
+    /** Property: Documentation sort key.  This key is used to order the switch groups with respect to one another in the
+     *  documentation.  Switches that belong to groups having the same documentation key are treated as if they came from the
+     *  same group for the purpose of sorting the switches within groups.  Any switch group that has no documentation key will
+     *  use the lower-case group title (which may also be the empty string).  If more than one switch group has the same
+     *  documentation key but different names, then only one of those names is arbitrarily chosen as the subsection name in the
+     *  documentation.
+     * @{ */
+    const std::string& docKey() const { return docKey_; }
+    SwitchGroup& docKey(const std::string &key) { docKey_ = key; return *this; }
+    /** @} */
+
 private:
     friend class Parser;
     const ParsingProperties& properties() const { return properties_; }
 };
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                      Parser result
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2191,10 +2206,21 @@ public:
         init();
     }
 
-    /** Add switch declarations. The specified switch declaration or group of switch declarations is copied into the parser.
+    /** Add switch declarations. The specified switch declaration or group of switch declarations is copied into the parser. A
+     *  documentation key can be supplied to override the sort order for the group or switch.
      * @{ */
     Parser& with(const SwitchGroup &sg) { switchGroups_.push_back(sg); return *this; }
+    Parser& with(const SwitchGroup &sg, const std::string &docKey) {
+        switchGroups_.push_back(sg);
+        switchGroups_.back().docKey(docKey);
+        return *this;
+    }
     Parser& with(const Switch &sw) { switchGroups_.push_back(SwitchGroup().insert(sw)); return *this; }
+    Parser& with(Switch sw, const std::string &docKey) {
+        sw.docKey(docKey);
+        switchGroups_.push_back(SwitchGroup().insert(sw));
+        return *this;
+    }
     /** @} */
 
     /** Prefixes to use for long command-line switches.  The @ref resetLongPrefixes clears the list (and adds prefixes) while
@@ -2399,6 +2425,7 @@ public:
     Parser& doc(const std::string &sectionName, const std::string &docKey, const std::string &text);
     Parser& doc(const std::string &sectionName, const std::string &text) { return doc(sectionName, sectionName, text); }
     std::vector<std::string> docSections() const;
+    std::string docForSwitches() const;
     std::string docForSection(const std::string &sectionName) const;
     /** @} */
 

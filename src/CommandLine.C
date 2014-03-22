@@ -1660,6 +1660,38 @@ public:
     }
 };
 
+// Returns documentation for all the switches
+std::string Parser::docForSwitches() const {
+    typedef std::map<std::string, StringStringMap> SwitchDocs;
+    StringStringMap groupTitles;                        // groupTitles[groupDocKey] => groupTitle
+    SwitchDocs doc;                                     // doc[groupDocKey][switchDocKey] => markup
+    BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
+        std::string sgDocKey = sg.docKey();
+        if (sgDocKey.empty())
+            sgDocKey = boost::to_lower_copy(sg.name());
+        groupTitles[sgDocKey] = sg.name();
+        BOOST_FOREACH (const Switch &sw, sg.switches()) {
+            if (!sw.hidden()) {
+                const std::string &swDoc = sw.doc();
+                doc[sgDocKey][sw.docKey()] = "@defn{" + sw.synopsis() + "}"
+                                              "{" + (swDoc.empty() ? std::string("Not documented.") : sw.doc()) + "}\n";
+            }
+        }
+    }
+
+    std::string retval;
+    BOOST_FOREACH (const SwitchDocs::value_type &docpair, doc) {
+        std::string groupTitle = groupTitles[docpair.first];
+        if (!groupTitle.empty())
+            retval += "@ssection{" + groupTitle + "}{";
+        BOOST_FOREACH (const StringStringMap::value_type &keyDocPair, docpair.second)
+            retval += keyDocPair.second;
+        if (!groupTitle.empty())
+            retval += "}\n";
+    }
+    return retval;
+}
+
 std::string Parser::docForSection(const std::string &sectionName) const {
     std::string docKey = boost::to_lower_copy(sectionName);
     StringStringMap::const_iterator section = sectionDoc_.find(docKey);
@@ -1671,21 +1703,9 @@ std::string Parser::docForSection(const std::string &sectionName) const {
         if (doc.empty())
             doc = programName() + " [@v{switches}...]\n";
     } else if (0==docKey.compare("options")) {
-        StringStringMap docByKey;
-        BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
-            BOOST_FOREACH (const Switch &sw, sg.switches()) {
-                if (!sw.hidden()) {
-                    const std::string &swDoc = sw.doc();
-                    docByKey[sw.docKey()] = "@defn{" + sw.synopsis() + "}"
-                                            "{" + (swDoc.empty() ? std::string("Not documented.") : sw.doc()) + "}\n";
-                }
-            }
-        }
-        doc += "\n\n";
-        for (StringStringMap::iterator di=docByKey.begin(); di!=docByKey.end(); ++di)
-            doc += di->second;
+        doc += "\n\n" + docForSwitches();
     } else if (0==docKey.compare("see also")) {
-            doc += "\n\n@seeAlso";
+        doc += "\n\n@seeAlso";
     }
     
     return doc;
