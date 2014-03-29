@@ -2090,17 +2090,61 @@ class SwitchGroup {
     ParsingProperties properties_;
     std::string name_;
     std::string docKey_;
+    std::string documentation_;
     SortOrder switchOrder_;
 public:
     /** Construct an unnamed group. */
     SwitchGroup(): switchOrder_(DOCKEY_ORDER) {}
 
-    /** Construct a named group.  Naming a group prevents its switches from being globally sorted with other groups when the
-     *  documentation is produced.  The @p name will appear as the name of a subsection for the switches and should be
-     *  capitalized like a title (initial capital letters). The optional @p docKey is used to sort the groups in relation to
-     *  each other (the default is to sort by group name). */
+    /** Construct a named group.
+     *
+     *  Naming a group prevents its switches from being globally sorted with other groups when the documentation is produced.
+     *  The @p name will appear as the name of a subsection for the switches and should be capitalized like a title (initial
+     *  capital letters). The optional @p docKey is used to sort the groups in relation to each other (the default is to sort
+     *  by group name). */
     explicit SwitchGroup(const std::string &name, const std::string &docKey="")
         : name_(name), docKey_(docKey), switchOrder_(DOCKEY_ORDER) {}
+
+    /** Property: Name of the switch group.
+     *
+     *  A switch group may have a subsection name for documentation.  The name should be capitalized like a title.  The name
+     *  may also be specified in the constructor.
+     * @{ */
+    const std::string& name() const { return name_; }
+    SwitchGroup& name(const std::string &name) { name_ = name; return *this; }
+    /** @} */
+
+    /** Property: Documentation sort key.
+     *
+     *  This key is used to order the switch groups with respect to one another in the documentation.  Switches that belong to
+     *  groups having the same documentation key are treated as if they came from the same group for the purpose of sorting the
+     *  switches within groups.  Any switch group that has no documentation key will use the lower-case group title (which may
+     *  also be the empty string).  If more than one switch group has the same documentation key but different names, then only
+     *  one of those names is arbitrarily chosen as the subsection name in the documentation.
+     *
+     *  The documentation kay may also be specified in the constructor.
+     *
+     * @sa SwitchGroup::switchOrder
+     * @{ */
+    const std::string& docKey() const { return docKey_; }
+    SwitchGroup& docKey(const std::string &key) { docKey_ = key; return *this; }
+    /** @} */
+
+    /** Property: detailed description.
+     *
+     *  This is the description of the switch group in a simple markup language. See @ref Switch::doc for a description of the
+     *  markup language.  Documentation for a switch group will appear prior to the switches within that group.  If multiple
+     *  groups are to appear in the same section of the manual page (by virtue of having the same @ref SwitchGroup::name then
+     *  their documentation strings are appended as separate paragraphs in the order that the switch groups appear in the
+     *  parser.
+     *
+     *  Documentation specified by this property is in addition to automatically generated documentation for the switches
+     *  within this group.
+     *
+     * @{ */
+    SwitchGroup& doc(const std::string &s) { documentation_ = s; return *this; }
+    const std::string& doc() const { return documentation_; }
+    /** @} */
 
     /** @copydoc Switch::resetLongPrefixes
      * @{ */
@@ -2158,26 +2202,6 @@ public:
 
     /** Remove a switch from the group.  The first declaration with the specified key is erased from this group. */
     SwitchGroup& removeByKey(const std::string &switchKey);
-
-    /** Property: Name of the switch group.  A switch group may have a subsection name for documentation.  The name should be
-     *  capitalized like a title.
-     * @{ */
-    const std::string& name() const { return name_; }
-    SwitchGroup& name(const std::string &name) { name_ = name; return *this; }
-    /** @} */
-
-    /** Property: Documentation sort key.  This key is used to order the switch groups with respect to one another in the
-     *  documentation.  Switches that belong to groups having the same documentation key are treated as if they came from the
-     *  same group for the purpose of sorting the switches within groups.  Any switch group that has no documentation key will
-     *  use the lower-case group title (which may also be the empty string).  If more than one switch group has the same
-     *  documentation key but different names, then only one of those names is arbitrarily chosen as the subsection name in the
-     *  documentation.
-     *
-     * @sa SwitchGroup::switchOrder
-     * @{ */
-    const std::string& docKey() const { return docKey_; }
-    SwitchGroup& docKey(const std::string &key) { docKey_ = key; return *this; }
-    /** @} */
 
     /** Property: Order of switches in documentation.  This property controls the sorting of keys within the group.  If the
      *  property's value is @ref DOCKEY_ORDER, the default, then switches are sorted according to the Switch::docKey values; if

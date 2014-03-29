@@ -1671,15 +1671,19 @@ std::string Parser::docForSwitches() const {
     typedef std::vector<KeySwitchPair> KeySwitchPairs;
     typedef std::map<std::string /*groupKey*/, KeySwitchPairs> GroupSwitches;
     typedef std::map<std::string /*groupKey*/, SortOrder> GroupSortOrders;
+    typedef std::map<std::string /*groupKey*/, std::vector<std::string> > GroupDocumentation;
 
     // Partition documented switches according to their groups' keys
     StringStringMap groupTitles;
     GroupSwitches groupSwitches;
     GroupSortOrders groupSortOrders;
+    GroupDocumentation groupDocumentation;
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         std::string groupKey = sg.docKey().empty() ? boost::to_lower_copy(sg.name()) : sg.docKey();
         groupTitles[groupKey] = sg.name();
         groupSortOrders[groupKey] = sg.switchOrder();
+        if (!sg.doc().empty())
+            groupDocumentation[groupKey].push_back(sg.doc());
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
             if (!sw.hidden()) {
                 std::string switchKey = sw.docKey();    // never empty
@@ -1707,6 +1711,7 @@ std::string Parser::docForSwitches() const {
                 const std::string &groupTitle = groupTitles[sgPair.first];
                 if (!groupTitle.empty())
                     retval += "@subsection{" + groupTitle + "}{";
+                retval += boost::join(groupDocumentation[sgPair.first], "\n\n");
                 BOOST_FOREACH (KeySwitchPair &swPair, sgPair.second) {
                     std::string synopsis = swPair.second->synopsis();
                     const std::string &doc = swPair.second->doc();
@@ -1726,6 +1731,7 @@ std::string Parser::docForSwitches() const {
                     const std::string &groupTitle = groupTitles[groupKey];
                     if (!groupTitle.empty())
                         retval += "@subsection{" + groupTitle + "}{";
+                    retval += boost::join(groupDocumentation[groupKey], "\n\n");
                     BOOST_FOREACH (KeySwitchPair &swPair, groupSwitches[groupKey]) {
                         std::string synopsis = swPair.second->synopsis();
                         const std::string &doc = swPair.second->doc();
