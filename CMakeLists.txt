@@ -37,11 +37,11 @@ add_subdirectory(tests/CommandLine)
 #    |_| |_| |_|\__,_|_|\_\___|     |_|_| |_|___/\__\__,_|_|_|
 #
 #-------------------------------------------------------------------------------
-INSTALL(TARGETS sawyer
+install(TARGETS sawyer
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
 
 # Install all header files
-FILE(GLOB header_files "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
-INSTALL(FILES ${header_files} DESTINATION include)
+file(GLOB header_files "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
+install(FILES ${header_files} DESTINATION include)
