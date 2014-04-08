@@ -1,5 +1,5 @@
 // Tests basic command-line parsing using only Sawyer objects.
-#include "Message.h"
+#include <sawyer/Message.h>
 
 using namespace Sawyer::Message;
 

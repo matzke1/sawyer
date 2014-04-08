@@ -39,7 +39,7 @@
 // Run this like:
 //      ./test11 --help
 
-#include "CommandLine.h"
+#include <sawyer/CommandLine.h>
 
 using namespace Sawyer;
 using namespace Sawyer::CommandLine;

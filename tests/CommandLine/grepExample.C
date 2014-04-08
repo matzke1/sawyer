@@ -1,4 +1,4 @@
-#include "CommandLine.h"
+#include <sawyer/CommandLine.h>
 using namespace Sawyer::CommandLine;
 
 static const std::string VERSION_STRING = "GNU grep 2.6.3";

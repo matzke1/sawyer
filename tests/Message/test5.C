@@ -1,5 +1,5 @@
 // Tests some message filters
-#include "Message.h"
+#include <sawyer/Message.h>
 
 using namespace Sawyer::Message;
 

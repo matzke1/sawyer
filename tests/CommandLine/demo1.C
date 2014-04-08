@@ -1,4 +1,4 @@
-#include "CommandLine.h"
+#include <sawyer/CommandLine.h>
 
 using namespace Sawyer::CommandLine;
     

@@ -1,7 +1,8 @@
 #ifndef Sawyer_MarkupRoff_H
 #define Sawyer_MarkupRoff_H
 
-#include "Markup.h"
+#include <sawyer/Markup.h>
+
 #include <sstream>
 
 namespace Sawyer {

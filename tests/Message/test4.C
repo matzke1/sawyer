@@ -21,7 +21,7 @@
 //                      at this position   -------^
 //              Furthermore, no changes are made to the configuration.
 
-#include "Message.h"
+#include <sawyer/Message.h>
 
 #include <iostream>
 #include <string.h>

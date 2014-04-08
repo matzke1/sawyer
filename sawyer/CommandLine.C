@@ -1,7 +1,7 @@
-#include "Assert.h"
-#include "CommandLine.h"
-#include "MarkupRoff.h"
-#include "Message.h"
+#include <sawyer/Assert.h>
+#include <sawyer/CommandLine.h>
+#include <sawyer/MarkupRoff.h>
+#include <sawyer/Message.h>
 
 #include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>

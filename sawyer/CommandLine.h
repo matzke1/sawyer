@@ -2,8 +2,8 @@
 #ifndef Sawyer_CommandLine_H
 #define Sawyer_CommandLine_H
 
-#include "Assert.h"
-#include "Message.h"
+#include <sawyer/Assert.h>
+#include <sawyer/Message.h>
 
 #include <boost/any.hpp>
 #include <boost/cstdint.hpp>

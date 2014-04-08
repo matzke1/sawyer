@@ -1,4 +1,4 @@
-#include "CommandLine.h"
+#include <sawyer/CommandLine.h>
 #include <boost/algorithm/string/predicate.hpp>
 
 using namespace Sawyer::CommandLine;

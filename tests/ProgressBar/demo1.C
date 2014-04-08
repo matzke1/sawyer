@@ -1,4 +1,4 @@
-#include "ProgressBar.h"
+#include <sawyer/ProgressBar.h>
 #include <cstdio>
 
 using namespace Sawyer;

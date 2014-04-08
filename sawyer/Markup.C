@@ -1,4 +1,5 @@
-#include "Markup.h"
+#include <sawyer/Markup.h>
+
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <stdexcept>

@@ -9,18 +9,18 @@ find_package(PkgConfig)
 find_package(Boost 1.47.0 REQUIRED COMPONENTS system filesystem regex signals)
 
 set(lib_src
-  src/Assert.C
-  src/CommandLine.C
-  src/Markup.C
-  src/MarkupRoff.C
-  src/Message.C
-  src/ProgressBar.C
-  src/Sawyer.C)
+  sawyer/Assert.C
+  sawyer/CommandLine.C
+  sawyer/Markup.C
+  sawyer/MarkupRoff.C
+  sawyer/Message.C
+  sawyer/ProgressBar.C
+  sawyer/Sawyer.C)
 add_library(sawyer SHARED ${lib_src})
 
 include_directories(
+  ${CMAKE_SOURCE_DIR}
   ${Boost_INCLUDE_DIRS}
-  src
 )
 
 add_subdirectory(tests/Message)
@@ -43,5 +43,5 @@ install(TARGETS sawyer
   ARCHIVE DESTINATION lib)
 
 # Install all header files
-file(GLOB header_files "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
-install(FILES ${header_files} DESTINATION include)
+file(GLOB header_files "${CMAKE_CURRENT_SOURCE_DIR}/sawyer/*.h")
+install(FILES ${header_files} DESTINATION include/sawyer)

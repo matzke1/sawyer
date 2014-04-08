@@ -1,5 +1,5 @@
 // Test that we can use a default constructed facility
-#include "Message.h"
+#include <sawyer/Message.h>
 #include <iostream>
 
 using namespace Sawyer::Message::Common;
