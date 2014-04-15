@@ -3,6 +3,7 @@
 #define Sawyer_CommandLine_H
 
 #include <sawyer/Assert.h>
+#include <sawyer/Map.h>
 #include <sawyer/Message.h>
 
 #include <boost/any.hpp>
@@ -14,7 +15,6 @@
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <cerrno>
-#include <map>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -976,7 +976,7 @@ private:
 template<typename T>
 class EnumParser: public ValueParser {
     StringSetParser::Ptr strParser_;
-    std::map<std::string, T> members_;
+    Container::Map<std::string, T> members_;
 protected:
     /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
     EnumParser(): strParser_(StringSetParser::instance()) {}
@@ -1000,7 +1000,7 @@ public:
     /** Adds enum members.  Inserts an additional enumeration constant and its string name. */
     Ptr with(const std::string &name, T value) {
         strParser_->with(name);
-        members_[name] = value;
+        members_.insert(name, value);
         return boost::dynamic_pointer_cast<EnumParser>(shared_from_this());
     }
 private:
@@ -2247,7 +2247,7 @@ class Parser {
     mutable std::string dateString_;                    /**< Version date defaulting to current month and year. */
     int chapterNumber_;                                 /**< Standard Unix man page chapters 0 through 9. */
     std::string chapterName_;                           /**< Chapter name, or "" to use standard Unix chapter names. */
-    typedef std::map<std::string, std::string> StringStringMap;
+    typedef Container::Map<std::string, std::string> StringStringMap;
     StringStringMap sectionDoc_;                        /**< Extra documentation for any section by lower-case section name. */
     StringStringMap sectionOrder_;                      /**< Maps section keys to section names. */
     Message::SProxy errorStream_;                       /**< Send errors here and exit instead of throwing runtime_error. */
@@ -2541,7 +2541,7 @@ private:
     std::string documentationMarkup() const;
 
     // Returns the best prefix for each switch--the one used for documentation
-    void preferredSwitchPrefixes(std::map<std::string, std::string> &prefixMap /*out*/) const;
+    void preferredSwitchPrefixes(Container::Map<std::string, std::string> &prefixMap /*out*/) const;
 
     // Terminal width in characters from TIOCGWINSZ, $COLUMNS, or 80
     static int terminalWidth();
@@ -2582,7 +2582,7 @@ class ParserResult {
     ParsedValues values_;
 
     // Maps a name to indexes into the values_ vector.
-    typedef std::map<std::string, std::vector<size_t> > NameIndex;
+    typedef Container::Map<std::string, std::vector<size_t> > NameIndex;
     NameIndex keyIndex_;                                // Values per switch key
     NameIndex switchIndex_;                             // Values per switch preferred name
 
@@ -2590,7 +2590,7 @@ class ParserResult {
     // the values are spread out across subsequent argv members. We do it this way because many of the values are defaults that
     // don't actually have an argv location.  The integers are indexes into the values_ vector. In other words, this is a
     // mapping from switch location to values_ elements for the switch's values.
-    typedef std::map<Location, std::vector<size_t> > ArgvIndex;
+    typedef Container::Map<Location, std::vector<size_t> > ArgvIndex;
     ArgvIndex argvIndex_;
 
     // Information about program arguments that the parser skipped over. Indexes into argv_.
@@ -2601,7 +2601,7 @@ class ParserResult {
     SkippedIndex terminators_;
 
     /** Switch actions to be called by @ref apply. We save one action per key. */
-    std::map<std::string, SwitchAction::Ptr> actions_; 
+    Container::Map<std::string, SwitchAction::Ptr> actions_; 
 
 private:
     friend class Parser;

@@ -140,9 +140,9 @@ extern Message::SProxy assertionStream;
 #define ASSERT_always_this()                                                                                                   \
     (this ?                                                                                                                    \
         static_cast<void>(0) :                                                                                                 \
-        Sawyer::asert::fail("assertionfailed",                                                                                 \
-                            "required: this!=NULL", "'this' cannot be null in an object method",                               \
-                            __FILE__, __LINE__, __PRETTY_FUNCTION__))
+        Sawyer::Assert::fail("assertion failed",                                                                               \
+                             "required: this!=NULL", "'this' cannot be null in an object method",                              \
+                             __FILE__, __LINE__, __PRETTY_FUNCTION__))
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // The non-"always" macros might change behavior based on whether SAWYER_NDEBUG is defined.

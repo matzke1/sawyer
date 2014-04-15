@@ -23,6 +23,7 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
 )
 
+add_subdirectory(tests/Container)
 add_subdirectory(tests/Message)
 add_subdirectory(tests/Assert)
 add_subdirectory(tests/ProgressBar)

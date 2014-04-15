@@ -977,7 +977,7 @@ void ParserResult::insertValuesForSwitch(const ParsedValues &pvals, const Parser
             break;
         case SAVE_FIRST:
             if (!keyIndex_[key].empty())
-                shouldSave = false;                 // skip this value since we already saved one
+                shouldSave = false;                     // skip this value since we already saved one
             break;
         case SAVE_LAST:
             keyIndex_[key].clear();
@@ -996,7 +996,7 @@ void ParserResult::insertValuesForSwitch(const ParsedValues &pvals, const Parser
                     insertOneValue(pval, sw);
                 return;
             }
-            keyIndex_[key].clear();                 // act like SAVE_LAST
+            keyIndex_[key].clear();                     // act like SAVE_LAST
             break;
     }
 
@@ -1038,15 +1038,15 @@ void ParserResult::terminator(const Location &loc) {
 
 const ParserResult& ParserResult::apply() const {
     // Save values into variables
-    for (NameIndex::const_iterator ki=keyIndex_.begin(); ki!=keyIndex_.end(); ++ki) {
-        BOOST_FOREACH (size_t idx, ki->second) {
+    BOOST_FOREACH (const std::vector<size_t> &indexes, keyIndex_.values()) {
+        BOOST_FOREACH (size_t idx, indexes) {
             values_[idx].save();
         }
     }
     // Run actions
-    for (std::map<const std::string, SwitchAction::Ptr>::const_iterator ai=actions_.begin(); ai!=actions_.end(); ++ai) {
-        if (ai->second)
-            ai->second->run(*this);
+    BOOST_FOREACH (const SwitchAction::Ptr &action, actions_.values()) {
+        if (action)
+            action->run(*this);
     }
 
     return *this;
@@ -1098,9 +1098,9 @@ std::vector<std::string> ParserResult::parsedArgs() const {
     std::set<size_t> indexes;
 
     // Program arguments that have parsed switches, and the locations of the switch values
-    for (ArgvIndex::const_iterator i=argvIndex_.begin(); i!=argvIndex_.end(); ++i) {
-        indexes.insert(i->first.idx);
-        BOOST_FOREACH (size_t valueIdx, i->second) {
+    BOOST_FOREACH (const ArgvIndex::Node &node, argvIndex_.nodes()) {
+        indexes.insert(node.key().idx);
+        BOOST_FOREACH (size_t valueIdx, node.value()) {
             const Location valueLocation = values_[valueIdx].valueLocation();
             if (valueLocation != NOWHERE)
                 indexes.insert(valueLocation.idx);
@@ -1542,20 +1542,20 @@ std::pair<int, std::string> Parser::chapter() const {
 }
 
 Parser& Parser::doc(const std::string &sectionName, const std::string &docKey, const std::string &text) {
-    sectionOrder_[docKey] = sectionName;
-    sectionDoc_[boost::to_lower_copy(sectionName)] = text;
+    sectionOrder_.insert(docKey, sectionName);
+    sectionDoc_.insert(boost::to_lower_copy(sectionName), text);
     return *this;
 }
 
 std::vector<std::string> Parser::docSections() const {
     std::vector<std::string> retval;
-    for (StringStringMap::const_iterator di=sectionDoc_.begin(); di!=sectionDoc_.end(); ++di)
-        retval.push_back(di->first);
+    BOOST_FOREACH (const std::string &key, sectionDoc_.keys())
+        retval.push_back(key);
     return retval;
 }
 
 // @s{NAME} where NAME is either a long or short switch name without prefix.
-typedef std::map<std::string, std::string> PreferredPrefixes; // maps switch names to their best prefixes
+typedef Container::Map<std::string, std::string> PreferredPrefixes; // maps switch names to their best prefixes
 typedef boost::shared_ptr<class SwitchTag> SwitchTagPtr;
 class SwitchTag: public Markup::Tag {
     PreferredPrefixes preferredPrefixes_;
@@ -1572,15 +1572,15 @@ public:
         using namespace Markup;
         ASSERT_require(1==args.size());
         std::string raw = args.front()->asText();
-        PreferredPrefixes::const_iterator i = preferredPrefixes_.find(raw);
-        if (i==preferredPrefixes_.end()) {
+        PreferredPrefixes::NodeIterator i = preferredPrefixes_.find(raw);
+        if (i==preferredPrefixes_.nodes().end()) {
             if (1==raw.size()) {
                 raw = bestShortPrefix_ + raw;
             } else {
                 raw = bestLongPrefix_ + raw;
             }
         } else {
-            raw = i->second + raw;
+            raw = i->value() + raw;
         }
         TagInstancePtr nulltag = TagInstance::instance(NullTag::instance(raw));
         ContentPtr retval = Content::instance();
@@ -1594,7 +1594,7 @@ typedef boost::shared_ptr<class SeeAlsoTag> SeeAlsoTagPtr;
 class SeeAlsoTag: public Markup::Tag {
 public:
 public:
-    typedef std::map<std::string, Markup::ContentPtr> SeeAlso;
+    typedef Container::Map<std::string, Markup::ContentPtr> SeeAlso;
 private:
     SeeAlso seeAlso_;
 protected:
@@ -1608,10 +1608,10 @@ public:
         using namespace Markup;
         ASSERT_require(0==args.size());
         ContentPtr retval = Content::instance();
-        for (SeeAlso::iterator sai=seeAlso_.begin(); sai!=seeAlso_.end(); ++sai) {
-            if (sai!=seeAlso_.begin())
+        for (SeeAlso::ValueIterator sai=seeAlso_.values().begin(); sai!=seeAlso_.values().end(); ++sai) {
+            if (sai!=seeAlso_.values().begin())
                 retval->append(", ");
-            retval->append(sai->second);
+            retval->append(*sai);
         }
         return retval;
     }
@@ -1641,7 +1641,7 @@ public:
 // @prop{KEY} is replaced with the property string stored for KEY
 typedef boost::shared_ptr<class PropTag> PropTagPtr;
 class PropTag: public Markup::Tag {
-    std::map<std::string, std::string> values_;
+    Container::Map<std::string, std::string> values_;
 protected:
     PropTag(): Markup::Tag("prop", 1) {}
 public:
@@ -1669,9 +1669,9 @@ static bool sortPairByFirst(const Pair &a, const Pair &b) {
 std::string Parser::docForSwitches() const {
     typedef std::pair<std::string /*switchKey*/, const Switch*> KeySwitchPair;
     typedef std::vector<KeySwitchPair> KeySwitchPairs;
-    typedef std::map<std::string /*groupKey*/, KeySwitchPairs> GroupSwitches;
-    typedef std::map<std::string /*groupKey*/, SortOrder> GroupSortOrders;
-    typedef std::map<std::string /*groupKey*/, std::vector<std::string> > GroupDocumentation;
+    typedef Container::Map<std::string /*groupKey*/, KeySwitchPairs> GroupSwitches;
+    typedef Container::Map<std::string /*groupKey*/, SortOrder> GroupSortOrders;
+    typedef Container::Map<std::string /*groupKey*/, std::vector<std::string> > GroupDocumentation;
 
     // Partition documented switches according to their groups' keys
     StringStringMap groupTitles;
@@ -1680,7 +1680,7 @@ std::string Parser::docForSwitches() const {
     GroupDocumentation groupDocumentation;
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         std::string groupKey = sg.docKey().empty() ? boost::to_lower_copy(sg.name()) : sg.docKey();
-        groupTitles[groupKey] = sg.name();
+        groupTitles.insert(groupKey, sg.name());
         groupSortOrders[groupKey] = sg.switchOrder();
         if (!sg.doc().empty())
             groupDocumentation[groupKey].push_back(sg.doc());
@@ -1693,10 +1693,10 @@ std::string Parser::docForSwitches() const {
     }
 
     // Sort the switches in each group.
-    BOOST_FOREACH (GroupSwitches::value_type &pair, groupSwitches) {
-        switch (groupSortOrders[pair.first]) {
+    BOOST_FOREACH (GroupSwitches::Node &node, groupSwitches.nodes()) {
+        switch (groupSortOrders[node.key()]) {
             case DOCKEY_ORDER:
-                std::sort(pair.second.begin(), pair.second.end(), sortPairByFirst<KeySwitchPair>);
+                std::sort(node.value().begin(), node.value().end(), sortPairByFirst<KeySwitchPair>);
                 break;
             case INSERTION_ORDER:
                 break;
@@ -1707,12 +1707,12 @@ std::string Parser::docForSwitches() const {
     std::string retval, notDocumented("Not documented.");
     switch (switchGroupOrder_) {
         case DOCKEY_ORDER: {
-            BOOST_FOREACH (GroupSwitches::value_type &sgPair, groupSwitches) {
-                const std::string &groupTitle = groupTitles[sgPair.first];
+            BOOST_FOREACH (GroupSwitches::Node &sgNode, groupSwitches.nodes()) {
+                const std::string &groupTitle = groupTitles[sgNode.key()];
                 if (!groupTitle.empty())
                     retval += "@subsection{" + groupTitle + "}{";
-                retval += boost::join(groupDocumentation[sgPair.first], "\n\n");
-                BOOST_FOREACH (KeySwitchPair &swPair, sgPair.second) {
+                retval += boost::join(groupDocumentation[sgNode.key()], "\n\n");
+                BOOST_FOREACH (KeySwitchPair &swPair, sgNode.value()) {
                     std::string synopsis = swPair.second->synopsis();
                     const std::string &doc = swPair.second->doc();
                     retval += "@defn{" + synopsis + "}{" + (doc.empty() ? notDocumented : doc) + "}\n";
@@ -1749,8 +1749,8 @@ std::string Parser::docForSwitches() const {
 
 std::string Parser::docForSection(const std::string &sectionName) const {
     std::string docKey = boost::to_lower_copy(sectionName);
-    StringStringMap::const_iterator section = sectionDoc_.find(docKey);
-    std::string doc = section == sectionDoc_.end() ? std::string() : section->second;
+    StringStringMap::ConstNodeIterator section = sectionDoc_.find(docKey);
+    std::string doc = section == sectionDoc_.nodes().end() ? std::string() : section->value();
     if (0==docKey.compare("name")) {
         if (doc.empty())
             doc = programName() + " - " + (purpose_.empty() ? std::string("Undocumented") : purpose_);
@@ -1767,7 +1767,7 @@ std::string Parser::docForSection(const std::string &sectionName) const {
 }
 
 // Returns a map that lists all known switches and their preferred prefix
-void Parser::preferredSwitchPrefixes(std::map<std::string, std::string> &prefixMap /*out*/) const {
+void Parser::preferredSwitchPrefixes(Container::Map<std::string, std::string> &prefixMap /*out*/) const {
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
@@ -1775,12 +1775,12 @@ void Parser::preferredSwitchPrefixes(std::map<std::string, std::string> &prefixM
             if (!swProps.longPrefixes.empty()) {
                 const std::string &prefix = swProps.longPrefixes.front();
                 BOOST_FOREACH (const std::string &name, sw.longNames())
-                    prefixMap[name] = prefix;
+                    prefixMap.insert(name, prefix);
             }
             if (!swProps.shortPrefixes.empty()) {
                 const std::string &prefix = swProps.shortPrefixes.front();
                 BOOST_FOREACH (char name, sw.shortNames())
-                    prefixMap[std::string(1, name)] = prefix;
+                    prefixMap.insert(std::string(1, name), prefix);
             }
         }
     }
@@ -1801,9 +1801,9 @@ std::string Parser::documentationMarkup() const {
     created.insert("options");
 
     // Append user-defined sections
-    for (StringStringMap::const_iterator soi=sectionOrder_.begin(); soi!=sectionOrder_.end(); ++soi) {
-        if (created.insert(boost::to_lower_copy(soi->second)).second)
-            doc += "@section{" + soi->second + "}{" + docForSection(soi->second) + "}\n";
+    BOOST_FOREACH (const std::string &sectionName, sectionOrder_.values()) {
+        if (created.insert(boost::to_lower_copy(sectionName)).second)
+            doc += "@section{" + sectionName + "}{" + docForSection(sectionName) + "}\n";
     }
 
     // This section is always at the bottom unless the user forces it elsewhere.
@@ -1816,8 +1816,8 @@ std::string Parser::documentationMarkup() const {
 // Generate an nroff manual page
 std::string Parser::manpage() const {
     // The @s tag for expanding switch names from "foo" to "--foo", or whatever is appropriate
-    std::map<std::string, std::string> prefixes;
-    preferredSwitchPrefixes(prefixes);
+    Container::Map<std::string, std::string> prefixes;
+    preferredSwitchPrefixes(prefixes /*out*/);
     std::string bestShort = properties_.shortPrefixes.empty() ?
                             std::string("-") :
                             properties_.shortPrefixes.front();

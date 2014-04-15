@@ -2,10 +2,11 @@
 #ifndef Sawyer_Markup_H
 #define Sawyer_Markup_H
 
+#include <sawyer/Map.h>
+
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/shared_ptr.hpp>
 #include <cstring>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -265,7 +266,7 @@ public:
 };
 
 class Parser {
-    typedef std::map<std::string, TagPtr> SymbolTable;
+    typedef Container::Map<std::string, TagPtr> SymbolTable;
     SymbolTable symtab_;
 public:
     Parser() { init(); }
