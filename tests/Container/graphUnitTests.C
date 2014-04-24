@@ -5,10 +5,10 @@
 #include <vector>
 
 template<class V, class E>
-std::ostream& operator<<(std::ostream &o, Sawyer::Container::Graph<V, E> &graph) {
+std::ostream& operator<<(std::ostream &o, const Sawyer::Container::Graph<V, E> &graph) {
     typedef const typename Sawyer::Container::Graph<V, E> Graph;
-    typedef typename Graph::VertexNodeIterator VertexNodeIterator;
-    typedef typename Graph::EdgeNodeIterator EdgeNodeIterator;
+    typedef typename Graph::ConstVertexNodeIterator VertexNodeIterator;
+    typedef typename Graph::ConstEdgeNodeIterator EdgeNodeIterator;
     typedef typename Graph::Vertex Vertex;
     typedef typename Graph::Edge Edge;
 
@@ -16,9 +16,9 @@ std::ostream& operator<<(std::ostream &o, Sawyer::Container::Graph<V, E> &graph)
     for (size_t id=0; id<graph.nVertices(); ++id) {
         VertexNodeIterator vertex = graph.findVertex(id);
         o <<"      [" <<vertex->id() <<"] = " <<vertex->value() <<"\n";
-        BOOST_FOREACH (Edge &edge, vertex->outEdges())
+        BOOST_FOREACH (const Edge &edge, vertex->outEdges())
             o <<"        out edge #" <<edge.id() <<" to   node #" <<edge.target()->id() <<" = " <<edge.value() <<"\n";
-        BOOST_FOREACH (Edge &edge, vertex->inEdges())
+        BOOST_FOREACH (const Edge &edge, vertex->inEdges())
             o <<"        in  edge #" <<edge.id() <<" from node #" <<edge.source()->id() <<" = " <<edge.value() <<"\n";
     }
 

@@ -301,7 +301,8 @@ public:
     }
     /** @} */
 
-    bool isLocalIterator(const ConstValueIterator &iter) {
+private:
+    bool isLocalIterator(const ConstValueIterator &iter) const {
         const ProtoNode *pn = iter.base();
         ASSERT_not_null(pn);
         if (pn == head_)

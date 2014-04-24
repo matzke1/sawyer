@@ -177,21 +177,21 @@ private:
     // Edge iterators always ultimately point to an Edge (or const Edge), but do so either through an EdgeList iterator
     // or a VirtualList<Edge>.  The "phase" of the iterator determines which list is being traversed even though all three
     // lists (graph edges, in edges, and out edges) share the same memory.
-    template<class Derived, class Value, class BaseIter>
+    template<class Derived, class Value, class Node, class BaseIter, class VList>
     class EdgeBaseIterator: public std::iterator<std::bidirectional_iterator_tag, Value> {
         EdgePhase phase_;                               // IN_EDGES, OUT_EDGES or N_PHASES (graph edges)
         BaseIter iter_;                                 // EdgeList::NodeIterator or EdgeList::ConstNodeIterator
-        VirtualList<Edge> *vlist_;                      // Used when phase_ is IN_EDGES or OUT_EDGES
+        VList *vlist_;                                  // (const) VirtualList<Edge> used when phase_ is IN_EDGES or OUT_EDGES
     protected:
         friend class Graph;
         EdgeBaseIterator() {}
         EdgeBaseIterator(const EdgeBaseIterator &other): phase_(other.phase_), iter_(other.iter_), vlist_(other.vlist_) {}
         EdgeBaseIterator(const BaseIter &iter): phase_(N_PHASES), iter_(iter), vlist_(NULL) {}
-        EdgeBaseIterator(EdgePhase phase, VirtualList<Edge> *vlist): phase_(phase), vlist_(vlist) {}
-        template<class BaseIter2> EdgeBaseIterator(EdgePhase phase, const BaseIter2 &iter, VirtualList<Edge> *vlist)
+        EdgeBaseIterator(EdgePhase phase, VList *vlist): phase_(phase), vlist_(vlist) {}
+        template<class BaseIter2> EdgeBaseIterator(EdgePhase phase, const BaseIter2 &iter, VList *vlist)
             : phase_(phase), iter_(iter), vlist_(vlist) {}
 
-        Edge& dereference() const {
+        Node& dereference() const {
             return N_PHASES==phase_ ? iter_->value() : vlist_->dereference();
         }
 
@@ -259,13 +259,13 @@ private:
          * @{ */
         template<class OtherIter>
         bool operator==(const OtherIter &other) const {
-            const Edge *a = NULL;
+            Node *a = NULL;
             if (N_PHASES==phase_) {
                 a = iter_.isAtEnd() ? NULL : &iter_->value();
             } else {
                 a = vlist_->isHead() ? NULL : &vlist_->dereference();
             }
-            const Edge *b = NULL;
+            Node *b = NULL;
             if (N_PHASES==other.phase_) {
                 b = other.iter_.isAtEnd() ? NULL : &other.iter_->value();
             } else {
@@ -280,7 +280,7 @@ private:
         /** @} */
     };
 
-    template<class Derived, class Value, class BaseIter>
+    template<class Derived, class Value, class Node, class BaseIter>
     class VertexBaseIterator: public std::iterator<std::bidirectional_iterator_tag, Value> {
         BaseIter base_;                                 // VertexList::NodeIterator or VertexList::ConstNodeIterator
     protected:
@@ -288,7 +288,7 @@ private:
         VertexBaseIterator() {}
         VertexBaseIterator(const VertexBaseIterator &other): base_(other.base_) {}
         VertexBaseIterator(const BaseIter &base): base_(base) {}
-        Vertex& dereference() const { return base_->value(); }
+        Node& dereference() const { return base_->value(); }
     public:
         /** Assignment. */
         Derived& operator=(const Derived &other) { base_ = other.base_; return *derived(); }
@@ -336,8 +336,10 @@ public:
      *  implicitly converted to a @ref ConstEdgeValueIterator.
      *
      * @{ */
-    class EdgeNodeIterator: public EdgeBaseIterator<EdgeNodeIterator, Edge, typename EdgeList::NodeIterator> {
-        typedef                    EdgeBaseIterator<EdgeNodeIterator, Edge, typename EdgeList::NodeIterator> Super;
+    class EdgeNodeIterator: public EdgeBaseIterator<EdgeNodeIterator, Edge, Edge, typename EdgeList::NodeIterator,
+                                                    VirtualList<Edge> > {
+        typedef                    EdgeBaseIterator<EdgeNodeIterator, Edge, Edge, typename EdgeList::NodeIterator,
+                                                    VirtualList<Edge> > Super;
     public:
         EdgeNodeIterator() {}
         EdgeNodeIterator(const EdgeNodeIterator &other): Super(other) {}
@@ -349,22 +351,21 @@ public:
         EdgeNodeIterator(EdgePhase phase, VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
 
-#if 0 // [Robb Matzke 2014-04-21]: not needed yet
-    class ConstEdgeNodeIterator: public EdgeBaseIterator<ConstEdgeNodeIterator, const Edge,
-                                                         typename EdgeList::ConstNodeIterator> {
-        typedef                         EdgeBaseIterator<ConstEdgeNodeIterator, const Edge,
-                                                         typename EdgeList::ConstNodeIterator> Super;
+    class ConstEdgeNodeIterator: public EdgeBaseIterator<ConstEdgeNodeIterator, const Edge, const Edge,
+                                                         typename EdgeList::ConstNodeIterator, const VirtualList<Edge> > {
+        typedef                         EdgeBaseIterator<ConstEdgeNodeIterator, const Edge, const Edge,
+                                                         typename EdgeList::ConstNodeIterator, const VirtualList<Edge> > Super;
     public:
         ConstEdgeNodeIterator() {}
         ConstEdgeNodeIterator(const ConstEdgeNodeIterator &other): Super(other) {}
+        ConstEdgeNodeIterator(const EdgeNodeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
         const Edge& operator*() const { return this->dereference(); }
         const Edge* operator->() const { return &this->dereference(); }
     private:
         friend class Graph;
         ConstEdgeNodeIterator(const typename EdgeList::ConstNodeIterator &base): Super(base) {}
-        ConstEdgeNodeIterator(EdgePhase phase, VirtualList<Edge> *vlist): Super(phase, vlist) {}
+        ConstEdgeNodeIterator(EdgePhase phase, const VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
-#endif
     /** @} */
 
     /** Bidirectional edge value iterator.
@@ -375,8 +376,10 @@ public:
      *  impliciatly converted to a @ref ConstEdgeValueIterator.
      *
      * @{ */
-    class EdgeValueIterator: public EdgeBaseIterator<EdgeValueIterator, EdgeValue, typename EdgeList::NodeIterator> {
-        typedef                     EdgeBaseIterator<EdgeValueIterator, EdgeValue, typename EdgeList::NodeIterator> Super;
+    class EdgeValueIterator: public EdgeBaseIterator<EdgeValueIterator, EdgeValue, Edge, typename EdgeList::NodeIterator,
+                                                     VirtualList<Edge> > {
+        typedef                     EdgeBaseIterator<EdgeValueIterator, EdgeValue, Edge, typename EdgeList::NodeIterator,
+                                                     VirtualList<Edge> > Super;
     public:
         EdgeValueIterator() {}
         EdgeValueIterator(const EdgeValueIterator &other): Super(other) {}
@@ -389,22 +392,23 @@ public:
         EdgeValueIterator(EdgePhase phase, VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
 
-#if 0 // [Robb Matzke 2014-04-21]: not needed yet
-    class ConstEdgeValueIterator: public EdgeBaseIterator<ConstEdgeValueIterator, const EdgeValue,
-                                                          typename EdgeList::ConstNodeIterator> {
-        typedef                          EdgeBaseIterator<ConstEdgeValueIterator, const EdgeValue,
-                                                          typename EdgeList::ConstNodeIterator> Super;
+    class ConstEdgeValueIterator: public EdgeBaseIterator<ConstEdgeValueIterator, const EdgeValue, const Edge,
+                                                          typename EdgeList::ConstNodeIterator, const VirtualList<Edge> > {
+        typedef                          EdgeBaseIterator<ConstEdgeValueIterator, const EdgeValue, const Edge,
+                                                          typename EdgeList::ConstNodeIterator, const VirtualList<Edge> > Super;
     public:
         ConstEdgeValueIterator() {}
         ConstEdgeValueIterator(const ConstEdgeValueIterator &other): Super(other) {}
+        ConstEdgeValueIterator(const EdgeValueIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
+        ConstEdgeValueIterator(const EdgeNodeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
+        ConstEdgeValueIterator(const ConstEdgeNodeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
         const EdgeValue& operator*() const { return this->dereference().value(); }
         const EdgeValue* operator->() const { return &this->dereference().value(); }
     private:
         friend class Graph;
         ConstEdgeValueIterator(const typename EdgeList::ConstNodeIterator &base): Super(base) {}
-        ConstEdgeValueIterator(EdgePhase phase, VirtualList<Edge> *vlist): Super(phase, vlist) {}
+        ConstEdgeValueIterator(EdgePhase phase, const VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
-#endif
     /** @} */
 
     /** Bidirectional vertex node iterator.
@@ -416,8 +420,10 @@ public:
      *  ConstVertexNodeIterator can be implicitly converted to a @ref ConstVertexValueIterator.
      *
      * @{ */
-    class VertexNodeIterator: public VertexBaseIterator<VertexNodeIterator, Vertex, typename VertexList::NodeIterator> {
-        typedef                      VertexBaseIterator<VertexNodeIterator, Vertex, typename VertexList::NodeIterator> Super;
+    class VertexNodeIterator: public VertexBaseIterator<VertexNodeIterator, Vertex, Vertex,
+                                                        typename VertexList::NodeIterator> {
+        typedef                      VertexBaseIterator<VertexNodeIterator, Vertex, Vertex,
+                                                        typename VertexList::NodeIterator> Super;
     public:
         VertexNodeIterator() {}
         VertexNodeIterator(const VertexNodeIterator &other): Super(other) {}
@@ -428,21 +434,20 @@ public:
         VertexNodeIterator(const typename VertexList::NodeIterator &base): Super(base) {}
     };
 
-#if 0 // [Robb Matzke 2014-04-21]: not needed yet
-    class ConstVertexNodeIterator: public VertexBaseIterator<ConstVertexNodeIterator, const Vertex,
+    class ConstVertexNodeIterator: public VertexBaseIterator<ConstVertexNodeIterator, const Vertex, const Vertex,
                                                              typename VertexList::ConstNodeIterator> {
-        typedef                           VertexBaseIterator<ConstVertexNodeIterator, const Vertex,
+        typedef                           VertexBaseIterator<ConstVertexNodeIterator, const Vertex, const Vertex,
                                                              typename VertexList::ConstNodeIterator> Super;
     public:
         ConstVertexNodeIterator() {}
         ConstVertexNodeIterator(const ConstVertexNodeIterator &other): Super(other) {}
+        ConstVertexNodeIterator(const VertexNodeIterator &other): Super(other.base_) {}
         const Vertex& operator*() const { return this->dereference(); }
         const Vertex* operator->() const { return &this->dereference(); }
     private:
         friend class Graph;
         ConstVertexNodeIterator(const typename VertexList::ConstNodeIterator &base): Super(base) {}
     };
-#endif
     /** @} */
         
     /** Bidirectional vertex value iterator.
@@ -453,9 +458,9 @@ public:
      *  be impliciatly converted to a @ref ConstVertexValueIterator.
      *
      * @{ */
-    class VertexValueIterator: public VertexBaseIterator<VertexValueIterator, VertexValue,
+    class VertexValueIterator: public VertexBaseIterator<VertexValueIterator, VertexValue, Vertex,
                                                          typename VertexList::NodeIterator> {
-        typedef                       VertexBaseIterator<VertexValueIterator, VertexValue,
+        typedef                       VertexBaseIterator<VertexValueIterator, VertexValue, Vertex,
                                                          typename VertexList::NodeIterator> Super;
     public:
         VertexValueIterator() {}
@@ -468,21 +473,22 @@ public:
         VertexValueIterator(const typename VertexList::NodeIterator &base): Super(base) {}
     };
 
-#if 0 // [Robb Matzke 2014-04-21]: not needed yet
-    class ConstVertexValueIterator: public VertexBaseIterator<ConstVertexValueIterator, const VertexValue,
+    class ConstVertexValueIterator: public VertexBaseIterator<ConstVertexValueIterator, const VertexValue, const Vertex,
                                                               typename VertexList::ConstNodeIterator> {
-        typedef                            VertexBaseIterator<ConstVertexValueIterator, const VertexValue,
+        typedef                            VertexBaseIterator<ConstVertexValueIterator, const VertexValue, const Vertex,
                                                               typename VertexList::ConstNodeIterator> Super;
     public:
         ConstVertexValueIterator() {}
         ConstVertexValueIterator(const ConstVertexValueIterator &other): Super(other) {}
+        ConstVertexValueIterator(const VertexValueIterator &other): Super(other.base_) {}
+        ConstVertexValueIterator(const VertexNodeIterator &other): Super(other.base_) {}
+        ConstVertexValueIterator(const ConstVertexNodeIterator &other): Super(other.base_) {}
         const VertexValue& operator*() const { return this->dereference().value(); }
         const VertexValue* operator->() const { return &this->dereference().value(); }
     private:
         friend class Graph;
         ConstVertexValueIterator(const typename VertexList::ConstNodeIterator &base): Super(base) {}
     };
-#endif
     /** @} */
 
 
@@ -521,16 +527,24 @@ public:
          *  All edges in a graph are directed edges, and this method returns an iterator (pointer) to the vertex that serves
          *  as the source of this edge.
          *
-         *  Time complexity is constant. */
+         *  Time complexity is constant.
+         *
+         * @{ */
         const VertexNodeIterator& source() { return source_; }
+        ConstVertexNodeIterator source() const { return source_; }
+        /** @} */
 
         /** Target vertex.
          *
          *  All edges in a graph are directed edges, and this method returns an iterator (pointer) to the vertex that serves as
          *  the destination of this edge.
          *
-         *  Time complexity is constant. */
+         *  Time complexity is constant.
+         *
+         * @{ */
         const VertexNodeIterator& target() { return target_; }
+        ConstVertexNodeIterator target() const { return target_; }
+        /** @} */
 
         /** User-defined value.
          *
@@ -577,12 +591,20 @@ public:
          *  delineate the edges.  The traversal is in no particular order. %Edge iterators are equality-comparable with one
          *  another even when the come from different sublists. See @ref EdgeNodeIterator for details.
          *
-         *  Time complexity is constant. */
+         *  Time complexity is constant.
+         *
+         * @{ */
         boost::iterator_range<EdgeNodeIterator> inEdges() {
             EdgeNodeIterator begin(IN_EDGES, &edgeLists_.next(IN_EDGES));
             EdgeNodeIterator end(IN_EDGES, &edgeLists_);
             return boost::iterator_range<EdgeNodeIterator>(begin, end);
         }
+        boost::iterator_range<ConstEdgeNodeIterator> inEdges() const {
+            ConstEdgeNodeIterator begin(IN_EDGES, &edgeLists_.next(IN_EDGES));
+            ConstEdgeNodeIterator end(IN_EDGES, &edgeLists_);
+            return boost::iterator_range<ConstEdgeNodeIterator>(begin, end);
+        }
+        /** @} */
 
         /** List of outgoing edges.
          *
@@ -590,12 +612,20 @@ public:
          *  delineate the edges.  The traversal is in no particular order. %Edge iterators are equality-comparable with one
          *  another even when the come from different sublists. See @ref EdgeNodeIterator for details.
          *
-         *  Time complexity is constant. */
+         *  Time complexity is constant.
+         *
+         * @{ */
         boost::iterator_range<EdgeNodeIterator> outEdges() {
             EdgeNodeIterator begin(OUT_EDGES, &edgeLists_.next(OUT_EDGES));
             EdgeNodeIterator end(OUT_EDGES, &edgeLists_);
             return boost::iterator_range<EdgeNodeIterator>(begin, end);
         }
+        boost::iterator_range<ConstEdgeNodeIterator> outEdges() const {
+            ConstEdgeNodeIterator begin(OUT_EDGES, &edgeLists_.next(OUT_EDGES));
+            ConstEdgeNodeIterator end(OUT_EDGES, &edgeLists_);
+            return boost::iterator_range<ConstEdgeNodeIterator>(begin, end);
+        }
+        /** @} */
 
         /** User-defined value.
          *
@@ -654,7 +684,7 @@ public:
      *  the @p other graph.
      *
      *  Time complexity is linear in the sum of the number of vertices and edges in this graph and @p other. */
-    Graph& operator=(const Graph &other);
+    Graph& operator=(const Graph &other);               // FIXME[Robb Matzke 2014-04-24]: not implemented yet
 
     /** Assignment.
      *
@@ -665,7 +695,7 @@ public:
      *
      *  Time complexity is linear in the sum of the number of vertices and edges in this graph and @p other. */
     template<class V2, class E2>
-    Graph& operator=(const Graph<V2, E2> &other);
+    Graph& operator=(const Graph<V2, E2> &other);       // FIXME[Robb Matzke 2014-04-24]: not implemented yet
 
 
 
@@ -677,11 +707,18 @@ public:
      *  Returns a pair of vertex node iterators that deliniate the list of all vertices of this graph.  The traversal of this
      *  list is in no particular order.
      *
-     *  Time complexity is constant. */
+     *  Time complexity is constant.
+     *
+     * @{ */
     boost::iterator_range<VertexNodeIterator> vertices() {
         return boost::iterator_range<VertexNodeIterator>(VertexNodeIterator(vertices_.nodes().begin()),
                                                          VertexNodeIterator(vertices_.nodes().end()));
     }
+    boost::iterator_range<ConstVertexNodeIterator> vertices() const {
+        return boost::iterator_range<ConstVertexNodeIterator>(ConstVertexNodeIterator(vertices_.nodes().begin()),
+                                                              ConstVertexNodeIterator(vertices_.nodes().end()));
+    }
+    /** @} */
 
     /** Iterators for all vertices.
      *
@@ -697,32 +734,52 @@ public:
      *       std::cout <<"name = " <<*vertexName <<"\n";
      *  @endcode
      *
-     *  Time complexity is constant. */
+     *  Time complexity is constant.
+     *
+     *  @{ */
     boost::iterator_range<VertexValueIterator> vertexValues() {
         return boost::iterator_range<VertexValueIterator>(VertexValueIterator(vertices_.nodes().begin()),
                                                           VertexValueIterator(vertices_.nodes().end()));
     }
+    boost::iterator_range<ConstVertexValueIterator> vertexValues() const {
+        return boost::iterator_range<ConstVertexValueIterator>(ConstVertexValueIterator(vertices_.nodes().begin()),
+                                                               ConstVertexValueIterator(vertices_.nodes().end()));
+    }
+    /** @} */
 
     /** Finds the vertex with specified ID number.
      *
      *  Returns a vertex node iterator for the vertex with the specified ID.  ID numbers are consecutive integers beginning at
      *  zero.  Do not call this method with an ID number greater than or equal to the number of vertices contained in this graph.
      *
-     *  Time complexity is constant. */
+     *  Time complexity is constant.
+     *
+     *  @{ */
     VertexNodeIterator findVertex(size_t id) {
         return VertexNodeIterator(vertices_.find(id));
     }
+    ConstVertexNodeIterator findVertex(size_t id) const {
+        return ConstVertexNodeIterator(vertices_.find(id));
+    }
+    /** @} */
 
     /** Iterators for all edges.
      *
      *  Returns a pair of edge node iterators that deliniate the list of all edges of this graph.  The traversal of this
      *  list is in no particular order.
      *
-     *  Time complexity is constant. */
+     *  Time complexity is constant.
+     *
+     *  @{ */
     boost::iterator_range<EdgeNodeIterator> edges() {
         return boost::iterator_range<EdgeNodeIterator>(EdgeNodeIterator(edges_.nodes().begin()),
                                                        EdgeNodeIterator(edges_.nodes().end()));
     }
+    boost::iterator_range<ConstEdgeNodeIterator> edges() const {
+        return boost::iterator_range<ConstEdgeNodeIterator>(ConstEdgeNodeIterator(edges_.nodes().begin()),
+                                                            ConstEdgeNodeIterator(edges_.nodes().end()));
+    }
+    /** @} */
 
     /** Iterators for all edges.
      *
@@ -738,21 +795,34 @@ public:
      *       std::cout <<"name = " <<*edgeName <<"\n";
      *  @endcode
      *
-     *  Time complexity is constant. */
+     *  Time complexity is constant.
+     *
+     *  @{ */
     boost::iterator_range<EdgeValueIterator> edgeValues() {
         return boost::iterator_range<EdgeValueIterator>(EdgeValueIterator(edges_.nodes().begin()),
                                                         EdgeValueIterator(edges_.nodes().end()));
     }
+    boost::iterator_range<ConstEdgeValueIterator> edgeValues() const {
+        return boost::iterator_range<ConstEdgeValueIterator>(ConstEdgeValueIterator(edges_.nodes().begin()),
+                                                             ConstEdgeValueIterator(edges_.nodes().end()));
+    }
+    /** @} */
 
     /** Finds the edge with specified ID number.
      *
      *  Returns an edge node iterator for the edge with the specified ID.  ID numbers are consecutive integers beginning at
      *  zero.  Do not call this method with an ID number greater than or equal to the number of edges contained in this graph.
      *
-     *  Time complexity is constant. */
+     *  Time complexity is constant.
+     *
+     *  @{ */
     EdgeNodeIterator findEdge(size_t id) {
         return EdgeNodeIterator(edges_.find(id));
     }
+    ConstEdgeNodeIterator findEdge(size_t id) const {
+        return ConstEdgeNodeIterator(edges_.find(id));
+    }
+    /** @} */
 
     /** Total number of vertices.
      *
