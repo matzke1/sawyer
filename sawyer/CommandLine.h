@@ -21,7 +21,7 @@
 
 namespace Sawyer { // documented in Sawyer.h
 
-/** Parses program command lines.
+/** Parses program command line switches and arguments.
  *
  * @section defns Definitions
  *

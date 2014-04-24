@@ -10,7 +10,7 @@
 namespace Sawyer {
 namespace Container {
 
-/** Graph containing user-defined vertices and edges.
+/** %Graph containing user-defined vertices and edges.
  *
  *  This container stores user-defined data at each vertex and edge, along with information about the connectivity of vertices
  *  through edges.  Semantics with respect to storing of user-defined data is similar to the STL's <code>std::list</code> type;
@@ -34,10 +34,10 @@ namespace Container {
  *  The graph maintains a graph-wide list of vertices and edges, iterators to which are returned by the @ref vertices and @ref
  *  edges methods.  The @ref vertexValues and @ref edgeValues methods are related, but return iterators which, when
  *  dereferenced, return a reference to the user-defined value for that vertex or edge.  These so-called "value" iterators are
- *  equality-comparable (== and !=) with their "node" iterator counterparts and implicitly constructed from them, but are
- *  unable to return information about vertex and edge connectivity (only user-defined values).  Within this documentation, the
- *  term "vertex" is always used as the name of a graph component (i.e., a graph has vertices and edges), and the term "node"
- *  refers to a list element that represents either a vertex or edge.
+ *  equality-comparable (<code>==</code> and <code>!=</code>) with their "node" iterator counterparts and implicitly
+ *  constructed from them, but are unable to return information about vertex and edge connectivity (only user-defined values).
+ *  Within this documentation, the term "vertex" is always used as the name of a graph component (i.e., a graph has vertices
+ *  and edges), and the term "node" refers to a list element that represents either a vertex or edge.
  *
  *  Each vertex has two additional edge lists: a list of incoming edges where this vertex serves as the edges' target, and a
  *  list of outgoing edges where this vertex serves as the edges' source. These lists are sublists of the graph-wide edge list
@@ -49,22 +49,22 @@ namespace Container {
  *
  *  Time complexity guarantees:
  *
- *  @li Vertex insertion:  amortized constant
- *  @li Edge insertion: amortized constant
- *  @li Vertex iterator dereference: constant
- *  @li Edge iterator dereference: constant
- *  @li Vertex erasure: O(|Ev|), where |Ev| is the number of edges incident to the vertex.
- *  @li Edge erasure: constant
- *  @li Vertex lookup by ID: constant
- *  @li Edge lookup by ID: constant
- *  @li Graph vertex list: constant
- *  @li Graph edge list: constant
- *  @li Vertex in/out edge list: constant
+ *  @li %Vertex insertion:  amortized constant
+ *  @li %Edge insertion: amortized constant
+ *  @li %Vertex iterator dereference: constant
+ *  @li %Edge iterator dereference: constant
+ *  @li %Vertex erasure: O(|Ev|), where |Ev| is the number of edges incident to the vertex.
+ *  @li %Edge erasure: constant
+ *  @li %Vertex lookup by ID: constant
+ *  @li %Edge lookup by ID: constant
+ *  @li %Graph vertex list: constant
+ *  @li %Graph edge list: constant
+ *  @li %Vertex in/out edge list: constant
  *  @li Count graph vertices: constant
  *  @li Count graph edges: constant
  *  @li Count in/out edges: constant
- *  @li Graph deletion: O(|V|+|E|)
- *  @li Graph copy: O(|V|+|E|)
+ *  @li %Graph deletion: O(|V|+|E|)
+ *  @li %Graph copy: O(|V|+|E|)
  *
  *  Insertion is amortized constant time due to a vector-based ID map that may require reallocation. */
 template<class V, class E>
@@ -329,7 +329,7 @@ private:
 public:
     /** Bidirectional edge node iterator.
      *
-     *  Iterates over the edge nodes in a list, returning the node (type @ref Edge) when dereferenced.  Edge iterators are
+     *  Iterates over the edge nodes in a list, returning the node (type @ref Edge) when dereferenced.  %Edge iterators are
      *  stable across insert and erase operations.  The difference between @ref EdgeNodeIterator and @ref ConstEdgeNodeIterator
      *  is that the latter returns const references when dereferenced.  An EdgeNodeIterator can be impliciatly converted to a
      *  @ref ConstEdgeNodeIterator, @ref EdgeValueIterator, or @ref ConstEdgeValueIterator.  A ConstEdgeNodeIterator can be
@@ -370,7 +370,7 @@ public:
     /** Bidirectional edge value iterator.
      *
      *  Iterates over the edge values in a list, returning the user-defined value (type @ref EdgeValue) when dereferenced.
-     *  Edge iterators are stable across insert and erase operations.  The difference between @ref EdgeValueIterator and @ref
+     *  %Edge iterators are stable across insert and erase operations.  The difference between @ref EdgeValueIterator and @ref
      *  ConstEdgeValueIterator is that the latter returns const references when dereferenced.  An EdgeValueIterator can be
      *  impliciatly converted to a @ref ConstEdgeValueIterator.
      *
@@ -409,7 +409,7 @@ public:
 
     /** Bidirectional vertex node iterator.
      *
-     *  Iterates over the vertex nodes in a list, returning the node (type @ref Vertex) when dereferenced.  Vertex iterators
+     *  Iterates over the vertex nodes in a list, returning the node (type @ref Vertex) when dereferenced.  %Vertex iterators
      *  are stable across insert and erase operations.  The difference between @ref VertexNodeIterator and @ref
      *  ConstVertexNodeIterator is that the latter returns const references when dereferenced.  A VertexNodeIterator can be
      *  impliciatly converted to a @ref ConstVertexNodeIterator, @ref VertexValueIterator, or @ref ConstVertexValueIterator.  A
@@ -448,7 +448,7 @@ public:
     /** Bidirectional vertex value iterator.
      *
      *  Iterates over the vertex values in a list, returning the user-defined value (type @ref VertexValue) when dereferenced.
-     *  Vertex iterators are stable across insert and erase operations.  The difference between @ref VertexValueIterator and
+     *  %Vertex iterators are stable across insert and erase operations.  The difference between @ref VertexValueIterator and
      *  @ref ConstVertexValueIterator is that the latter returns const references when dereferenced.  A VertexValueIterator can
      *  be impliciatly converted to a @ref ConstVertexValueIterator.
      *
@@ -491,7 +491,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 public:
 
-    /** Edge node.
+    /** %Edge node.
      *
      *  These list nodes contain all information about an edge and are the objects returned (by reference) when an edge node
      *  iterator (@ref EdgeNodeIterator or @ref ConstEdgeNodeIterator) is dereferenced. */
@@ -509,7 +509,7 @@ public:
          *
          *  Edges within a graph are numbered consecutively starting at zero, and this method returns the edge's ID number. ID
          *  numbers are unrelated to the order in which edges are inserted, although in the absense of edge erasure they will
-         *  be assigned consecutively.  Edge ID numbers are stable over insertion of vertices and edges and the erasure of
+         *  be assigned consecutively.  %Edge ID numbers are stable over insertion of vertices and edges and the erasure of
          *  vertices (provided no incident edges are erase), but are not stable over edge erasure.  In order to obtain
          *  constant-time edge erasure, after an edge is erased the largest-ID edge is renumbered to fill the gap.
          *
@@ -547,7 +547,7 @@ public:
         /** @} */
     };
 
-    /** Vertex node.
+    /** %Vertex node.
      *
      *  These list nodes contain all information about a vertex and are the objects returned (by reference) when a vertex node
      *  iterator (@ref VertexNodeIterator or @ref ConstVertexNodeIterator) is dereferenced. */
@@ -563,7 +563,7 @@ public:
          *
          *  Vertices within a graph are numbered consecutively starting at zero, and this method returns the vertex's ID
          *  number. ID numbers are unrelated to the order in which vertices are inserted, although in the absense of vertex
-         *  erasure they will be assigned consecutively.  Vertex ID numbers are stable over insertion of vertices and edges and
+         *  erasure they will be assigned consecutively.  %Vertex ID numbers are stable over insertion of vertices and edges and
          *  the erasure of edges, but are not stable over vertex erasure.  In order to obtain constant-time vertex erasure (at
          *  least when it has no incident edges), after a vertex is erased the largest-ID vertex is renumbered to fill the
          *  gap.
@@ -574,7 +574,7 @@ public:
         /** List of incoming edges.
          *
          *  Returns a sublist of edges whose target vertex is this vertex.  The return value is a pair of iterators which
-         *  delineate the edges.  The traversal is in no particular order. Edge iterators are equality-comparable with one
+         *  delineate the edges.  The traversal is in no particular order. %Edge iterators are equality-comparable with one
          *  another even when the come from different sublists. See @ref EdgeNodeIterator for details.
          *
          *  Time complexity is constant. */
@@ -587,7 +587,7 @@ public:
         /** List of outgoing edges.
          *
          *  Returns a sublist of edges whose source vertex is this vertex.  The return value is a pair of iterators which
-         *  delineate the edges.  The traversal is in no particular order. Edge iterators are equality-comparable with one
+         *  delineate the edges.  The traversal is in no particular order. %Edge iterators are equality-comparable with one
          *  another even when the come from different sublists. See @ref EdgeNodeIterator for details.
          *
          *  Time complexity is constant. */
@@ -756,7 +756,7 @@ public:
 
     /** Total number of vertices.
      *
-     *  Returns the total number of vertices in the graph.  Vertex ID numbers are guaranteed to be less than this value and
+     *  Returns the total number of vertices in the graph.  %Vertex ID numbers are guaranteed to be less than this value and
      *  greater than or equal to zero.
      *
      *  Time complexity is constant. */
@@ -766,7 +766,7 @@ public:
 
     /** Total number of edges.
      *
-     *  Returns the total number of edges in the graph.  Edge ID numbers are guaranteed to be less than this value and greater
+     *  Returns the total number of edges in the graph.  %Edge ID numbers are guaranteed to be less than this value and greater
      *  than or equal to zero.
      *
      *  Time complexity is constant. */

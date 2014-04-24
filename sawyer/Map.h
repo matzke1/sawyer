@@ -8,7 +8,7 @@
 
 namespace Sawyer {
 
-/** Container classes.
+/** %Container classes that store user-defined values.
  *
  *  This library implements a number of container classes.  In general, these classes adhere to the naming scheme used
  *  throughout the library, which might be somewhat surprising compared with STL containers.  The major differences are:
@@ -35,7 +35,7 @@ namespace Sawyer {
  *      consistency. */
 namespace Container {
 
-/** Container associating values with keys.
+/** %Container associating values with keys.
  *
  *  This container is similar to the <code>std::map</code> container in the standard template library, but with these
  *  differences in addition to those described in the documentation for the Sawyer::Container name space:

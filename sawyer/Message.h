@@ -20,7 +20,7 @@
 
 namespace Sawyer {
 
-/** Diagnostic messages.
+/** Formatted diagnostic messages emitted to various backends.
  *
  *  This namespace provides functionality to conditionally emit diagnostic messages based on software component and message
  *  importance.  Although the library has extensive capabilities for controlling the message format and where to send the

@@ -13,7 +13,7 @@
 
 namespace Sawyer {                                      // documented elsewhere
 
-/** Logic assertions.
+/** Run-time logic assertions.
  *
  *  This library defines a collection of logic assertion macros (mostly) beginning with "ASSERT_". Many of the macros come in
  *  two flavors: with or without an <code>std::string</code> argument to describe what is being asserted.  Since there is not
