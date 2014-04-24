@@ -11,6 +11,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/regex.hpp>
 #include <cerrno>
+#include <iostream>
 #include <set>
 #include <sstream>
 #include <termio.h>
@@ -1022,7 +1023,7 @@ void ParserResult::insertOneValue(const ParsedValue &pval, const Switch *sw, boo
         switchIndex_[name].push_back(idx);
         actions_[key] = sw->action();
 
-#if 1 /*DEBUGGING [Robb Matzke 2014-02-18]*/
+#if 0 /*DEBUGGING [Robb Matzke 2014-02-18]*/
         std::cerr <<"    " <<values_.back() <<"\n";
 #endif
     }
