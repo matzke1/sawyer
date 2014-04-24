@@ -9,8 +9,8 @@ std::ostream& operator<<(std::ostream &o, const Sawyer::Container::Graph<V, E> &
     typedef const typename Sawyer::Container::Graph<V, E> Graph;
     typedef typename Graph::ConstVertexNodeIterator VertexNodeIterator;
     typedef typename Graph::ConstEdgeNodeIterator EdgeNodeIterator;
-    typedef typename Graph::Vertex Vertex;
-    typedef typename Graph::Edge Edge;
+    typedef typename Graph::VertexNode Vertex;
+    typedef typename Graph::EdgeNode Edge;
 
     o <<"    vertices:\n";
     for (size_t id=0; id<graph.nVertices(); ++id) {
@@ -103,7 +103,7 @@ void iterate_vertices() {
 
     std::cout <<"  using BOOST_FOREACH:";
     size_t idx = 0;
-    BOOST_FOREACH (const typename Graph::Vertex &vertex, graph.vertices()) {
+    BOOST_FOREACH (const typename Graph::VertexNode &vertex, graph.vertices()) {
         std::cout <<" " <<vertex.value();
         ASSERT_require(vertex.value()== vertexValues[idx]);
         ++idx;

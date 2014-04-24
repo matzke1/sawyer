@@ -267,7 +267,7 @@ void example_sawyer_graph() {
     // object itself and are guaranteed to be sequential beginning at zero.  This time we use "node" iterators in order to have
     // access to vertex ID numbers.
     std::vector<VertexExternalData> table(graph.nVertices(), VertexExternalData());
-    BOOST_FOREACH (const Graph::Vertex &vertex, graph.vertices()) {
+    BOOST_FOREACH (const Graph::VertexNode &vertex, graph.vertices()) {
         table[vertex.id()].r = sin(vertex.value().x);
         table[vertex.id()].g = cos(vertex.value().y);
         table[vertex.id()].b = 0.5;
