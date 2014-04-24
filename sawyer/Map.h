@@ -16,23 +16,36 @@ namespace Sawyer {
  *  @li All type names are CamelCase with an initial capital letter, such as <code>Iterator</code>, <code>ConstIterator</code>,
  *      etc.
  *  @li Some containers have multiple categories of iterator, such as iterators that visit the storage nodes of the container,
- *      and iterators that visit the values logically contained in the container.  For instance one can iterate over the
- *      intervals stored in an IntervalSet, or the individual scalar values represented by those sets.
- *  @li Users are encouraged to use the iterator range returning functions like <code>nodes</code> rather than STL-style
- *      iterator returning functions like <code>begin</code> and <code>end</code>.
+ *      and iterators that visit the values logically contained in the container.  For instance one can iterate over the keys
+ *      alone in a key/value map, or the values alone, or the combined storage nodes that have a key/value pair.
+ *  @li The containers have no direct <code>begin</code> and <code>end</code> methods, but rather return iterator ranges with
+ *      methods like, for the key/value map container, <code>keys</code>, <code>values</code>, and <code>nodes</code>.  This
+ *      allows containers return different types of iterators.  The iterator ranges have the usual <code>begin</code> and
+ *      <code>end</code> methods.
  *  @li Most predicates start with the word "is", such as <code>isEmpty</code> so they cannot be confused with a similar verb
- *      (i.e., it is quite obvious that <code>isEmpty</code> does not empty the container). */
+ *      (i.e., it is quite obvious that <code>isEmpty</code> does not empty the container).
+ *  @li The <code>insert</code> methods come in different flavors depending on what's being inserted.  Inserters that insert
+ *      a value are named <code>insert</code>; those that insert multiple values, like from another container or iterator
+ *      range, are named <code>insertMultiple</code>.  This gives the API more flexibility and consistency across different
+ *      containers.
+ *  @li The <code>erase</code> methods also come in different flavors: <code>erase</code> is to erase a single specified value,
+ *      <code>eraseAt</code> is for erasing based on location (i.e., iterators that point into that container), and
+ *      <code>eraseMultiple</code> is to erase multiple values at once (e.g., values obtained from a different container).
+ *      As with <code>insert</code>, this gives container designers more flexibility and at the same time improves
+ *      consistency. */
 namespace Container {
 
 /** Container associating values with keys.
  *
- *  This container is similar to the <code>std::map</code> container in the standard template library, except for two main
- *  differences:
+ *  This container is similar to the <code>std::map</code> container in the standard template library, but with these
+ *  differences in addition to those described in the documentation for the Sawyer::Container name space:
  *
  *  @li It extends the interface with additional methods that return optional values (<code>boost::optional</code>) and a few
  *      convenience methods (like @ref exists).
- *  @li It uses the Sawyer naming scheme, namely CamelCase with an initial capital letter for types and lower-case for
- *      non-types. */
+ *  @li It provides iterators over keys and values in addition to the STL-like iterator over nodes.
+ *  @li The insert methods always insert the specified value(s) regardless of whether a node with the same key already
+ *      existed (i.e., they do what their name says they do). If you need STL behavior, then use the <code>insertMaybe</code>
+ *      methods.  */
 template<class K,
          class T,
          class Cmp = std::less<K>,
@@ -57,16 +70,25 @@ public:
     public:
         Node(const std::pair<const Key, Value> &pair): std::pair<const Key, Value>(pair) {}
     public:
+        /** Key part of key/value node.
+         *
+         *  Returns the key part of a key/value node. Keys are not mutable when they are part of a map. */
         const Key& key() const { return this->first; }
+
+        /** Value part of key/value node.
+         *
+         *  Returns a reference to the value part of a key/value node.
+         *
+         * @{ */
         Value& value() { return this->second; }
         const Value& value() const { return this->second; }
+        /** @} */
     };
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                  Iterators
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-public:
-
+private:
     template<class Derived, class Value, class BaseIterator>
     class BidirectionalIterator: public std::iterator<std::bidirectional_iterator_tag, Value> {
     protected:
@@ -87,6 +109,11 @@ public:
         const Derived* derived() const { return static_cast<const Derived*>(this); }
     };
 
+public:
+    /** Bidirectional iterator over key/value nodes.
+     *
+     *  Dereferencing this iterator will return a Node from which both the key and the value can be obtained. Node iterators
+     *  are implicitly convertible to both key and value iterators. */
     class NodeIterator: public BidirectionalIterator<NodeIterator, Node, typename StlMap::iterator> {
         typedef                BidirectionalIterator<NodeIterator, Node, typename StlMap::iterator> Super;
     public:
@@ -100,6 +127,10 @@ public:
         NodeIterator(const typename StlMap::iterator &base): Super(base) {}
     };
 
+    /** Bidirectional iterator over key/value nodes.
+     *
+     *  Dereferencing this iterator will return a Node from which both the key and the value can be obtained. Node iterators
+     *  are implicitly convertible to both key and value iterators. */
     class ConstNodeIterator: public BidirectionalIterator<ConstNodeIterator, const Node, typename StlMap::const_iterator> {
         typedef                     BidirectionalIterator<ConstNodeIterator, const Node, typename StlMap::const_iterator> Super;
     public:
@@ -115,6 +146,10 @@ public:
         ConstNodeIterator(const typename StlMap::iterator &base): Super(typename StlMap::const_iterator(base)) {}
     };
 
+    /** Bidirectional iterator over keys.
+     *
+     *  Dereferencing this iterator will return a reference to a const key.  Keys cannot be altered while they are a member of
+     *  this container. */
     class ConstKeyIterator: public BidirectionalIterator<ConstKeyIterator, const Key, typename StlMap::const_iterator> {
         typedef                    BidirectionalIterator<ConstKeyIterator, const Key, typename StlMap::const_iterator> Super;
     public:
@@ -126,6 +161,10 @@ public:
         const Key* operator->() const { return &this->base()->first; }
     };
 
+    /** Bidirectional iterator over values.
+     *
+     *  Dereferencing this iterator will return a reference to the user-defined value of the node.  Values may be altered
+     *  in-place while they are members of a container. */
     class ValueIterator: public BidirectionalIterator<ValueIterator, Value, typename StlMap::iterator> {
         typedef                 BidirectionalIterator<ValueIterator, Value, typename StlMap::iterator> Super;
     public:
@@ -136,6 +175,10 @@ public:
         Value* operator->() const { return &this->base()->second; }
     };
 
+    /** Bidirectional iterator over values.
+     *
+     *  Dereferencing this iterator will return a reference to the user-defined value of the node.  Values may be altered
+     *  in-place while they are members of a container. */
     class ConstValueIterator: public BidirectionalIterator<ConstValueIterator, const Value, typename StlMap::const_iterator> {
         typedef BidirectionalIterator<ConstValueIterator, const Value, typename StlMap::const_iterator> Super;
     public:
@@ -199,26 +242,45 @@ public:
     //                                  Iteration
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 public:
+    /** Iterators for container nodes.
+     *
+     *  This returns a range of node-iterators that will traverse all nodes (key/value pairs) of this container.
+     *
+     * @{ */
     boost::iterator_range<NodeIterator> nodes() {
         return boost::iterator_range<NodeIterator>(NodeIterator(map_.begin()), NodeIterator(map_.end()));
     }
     boost::iterator_range<ConstNodeIterator> nodes() const {
         return boost::iterator_range<ConstNodeIterator>(ConstNodeIterator(map_.begin()), ConstNodeIterator(map_.end()));
     }
+    /** @} */
 
+    /** Iterators for container keys.
+     *
+     *  Returns a range of key-iterators that will traverse the keys of this container.
+     *
+     * @{ */
     boost::iterator_range<ConstKeyIterator> keys() {
         return boost::iterator_range<ConstKeyIterator>(NodeIterator(map_.begin()), NodeIterator(map_.end()));
     }
     boost::iterator_range<ConstKeyIterator> keys() const {
         return boost::iterator_range<ConstKeyIterator>(ConstNodeIterator(map_.begin()), ConstNodeIterator(map_.end()));
     }
+    /** @} */
 
+    /** Iterators for container values.
+     *
+     *  Returns a range of iterators that will traverse the user-defined values of this container.  The values are iterated in
+     *  key order, although the keys are not directly available via these iterators.
+     *
+     * @{ */
     boost::iterator_range<ValueIterator> values() {
         return boost::iterator_range<ValueIterator>(NodeIterator(map_.begin()), NodeIterator(map_.end()));
     }
     boost::iterator_range<ConstValueIterator> values() const {
         return boost::iterator_range<ConstValueIterator>(ConstNodeIterator(map_.begin()), ConstNodeIterator(map_.end()));
     }
+    /** @} */
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -233,7 +295,7 @@ public:
         return map_.empty();
     }
 
-    /** Number of nodes in this container.
+    /** Number of nodes, keys, or values in this container.
      *
      *  Returns the number of nodes (elements) in this container.  This method executes in constant time. */
     size_t size() const {
@@ -312,8 +374,8 @@ public:
 
     /** Lookup and return a value or nothing.
      *
-     *  This is similar to the @ref at method, except it returns a copy of the value rather than a reference, and it does not
-     *  throw an exception if this container has no node with the specified key.  This method executes in logorithmic time.
+     *  Looks up the node with the specified key and returns either a copy of its value, or nothing. This method executes in
+     *  logorithmic time.
      *
      *  Here's an example of one convenient way to use this:
      *
@@ -363,7 +425,9 @@ public:
 
     /** Return a reference to a (new) value.
      *
-     *  Returns a reference to the value at the node with the specified @p key, first creating that node if necessary. */
+     *  Returns a reference to the value at the node with the specified @p key, first creating that node if necessary.
+     *
+     *  @sa insert */
     Value& operator[](const Key &key) {
         return map_[key];
     }
@@ -371,7 +435,9 @@ public:
     /** Insert or update a key/value pair.
      *
      *  Inserts the key/value pair into the container. If a previous node already had the same key then it is replaced by the
-     *  new node.  This method executes in logorithmic time. */
+     *  new node.  This method executes in logorithmic time.
+     *
+     *  @sa insertMaybe insertMultiple insertMaybeMultiple */
     Map& insert(const Key &key, const Value &value) {
         std::pair<typename StlMap::iterator, bool> inserted = map_.insert(std::make_pair(key, value));
         if (!inserted.second)
@@ -379,7 +445,7 @@ public:
         return *this;
     }
 
-    /** Insert a range of nodes.
+    /** Insert multiple values.
      *  
      *  Inserts copies of the nodes in the specified node iterator range. The iterators must iterate over objects that have
      *  <code>key</code> and <code>value</code> methods that return keys and values that are convertible to the types used by
@@ -392,6 +458,8 @@ public:
      *  Map<...> destination = ...;
      *  destination.insertMultiple(source.nodes());
      * @endcode
+     *
+     * @sa insert insertMaybe insertMaybeMultiple
      *
      * @{ */
     template<class OtherNodeIterator>
@@ -410,11 +478,19 @@ public:
      *
      *  Inserts the key/value pair into the container if the container does not yet have a node with the same key.  This method
      *  executes in logarithmic time.  The return value is a reference to the value that is in the container, either the value
-     *  that previously existed or a copy of the specified @p value. */
+     *  that previously existed or a copy of the specified @p value.
+     *
+     *  @sa insert insertMultiple insertMaybeMultiple */
     Value& insertMaybe(const Key &key, const Value &value) {
         return map_.insert(std::make_pair(key, value)).first->second;
     }
 
+    /** Conditionally insert multiple key/value pairs.
+     *
+     *  Inserts each of the specified key/value pairs into this container where this container does not already contain a value
+     *  for the key.  The return value is a reference to the container itself so that this method can be chained with others.
+     *
+     *  @sa insert insertMultiple insertMaybe */
     template<class OtherNodeIterator>
     Map& insertMaybeMultiple(const boost::iterator_range<OtherNodeIterator> &range) {
         for (OtherNodeIterator otherIter=range.begin(); otherIter!=range.end(); ++otherIter)
@@ -424,7 +500,7 @@ public:
 
     /** Remove all nodes.
      *
-     *  All nodes are removed from this container. This method execute in linear time in the number of nodes in this
+     *  All nodes are removed from this container. This method executes in linear time in the number of nodes in this
      *  container. */
     Map& clear() {
         map_.clear();
@@ -435,7 +511,9 @@ public:
      *
      *  Removes the node whose key is equal to the specified key, or does nothing if no such node exists.  Two keys are
      *  considered equal if this container's @ref Comparator object returns false reflexively. The method executes in
-     *  logorithmic time based on the number of nodes in the container. */
+     *  logorithmic time based on the number of nodes in the container.
+     *
+     *  @sa eraseMultiple eraseAt eraseAtMultiple */
     Map& erase(const Key &key) {
         map_.erase(key);
         return *this;
@@ -446,7 +524,9 @@ public:
      *  All nodes of this container whose keys are equal to any key in the @p other container are removed from this container.
      *  The keys of the other container must be convertible to the types used by this container, and two keys are considered
      *  equal if this container's @ref Comparator object returns false reflexively. The method executes in <em>N log(N+M)</em>
-     *  time. */
+     *  time.
+     *
+     *  @sa erase eraseAt eraseAtMultiple */
     template<class OtherKeyIterator>
     Map& eraseMultiple(const boost::iterator_range<OtherKeyIterator> &range) {
         for (OtherKeyIterator otherIter=range.begin(); otherIter!=range.end(); ++otherIter)
@@ -456,7 +536,11 @@ public:
 
     /** Remove a node by iterator.
      *
-     *  Removes the node referenced by @p iter. The iterator must reference a valid node in this container. */
+     *  Removes the node referenced by @p iter. The iterator must reference a valid node in this container.
+     *
+     *  @sa erase eraseMultiple eraseAtMultiple
+     *
+     *  @{ */
     Map& eraseAt(const NodeIterator &iter) {
         map_.erase(iter.base());
         return *this;
@@ -469,10 +553,13 @@ public:
         map_.erase(iter.base());
         return *this;
     }
+    /** @} */
 
     /** Remove multiple nodes by iterator range.
      *
      *  The iterator range must contain iterators that point into this container.
+     *
+     *  @sa erase eraseAt eraseMultiple
      *
      * @{ */
     template<class Iter>
