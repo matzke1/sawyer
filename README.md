@@ -10,6 +10,9 @@ when writing other C++ libraries and tools.  It's main components are:
 + Parsers for program command lines and automatically generating
   Unix manual pages.
 
++ Containers, including Graph, IndexedList, IntervalSet,
+  IntervalMap, and Map.
+
 Documentation
 =============
 
