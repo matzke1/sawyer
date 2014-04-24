@@ -18,13 +18,14 @@ namespace Sawyer {
  *  documenting command line switches.
  *
  *  Markup is indicated by a tag followed by zero or more arguments, usually enclosed in curly braces.  For instance, to
- *  indicate that some text is code, use "@code{strtol(s, &rest, 0)}".  Many of the commonly used tags have a one-character
- *  version ("@c" is the same as "@code").  Other delimiters can be used besides curly braces, but all arguments for a tag must
- *  use the same delimiters.  The opening delimiter determines the closing delimiter and can be any of these: "{", "(", "[",
- *  "<", "'" (single qoute), '"' (double quote), "`" (back tick, closed by single quote), or white space (closed by the next
- *  white space or end of input). White-space delimiters are somewhat special in that the the closing of an argument also
- *  serves as the opening of the next argument (if a next argument is expected); they're usually used to mark up a single word,
- *  such as this sentence, which marks a word as being a meta variable: "the @v username must start with a letter". */
+ *  indicate that some text is code, use `@``code{strtol(s, &rest, 0)}`.  Many of the commonly used tags have a
+ *  one-character version (`@c` is the same as `@``code`).  Other delimiters can be used besides curly
+ *  braces, but all arguments for a tag must use the same delimiters.  The opening delimiter determines the closing delimiter
+ *  and can be any of these: "{", "(", "[", "<", "'" (single qoute), '"' (double quote), "`" (back tick, closed by single
+ *  quote), or white space (closed by the next white space or end of input). White-space delimiters are somewhat special in
+ *  that the the closing of an argument also serves as the opening of the next argument (if a next argument is expected);
+ *  they're usually used to mark up a single word, such as this sentence, which marks a word as being a meta variable: "the @v
+ *  username must start with a letter". */
 namespace Markup {
 
 class Input {

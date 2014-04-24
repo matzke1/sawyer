@@ -173,10 +173,9 @@ private:
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                  Iterators
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-private:
-    // Edge iterators always ultimately point to an Edge (or const Edge), but do so either through an EdgeList iterator
-    // or a VirtualList<Edge>.  The "phase" of the iterator determines which list is being traversed even though all three
-    // lists (graph edges, in edges, and out edges) share the same memory.
+public:                                                 // public only for the sake of doxygen
+    /** Base class for Edge iterators. This isn't normally used directly by users except for its public methods inherited by
+     *  subclasses. */
     template<class Derived, class Value, class Node, class BaseIter, class VList>
     class EdgeBaseIterator: public std::iterator<std::bidirectional_iterator_tag, Value> {
         EdgePhase phase_;                               // IN_EDGES, OUT_EDGES or N_PHASES (graph edges)
@@ -280,6 +279,7 @@ private:
         /** @} */
     };
 
+    /** Base class for vertex iterators. */
     template<class Derived, class Value, class Node, class BaseIter>
     class VertexBaseIterator: public std::iterator<std::bidirectional_iterator_tag, Value> {
         BaseIter base_;                                 // VertexList::NodeIterator or VertexList::ConstNodeIterator
@@ -332,10 +332,7 @@ public:
      *  Iterates over the edge nodes in a list, returning the node (type @ref Edge) when dereferenced.  %Edge iterators are
      *  stable across insert and erase operations.  The difference between @ref EdgeNodeIterator and @ref ConstEdgeNodeIterator
      *  is that the latter returns const references when dereferenced.  An EdgeNodeIterator can be impliciatly converted to a
-     *  @ref ConstEdgeNodeIterator, @ref EdgeValueIterator, or @ref ConstEdgeValueIterator.  A ConstEdgeNodeIterator can be
-     *  implicitly converted to a @ref ConstEdgeValueIterator.
-     *
-     * @{ */
+     *  @ref ConstEdgeNodeIterator, @ref EdgeValueIterator, or @ref ConstEdgeValueIterator. */
     class EdgeNodeIterator: public EdgeBaseIterator<EdgeNodeIterator, Edge, Edge, typename EdgeList::NodeIterator,
                                                     VirtualList<Edge> > {
         typedef                    EdgeBaseIterator<EdgeNodeIterator, Edge, Edge, typename EdgeList::NodeIterator,
@@ -351,6 +348,12 @@ public:
         EdgeNodeIterator(EdgePhase phase, VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
 
+    /** Bidirectional edge node iterator.
+     *
+     *  Iterates over the edge nodes in a list, returning the node (type @ref Edge) when dereferenced.  %Edge iterators are
+     *  stable across insert and erase operations.  The difference between @ref EdgeNodeIterator and @ref ConstEdgeNodeIterator
+     *  is that the latter returns const references when dereferenced.  A ConstEdgeNodeIterator can be implicitly converted to
+     *  a @ref ConstEdgeValueIterator. */
     class ConstEdgeNodeIterator: public EdgeBaseIterator<ConstEdgeNodeIterator, const Edge, const Edge,
                                                          typename EdgeList::ConstNodeIterator, const VirtualList<Edge> > {
         typedef                         EdgeBaseIterator<ConstEdgeNodeIterator, const Edge, const Edge,
@@ -373,9 +376,7 @@ public:
      *  Iterates over the edge values in a list, returning the user-defined value (type @ref EdgeValue) when dereferenced.
      *  %Edge iterators are stable across insert and erase operations.  The difference between @ref EdgeValueIterator and @ref
      *  ConstEdgeValueIterator is that the latter returns const references when dereferenced.  An EdgeValueIterator can be
-     *  impliciatly converted to a @ref ConstEdgeValueIterator.
-     *
-     * @{ */
+     *  impliciatly converted to a @ref ConstEdgeValueIterator. */
     class EdgeValueIterator: public EdgeBaseIterator<EdgeValueIterator, EdgeValue, Edge, typename EdgeList::NodeIterator,
                                                      VirtualList<Edge> > {
         typedef                     EdgeBaseIterator<EdgeValueIterator, EdgeValue, Edge, typename EdgeList::NodeIterator,
@@ -392,6 +393,11 @@ public:
         EdgeValueIterator(EdgePhase phase, VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
 
+    /** Bidirectional edge value iterator.
+     *
+     *  Iterates over the edge values in a list, returning the user-defined value (type @ref EdgeValue) when dereferenced.
+     *  %Edge iterators are stable across insert and erase operations.  The difference between @ref EdgeValueIterator and @ref
+     *  ConstEdgeValueIterator is that the latter returns const references when dereferenced. */
     class ConstEdgeValueIterator: public EdgeBaseIterator<ConstEdgeValueIterator, const EdgeValue, const Edge,
                                                           typename EdgeList::ConstNodeIterator, const VirtualList<Edge> > {
         typedef                          EdgeBaseIterator<ConstEdgeValueIterator, const EdgeValue, const Edge,
@@ -409,17 +415,13 @@ public:
         ConstEdgeValueIterator(const typename EdgeList::ConstNodeIterator &base): Super(base) {}
         ConstEdgeValueIterator(EdgePhase phase, const VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
-    /** @} */
 
     /** Bidirectional vertex node iterator.
      *
      *  Iterates over the vertex nodes in a list, returning the node (type @ref Vertex) when dereferenced.  %Vertex iterators
      *  are stable across insert and erase operations.  The difference between @ref VertexNodeIterator and @ref
      *  ConstVertexNodeIterator is that the latter returns const references when dereferenced.  A VertexNodeIterator can be
-     *  impliciatly converted to a @ref ConstVertexNodeIterator, @ref VertexValueIterator, or @ref ConstVertexValueIterator.  A
-     *  ConstVertexNodeIterator can be implicitly converted to a @ref ConstVertexValueIterator.
-     *
-     * @{ */
+     *  impliciatly converted to a @ref ConstVertexNodeIterator, @ref VertexValueIterator, or @ref ConstVertexValueIterator. */
     class VertexNodeIterator: public VertexBaseIterator<VertexNodeIterator, Vertex, Vertex,
                                                         typename VertexList::NodeIterator> {
         typedef                      VertexBaseIterator<VertexNodeIterator, Vertex, Vertex,
@@ -434,6 +436,11 @@ public:
         VertexNodeIterator(const typename VertexList::NodeIterator &base): Super(base) {}
     };
 
+    /** Bidirectional vertex node iterator.
+     *
+     *  Iterates over the vertex nodes in a list, returning the node (type @ref Vertex) when dereferenced.  %Vertex iterators
+     *  are stable across insert and erase operations.  The difference between @ref VertexNodeIterator and @ref
+     *  ConstVertexNodeIterator is that the latter returns const references when dereferenced. */
     class ConstVertexNodeIterator: public VertexBaseIterator<ConstVertexNodeIterator, const Vertex, const Vertex,
                                                              typename VertexList::ConstNodeIterator> {
         typedef                           VertexBaseIterator<ConstVertexNodeIterator, const Vertex, const Vertex,
@@ -448,16 +455,13 @@ public:
         friend class Graph;
         ConstVertexNodeIterator(const typename VertexList::ConstNodeIterator &base): Super(base) {}
     };
-    /** @} */
         
     /** Bidirectional vertex value iterator.
      *
      *  Iterates over the vertex values in a list, returning the user-defined value (type @ref VertexValue) when dereferenced.
      *  %Vertex iterators are stable across insert and erase operations.  The difference between @ref VertexValueIterator and
      *  @ref ConstVertexValueIterator is that the latter returns const references when dereferenced.  A VertexValueIterator can
-     *  be impliciatly converted to a @ref ConstVertexValueIterator.
-     *
-     * @{ */
+     *  be impliciatly converted to a @ref ConstVertexValueIterator. */
     class VertexValueIterator: public VertexBaseIterator<VertexValueIterator, VertexValue, Vertex,
                                                          typename VertexList::NodeIterator> {
         typedef                       VertexBaseIterator<VertexValueIterator, VertexValue, Vertex,
@@ -473,6 +477,11 @@ public:
         VertexValueIterator(const typename VertexList::NodeIterator &base): Super(base) {}
     };
 
+    /** Bidirectional vertex value iterator.
+     *
+     *  Iterates over the vertex values in a list, returning the user-defined value (type @ref VertexValue) when dereferenced.
+     *  %Vertex iterators are stable across insert and erase operations.  The difference between @ref VertexValueIterator and
+     *  @ref ConstVertexValueIterator is that the latter returns const references when dereferenced. */
     class ConstVertexValueIterator: public VertexBaseIterator<ConstVertexValueIterator, const VertexValue, const Vertex,
                                                               typename VertexList::ConstNodeIterator> {
         typedef                            VertexBaseIterator<ConstVertexValueIterator, const VertexValue, const Vertex,
@@ -489,7 +498,6 @@ public:
         friend class Graph;
         ConstVertexValueIterator(const typename VertexList::ConstNodeIterator &base): Super(base) {}
     };
-    /** @} */
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
