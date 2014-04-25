@@ -6,6 +6,7 @@
 #include <boost/graph/graph_traits.hpp>
 
 namespace boost {
+namespace SawyerBoost {
 
 // BGL distinguishes between iterators and descriptors, but Sawyer treats them as the same thing (pointers to an object). In
 // order to support existing BGL-style code like this:
@@ -19,7 +20,7 @@ namespace boost {
 // we need to insert an extra level of indirection. We create a new iterator type for use by graph_traits<>::vertex_iterator
 // that wraps a Sawyer::Container::Graph<>::VertexNodeIterator.  When dereferenced, this iterator returns a size_t ID number
 // rather than the base iterator because BGL requires a null_vertex descriptor that's comparable across all graphs.
-namespace SawyerBoost {
+
 template<class V, class E>
 class VertexOuterIterator: public std::iterator<std::bidirectional_iterator_tag, const size_t> {
 private:
@@ -39,11 +40,28 @@ public:
     const size_t& operator*() const { return base_->id(); }
     // size_t* operator->() const; //no methods defined on size_t, so not needed
 };
-} // namespace
 
+template<class V, class E>
+class ConstVertexOuterIterator: public std::iterator<std::bidirectional_iterator_tag, const size_t> {
+private:
+    typedef typename Sawyer::Container::Graph<V, E>::ConstVertexNodeIterator BaseIter;
+    BaseIter base_;
+public:
+    ConstVertexOuterIterator() {}
+    ConstVertexOuterIterator(const ConstVertexOuterIterator &other): base_(other.base_) {}
+    ConstVertexOuterIterator(const VertexOuterIterator<V, E> &other): base_(other.base_) {}
+    explicit ConstVertexOuterIterator(const BaseIter &base): base_(base) {}
+    ConstVertexOuterIterator& operator=(const ConstVertexOuterIterator &other) { base_ = other.base_; return *this; }
+    ConstVertexOuterIterator& operator++() { ++base_; return *this; }
+    ConstVertexOuterIterator& operator--() { --base_; return *this; }
+    ConstVertexOuterIterator operator++(int) { ConstVertexOuterIterator old = *this; ++base_; return old; }
+    ConstVertexOuterIterator operator--(int) { ConstVertexOuterIterator old = *this; --base_; return old; }
+    bool operator==(const ConstVertexOuterIterator &other) const { return base_ == other.base_; }
+    bool operator!=(const ConstVertexOuterIterator &other) const { return base_ != other.base_; }
+    const size_t& operator*() const { return base_->id(); }
+    // size_t* operator->() const; //no methods defined on size_t, so not needed
+};
 
-// Similarly for edges
-namespace SawyerBoost {
 template<class V, class E>
 class EdgeOuterIterator: public std::iterator<std::bidirectional_iterator_tag, const size_t> {
 private:
@@ -63,6 +81,28 @@ public:
     const size_t& operator*() const { return base_->id(); }
     // size_t* operator->() const; //no methods defined on size_t, so not needed
 };
+
+template<class V, class E>
+class ConstEdgeOuterIterator: public std::iterator<std::bidirectional_iterator_tag, const size_t> {
+private:
+    typedef typename Sawyer::Container::Graph<V, E>::ConstEdgeNodeIterator BaseIter;
+    BaseIter base_;
+public:
+    ConstEdgeOuterIterator() {}
+    ConstEdgeOuterIterator(const ConstEdgeOuterIterator &other): base_(other.base_) {}
+    ConstEdgeOuterIterator(const EdgeOuterIterator<V, E> &other): base_(other.base_) {}
+    explicit ConstEdgeOuterIterator(const BaseIter &base): base_(base) {}
+    ConstEdgeOuterIterator& operator=(const ConstEdgeOuterIterator &other) { base_ = other.base_; return *this; }
+    ConstEdgeOuterIterator& operator++() { ++base_; return *this; }
+    ConstEdgeOuterIterator& operator--() { --base_; return *this; }
+    ConstEdgeOuterIterator operator++(int) { ConstEdgeOuterIterator old = *this; ++base_; return old; }
+    ConstEdgeOuterIterator operator--(int) { ConstEdgeOuterIterator old = *this; --base_; return old; }
+    bool operator==(const ConstEdgeOuterIterator &other) const { return base_ == other.base_; }
+    bool operator!=(const ConstEdgeOuterIterator &other) const { return base_ != other.base_; }
+    const size_t& operator*() const { return base_->id(); }
+    // size_t* operator->() const; //no methods defined on size_t, so not needed
+};
+
 } // namespace
 
 
@@ -92,6 +132,32 @@ struct graph_traits<Sawyer::Container::Graph<V, E> > {
     typedef ::boost::SawyerBoost::EdgeOuterIterator<V, E> in_edge_iterator;
 };
 
+template<class V, class E>
+struct graph_traits<const Sawyer::Container::Graph<V, E> > {
+    typedef bidirectional_graph_tag traversal_category;
+
+    // Graph concepts
+    typedef size_t vertex_descriptor;
+    typedef size_t edge_descriptor;
+    typedef directed_tag directed_category;
+    typedef allow_parallel_edge_tag edge_parallel_category;
+
+    // VertexListGraph concepts
+    typedef ::boost::SawyerBoost::ConstVertexOuterIterator<V, E> vertex_iterator;
+    typedef size_t vertices_size_type;
+
+    // EdgeListGraph concepts
+    typedef ::boost::SawyerBoost::ConstEdgeOuterIterator<V, E> edge_iterator;
+    typedef size_t edges_size_type;
+
+    // IncidenceGraph concepts
+    typedef ::boost::SawyerBoost::ConstEdgeOuterIterator<V, E> out_edge_iterator;
+    typedef size_t degree_size_type;
+
+    // BidirectionalGraph concepts
+    typedef ::boost::SawyerBoost::ConstEdgeOuterIterator<V, E> in_edge_iterator;
+};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Graph traits
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -100,6 +166,12 @@ struct graph_traits<Sawyer::Container::Graph<V, E> > {
 // BGL has a global entity that indicates no-vertex, but Sawyer doesn't--it has STL-like end() iterators.
 template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor
+null_vertex() {
+    return (size_t)(-1);
+}
+
+template<class V, class E>
+typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor
 null_vertex() {
     return (size_t)(-1);
 }
@@ -117,8 +189,22 @@ vertices(Sawyer::Container::Graph<V, E> &graph) {
 }
 
 template<class V, class E>
+std::pair<typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_iterator,
+          typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_iterator>
+vertices(const Sawyer::Container::Graph<V, E> &graph) {
+    return std::make_pair(::boost::SawyerBoost::ConstVertexOuterIterator<V, E>(graph.vertices().begin()),
+                          ::boost::SawyerBoost::ConstVertexOuterIterator<V, E>(graph.vertices().end()));
+}
+
+template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::vertices_size_type
 num_vertices(Sawyer::Container::Graph<V, E> &graph) {
+    return graph.nVertices();
+}
+
+template<class V, class E>
+typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertices_size_type
+num_vertices(const Sawyer::Container::Graph<V, E> &graph) {
     return graph.nVertices();
 }
 
@@ -135,8 +221,22 @@ edges(Sawyer::Container::Graph<V, E> &graph) {
 }
 
 template<class V, class E>
+std::pair<typename graph_traits<const Sawyer::Container::Graph<V, E> >::edge_iterator,
+          typename graph_traits<const Sawyer::Container::Graph<V, E> >::edge_iterator>
+edges(const Sawyer::Container::Graph<V, E> &graph) {
+    return std::make_pair(::boost::SawyerBoost::ConstEdgeOuterIterator<V, E>(graph.edges().begin()),
+                          ::boost::SawyerBoost::ConstEdgeOuterIterator<V, E>(graph.edges().end()));
+}
+
+template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::edges_size_type
 num_edges(Sawyer::Container::Graph<V, E> &graph) {
+    return graph.nEdges();
+}
+
+template<class V, class E>
+typename graph_traits<const Sawyer::Container::Graph<V, E> >::edges_size_type
+num_edges(const Sawyer::Container::Graph<V, E> &graph) {
     return graph.nEdges();
 }
 
@@ -152,9 +252,23 @@ source(typename graph_traits<Sawyer::Container::Graph<V, E> >::edge_descriptor e
 }
 
 template<class V, class E>
+typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor
+source(typename graph_traits<const Sawyer::Container::Graph<V, E> >::edge_descriptor edge,
+       const Sawyer::Container::Graph<V, E> &graph) {
+    return graph.findEdge(edge)->source()->id();
+}
+
+template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor
 target(typename graph_traits<Sawyer::Container::Graph<V, E> >::edge_descriptor edge,
        Sawyer::Container::Graph<V, E> &graph) {
+    return graph.findEdge(edge)->target()->id();
+}
+
+template<class V, class E>
+typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor
+target(typename graph_traits<const Sawyer::Container::Graph<V, E> >::edge_descriptor edge,
+       const Sawyer::Container::Graph<V, E> &graph) {
     return graph.findEdge(edge)->target()->id();
 }
 
@@ -169,9 +283,26 @@ out_edges(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descrip
 }
 
 template<class V, class E>
+std::pair<typename graph_traits<const Sawyer::Container::Graph<V, E> >::out_edge_iterator,
+          typename graph_traits<const Sawyer::Container::Graph<V, E> >::out_edge_iterator>
+out_edges(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+          const Sawyer::Container::Graph<V, E> &graph) {
+    typename Sawyer::Container::Graph<V, E>::ConstVertexNodeIterator v = graph.findVertex(vertex);
+    return std::make_pair(::boost::SawyerBoost::ConstEdgeOuterIterator<V, E>(v->outEdges().begin()),
+                          ::boost::SawyerBoost::ConstEdgeOuterIterator<V, E>(v->outEdges().end()));
+}
+
+template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::degree_size_type
 out_degree(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
-          Sawyer::Container::Graph<V, E> &graph) {
+           Sawyer::Container::Graph<V, E> &graph) {
+    return graph.findVertex(vertex)->nOutEdges();
+}
+
+template<class V, class E>
+typename graph_traits<const Sawyer::Container::Graph<V, E> >::degree_size_type
+out_degree(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+           const Sawyer::Container::Graph<V, E> &graph) {
     return graph.findVertex(vertex)->nOutEdges();
 }
 
@@ -190,6 +321,16 @@ in_edges(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descript
 }
 
 template<class V, class E>
+std::pair<typename graph_traits<const Sawyer::Container::Graph<V, E> >::in_edge_iterator,
+          typename graph_traits<const Sawyer::Container::Graph<V, E> >::in_edge_iterator>
+in_edges(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+         const Sawyer::Container::Graph<V, E> &graph) {
+    typename Sawyer::Container::Graph<V, E>::ConstVertexNodeIterator v = graph.findVertex(vertex);
+    return std::make_pair(::boost::SawyerBoost::ConstEdgeOuterIterator<V, E>(v->inEdges().begin()),
+                          ::boost::SawyerBoost::ConstEdgeOuterIterator<V, E>(v->inEdges().end()));
+}
+
+template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::degree_size_type
 in_degree(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
           Sawyer::Container::Graph<V, E> &graph) {
@@ -197,9 +338,23 @@ in_degree(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descrip
 }
 
 template<class V, class E>
+typename graph_traits<const Sawyer::Container::Graph<V, E> >::degree_size_type
+in_degree(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+          const Sawyer::Container::Graph<V, E> &graph) {
+    return graph.findVertex(vertex)->nInEdges();
+}
+
+template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::degree_size_type
 degree(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
-          Sawyer::Container::Graph<V, E> &graph) {
+       Sawyer::Container::Graph<V, E> &graph) {
+    return in_degree(vertex) + out_degree(vertex);
+}
+
+template<class V, class E>
+typename graph_traits<const Sawyer::Container::Graph<V, E> >::degree_size_type
+degree(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+       const Sawyer::Container::Graph<V, E> &graph) {
     return in_degree(vertex) + out_degree(vertex);
 }
 
