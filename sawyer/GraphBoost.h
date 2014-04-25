@@ -700,7 +700,7 @@ add_edge(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descript
          typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor target,
          Sawyer::Container::Graph<V, E> &graph) {
     typename Sawyer::Container::Graph<V, E>::VertexNodeIterator src=graph.findVertex(source), tgt=graph.findVertex(target);
-    typename Sawyer::Container::Graph<V, E>::EdgeNodeIterator newEdge = graph.insert(src, tgt, E());
+    typename Sawyer::Container::Graph<V, E>::EdgeNodeIterator newEdge = graph.insertEdge(src, tgt, E());
     return std::make_pair(newEdge->id(), true);
 }
 
@@ -713,7 +713,7 @@ remove_edge(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descr
     typename Sawyer::Container::Graph<V, E>::EdgeNodeIterator edge = src->outEdges().begin();
     while (edge != src->outEdges().end()) {
         if (edge->target() == tgt) {
-            edge = graph.erase(edge);
+            edge = graph.eraseEdge(edge);
         } else {
             ++edge;
         }
@@ -724,7 +724,7 @@ template<class V, class E>
 void
 remove_edge(typename graph_traits<Sawyer::Container::Graph<V, E> >::edge_descriptor edge,
             Sawyer::Container::Graph<V, E> &graph) {
-    graph.erase(graph.findEdge(edge));
+    graph.eraseEdge(graph.findEdge(edge));
 }
 
 template<class Predicate, class V, class E>
@@ -734,7 +734,7 @@ remove_edge_if(Predicate predicate,
     typename Sawyer::Container::Graph<V, E>::EdgeNodeIterator edge = graph.edges().begin();
     while (edge != graph.edges().end()) {
         if (predicate(edge->id())) {
-            edge = graph.erase(edge);
+            edge = graph.eraseEdge(edge);
         } else {
             ++edge;
         }
@@ -750,7 +750,7 @@ remove_out_edge_if(typename graph_traits<Sawyer::Container::Graph<V, E> >::verte
     typename Sawyer::Container::Graph<V, E>::EdgeNodeIterator edge = v->outEdges().begin();
     while (edge != v->outEdges().end()) {
         if (predicate(edge->id())) {
-            edge = graph.erase(edge);
+            edge = graph.eraseEdge(edge);
         } else {
             ++edge;
         }
@@ -766,7 +766,7 @@ remove_in_edge_if(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex
     typename Sawyer::Container::Graph<V, E>::EdgeNodeIterator edge = v->inEdges().begin();
     while (edge != v->inEdges().end()) {
         if (predicate(edge->id())) {
-            edge = graph.erase(edge);
+            edge = graph.eraseEdge(edge);
         } else {
             ++edge;
         }
@@ -776,7 +776,7 @@ remove_in_edge_if(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex
 template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor
 add_vertex(Sawyer::Container::Graph<V, E> &graph) {
-    return graph.insert(V())->id();
+    return graph.insertVertex(V())->id();
 }
 
 template<class V, class E>
@@ -790,7 +790,7 @@ template<class V, class E>
 void
 remove_vertex(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
               Sawyer::Container::Graph<V, E> &graph) {
-    graph.erase(graph.findVertex(vertex));
+    graph.eraseVertex(graph.findVertex(vertex));
 }
 
 
@@ -805,7 +805,7 @@ add_edge(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descript
          typename graph_traits<Sawyer::Container::Graph<V, E> >::edge_property_type const &pval,
          Sawyer::Container::Graph<V, E> &graph) {
     typename Sawyer::Container::Graph<V, E>::VertexNodeIterator src=graph.findVertex(source), tgt=graph.findVertex(target);
-    typename Sawyer::Container::Graph<V, E>::EdgeNodeIterator newEdge = graph.insert(src, tgt, pval);
+    typename Sawyer::Container::Graph<V, E>::EdgeNodeIterator newEdge = graph.insertEdge(src, tgt, pval);
     return std::make_pair(newEdge->id(), true);
 }
 
@@ -813,7 +813,7 @@ template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor
 add_vertex(const typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_property_type &pval,
            Sawyer::Container::Graph<V, E> &graph) {
-    return graph.insert(pval)->id();
+    return graph.insertVertex(pval)->id();
 }
 
 } // namespace

@@ -45,19 +45,19 @@ void insert_vertex() {
     Graph graph;
     ASSERT_require(graph.nVertices()==0);
 
-    typename Graph::VertexNodeIterator iter = graph.insert("banana");
+    typename Graph::VertexNodeIterator iter = graph.insertVertex("banana");
     std::cout <<"  inserted [" <<iter->id() <<"] = " <<iter->value() <<"\n";
     ASSERT_require(graph.nVertices()==1);
     ASSERT_require(iter->id()==0);
     ASSERT_require(iter->value()=="banana");
 
-    iter = graph.insert("orange");
+    iter = graph.insertVertex("orange");
     std::cout <<"  inserted [" <<iter->id() <<"] = " <<iter->value() <<"\n";
     ASSERT_require(graph.nVertices()==2);
     ASSERT_require(iter->id()==1);
     ASSERT_require(iter->value()=="orange");
 
-    iter = graph.insert("pineapple");
+    iter = graph.insertVertex("pineapple");
     std::cout <<"  inserted [" <<iter->id() <<"] = " <<iter->value() <<"\n";
     ASSERT_require(graph.nVertices()==3);
     ASSERT_require(iter->id()==2);
@@ -72,18 +72,18 @@ void erase_empty_vertex() {
     typedef typename Graph::VertexNodeIterator Vertex;
 
     Graph graph;
-    Vertex v0 = graph.insert("banana");
-    Vertex v1 = graph.insert("orange");
-    Vertex v2 = graph.insert("pineapple");
+    Vertex v0 = graph.insertVertex("banana");
+    Vertex v1 = graph.insertVertex("orange");
+    Vertex v2 = graph.insertVertex("pineapple");
     std::cout <<"  initial graph:\n" <<graph;
 
-    graph.erase(v1);
+    graph.eraseVertex(v1);
     ASSERT_require(graph.nVertices()==2);
 
-    graph.erase(v0);
+    graph.eraseVertex(v0);
     ASSERT_require(graph.nVertices()==1);
 
-    graph.erase(v2);
+    graph.eraseVertex(v2);
     ASSERT_require(graph.nVertices()==0);
     ASSERT_require(graph.isEmpty());
 }
@@ -99,7 +99,7 @@ void iterate_vertices() {
     vertexValues.push_back("goose");
     vertexValues.push_back("grinch");
     for (size_t i=0; i<vertexValues.size(); ++i)
-        graph.insert(vertexValues[i]);
+        graph.insertVertex(vertexValues[i]);
 
     std::cout <<"  using BOOST_FOREACH:";
     size_t idx = 0;
@@ -127,10 +127,10 @@ void find_vertex() {
     
     Graph graph;
     std::vector<std::string> vertexValues;
-    VertexDesc v0 = graph.insert("vine");
-    VertexDesc v1 = graph.insert("vinegar");
-    VertexDesc v2 = graph.insert("violin");
-    VertexDesc v3 = graph.insert("visa");
+    VertexDesc v0 = graph.insertVertex("vine");
+    VertexDesc v1 = graph.insertVertex("vinegar");
+    VertexDesc v2 = graph.insertVertex("violin");
+    VertexDesc v3 = graph.insertVertex("visa");
     std::cout <<"  initial graph:\n" <<graph;
 
     ASSERT_require(v0 == graph.findVertex(v0->id()));
@@ -147,16 +147,16 @@ void insert_edge() {
 
     Graph graph;
     std::vector<std::string> vertexValues;
-    VertexDescriptor v0 = graph.insert("vine");
-    VertexDescriptor v1 = graph.insert("vinegar");
-    VertexDescriptor v2 = graph.insert("violin");
-    VertexDescriptor v3 = graph.insert("visa");
+    VertexDescriptor v0 = graph.insertVertex("vine");
+    VertexDescriptor v1 = graph.insertVertex("vinegar");
+    VertexDescriptor v2 = graph.insertVertex("violin");
+    VertexDescriptor v3 = graph.insertVertex("visa");
 
-    EdgeDescriptor e0 = graph.insert(v0, v1, "vine-vinegar");
-    EdgeDescriptor e1 = graph.insert(v2, v1, "violin-vinegar");
-    EdgeDescriptor e2 = graph.insert(v0, v3, "vine-visa");
-    EdgeDescriptor e3 = graph.insert(v3, v0, "visa-vine");
-    EdgeDescriptor e4 = graph.insert(v3, v3, "visa-visa");
+    EdgeDescriptor e0 = graph.insertEdge(v0, v1, "vine-vinegar");
+    EdgeDescriptor e1 = graph.insertEdge(v2, v1, "violin-vinegar");
+    EdgeDescriptor e2 = graph.insertEdge(v0, v3, "vine-visa");
+    EdgeDescriptor e3 = graph.insertEdge(v3, v0, "visa-vine");
+    EdgeDescriptor e4 = graph.insertEdge(v3, v3, "visa-visa");
     ASSERT_require(graph.nEdges() == 5);
 
     ASSERT_require(e0->value() == "vine-vinegar");
@@ -190,34 +190,34 @@ void erase_edge() {
     
     Graph graph;
     std::vector<std::string> vertexValues;
-    Vertex v0 = graph.insert("vine");
-    Vertex v1 = graph.insert("vinegar");
-    Vertex v2 = graph.insert("violin");
-    Vertex v3 = graph.insert("visa");
-    Edge e0 = graph.insert(v0, v1, "vine-vinegar");
-    Edge e1 = graph.insert(v2, v1, "violin-vinegar");
-    Edge e2 = graph.insert(v0, v3, "vine-visa");
-    Edge e3 = graph.insert(v3, v0, "visa-vine");
-    Edge e4 = graph.insert(v3, v3, "visa-visa");
+    Vertex v0 = graph.insertVertex("vine");
+    Vertex v1 = graph.insertVertex("vinegar");
+    Vertex v2 = graph.insertVertex("violin");
+    Vertex v3 = graph.insertVertex("visa");
+    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
+    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
+    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
+    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
+    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
     std::cout <<"  initial graph:\n" <<graph;
 
-    graph.erase(e3);
+    graph.eraseEdge(e3);
     std::cout <<"  after erasing 'visa-vine' edge:\n" <<graph;
     ASSERT_require(graph.nEdges() == 4);
 
-    graph.erase(e1);
+    graph.eraseEdge(e1);
     std::cout <<"  after erasing 'violin-vinegar' edge:\n" <<graph;
     ASSERT_require(graph.nEdges() == 3);
 
-    graph.erase(e0);
+    graph.eraseEdge(e0);
     std::cout <<"  after erasing 'vine-vinegar' edge:\n" <<graph;
     ASSERT_require(graph.nEdges() == 2);
 
-    graph.erase(e4);
+    graph.eraseEdge(e4);
     std::cout <<"  after erasing 'visa-visa' edge:\n" <<graph;
     ASSERT_require(graph.nEdges() == 1);
 
-    graph.erase(e2);
+    graph.eraseEdge(e2);
     std::cout <<"  after erasing 'vine-visa' edge:\n" <<graph;
     ASSERT_require(graph.nEdges() == 0);
 
@@ -232,30 +232,30 @@ void erase_vertex() {
     
     Graph graph;
     std::vector<std::string> vertexValues;
-    Vertex v0 = graph.insert("vine");
-    Vertex v1 = graph.insert("vinegar");
-    Vertex v2 = graph.insert("violin");
-    Vertex v3 = graph.insert("visa");
-    Edge e0 = graph.insert(v0, v1, "vine-vinegar");
-    Edge e1 = graph.insert(v2, v1, "violin-vinegar");
-    Edge e2 = graph.insert(v0, v3, "vine-visa");
-    Edge e3 = graph.insert(v3, v0, "visa-vine");
-    Edge e4 = graph.insert(v3, v3, "visa-visa");
+    Vertex v0 = graph.insertVertex("vine");
+    Vertex v1 = graph.insertVertex("vinegar");
+    Vertex v2 = graph.insertVertex("violin");
+    Vertex v3 = graph.insertVertex("visa");
+    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
+    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
+    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
+    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
+    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
     std::cout <<"  initial graph:\n" <<graph;
 
-    graph.erase(v2);
+    graph.eraseVertex(v2);
     ASSERT_require(graph.nVertices() == 3);
     ASSERT_require(graph.nEdges() == 4);
 
-    graph.erase(v0);
+    graph.eraseVertex(v0);
     ASSERT_require(graph.nVertices() == 2);
     ASSERT_require(graph.nEdges() == 1);
 
-    graph.erase(v3);
+    graph.eraseVertex(v3);
     ASSERT_require(graph.nVertices() == 1);
     ASSERT_require(graph.nEdges() == 0);
 
-    graph.erase(v1);
+    graph.eraseVertex(v1);
     ASSERT_require(graph.nVertices() == 0);
     ASSERT_require(graph.nEdges() == 0);
     ASSERT_require(graph.isEmpty());
@@ -269,9 +269,9 @@ void iterator_conversion() {
     
     Graph graph;
     std::vector<std::string> vertexValues;
-    Vertex v0 = graph.insert("vine");
-    Vertex v1 = graph.insert("vinegar");
-    Edge e0 = graph.insert(v0, v1, "vine-vinegar");
+    Vertex v0 = graph.insertVertex("vine");
+    Vertex v1 = graph.insertVertex("vinegar");
+    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
     std::cout <<"  initial graph:\n" <<graph;
 
     typename Graph::VertexValueIterator vval = v0;

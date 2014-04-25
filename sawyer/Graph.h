@@ -874,7 +874,7 @@ public:
      *  vertex is given the higest vertex ID number; no other ID numbers, vertex or edge, change.
      *
      *  Time complexity is constant. */
-    VertexNodeIterator insert(const VertexValue &value = VertexValue()) {
+    VertexNodeIterator insertVertex(const VertexValue &value = VertexValue()) {
         typename VertexList::NodeIterator inserted = vertices_.insert(vertices_.nodes().end(), VertexNode(value));
         inserted->value().self_ = inserted;
         inserted->value().edgeLists_.reset(NULL);       // this is a sublist head, no edge node
@@ -889,8 +889,8 @@ public:
      *  highest edge ID number; no other ID numbers, edge or vertex, change.
      *
      *  Time complexity is constant. */
-    EdgeNodeIterator insert(const VertexNodeIterator &sourceVertex, const VertexNodeIterator &targetVertex,
-                            const EdgeValue &value = EdgeValue()) {
+    EdgeNodeIterator insertEdge(const VertexNodeIterator &sourceVertex, const VertexNodeIterator &targetVertex,
+                                const EdgeValue &value = EdgeValue()) {
         ASSERT_forbid(sourceVertex==vertices().end());
         ASSERT_forbid(targetVertex==vertices().end());
         typename EdgeList::NodeIterator inserted = edges_.insert(edges_.nodes().end(),
@@ -915,7 +915,7 @@ public:
      *  edge was deleted).
      *
      *  Time complexity is constant. */
-    EdgeNodeIterator erase(const EdgeNodeIterator &edge) {
+    EdgeNodeIterator eraseEdge(const EdgeNodeIterator &edge) {
         ASSERT_forbid(edge==edges().end());
         EdgeNodeIterator next = edge; ++next;           // advance before we delete edge
         edge->edgeLists_.remove(OUT_EDGES);
@@ -936,7 +936,7 @@ public:
      *  vertex following the one that was deleted (possibly the one-past-last iterator if the last vertex was deleted).
      *
      *  Time complexity is constant. */
-    VertexNodeIterator erase(const VertexNodeIterator &vertex) {
+    VertexNodeIterator eraseVertex(const VertexNodeIterator &vertex) {
         VertexNodeIterator next = vertex; ++next;       // advance before we delete vertex
         clearEdges(vertex);
         vertices_.eraseAt(vertex->self_);               // vertex is now deleted
@@ -978,7 +978,7 @@ public:
     void clearOutEdges(const VertexNodeIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
         for (EdgeNodeIterator edge=vertex->outEdges().begin(); edge!=vertex->outEdges().end(); /*void*/)
-            edge = erase(edge);
+            edge = eraseEdge(edge);
     }
 
     /** Erase all edges targeting a vertex.
@@ -990,7 +990,7 @@ public:
     void clearInEdges(const VertexNodeIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
         for (EdgeNodeIterator edge=vertex->inEdges().begin(); edge!=vertex->inEdges().end(); /*void*/)
-            edge = erase(edge);
+            edge = eraseEdge(edge);
     }
 
     /** Remove all vertices and edges.

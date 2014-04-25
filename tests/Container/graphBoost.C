@@ -211,21 +211,21 @@ void example_sawyer_graph() {
 
     // Add some vertices. Like STL containers, Sawyer vertices are immediately associated with user-defined values which are
     // copied into the graph.
-    Vertex a = graph.insert(VertexData(1.0, 1.0, "vampire"));
-    Vertex b = graph.insert(VertexData(2.0, 1.0, "venison"));
-    Vertex c = graph.insert(VertexData(3.1, 1.1, "vermouth"));
-    Vertex d = graph.insert(VertexData(6.6, 1.4, "vogue"));
-    Vertex e = graph.insert(VertexData(8.9, 1.5, "vigil"));
+    Vertex a = graph.insertVertex(VertexData(1.0, 1.0, "vampire"));
+    Vertex b = graph.insertVertex(VertexData(2.0, 1.0, "venison"));
+    Vertex c = graph.insertVertex(VertexData(3.1, 1.1, "vermouth"));
+    Vertex d = graph.insertVertex(VertexData(6.6, 1.4, "vogue"));
+    Vertex e = graph.insertVertex(VertexData(8.9, 1.5, "vigil"));
 
     // Add some edges. Arguments are source and destination vertices, and user-defined value. Implicit conversion from char
     // const* to std::string is occurring here.  These return type Edge, but we don't need them.
-    graph.insert(a, b, "elephant");
-    graph.insert(a, d, "echidna");
-    graph.insert(c, a, "emu");
-    graph.insert(d, c, "eagle");
-    graph.insert(c, e, "eel");
-    graph.insert(b, d, "earwig");
-    graph.insert(d, e, "egret");
+    graph.insertEdge(a, b, "elephant");
+    graph.insertEdge(a, d, "echidna");
+    graph.insertEdge(c, a, "emu");
+    graph.insertEdge(d, c, "eagle");
+    graph.insertEdge(c, e, "eel");
+    graph.insertEdge(b, d, "earwig");
+    graph.insertEdge(d, e, "egret");
 
     // Print the values stored for edges.  None of the Sawyer containers have direct begin() and end() methods, but rather an
     // iterator range proxy. This has two advantages: range-returning functions can be chained together as with the boost
@@ -277,7 +277,7 @@ void example_sawyer_graph() {
     // could improve, especially when there are incident edges whose tables need to be also adjusted).
     Vertex toRemove = c;
     size_t removedId = toRemove->id();
-    graph.erase(toRemove);                              // "erase" is for either vertices or edges depending on argument.
+    graph.eraseVertex(toRemove);                        // "erase" is for either vertices or edges depending on argument.
     std::swap(table[removedId], table.back());          // fix up our table
     table.pop_back();                                   // erase the data for the vertex we just removed
 
