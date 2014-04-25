@@ -1,3 +1,8 @@
+// This file shows three ways to manipulate graphs:
+//    1. The pure Boost Graph Library (BGL) approach.
+//    2. The pure Sawyer approach
+//    3. The BGL interface on top of a Sawyer graph.
+
 #include <sawyer/GraphBoost.h>                          // BGL interface for Sawyer::Container::Graph
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -36,9 +41,6 @@ struct vertex_external_data_t {                         // only needed for BGL
     typedef boost::vertex_property_tag kind;
 };
 
-struct vertex_id_t {                                    // only needed for BGL
-    typedef boost::vertex_property_tag kind;
-};
 
 
 void example_adjacency_list_graph() {
@@ -47,7 +49,7 @@ void example_adjacency_list_graph() {
     // a scope as possible, this function treats each sub-example is if it could be in its own function, and declares things as
     // locally as possible.  Although it's somewhat artificial here, in practice this is actually what happens, and therefore
     // the amount of verbosity here will be close to what occurs in practice.
-    typedef boost::property<vertex_data_t, VertexData, boost::property<vertex_id_t, size_t> > VertexProperties;
+    typedef boost::property<vertex_data_t, VertexData, boost::property<boost::vertex_index_t, size_t> > VertexProperties;
     typedef boost::property<boost::edge_name_t, std::string> EdgeProperties;
     typedef boost::adjacency_list<boost::setS, boost::setS, boost::bidirectionalS, VertexProperties, EdgeProperties> Graph;
     typedef boost::graph_traits<Graph>::vertex_descriptor VertexDesc;
@@ -68,49 +70,34 @@ void example_adjacency_list_graph() {
     // it in the real world because the underlying graph type might not be in the "boost" name space.  After all, one of BGL's
     // selling points is that you can simply plug in your own graph type and algorithms "just work".
 
-    // Add some vertices. The BGL API requires three steps:
-    //   1. Obtain the storage for the vertex user-defined data
-    //   2. Add a vertex with default-constructed user-defined data
-    //   3. Modify the user-defined data associated with the new vertex
-    // Also, we'll be creating a lookup table below, and we want to have O(1) lookup times. That means we need small, unique
+    // We'll be creating a lookup table below, and we want to have O(1) lookup times. That means we need small, unique
     // ID numbers for each vertex.  There isn't a good way (i.e., fast and simple) to do this with the BGL interface when the
-    // graph needs to support edge and/or vertex erasure.
-    boost::property_map<Graph, vertex_data_t>::type vertexData = get(vertex_data_t(), graph);
-    boost::property_map<Graph, vertex_id_t>::type vertexIds = get(vertex_id_t(), graph);
-    VertexDesc a = boost::add_vertex(graph);
-    boost::put(vertexData, a, VertexData(1.0, 1.0, "vampire"));
+    // graph needs to support fast erasure of edges and/or vertices.
+    boost::property_map<Graph, vertex_data_t>::type vertexData = boost::get(vertex_data_t(), graph);
+    boost::property_map<Graph, boost::vertex_index_t>::type vertexIds = boost::get(boost::vertex_index_t(), graph);
+    VertexDesc a = boost::add_vertex(VertexData(1.0, 1.0, "vampire"), graph);
     boost::put(vertexIds, a, boost::num_vertices(graph)-1);
-    VertexDesc b = boost::add_vertex(graph);
-    boost::put(vertexData, b, VertexData(2.0, 1.0, "venison"));
+    VertexDesc b = boost::add_vertex(VertexData(2.0, 1.0, "venison"), graph);
     boost::put(vertexIds, b, boost::num_vertices(graph)-1);
-    VertexDesc c = boost::add_vertex(graph);
-    boost::put(vertexData, c, VertexData(3.1, 1.1, "vermouth"));
+    VertexDesc c = boost::add_vertex(VertexData(3.1, 1.1, "vermouth"), graph);
     boost::put(vertexIds, c, boost::num_vertices(graph)-1);
-    VertexDesc d = boost::add_vertex(graph);
-    boost::put(vertexData, d, VertexData(6.6, 1.4, "vogue"));
+    VertexDesc d = boost::add_vertex(VertexData(6.6, 1.4, "vogue"), graph);
     boost::put(vertexIds, d, boost::num_vertices(graph)-1);
-    VertexDesc e = add_vertex(graph);
-    boost::put(vertexData, e, VertexData(8.9, 1.5, "vigil"));
+    VertexDesc e = add_vertex(VertexData(8.9, 1.5, "vigil"), graph);
     boost::put(vertexIds, e, boost::num_vertices(graph)-1);
 
     // Add some edges. BGL returns a pair where second is always true for graphs that allow parallel edges. As with adding
     // vertices, adding edges requires three steps, although we are able to hoist the first step to the top in these examples
-    // (not always convenient in real life).
+    // (not always convenient in real life).  The std::string c'tors are because there is no implicit conversion happening in
+    // the add_edge function like what Sawyer allows.
     boost::property_map<Graph, boost::edge_name_t>::type edgeData = boost::get(boost::edge_name_t(), graph);
-    EdgeDesc ab = boost::add_edge(a, b, graph).first;
-    boost::put(edgeData, ab, "elephant");
-    EdgeDesc ad = boost::add_edge(a, d, graph).first;
-    boost::put(edgeData, ad, "echidna");
-    EdgeDesc ca = boost::add_edge(c, a, graph).first;
-    boost::put(edgeData, ca, "emu");
-    EdgeDesc dc = boost::add_edge(d, c, graph).first;
-    boost::put(edgeData, dc, "eagle");
-    EdgeDesc ce = boost::add_edge(c, e, graph).first;
-    boost::put(edgeData, ce, "eel");
-    EdgeDesc bd = boost::add_edge(b, d, graph).first;
-    boost::put(edgeData, bd, "earwig");
-    EdgeDesc de = boost::add_edge(d, e, graph).first;
-    boost::put(edgeData, de, "egret");
+    EdgeDesc ab = boost::add_edge(a, b, std::string("elephant"), graph).first;
+    EdgeDesc ad = boost::add_edge(a, d, std::string("echidna"), graph).first;
+    EdgeDesc ca = boost::add_edge(c, a, std::string("emu"), graph).first;
+    EdgeDesc dc = boost::add_edge(d, c, std::string("eagle"), graph).first;
+    EdgeDesc ce = boost::add_edge(c, e, std::string("eel"), graph).first;
+    EdgeDesc bd = boost::add_edge(b, d, std::string("earwig"), graph).first;
+    EdgeDesc de = boost::add_edge(d, e, std::string("egret"), graph).first;
 
     // Iterate over the edges of a graph manually and print their associated std::string values.  This is a two-step
     // process: first get the storage for the edge properties, then look up the particular data based on the edge.
@@ -135,10 +122,13 @@ void example_adjacency_list_graph() {
     // Iterate over the vertices and print the data associated with each.
     std::cout <<"vertices:\n";
     BOOST_FOREACH (const VertexDesc &vertex, boost::vertices(graph)) {
+        typedef boost::property_map<Graph, boost::vertex_index_t>::type VertexIdMap;
+        VertexIdMap vertexIdMap = boost::get(boost::vertex_index_t(), graph);
+        boost::property_traits<VertexIdMap>::value_type id = boost::get(vertexIdMap, vertex);
         typedef boost::property_map<Graph, vertex_data_t>::type VertexDataMap;
         VertexDataMap vertexDataMap = boost::get(vertex_data_t(), graph);
         VertexData &vertexData = boost::get(vertexDataMap, vertex);
-        std::cout <<"  " <<vertexData.x <<"\t" <<vertexData.y <<"\t" <<vertexData.name <<"\n";
+        std::cout <<"  [" <<id <<"]\t" <<vertexData.x <<"\t" <<vertexData.y <<"\t" <<vertexData.name <<"\n";
     }
 
     // Create a lookup table that contains additional information per vertex that we will not add to the graph.  BGL calls
@@ -147,8 +137,8 @@ void example_adjacency_list_graph() {
     // we'd like the potential of having O(1) erasure).
     std::vector<VertexExternalData> table(boost::num_vertices(graph), VertexExternalData());
     BOOST_FOREACH (const VertexDesc &vertex, boost::vertices(graph)) {
-        typedef boost::property_map<Graph, vertex_id_t>::type VertexIdMap;
-        VertexIdMap vertexIdMap = boost::get(vertex_id_t(), graph);
+        typedef boost::property_map<Graph, boost::vertex_index_t>::type VertexIdMap;
+        VertexIdMap vertexIdMap = boost::get(boost::vertex_index_t(), graph);
         size_t id = boost::get(vertexIdMap, vertex);
         assert(id < table.size());
         typedef boost::property_map<Graph, vertex_data_t>::type VertexDataMap;
@@ -171,8 +161,8 @@ void example_adjacency_list_graph() {
     VertexDesc toRemove = c;
     {
         // Get ID number that we're removing
-        typedef boost::property_map<Graph, vertex_id_t>::type VertexIdMap;
-        VertexIdMap vertexIdMap = boost::get(vertex_id_t(), graph);
+        typedef boost::property_map<Graph, boost::vertex_index_t>::type VertexIdMap;
+        VertexIdMap vertexIdMap = boost::get(boost::vertex_index_t(), graph);
         size_t removedId = boost::get(vertexIdMap, toRemove);
 
         // Renumber vertices with higher IDs, linear time.  We could have rather swapped with the highest ID number, but that
@@ -227,7 +217,8 @@ void example_sawyer_graph() {
     Vertex d = graph.insert(VertexData(6.6, 1.4, "vogue"));
     Vertex e = graph.insert(VertexData(8.9, 1.5, "vigil"));
 
-    // Add some edges. Arguments are source and destination vertices, and user-defined value.
+    // Add some edges. Arguments are source and destination vertices, and user-defined value. Implicit conversion from char
+    // const* to std::string is occurring here.
     Edge ab = graph.insert(a, b, "elephant");
     Edge ad = graph.insert(a, d, "echidna");
     Edge ca = graph.insert(c, a, "emu");
@@ -257,10 +248,13 @@ void example_sawyer_graph() {
     BOOST_FOREACH (VertexData &vertexData, graph.vertexValues())
         vertexData.name = boost::to_upper_copy(vertexData.name) + "!";
 
-    // Print the vertex information.
+    // Print the vertex information.  If we were only interested in the user data (and not the ID) then we could have iterated
+    // over graph.vertexValues(), which returns references to our data of type VertexData defined above.
     std::cout <<"vertices:\n";
-    BOOST_FOREACH (const VertexData &vertexData, graph.vertexValues())
-        std::cout <<"  " <<vertexData.x <<"\t" <<vertexData.y <<"\t" <<vertexData.name <<"\n";
+    BOOST_FOREACH (const Graph::VertexNode &vertexNode, graph.vertices()) {
+        const VertexData &data = vertexNode.value();
+        std::cout <<"  [" <<vertexNode.id() <<"]\t" <<data.x <<"\t" <<data.y <<"\t" <<data.name <<"\n";
+    }
 
     // Create a lookup table that contains additional information per vertex that we will not add to the graph.  We want O(1)
     // lookup time for this table, which means we need to use vertex ID numbers. These ID numbers are maintained by the graph
@@ -313,69 +307,81 @@ void hybrid_example() {
     // Construct an empty graph
     Graph graph;
 
+    // Obtain the property map for the vertex values.  This example demonstrates accessing an internal aggregate property whose
+    // tag is Sawyer::Boost::vertex_value_t, a new tag introduced by <sawyer/GraphBoost.h> for accessing the user-defined value
+    // associated internally with each vertex.  The Sawyer::Boost::edge_value_t is the tag for accessing the user-defined value
+    // associated with each edge.
+    typedef boost::property_map<Graph, Sawyer::Boost::vertex_value_t>::type VertexValueMap;
+    VertexValueMap vertexData = boost::get(Sawyer::Boost::vertex_value_t(), graph);
+
     // Add some vertices.  These functions need qualified names because graph's type is not in boost namespace, so Koenig
     // lookup fails.  We're mixing the BGL and Sawyer APIs here because we don't yet support BGL graph-internal properties on
     // Sawyer graphs.  Anyway, we wouldn't need the vertex ID property that we used for the pure BGL example since Sawyer
     // maintains its own ID numbers.
-    VertexDesc a = boost::add_vertex(graph);
-    graph.findVertex(a)->value() = VertexData(1.0, 1.0, "vampire"); // mixing BGL and Sawyer. This is O(1) time.
-    VertexDesc b = boost::add_vertex(graph);
-    graph.findVertex(b)->value() = VertexData(2.0, 1.0, "venison");
-    VertexDesc c = boost::add_vertex(graph);
-    graph.findVertex(c)->value() = VertexData(3.1, 1.1, "vermouth");
-    VertexDesc d = boost::add_vertex(graph);
-    graph.findVertex(d)->value() = VertexData(6.6, 1.4, "vogue");
-    VertexDesc e = boost::add_vertex(graph);
-    graph.findVertex(e)->value() = VertexData(8.9, 1.5, "vigil");
+    VertexDesc a = boost::add_vertex(VertexData(1.0, 1.0, "vampire"), graph);
+    VertexDesc b = boost::add_vertex(VertexData(2.0, 1.0, "venison"), graph);
+    VertexDesc c = boost::add_vertex(VertexData(3.1, 1.1, "vermouth"), graph);
+    VertexDesc d = boost::add_vertex(VertexData(6.6, 1.4, "vogue"), graph);
+    VertexDesc e = boost::add_vertex(VertexData(8.9, 1.5, "vigil"), graph);
 
-    // Add some edges. Mixing BGL and Sawyer APIs for the internal properties like we did for vertices.
-    EdgeDesc ab = boost::add_edge(a, b, graph).first;
-    graph.findEdge(ab)->value() = "elephant";           // This is O(1) time
-    EdgeDesc ad = boost::add_edge(a, d, graph).first;
-    graph.findEdge(ad)->value() = "echidna";
-    EdgeDesc ca = boost::add_edge(c, a, graph).first;
-    graph.findEdge(ca)->value() = "emu";
-    EdgeDesc dc = boost::add_edge(d, c, graph).first;
-    graph.findEdge(dc)->value() = "eagle";
-    EdgeDesc ce = boost::add_edge(c, e, graph).first;
-    graph.findEdge(ce)->value() = "eel";
-    EdgeDesc bd = boost::add_edge(b, d, graph).first;
-    graph.findEdge(bd)->value() = "earwig";
-    EdgeDesc de = boost::add_edge(d, e, graph).first;
-    graph.findEdge(de)->value() = "egret";
+    // Add some edges. Mixing BGL and Sawyer APIs for the internal properties like we did for vertices.  We use an internal
+    // property map to access the std::string stored on each edge. Unlike the pure BGL example, implicit conversion from char
+    // const* to std::string works here.
+    boost::property_map<Graph, Sawyer::Boost::edge_value_t>::type edgeData = boost::get(Sawyer::Boost::edge_value_t(), graph);
+    EdgeDesc ab = boost::add_edge(a, b, "elephant", graph).first;
+    EdgeDesc ad = boost::add_edge(a, d, "echidna", graph).first;
+    EdgeDesc ca = boost::add_edge(c, a, "emu", graph).first;
+    EdgeDesc dc = boost::add_edge(d, c, "eagle", graph).first;
+    EdgeDesc ce = boost::add_edge(c, e, "eel", graph).first;
+    EdgeDesc bd = boost::add_edge(b, d, "earwig", graph).first;
+    EdgeDesc de = boost::add_edge(d, e, "egret", graph).first;
 
-    // Iterate over the edges of a graph manually and print their associated std::string values.  Again, we're mixing the BGL
-    // and Sawyer APIs in order to get to the internal edge properties.
+    // Iterate over the edges of a graph manually and print their associated std::string values. Using the Sawyer API would
+    // have been quite a bit more readable.  At least this time we know that BGL edge descriptors are also Sawyer edge IDs.
     std::cout <<"edges:\n";
     EdgeIter e_iter, e_end;
-    for (boost::tie(e_iter, e_end)=boost::edges(graph); e_iter!=e_end; ++e_iter)
-        std::cout <<"  [" <<*e_iter <<"] = " <<graph.findEdge(*e_iter)->value() <<"\n";
+    for (boost::tie(e_iter, e_end)=boost::edges(graph); e_iter!=e_end; ++e_iter) {
+        typedef boost::property_map<Graph, Sawyer::Boost::edge_value_t>::type EdgeDataMap;
+        EdgeDataMap edgeDataMap = boost::get(Sawyer::Boost::edge_value_t(), graph);
+        std::cout <<"  [" <<*e_iter <<"] = " <<boost::get(edgeDataMap, *e_iter) <<"\n";
+    }
 
-    // Iterate over the vertices of a graph with foreach and make each name upper case with a "!" at the end. Again mixing BGL
-    // and Sawyer APIs to access internal vertex properties.
-    BOOST_FOREACH (VertexDesc vertex, boost::vertices(graph)) {
-        VertexData &vertexData = graph.findVertex(vertex)->value();
+    // Iterate over the vertices of a graph with foreach and make each name upper case with a "!" at the end.
+    BOOST_FOREACH (const VertexDesc &vertex, boost::vertices(graph)) {
+        typedef boost::property_map<Graph, Sawyer::Boost::vertex_value_t>::type VertexDataMap;
+        VertexDataMap vertexDataMap = boost::get(Sawyer::Boost::vertex_value_t(), graph);
+        VertexData &vertexData = boost::get(vertexDataMap, vertex);
         vertexData.name = boost::to_upper_copy(vertexData.name) + "!";
     }
 
-    // Iterate over the vertices and print the data associated with each. Again mixing BGL and Sawyer APIs to access internal
-    // vertex properties.
+    // Iterate over the vertices and print the data associated with each.
     std::cout <<"vertices:\n";
-    BOOST_FOREACH (VertexDesc vertex, boost::vertices(graph)) {
-        VertexData &vertexData = graph.findVertex(vertex)->value();
-        std::cout <<"  " <<vertexData.x <<"\t" <<vertexData.y <<"\t" <<vertexData.name <<"\n";
+    BOOST_FOREACH (const VertexDesc &vertex, boost::vertices(graph)) {
+        typedef boost::property_map<Graph, Sawyer::Boost::vertex_id_t>::type VertexIdMap;
+        VertexIdMap vertexIdMap = boost::get(Sawyer::Boost::vertex_id_t(), graph);
+        boost::property_traits<VertexIdMap>::value_type id = boost::get(vertexIdMap, vertex);
+        typedef boost::property_map<Graph, Sawyer::Boost::vertex_value_t>::type VertexDataMap;
+        VertexDataMap vertexDataMap = boost::get(Sawyer::Boost::vertex_value_t(), graph);
+        VertexData &vertexData = boost::get(vertexDataMap, vertex);
+        std::cout <<"  [" <<id <<"]\t" <<vertexData.x <<"\t" <<vertexData.y <<"\t" <<vertexData.name <<"\n";
     }
 
     // Create a lookup table that contains additional information per vertex that we will not add to the graph.  BGL calls
-    // these external properties, and we can use the BGL interface (or the Sawyer interface if we like).
+    // these external properties.
     std::vector<VertexExternalData> table(boost::num_vertices(graph), VertexExternalData());
     BOOST_FOREACH (const VertexDesc &vertex, boost::vertices(graph)) {
-        assert(vertex < table.size());                  // VertexDesc is exactly an ID
-        const VertexData &vertexData = graph.findVertex(vertex)->value();
-        table[vertex].r = sin(vertexData.x);
-        table[vertex].g = cos(vertexData.y);
-        table[vertex].b = 0.5;
-        table[vertex].name = boost::to_lower_copy(vertexData.name);
+        typedef boost::property_map<Graph, Sawyer::Boost::vertex_id_t>::type VertexIdMap;
+        VertexIdMap vertexIdMap = boost::get(Sawyer::Boost::vertex_id_t(), graph);
+        typedef boost::property_traits<VertexIdMap>::value_type VertexId;
+        VertexId id = boost::get(vertexIdMap, vertex);
+        assert(id < table.size());
+        typedef boost::property_map<Graph, Sawyer::Boost::vertex_value_t>::type VertexDataMap;
+        VertexDataMap vertexDataMap = boost::get(Sawyer::Boost::vertex_value_t(), graph);
+        const VertexData &vertexData = boost::get(vertexDataMap, vertex);
+        table[id].r = sin(vertexData.x);
+        table[id].g = cos(vertexData.y);
+        table[id].b = 0.5;
+        table[id].name = boost::to_lower_copy(vertexData.name);
     }
     std::cout <<"table:\n";
     for (size_t i=0; i<table.size(); ++i)
@@ -385,14 +391,14 @@ void hybrid_example() {
     // the hoops we had to in the pure BGL example.
     VertexDesc toRemove = c;
     {
-        // Get ID number that we're removing (vertex_descriptor and IDs are the same thing in the hybrid approach)
+        // Get ID number that we're removing (BGL vertex_descriptor is a Sawyer ID for this graph type)
         size_t removedId = toRemove;
 
         // Erase the vertex.  BGL requires us to first erase the incident edges.
-        boost::clear_vertex(toRemove, graph);
+        boost::clear_vertex(toRemove, graph);           // optional since underlying graph is a Sawyer graph
         boost::remove_vertex(toRemove, graph);
 
-        // Move members of the table, this time by swapping since Sawyer's renumbering method is part of its public behavior.
+        // Move members of the table. This time we can use an O(1) swap corresponding to Sawyer's renumbering policy.
         std::swap(table[removedId], table.back());
         table.pop_back();
     }
