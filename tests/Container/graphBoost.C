@@ -218,14 +218,14 @@ void example_sawyer_graph() {
     Vertex e = graph.insert(VertexData(8.9, 1.5, "vigil"));
 
     // Add some edges. Arguments are source and destination vertices, and user-defined value. Implicit conversion from char
-    // const* to std::string is occurring here.
-    Edge ab = graph.insert(a, b, "elephant");
-    Edge ad = graph.insert(a, d, "echidna");
-    Edge ca = graph.insert(c, a, "emu");
-    Edge dc = graph.insert(d, c, "eagle");
-    Edge ce = graph.insert(c, e, "eel");
-    Edge bd = graph.insert(b, d, "earwig");
-    Edge de = graph.insert(d, e, "egret");
+    // const* to std::string is occurring here.  These return type Edge, but we don't need them.
+    graph.insert(a, b, "elephant");
+    graph.insert(a, d, "echidna");
+    graph.insert(c, a, "emu");
+    graph.insert(d, c, "eagle");
+    graph.insert(c, e, "eel");
+    graph.insert(b, d, "earwig");
+    graph.insert(d, e, "egret");
 
     // Print the values stored for edges.  None of the Sawyer containers have direct begin() and end() methods, but rather an
     // iterator range proxy. This has two advantages: range-returning functions can be chained together as with the boost
@@ -328,13 +328,13 @@ void hybrid_example() {
     // property map to access the std::string stored on each edge. Unlike the pure BGL example, implicit conversion from char
     // const* to std::string works here.
     boost::property_map<Graph, Sawyer::Boost::edge_value_t>::type edgeData = boost::get(Sawyer::Boost::edge_value_t(), graph);
-    EdgeDesc ab = boost::add_edge(a, b, "elephant", graph).first;
-    EdgeDesc ad = boost::add_edge(a, d, "echidna", graph).first;
-    EdgeDesc ca = boost::add_edge(c, a, "emu", graph).first;
-    EdgeDesc dc = boost::add_edge(d, c, "eagle", graph).first;
-    EdgeDesc ce = boost::add_edge(c, e, "eel", graph).first;
-    EdgeDesc bd = boost::add_edge(b, d, "earwig", graph).first;
-    EdgeDesc de = boost::add_edge(d, e, "egret", graph).first;
+    boost::add_edge(a, b, "elephant", graph).first;
+    boost::add_edge(a, d, "echidna", graph).first;
+    boost::add_edge(c, a, "emu", graph).first;
+    boost::add_edge(d, c, "eagle", graph).first;
+    boost::add_edge(c, e, "eel", graph).first;
+    boost::add_edge(b, d, "earwig", graph).first;
+    boost::add_edge(d, e, "egret", graph).first;
 
     // Iterate over the edges of a graph manually and print their associated std::string values. Using the Sawyer API would
     // have been quite a bit more readable.  At least this time we know that BGL edge descriptors are also Sawyer edge IDs.
