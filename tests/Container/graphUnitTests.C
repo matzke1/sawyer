@@ -178,6 +178,15 @@ void insert_edge() {
     ASSERT_require(e4->value() == "visa-visa");
     ASSERT_require(e4->source() == v3);
     ASSERT_require(e4->target() == v3);
+
+    ASSERT_require(v0->nInEdges() == 1);
+    ASSERT_require(v0->nOutEdges() == 2);
+    ASSERT_require(v1->nInEdges() == 2);
+    ASSERT_require(v1->nOutEdges() == 0);
+    ASSERT_require(v2->nInEdges() == 0);
+    ASSERT_require(v2->nOutEdges() == 1);
+    ASSERT_require(v3->nInEdges() == 2);
+    ASSERT_require(v3->nOutEdges() == 2);
     
     std::cout <<graph;
 }
@@ -204,22 +213,40 @@ void erase_edge() {
     graph.eraseEdge(e3);
     std::cout <<"  after erasing 'visa-vine' edge:\n" <<graph;
     ASSERT_require(graph.nEdges() == 4);
+    ASSERT_require(v3->nOutEdges() == 1);
+    ASSERT_require(v3->nInEdges() == 2);
+    ASSERT_require(v0->nOutEdges() == 2);
+    ASSERT_require(v0->nInEdges() == 0);
 
     graph.eraseEdge(e1);
     std::cout <<"  after erasing 'violin-vinegar' edge:\n" <<graph;
     ASSERT_require(graph.nEdges() == 3);
+    ASSERT_require(v2->nOutEdges() == 0);
+    ASSERT_require(v2->nInEdges() == 0);
+    ASSERT_require(v1->nOutEdges() == 0);
+    ASSERT_require(v1->nInEdges() == 1);
 
     graph.eraseEdge(e0);
     std::cout <<"  after erasing 'vine-vinegar' edge:\n" <<graph;
     ASSERT_require(graph.nEdges() == 2);
+    ASSERT_require(v0->nOutEdges() == 1);
+    ASSERT_require(v0->nInEdges() == 0);
+    ASSERT_require(v1->nOutEdges() == 0);
+    ASSERT_require(v1->nInEdges() == 0);
 
     graph.eraseEdge(e4);
     std::cout <<"  after erasing 'visa-visa' edge:\n" <<graph;
     ASSERT_require(graph.nEdges() == 1);
+    ASSERT_require(v3->nOutEdges() == 0);
+    ASSERT_require(v3->nInEdges() == 1);
 
     graph.eraseEdge(e2);
     std::cout <<"  after erasing 'vine-visa' edge:\n" <<graph;
     ASSERT_require(graph.nEdges() == 0);
+    ASSERT_require(v0->nOutEdges() == 0);
+    ASSERT_require(v0->nInEdges() == 0);
+    ASSERT_require(v3->nOutEdges() == 0);
+    ASSERT_require(v3->nInEdges() == 0);
 
     ASSERT_forbid(graph.isEmpty());                     // still has vertices
 }

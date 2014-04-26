@@ -581,9 +581,11 @@ public:
         VertexValue value_;                             // user data for this vertex
         typename VertexList::NodeIterator self_;        // always points to itself so we can get to IndexedList::Node
         VirtualList<EdgeNode> edgeLists_;               // this is the head node; points to the real edges
+        size_t nInEdges_;                               // number of incoming edges
+        size_t nOutEdges_;                              // number of outgoing edges
     private:
         friend class Graph;
-        VertexNode(const VertexValue &value): value_(value) {}
+        VertexNode(const VertexValue &value): value_(value), nInEdges_(0), nOutEdges_(0) {}
     public:
         /** Unique vertex ID number.
          *
@@ -638,6 +640,28 @@ public:
             return boost::iterator_range<ConstEdgeNodeIterator>(begin, end);
         }
         /** @} */
+
+        /** Number of incoming edges.
+         *
+         *  Returns the in-degree of this vertex, the length of the list returned by @ref inEdges. */
+        size_t nInEdges() const {
+            return nInEdges_;
+        }
+
+        /** Number of outgoing edges.
+         *
+         *  Returns the out-degree of this vertex, the length of the list returned by @ref outEdges. */
+        size_t nOutEdges() const {
+            return nOutEdges_;
+        }
+
+        /** Number of incident edges.
+         *
+         *  Returns the total number of incident edges, the sum of @ref nInEdges and @ref nOutEdges.  Self-edges are counted
+         *  two times: once for the source end, and once for the target end. */
+        size_t degree() const {
+            return nInEdges_ + nOutEdges_;
+        }
 
         /** User-defined value.
          *
@@ -899,7 +923,9 @@ public:
         inserted->value().edgeLists_.reset(&inserted->value());
         EdgeNodeIterator newEdge(inserted);
         sourceVertex->edgeLists_.insert(OUT_EDGES, &newEdge->edgeLists_);
+        ++sourceVertex->nOutEdges_;
         targetVertex->edgeLists_.insert(IN_EDGES, &newEdge->edgeLists_);
+        ++targetVertex->nInEdges_;
         return newEdge;
     }
 
@@ -918,7 +944,9 @@ public:
     EdgeNodeIterator eraseEdge(const EdgeNodeIterator &edge) {
         ASSERT_forbid(edge==edges().end());
         EdgeNodeIterator next = edge; ++next;           // advance before we delete edge
+        --edge->source_->nOutEdges_;
         edge->edgeLists_.remove(OUT_EDGES);
+        --edge->target_->nInEdges_;
         edge->edgeLists_.remove(IN_EDGES);
         edges_.eraseAt(edge->self_);                    // edge is now deleted
         return next;
