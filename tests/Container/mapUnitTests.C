@@ -20,8 +20,8 @@ void default_ctor() {
     std::cout <<"default constructor:\n";
     Map map;
     std::cout <<"    " <<map <<"\n";
-    ASSERT_require(map.isEmpty());
-    ASSERT_require(map.size()==0);
+    ASSERT_always_require(map.isEmpty());
+    ASSERT_always_require(map.size()==0);
 }
 
 template<class Map>
@@ -37,23 +37,23 @@ void insert_one() {
         .insert("four", 4);
 
     std::cout <<"    initial insertion: " <<map <<"\n";
-    ASSERT_require(map.size()==4);
-    ASSERT_require(map["one"]==1);
-    ASSERT_require(map["two"]==2);
-    ASSERT_require(map["three"]==3);
-    ASSERT_require(map["four"]==4);
+    ASSERT_always_require(map.size()==4);
+    ASSERT_always_require(map["one"]==1);
+    ASSERT_always_require(map["two"]==2);
+    ASSERT_always_require(map["three"]==3);
+    ASSERT_always_require(map["four"]==4);
 
     typename Map::Value &two = map.insertMaybe("two", 22); // not inserted
     std::cout <<"    not inserted [two]=22: " <<map <<"\n";
-    ASSERT_require(map.size()==4);
-    ASSERT_require(map["two"]==2);
-    ASSERT_require(two==2);
+    ASSERT_always_require(map.size()==4);
+    ASSERT_always_require(map["two"]==2);
+    ASSERT_always_require(two==2);
 
     typename Map::Value &uno = map.insertMaybe("uno", 1);
     std::cout <<"    inserted [uno]=1: " <<map <<"\n";
-    ASSERT_require(map.size()==5);
-    ASSERT_require(map["uno"]==1);
-    ASSERT_require(uno==1);
+    ASSERT_always_require(map.size()==5);
+    ASSERT_always_require(map["uno"]==1);
+    ASSERT_always_require(uno==1);
 }
 
 template<class Map>
@@ -70,13 +70,13 @@ void insert_other() {
 
     map.insertMultiple(other.nodes());
     std::cout <<"    inserted other into map: " <<map <<"\n";
-    ASSERT_require(map.size()==6);
-    ASSERT_require(map["e"]==2);
-    ASSERT_require(map["one"]==1);
-    ASSERT_require(map["pi"]==3);
-    ASSERT_require(map["tau"]==6);
-    ASSERT_require(map["three"]==3);
-    ASSERT_require(map["two"]==2);
+    ASSERT_always_require(map.size()==6);
+    ASSERT_always_require(map["e"]==2);
+    ASSERT_always_require(map["one"]==1);
+    ASSERT_always_require(map["pi"]==3);
+    ASSERT_always_require(map["tau"]==6);
+    ASSERT_always_require(map["three"]==3);
+    ASSERT_always_require(map["two"]==2);
 
     // Const version without copy constructor
     Map map2;
@@ -84,13 +84,13 @@ void insert_other() {
     const OtherMap *other2 = &other;
     map2.insertMultiple(other2->nodes());
     std::cout <<"    inserted other into map2: " <<map2 <<"\n";
-    ASSERT_require(map2.size()==6);
-    ASSERT_require(map2["e"]==2);
-    ASSERT_require(map2["one"]==1);
-    ASSERT_require(map2["pi"]==3);
-    ASSERT_require(map2["tau"]==6);
-    ASSERT_require(map2["three"]==3);
-    ASSERT_require(map2["two"]==2);
+    ASSERT_always_require(map2.size()==6);
+    ASSERT_always_require(map2["e"]==2);
+    ASSERT_always_require(map2["one"]==1);
+    ASSERT_always_require(map2["pi"]==3);
+    ASSERT_always_require(map2["tau"]==6);
+    ASSERT_always_require(map2["three"]==3);
+    ASSERT_always_require(map2["two"]==2);
 }
 
 template<class Map>
@@ -102,17 +102,17 @@ void find() {
 
     typename Map::NodeIterator iter;
     iter = map.find("mouth");
-    ASSERT_require(iter!=map.nodes().end());
-    ASSERT_require(iter->key()=="mouth");
-    ASSERT_require(iter->value()==3);
+    ASSERT_always_require(iter!=map.nodes().end());
+    ASSERT_always_require(iter->key()=="mouth");
+    ASSERT_always_require(iter->value()==3);
 
     iter = map.find("");
-    ASSERT_require(iter!=map.nodes().end());
-    ASSERT_require(iter->key()=="");
-    ASSERT_require(iter->value()==100);
+    ASSERT_always_require(iter!=map.nodes().end());
+    ASSERT_always_require(iter->key()=="");
+    ASSERT_always_require(iter->value()==100);
 
     iter = map.find("forehead");
-    ASSERT_require(iter==map.nodes().end());
+    ASSERT_always_require(iter==map.nodes().end());
 }
 
 template<class Map>
@@ -122,13 +122,13 @@ void test_existence() {
     map.insert("eye", 1).insert("nose", 2).insert("mouth", 3).insert("neck", 4).insert("", 100);
     std::cout <<"    initial map: " <<map <<"\n";
 
-    ASSERT_require(map.exists("eye"));
-    ASSERT_require(map.exists("nose"));
-    ASSERT_require(map.exists("mouth"));
-    ASSERT_require(map.exists("neck"));
-    ASSERT_require(map.exists(""));
+    ASSERT_always_require(map.exists("eye"));
+    ASSERT_always_require(map.exists("nose"));
+    ASSERT_always_require(map.exists("mouth"));
+    ASSERT_always_require(map.exists("neck"));
+    ASSERT_always_require(map.exists(""));
 
-    ASSERT_forbid(map.exists("shoulders"));
+    ASSERT_always_forbid(map.exists("shoulders"));
 }
 
 template<class Map>
@@ -140,9 +140,9 @@ void clear_all() {
 
     map.clear();
     std::cout <<"    cleared map: " <<map <<"\n";
-    ASSERT_require(map.isEmpty());
-    ASSERT_require(map.size()==0);
-    ASSERT_require(!map.exists("mouth"));
+    ASSERT_always_require(map.isEmpty());
+    ASSERT_always_require(map.size()==0);
+    ASSERT_always_require(!map.exists("mouth"));
 }
 
 template<class Map>
@@ -154,29 +154,29 @@ void erase_one() {
 
     map.erase("eye");
     std::cout <<"    removed \"eye\": " <<map <<"\n";
-    ASSERT_require(map.size()==4);
-    ASSERT_forbid(map.exists("eye"));
+    ASSERT_always_require(map.size()==4);
+    ASSERT_always_forbid(map.exists("eye"));
 
     map.erase("");
     std::cout <<"    removed \"\": " <<map <<"\n";
-    ASSERT_require(map.size()==3);
-    ASSERT_forbid(map.exists(""));
+    ASSERT_always_require(map.size()==3);
+    ASSERT_always_forbid(map.exists(""));
 
     map
         .erase("neck")
         .erase("mouth");
     std::cout <<"    removed \"neck\" and \"mouth\": " <<map <<"\n";
-    ASSERT_require(map.size()==1);
-    ASSERT_forbid(map.exists("neck"));
-    ASSERT_forbid(map.exists("mouth"));
+    ASSERT_always_require(map.size()==1);
+    ASSERT_always_forbid(map.exists("neck"));
+    ASSERT_always_forbid(map.exists("mouth"));
 
     map.erase("shoulder");
     std::cout <<"    removed \"shoulder\" (not): " <<map <<"\n";
-    ASSERT_require(map.size()==1);
+    ASSERT_always_require(map.size()==1);
 
     map.erase("nose");
     std::cout <<"    removed \"nose\": " <<map <<"\n";
-    ASSERT_require(map.isEmpty());
+    ASSERT_always_require(map.isEmpty());
 }
 
 template<class Map>
@@ -194,9 +194,9 @@ void erase_other() {
 
     map.eraseMultiple(other.keys());
     std::cout <<"    result: " <<map <<"\n";
-    ASSERT_require(map.size()==2);
-    ASSERT_require(map["mouth"]==3);
-    ASSERT_require(map["nose"]==2);
+    ASSERT_always_require(map.size()==2);
+    ASSERT_always_require(map["mouth"]==3);
+    ASSERT_always_require(map["nose"]==2);
 }
 
 template<class Map>
@@ -222,108 +222,108 @@ void iterators() {
     typename Map::ConstValueIterator cvi3 = cni;
 
     // Node iterators
-    ASSERT_require(ni!=map.nodes().end());
+    ASSERT_always_require(ni!=map.nodes().end());
 
-    ASSERT_require(ni->key()=="mouth");
-    ASSERT_require((*ni).key()=="mouth");
-    ASSERT_require(ni->value()==3);
-    ASSERT_require((*ni).value()==3);
+    ASSERT_always_require(ni->key()=="mouth");
+    ASSERT_always_require((*ni).key()=="mouth");
+    ASSERT_always_require(ni->value()==3);
+    ASSERT_always_require((*ni).value()==3);
 
-    ASSERT_require(ni!=map.find("eye"));
-    ASSERT_forbid(ni==map.find("eye"));
+    ASSERT_always_require(ni!=map.find("eye"));
+    ASSERT_always_forbid(ni==map.find("eye"));
 
-    ASSERT_require(ni==ni);
-    ASSERT_forbid(ni!=ni);
+    ASSERT_always_require(ni==ni);
+    ASSERT_always_forbid(ni!=ni);
 
     // Const node iterators
-    ASSERT_require(cni!=map.nodes().end());
+    ASSERT_always_require(cni!=map.nodes().end());
 
-    ASSERT_require(cni->key()=="mouth");
-    ASSERT_require((*cni).key()=="mouth");
-    ASSERT_require(cni->value()==3);
-    ASSERT_require((*cni).value()==3);
+    ASSERT_always_require(cni->key()=="mouth");
+    ASSERT_always_require((*cni).key()=="mouth");
+    ASSERT_always_require(cni->value()==3);
+    ASSERT_always_require((*cni).value()==3);
 
-    ASSERT_require(cni!=map.find("eye"));
-    ASSERT_forbid(cni==map.find("eye"));
+    ASSERT_always_require(cni!=map.find("eye"));
+    ASSERT_always_forbid(cni==map.find("eye"));
 
-    ASSERT_require(cni==cni);
-    ASSERT_forbid(cni!=cni);
-    ASSERT_require(cni==ni);
-    ASSERT_forbid(cni!=ni);
+    ASSERT_always_require(cni==cni);
+    ASSERT_always_forbid(cni!=cni);
+    ASSERT_always_require(cni==ni);
+    ASSERT_always_forbid(cni!=ni);
 
     // Const key iterators
-    ASSERT_require(cki!=map.nodes().end());
+    ASSERT_always_require(cki!=map.nodes().end());
 
-    ASSERT_require(*cki=="mouth");
-    ASSERT_require(cki->size()==5);
+    ASSERT_always_require(*cki=="mouth");
+    ASSERT_always_require(cki->size()==5);
 
-    ASSERT_require(cki!=map.find("eye"));
-    ASSERT_forbid(cki==map.find("eye"));
+    ASSERT_always_require(cki!=map.find("eye"));
+    ASSERT_always_forbid(cki==map.find("eye"));
 
-    ASSERT_require(cki==cki);
-    ASSERT_forbid(cki!=cki);
-    ASSERT_require(cki==ni);
-    ASSERT_forbid(cki!=ni);
-    ASSERT_require(cki==cni);
-    ASSERT_forbid(cki!=cni);
+    ASSERT_always_require(cki==cki);
+    ASSERT_always_forbid(cki!=cki);
+    ASSERT_always_require(cki==ni);
+    ASSERT_always_forbid(cki!=ni);
+    ASSERT_always_require(cki==cni);
+    ASSERT_always_forbid(cki!=cni);
 
     // Value iterators
-    ASSERT_require(vi!=map.nodes().end());
+    ASSERT_always_require(vi!=map.nodes().end());
 
-    ASSERT_require(*vi==3);
+    ASSERT_always_require(*vi==3);
 
-    ASSERT_require(vi!=map.find("eye"));
-    ASSERT_forbid(vi==map.find("eye"));
+    ASSERT_always_require(vi!=map.find("eye"));
+    ASSERT_always_forbid(vi==map.find("eye"));
 
-    ASSERT_require(vi==vi);
-    ASSERT_forbid(vi!=vi);
-    ASSERT_require(vi==ni);
-    ASSERT_forbid(vi!=ni);
-    ASSERT_require(vi==cni);
-    ASSERT_forbid(vi!=cni);
-    ASSERT_require(vi==cki);
-    ASSERT_forbid(vi!=cki);
+    ASSERT_always_require(vi==vi);
+    ASSERT_always_forbid(vi!=vi);
+    ASSERT_always_require(vi==ni);
+    ASSERT_always_forbid(vi!=ni);
+    ASSERT_always_require(vi==cni);
+    ASSERT_always_forbid(vi!=cni);
+    ASSERT_always_require(vi==cki);
+    ASSERT_always_forbid(vi!=cki);
 
     // Const value iterators
-    ASSERT_require(cvi!=map.nodes().end());
+    ASSERT_always_require(cvi!=map.nodes().end());
 
-    ASSERT_require(*cvi==3);
+    ASSERT_always_require(*cvi==3);
 
-    ASSERT_require(cvi!=map.find("eye"));
-    ASSERT_forbid(cvi==map.find("eye"));
+    ASSERT_always_require(cvi!=map.find("eye"));
+    ASSERT_always_forbid(cvi==map.find("eye"));
 
-    ASSERT_require(cvi==cvi);
-    ASSERT_forbid(cvi!=cvi);
-    ASSERT_require(cvi==ni);
-    ASSERT_forbid(cvi!=ni);
-    ASSERT_require(cvi==cni);
-    ASSERT_forbid(cvi!=cni);
-    ASSERT_require(cvi==cki);
-    ASSERT_forbid(cvi!=cki);
-    ASSERT_require(cvi==vi);
-    ASSERT_forbid(cvi!=vi);
+    ASSERT_always_require(cvi==cvi);
+    ASSERT_always_forbid(cvi!=cvi);
+    ASSERT_always_require(cvi==ni);
+    ASSERT_always_forbid(cvi!=ni);
+    ASSERT_always_require(cvi==cni);
+    ASSERT_always_forbid(cvi!=cni);
+    ASSERT_always_require(cvi==cki);
+    ASSERT_always_forbid(cvi!=cki);
+    ASSERT_always_require(cvi==vi);
+    ASSERT_always_forbid(cvi!=vi);
 
     // Modification via node iterator
     ni->value() = 33;
-    ASSERT_require(ni->value()==33);
-    ASSERT_require(cni->value()==33);
-    ASSERT_require(*vi==33);
-    ASSERT_require(*cvi==33);
+    ASSERT_always_require(ni->value()==33);
+    ASSERT_always_require(cni->value()==33);
+    ASSERT_always_require(*vi==33);
+    ASSERT_always_require(*cvi==33);
 
     // Modification via value iterator
     *vi = 44;
-    ASSERT_require(ni->value()==44);
-    ASSERT_require(cni->value()==44);
-    ASSERT_require(*vi==44);
-    ASSERT_require(*cvi==44);
+    ASSERT_always_require(ni->value()==44);
+    ASSERT_always_require(cni->value()==44);
+    ASSERT_always_require(*vi==44);
+    ASSERT_always_require(*cvi==44);
 
     // Node iterator increment
     typename Map::NodeIterator ni2 = ni++;
-    ASSERT_require(ni->key()=="neck");
-    ASSERT_require(ni2->key()=="mouth");
+    ASSERT_always_require(ni->key()=="neck");
+    ASSERT_always_require(ni2->key()=="mouth");
     typename Map::NodeIterator ni3 = ++ni;
-    ASSERT_require(ni->key()=="nose");
-    ASSERT_require(ni3->key()=="nose");
+    ASSERT_always_require(ni->key()=="nose");
+    ASSERT_always_require(ni3->key()=="nose");
 }
 
 template<class Map>

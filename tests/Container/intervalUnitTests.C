@@ -75,21 +75,21 @@ static void interval_tests() {
 
     // Unlike boost::numeric::interval, our default constructor creates an empty interval
     Interval e1;
-    ASSERT_require(empty(e1));
-    ASSERT_require(width(e1)==0);
-    ASSERT_require(e1.size()==0);
+    ASSERT_always_require(empty(e1));
+    ASSERT_always_require(width(e1)==0);
+    ASSERT_always_require(e1.size()==0);
 
     // boost::numeric::interval_lib::width() is weird: it is as if upper() is not included in the interval.
     // Our version of size() is better, but it can overflow to zero.
     Interval e2(1);
-    ASSERT_forbid(empty(e2));
-    ASSERT_require(width(e2)==0);
-    ASSERT_require(e2.size()==1);
+    ASSERT_always_forbid(empty(e2));
+    ASSERT_always_require(width(e2)==0);
+    ASSERT_always_require(e2.size()==1);
 
     Interval e3(0, boost::integer_traits<typename Interval::base_type>::const_max);
-    ASSERT_forbid(empty(e3));
-    ASSERT_require(width(e3)==boost::integer_traits<typename Interval::base_type>::const_max);
-    ASSERT_require(e1.size()==0);                       // because of overflow
+    ASSERT_always_forbid(empty(e3));
+    ASSERT_always_require(width(e3)==boost::integer_traits<typename Interval::base_type>::const_max);
+    ASSERT_always_require(e1.size()==0);                       // because of overflow
 }
 
 template<class Interval, class Value>
@@ -100,143 +100,143 @@ static void imap_tests(const Value &v1, const Value &v2) {
     std::cerr <<"insert([100,119], v1)\n";
     imap.insert(Interval(100, 119), v1);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Test lowerBound against one node
-    ASSERT_require(imap.lowerBound(99)==imap.nodes().begin());
-    ASSERT_require(imap.lowerBound(100)==imap.nodes().begin());
-    ASSERT_require(imap.lowerBound(118)==imap.nodes().begin());
-    ASSERT_require(imap.lowerBound(119)==imap.nodes().begin());
-    ASSERT_require(imap.lowerBound(120)==imap.nodes().end());
+    ASSERT_always_require(imap.lowerBound(99)==imap.nodes().begin());
+    ASSERT_always_require(imap.lowerBound(100)==imap.nodes().begin());
+    ASSERT_always_require(imap.lowerBound(118)==imap.nodes().begin());
+    ASSERT_always_require(imap.lowerBound(119)==imap.nodes().begin());
+    ASSERT_always_require(imap.lowerBound(120)==imap.nodes().end());
 
     // Test findPrior against one node
-    ASSERT_require(imap.findPrior(99)==imap.nodes().end());
-    ASSERT_require(imap.findPrior(100)==imap.nodes().begin());
-    ASSERT_require(imap.findPrior(119)==imap.nodes().begin());
-    ASSERT_require(imap.findPrior(120)==imap.nodes().begin());
+    ASSERT_always_require(imap.findPrior(99)==imap.nodes().end());
+    ASSERT_always_require(imap.findPrior(100)==imap.nodes().begin());
+    ASSERT_always_require(imap.findPrior(119)==imap.nodes().begin());
+    ASSERT_always_require(imap.findPrior(120)==imap.nodes().begin());
 
     // Erase the right part
     std::cerr <<"erase([110,119])\n";
     imap.erase(Interval(110, 119));
     show(imap);
-    ASSERT_require(imap.size()==10);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==10);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Re-insert the right part
     std::cerr <<"insert([110,119], v1)\n";
     imap.insert(Interval(110, 119), v1);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Erase the left part
     std::cerr <<"erase([100,109])\n";
     imap.erase(Interval(100, 109));
     show(imap);
-    ASSERT_require(imap.size()==10);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==10);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Re-insert the left part
     std::cerr <<"insert([100,109], v1)\n";
     imap.insert(Interval(100, 109), v1);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Erase the middle part
     std::cerr <<"erase([105,114])\n";
     imap.erase(Interval(105, 114));
     show(imap);
-    ASSERT_require(imap.size()==10);
-    ASSERT_require(imap.nIntervals()==2);
+    ASSERT_always_require(imap.size()==10);
+    ASSERT_always_require(imap.nIntervals()==2);
 
     // Test lowerBound against multiple nodes
     typename Map::NodeIterator secondIter = imap.nodes().begin(); ++secondIter;
-    ASSERT_require(imap.lowerBound(99)==imap.nodes().begin());
-    ASSERT_require(imap.lowerBound(100)==imap.nodes().begin());
-    ASSERT_require(imap.lowerBound(104)==imap.nodes().begin());
-    ASSERT_require(imap.lowerBound(105)==secondIter);
-    ASSERT_require(imap.lowerBound(114)==secondIter);
-    ASSERT_require(imap.lowerBound(115)==secondIter);
-    ASSERT_require(imap.lowerBound(119)==secondIter);
-    ASSERT_require(imap.lowerBound(120)==imap.nodes().end());
+    ASSERT_always_require(imap.lowerBound(99)==imap.nodes().begin());
+    ASSERT_always_require(imap.lowerBound(100)==imap.nodes().begin());
+    ASSERT_always_require(imap.lowerBound(104)==imap.nodes().begin());
+    ASSERT_always_require(imap.lowerBound(105)==secondIter);
+    ASSERT_always_require(imap.lowerBound(114)==secondIter);
+    ASSERT_always_require(imap.lowerBound(115)==secondIter);
+    ASSERT_always_require(imap.lowerBound(119)==secondIter);
+    ASSERT_always_require(imap.lowerBound(120)==imap.nodes().end());
 
     // Test findPrior against multiple nodes
-    ASSERT_require(imap.findPrior(99)==imap.nodes().end());
-    ASSERT_require(imap.findPrior(100)==imap.nodes().begin());
-    ASSERT_require(imap.findPrior(104)==imap.nodes().begin());
-    ASSERT_require(imap.findPrior(105)==imap.nodes().begin());
-    ASSERT_require(imap.findPrior(114)==imap.nodes().begin());
-    ASSERT_require(imap.findPrior(115)==secondIter);
-    ASSERT_require(imap.findPrior(119)==secondIter);
-    ASSERT_require(imap.findPrior(120)==secondIter);
+    ASSERT_always_require(imap.findPrior(99)==imap.nodes().end());
+    ASSERT_always_require(imap.findPrior(100)==imap.nodes().begin());
+    ASSERT_always_require(imap.findPrior(104)==imap.nodes().begin());
+    ASSERT_always_require(imap.findPrior(105)==imap.nodes().begin());
+    ASSERT_always_require(imap.findPrior(114)==imap.nodes().begin());
+    ASSERT_always_require(imap.findPrior(115)==secondIter);
+    ASSERT_always_require(imap.findPrior(119)==secondIter);
+    ASSERT_always_require(imap.findPrior(120)==secondIter);
 
     // Test find against multiple nodes
-    ASSERT_require(imap.find(99)==imap.nodes().end());
-    ASSERT_require(imap.find(100)==imap.nodes().begin());
-    ASSERT_require(imap.find(104)==imap.nodes().begin());
-    ASSERT_require(imap.find(105)==imap.nodes().end());
-    ASSERT_require(imap.find(114)==imap.nodes().end());
-    ASSERT_require(imap.find(115)==secondIter);
-    ASSERT_require(imap.find(119)==secondIter);
-    ASSERT_require(imap.find(120)==imap.nodes().end());
+    ASSERT_always_require(imap.find(99)==imap.nodes().end());
+    ASSERT_always_require(imap.find(100)==imap.nodes().begin());
+    ASSERT_always_require(imap.find(104)==imap.nodes().begin());
+    ASSERT_always_require(imap.find(105)==imap.nodes().end());
+    ASSERT_always_require(imap.find(114)==imap.nodes().end());
+    ASSERT_always_require(imap.find(115)==secondIter);
+    ASSERT_always_require(imap.find(119)==secondIter);
+    ASSERT_always_require(imap.find(120)==imap.nodes().end());
 
     // Re-insert the middle part
     std::cerr <<"insert([105,114], v1)\n";
     imap.insert(Interval(105, 114), v1);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Overwrite the right end with a different value
     std::cerr <<"insert(119, v2)\n";
     imap.insert(119, v2);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==2);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==2);
 
     // Overwrite the left end with a different value
     std::cerr <<"insert(100, v2)\n";
     imap.insert(100, v2);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==3);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==3);
 
     // Overwrite in the middle
     std::cerr <<"insert(109, v2)\n";
     imap.insert(109, v2);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==5);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==5);
 
     // Overwrite joining to the left
     std::cerr <<"insert(110, v2)\n";
     imap.insert(110, v2);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==5);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==5);
 
     // Overwrite joining to the right
     std::cerr <<"insert(108, v2)\n";
     imap.insert(108, v2);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==5);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==5);
 
     // Overwrite joining on both sides
     std::cerr <<"insert([101,107], v2)\n";
     imap.insert(Interval(101, 107), v2);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==3);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==3);
 
     // Overwrite and delete joining on both sides
     std::cerr <<"insert([109,118], v2)\n";
     imap.insert(Interval(109, 118), v2);
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==1);
 }
 
 // Test splitting and joining in more complex ways.  We'll store values that are the same as the intervals where they're
@@ -248,19 +248,19 @@ public:
     typedef I Value;
 
     bool merge(const Interval &leftInterval, Value &leftValue, const Interval &rightInterval, Value &rightValue) {
-        ASSERT_forbid(empty(leftInterval));
-        ASSERT_forbid(empty(rightInterval));
-        ASSERT_require(equal(leftInterval, leftValue));
-        ASSERT_require(equal(rightInterval, rightValue));
-        ASSERT_require(leftInterval.upper() + 1 == rightInterval.lower());
+        ASSERT_always_forbid(empty(leftInterval));
+        ASSERT_always_forbid(empty(rightInterval));
+        ASSERT_always_require(equal(leftInterval, leftValue));
+        ASSERT_always_require(equal(rightInterval, rightValue));
+        ASSERT_always_require(leftInterval.upper() + 1 == rightInterval.lower());
         leftValue = Interval(leftValue.lower(), rightValue.upper());
         return true;
     }
 
     Value split(const Interval &interval, Value &value, const typename Interval::base_type &splitPoint) {
-        ASSERT_forbid(empty(interval));
-        ASSERT_require(equal(interval, value));
-        ASSERT_require(splitPoint > interval.lower() && splitPoint <= interval.upper());
+        ASSERT_always_forbid(empty(interval));
+        ASSERT_always_require(equal(interval, value));
+        ASSERT_always_require(splitPoint > interval.lower() && splitPoint <= interval.upper());
         Value right(splitPoint, value.upper());
         value = Value(value.lower(), splitPoint-1);
         return right;
@@ -279,50 +279,50 @@ static void imap_policy_tests() {
     std::cerr <<"insert([100,119], [100,119])\n";
     imap.insert(Interval(100, 119), Interval(100, 119));
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Erase the right part
     std::cerr <<"erase([110,119])\n";
     imap.erase(Interval(110, 119));
     show(imap);
-    ASSERT_require(imap.size()==10);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==10);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Re-insert the right part
     std::cerr <<"insert([110,119], [110,119])\n";
     imap.insert(Interval(110, 119), Interval(110, 119));
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Erase the left part
     std::cerr <<"erase([100,109])\n";
     imap.erase(Interval(100, 109));
     show(imap);
-    ASSERT_require(imap.size()==10);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==10);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Re-insert the left part
     std::cerr <<"insert([100,109], [100,109])\n";
     imap.insert(Interval(100, 109), Interval(100, 109));
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==1);
 
     // Erase the middle part
     std::cerr <<"erase([105,114])\n";
     imap.erase(Interval(105, 114));
     show(imap);
-    ASSERT_require(imap.size()==10);
-    ASSERT_require(imap.nIntervals()==2);
+    ASSERT_always_require(imap.size()==10);
+    ASSERT_always_require(imap.nIntervals()==2);
 
     // Re-insert the middle part
     std::cerr <<"insert([105,114], [105,114])\n";
     imap.insert(Interval(105, 114), Interval(105, 114));
     show(imap);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==1);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==1);
 }
 
 static void search_tests() {
@@ -334,76 +334,76 @@ static void search_tests() {
 
     imap.insert(Interval(100, 109), 0);
     imap.insert(Interval(120, 129), 0);
-    ASSERT_require(imap.size()==20);
-    ASSERT_require(imap.nIntervals()==2);
+    ASSERT_always_require(imap.size()==20);
+    ASSERT_always_require(imap.nIntervals()==2);
 
     IMap::NodeIterator first = imap.nodes().begin();
     IMap::NodeIterator second = first; ++second;
     IMap::NodeIterator none = imap.nodes().end();
 
-    ASSERT_require(imap.findFirstOverlap(Interval(-1, 10))==none);
-    ASSERT_require(imap.findFirstOverlap(Interval(98, 99))==none);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(-1, 10))==none);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(98, 99))==none);
 
-    ASSERT_require(imap.findFirstOverlap(Interval(99, 100))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(99, 109))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(99, 110))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(99, 119))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(99, 120))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(99, 129))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(99, 130))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(99, 100))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(99, 109))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(99, 110))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(99, 119))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(99, 120))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(99, 129))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(99, 130))==first);
     
-    ASSERT_require(imap.findFirstOverlap(Interval(100, 100))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(100, 109))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(100, 110))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(100, 119))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(100, 120))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(100, 129))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(100, 130))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(100, 100))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(100, 109))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(100, 110))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(100, 119))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(100, 120))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(100, 129))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(100, 130))==first);
     
-    ASSERT_require(imap.findFirstOverlap(Interval(109, 109))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(109, 110))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(109, 119))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(109, 120))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(109, 129))==first);
-    ASSERT_require(imap.findFirstOverlap(Interval(109, 130))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(109, 109))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(109, 110))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(109, 119))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(109, 120))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(109, 129))==first);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(109, 130))==first);
     
-    ASSERT_require(imap.findFirstOverlap(Interval(110, 110))==none);
-    ASSERT_require(imap.findFirstOverlap(Interval(110, 119))==none);
-    ASSERT_require(imap.findFirstOverlap(Interval(110, 120))==second);
-    ASSERT_require(imap.findFirstOverlap(Interval(110, 129))==second);
-    ASSERT_require(imap.findFirstOverlap(Interval(110, 130))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(110, 110))==none);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(110, 119))==none);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(110, 120))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(110, 129))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(110, 130))==second);
     
-    ASSERT_require(imap.findFirstOverlap(Interval(119, 119))==none);
-    ASSERT_require(imap.findFirstOverlap(Interval(119, 120))==second);
-    ASSERT_require(imap.findFirstOverlap(Interval(119, 129))==second);
-    ASSERT_require(imap.findFirstOverlap(Interval(119, 130))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(119, 119))==none);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(119, 120))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(119, 129))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(119, 130))==second);
     
-    ASSERT_require(imap.findFirstOverlap(Interval(120, 120))==second);
-    ASSERT_require(imap.findFirstOverlap(Interval(120, 129))==second);
-    ASSERT_require(imap.findFirstOverlap(Interval(120, 130))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(120, 120))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(120, 129))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(120, 130))==second);
 
-    ASSERT_require(imap.findFirstOverlap(Interval(129, 129))==second);
-    ASSERT_require(imap.findFirstOverlap(Interval(129, 130))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(129, 129))==second);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(129, 130))==second);
     
-    ASSERT_require(imap.findFirstOverlap(Interval(130, 130))==none);
+    ASSERT_always_require(imap.findFirstOverlap(Interval(130, 130))==none);
 
     map2.clear();
     map2.insert(Interval(10, 99), 1.0);
     map2.insert(Interval(110, 119), 2.0);
     map2.insert(Interval(130, 139), 3.0);
-    ASSERT_require(imap.findFirstOverlap(imap.nodes().begin(), map2, map2.nodes().begin()).first==none);
+    ASSERT_always_require(imap.findFirstOverlap(imap.nodes().begin(), map2, map2.nodes().begin()).first==none);
 
     map2.clear();
     map2.insert(Interval(10, 99), 1.0);
     map2.insert(105, 1.5);
     map2.insert(Interval(110, 119), 2.0);
     map2.insert(Interval(130, 139), 3.0);
-    ASSERT_require(imap.findFirstOverlap(imap.nodes().begin(), map2, map2.nodes().begin()).first==first);
+    ASSERT_always_require(imap.findFirstOverlap(imap.nodes().begin(), map2, map2.nodes().begin()).first==first);
 
     map2.clear();
     map2.insert(Interval(10, 99), 1.0);
     map2.insert(Interval(110, 139), 2.0);
-    ASSERT_require(imap.findFirstOverlap(imap.nodes().begin(), map2, map2.nodes().begin()).first==second);
+    ASSERT_always_require(imap.findFirstOverlap(imap.nodes().begin(), map2, map2.nodes().begin()).first==second);
 }
 
 // Use std::pair as a value.  Works since it satisfies the minimal API: copy constructor, assignment operator, and equality.
@@ -446,88 +446,88 @@ static void basic_set_tests() {
     typename Interval::base_type allSize = (all.upper()-all.lower()) + 1;// must cast because width(all) returns wrong type
     set.invert();
     show(set);
-    ASSERT_require(!set.isEmpty());
-    ASSERT_require(set.size()==allSize);
-    ASSERT_require(set.nIntervals()==1);
+    ASSERT_always_require(!set.isEmpty());
+    ASSERT_always_require(set.size()==allSize);
+    ASSERT_always_require(set.nIntervals()==1);
 
     std::cerr <<"invert() all set\n";
     set.invert();
     show(set);
-    ASSERT_require(set.isEmpty());
-    ASSERT_require(set.size()==0);
-    ASSERT_require(set.nIntervals()==0);
+    ASSERT_always_require(set.isEmpty());
+    ASSERT_always_require(set.size()==0);
+    ASSERT_always_require(set.nIntervals()==0);
 
     std::cerr <<"insert([100,119])\n";
     set.insert(Interval(100, 119));
     show(set);
-    ASSERT_require(set.size()==20);
-    ASSERT_require(set.nIntervals()==1);
+    ASSERT_always_require(set.size()==20);
+    ASSERT_always_require(set.nIntervals()==1);
 
     // Erase the right part
     std::cerr <<"erase([110,119])\n";
     set.erase(Interval(110, 119));
     show(set);
-    ASSERT_require(set.size()==10);
-    ASSERT_require(set.nIntervals()==1);
+    ASSERT_always_require(set.size()==10);
+    ASSERT_always_require(set.nIntervals()==1);
 
     // Re-insert the right part
     std::cerr <<"insert([110,119])\n";
     set.insert(Interval(110, 119));
     show(set);
-    ASSERT_require(set.size()==20);
-    ASSERT_require(set.nIntervals()==1);
+    ASSERT_always_require(set.size()==20);
+    ASSERT_always_require(set.nIntervals()==1);
 
     // Erase the left part
     std::cerr <<"erase([100,109])\n";
     set.erase(Interval(100, 109));
     show(set);
-    ASSERT_require(set.size()==10);
-    ASSERT_require(set.nIntervals()==1);
+    ASSERT_always_require(set.size()==10);
+    ASSERT_always_require(set.nIntervals()==1);
 
     // Re-insert the left part
     std::cerr <<"insert([100,109])\n";
     set.insert(Interval(100, 109));
     show(set);
-    ASSERT_require(set.size()==20);
-    ASSERT_require(set.nIntervals()==1);
+    ASSERT_always_require(set.size()==20);
+    ASSERT_always_require(set.nIntervals()==1);
 
     // Erase the middle part
     std::cerr <<"erase([105,114])\n";
     set.erase(Interval(105, 114));
     show(set);
-    ASSERT_require(set.size()==10);
-    ASSERT_require(set.nIntervals()==2);
+    ASSERT_always_require(set.size()==10);
+    ASSERT_always_require(set.nIntervals()==2);
 
     // Invert selection
     std::cerr <<"invert()\n";
     set.invert();
     show(set);
-    ASSERT_require(set.size()==typename Interval::base_type(allSize-10));
-    ASSERT_require(set.nIntervals()==3);
+    ASSERT_always_require(set.size()==typename Interval::base_type(allSize-10));
+    ASSERT_always_require(set.nIntervals()==3);
 
     // Invert again
     std::cerr <<"invert()\n";
     set.invert();
     show(set);
-    ASSERT_require(set.size()==10);
-    ASSERT_require(set.nIntervals()==2);
+    ASSERT_always_require(set.size()==10);
+    ASSERT_always_require(set.nIntervals()==2);
     
     // Test exist against multiple nodes
-    ASSERT_require(set.contains(99)==false);
-    ASSERT_require(set.contains(100)==true);
-    ASSERT_require(set.contains(104)==true);
-    ASSERT_require(set.contains(105)==false);
-    ASSERT_require(set.contains(114)==false);
-    ASSERT_require(set.contains(115)==true);
-    ASSERT_require(set.contains(119)==true);
-    ASSERT_require(set.contains(120)==false);
+    ASSERT_always_require(set.contains(99)==false);
+    ASSERT_always_require(set.contains(100)==true);
+    ASSERT_always_require(set.contains(104)==true);
+    ASSERT_always_require(set.contains(105)==false);
+    ASSERT_always_require(set.contains(114)==false);
+    ASSERT_always_require(set.contains(115)==true);
+    ASSERT_always_require(set.contains(119)==true);
+    ASSERT_always_require(set.contains(120)==false);
 
     // Re-insert the middle part
     std::cerr <<"insert([105,114])\n";
     set.insert(Interval(105, 114));
     show(set);
-    ASSERT_require(set.size()==20);
-    ASSERT_require(set.nIntervals()==1);
+    ASSERT_always_require(set.size()==20);
+    ASSERT_always_require(set.nIntervals()==1);
 }
 
 template<class Interval>
@@ -544,15 +544,15 @@ static void set_ctor_tests() {
     typedef Sawyer::Container::IntervalSet<Interval> Set;
     Set set1(map1);
     show(set1);
-    ASSERT_require(set1.size()==20);
-    ASSERT_require(set1.nIntervals()==2);
+    ASSERT_always_require(set1.size()==20);
+    ASSERT_always_require(set1.nIntervals()==2);
 
     std::cerr <<"assign set from map\n";
     typedef Sawyer::Container::IntervalSet<Interval> Set;
     set1 = map2;
     show(set1);
-    ASSERT_require(set1.size()==1);
-    ASSERT_require(set1.nIntervals()==1);
+    ASSERT_always_require(set1.size()==1);
+    ASSERT_always_require(set1.nIntervals()==1);
 }
 
 template<class Interval>

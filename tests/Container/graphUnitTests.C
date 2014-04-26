@@ -43,25 +43,25 @@ template<class Graph>
 void insert_vertex() {
     std::cout <<"vertex insertion\n";
     Graph graph;
-    ASSERT_require(graph.nVertices()==0);
+    ASSERT_always_require(graph.nVertices()==0);
 
     typename Graph::VertexNodeIterator iter = graph.insertVertex("banana");
     std::cout <<"  inserted [" <<iter->id() <<"] = " <<iter->value() <<"\n";
-    ASSERT_require(graph.nVertices()==1);
-    ASSERT_require(iter->id()==0);
-    ASSERT_require(iter->value()=="banana");
+    ASSERT_always_require(graph.nVertices()==1);
+    ASSERT_always_require(iter->id()==0);
+    ASSERT_always_require(iter->value()=="banana");
 
     iter = graph.insertVertex("orange");
     std::cout <<"  inserted [" <<iter->id() <<"] = " <<iter->value() <<"\n";
-    ASSERT_require(graph.nVertices()==2);
-    ASSERT_require(iter->id()==1);
-    ASSERT_require(iter->value()=="orange");
+    ASSERT_always_require(graph.nVertices()==2);
+    ASSERT_always_require(iter->id()==1);
+    ASSERT_always_require(iter->value()=="orange");
 
     iter = graph.insertVertex("pineapple");
     std::cout <<"  inserted [" <<iter->id() <<"] = " <<iter->value() <<"\n";
-    ASSERT_require(graph.nVertices()==3);
-    ASSERT_require(iter->id()==2);
-    ASSERT_require(iter->value()=="pineapple");
+    ASSERT_always_require(graph.nVertices()==3);
+    ASSERT_always_require(iter->id()==2);
+    ASSERT_always_require(iter->value()=="pineapple");
 
     std::cout <<graph;
 }
@@ -78,14 +78,14 @@ void erase_empty_vertex() {
     std::cout <<"  initial graph:\n" <<graph;
 
     graph.eraseVertex(v1);
-    ASSERT_require(graph.nVertices()==2);
+    ASSERT_always_require(graph.nVertices()==2);
 
     graph.eraseVertex(v0);
-    ASSERT_require(graph.nVertices()==1);
+    ASSERT_always_require(graph.nVertices()==1);
 
     graph.eraseVertex(v2);
-    ASSERT_require(graph.nVertices()==0);
-    ASSERT_require(graph.isEmpty());
+    ASSERT_always_require(graph.nVertices()==0);
+    ASSERT_always_require(graph.isEmpty());
 }
 
 template<class Graph>
@@ -105,7 +105,7 @@ void iterate_vertices() {
     size_t idx = 0;
     BOOST_FOREACH (const typename Graph::VertexNode &vertex, graph.vertices()) {
         std::cout <<" " <<vertex.value();
-        ASSERT_require(vertex.value()== vertexValues[idx]);
+        ASSERT_always_require(vertex.value()== vertexValues[idx]);
         ++idx;
     }
     std::cout <<"\n";
@@ -114,7 +114,7 @@ void iterate_vertices() {
     idx = 0;
     for (typename Graph::VertexNodeIterator iter=graph.vertices().begin(); iter!=graph.vertices().end(); ++iter) {
         std::cout <<" " <<iter->value();
-        ASSERT_require(iter->value() == vertexValues[idx]);
+        ASSERT_always_require(iter->value() == vertexValues[idx]);
         ++idx;
     }
     std::cout <<"\n";
@@ -132,10 +132,10 @@ void find_vertex() {
     VertexDesc v3 = graph.insertVertex("visa");
     std::cout <<"  initial graph:\n" <<graph;
 
-    ASSERT_require(v0 == graph.findVertex(v0->id()));
-    ASSERT_require(v1 == graph.findVertex(v1->id()));
-    ASSERT_require(v2 == graph.findVertex(v2->id()));
-    ASSERT_require(v3 == graph.findVertex(v3->id()));
+    ASSERT_always_require(v0 == graph.findVertex(v0->id()));
+    ASSERT_always_require(v1 == graph.findVertex(v1->id()));
+    ASSERT_always_require(v2 == graph.findVertex(v2->id()));
+    ASSERT_always_require(v3 == graph.findVertex(v3->id()));
 }
 
 template<class Graph>
@@ -155,36 +155,36 @@ void insert_edge() {
     EdgeDescriptor e2 = graph.insertEdge(v0, v3, "vine-visa");
     EdgeDescriptor e3 = graph.insertEdge(v3, v0, "visa-vine");
     EdgeDescriptor e4 = graph.insertEdge(v3, v3, "visa-visa");
-    ASSERT_require(graph.nEdges() == 5);
+    ASSERT_always_require(graph.nEdges() == 5);
 
-    ASSERT_require(e0->value() == "vine-vinegar");
-    ASSERT_require(e0->source() == v0);
-    ASSERT_require(e0->target() == v1);
+    ASSERT_always_require(e0->value() == "vine-vinegar");
+    ASSERT_always_require(e0->source() == v0);
+    ASSERT_always_require(e0->target() == v1);
 
-    ASSERT_require(e1->value() == "violin-vinegar");
-    ASSERT_require(e1->source() == v2);
-    ASSERT_require(e1->target() == v1);
+    ASSERT_always_require(e1->value() == "violin-vinegar");
+    ASSERT_always_require(e1->source() == v2);
+    ASSERT_always_require(e1->target() == v1);
     
-    ASSERT_require(e2->value() == "vine-visa");
-    ASSERT_require(e2->source() == v0);
-    ASSERT_require(e2->target() == v3);
+    ASSERT_always_require(e2->value() == "vine-visa");
+    ASSERT_always_require(e2->source() == v0);
+    ASSERT_always_require(e2->target() == v3);
     
-    ASSERT_require(e3->value() == "visa-vine");
-    ASSERT_require(e3->source() == v3);
-    ASSERT_require(e3->target() == v0);
+    ASSERT_always_require(e3->value() == "visa-vine");
+    ASSERT_always_require(e3->source() == v3);
+    ASSERT_always_require(e3->target() == v0);
     
-    ASSERT_require(e4->value() == "visa-visa");
-    ASSERT_require(e4->source() == v3);
-    ASSERT_require(e4->target() == v3);
+    ASSERT_always_require(e4->value() == "visa-visa");
+    ASSERT_always_require(e4->source() == v3);
+    ASSERT_always_require(e4->target() == v3);
 
-    ASSERT_require(v0->nInEdges() == 1);
-    ASSERT_require(v0->nOutEdges() == 2);
-    ASSERT_require(v1->nInEdges() == 2);
-    ASSERT_require(v1->nOutEdges() == 0);
-    ASSERT_require(v2->nInEdges() == 0);
-    ASSERT_require(v2->nOutEdges() == 1);
-    ASSERT_require(v3->nInEdges() == 2);
-    ASSERT_require(v3->nOutEdges() == 2);
+    ASSERT_always_require(v0->nInEdges() == 1);
+    ASSERT_always_require(v0->nOutEdges() == 2);
+    ASSERT_always_require(v1->nInEdges() == 2);
+    ASSERT_always_require(v1->nOutEdges() == 0);
+    ASSERT_always_require(v2->nInEdges() == 0);
+    ASSERT_always_require(v2->nOutEdges() == 1);
+    ASSERT_always_require(v3->nInEdges() == 2);
+    ASSERT_always_require(v3->nOutEdges() == 2);
     
     std::cout <<graph;
 }
@@ -209,43 +209,43 @@ void erase_edge() {
 
     graph.eraseEdge(e3);
     std::cout <<"  after erasing 'visa-vine' edge:\n" <<graph;
-    ASSERT_require(graph.nEdges() == 4);
-    ASSERT_require(v3->nOutEdges() == 1);
-    ASSERT_require(v3->nInEdges() == 2);
-    ASSERT_require(v0->nOutEdges() == 2);
-    ASSERT_require(v0->nInEdges() == 0);
+    ASSERT_always_require(graph.nEdges() == 4);
+    ASSERT_always_require(v3->nOutEdges() == 1);
+    ASSERT_always_require(v3->nInEdges() == 2);
+    ASSERT_always_require(v0->nOutEdges() == 2);
+    ASSERT_always_require(v0->nInEdges() == 0);
 
     graph.eraseEdge(e1);
     std::cout <<"  after erasing 'violin-vinegar' edge:\n" <<graph;
-    ASSERT_require(graph.nEdges() == 3);
-    ASSERT_require(v2->nOutEdges() == 0);
-    ASSERT_require(v2->nInEdges() == 0);
-    ASSERT_require(v1->nOutEdges() == 0);
-    ASSERT_require(v1->nInEdges() == 1);
+    ASSERT_always_require(graph.nEdges() == 3);
+    ASSERT_always_require(v2->nOutEdges() == 0);
+    ASSERT_always_require(v2->nInEdges() == 0);
+    ASSERT_always_require(v1->nOutEdges() == 0);
+    ASSERT_always_require(v1->nInEdges() == 1);
 
     graph.eraseEdge(e0);
     std::cout <<"  after erasing 'vine-vinegar' edge:\n" <<graph;
-    ASSERT_require(graph.nEdges() == 2);
-    ASSERT_require(v0->nOutEdges() == 1);
-    ASSERT_require(v0->nInEdges() == 0);
-    ASSERT_require(v1->nOutEdges() == 0);
-    ASSERT_require(v1->nInEdges() == 0);
+    ASSERT_always_require(graph.nEdges() == 2);
+    ASSERT_always_require(v0->nOutEdges() == 1);
+    ASSERT_always_require(v0->nInEdges() == 0);
+    ASSERT_always_require(v1->nOutEdges() == 0);
+    ASSERT_always_require(v1->nInEdges() == 0);
 
     graph.eraseEdge(e4);
     std::cout <<"  after erasing 'visa-visa' edge:\n" <<graph;
-    ASSERT_require(graph.nEdges() == 1);
-    ASSERT_require(v3->nOutEdges() == 0);
-    ASSERT_require(v3->nInEdges() == 1);
+    ASSERT_always_require(graph.nEdges() == 1);
+    ASSERT_always_require(v3->nOutEdges() == 0);
+    ASSERT_always_require(v3->nInEdges() == 1);
 
     graph.eraseEdge(e2);
     std::cout <<"  after erasing 'vine-visa' edge:\n" <<graph;
-    ASSERT_require(graph.nEdges() == 0);
-    ASSERT_require(v0->nOutEdges() == 0);
-    ASSERT_require(v0->nInEdges() == 0);
-    ASSERT_require(v3->nOutEdges() == 0);
-    ASSERT_require(v3->nInEdges() == 0);
+    ASSERT_always_require(graph.nEdges() == 0);
+    ASSERT_always_require(v0->nOutEdges() == 0);
+    ASSERT_always_require(v0->nInEdges() == 0);
+    ASSERT_always_require(v3->nOutEdges() == 0);
+    ASSERT_always_require(v3->nInEdges() == 0);
 
-    ASSERT_forbid(graph.isEmpty());                     // still has vertices
+    ASSERT_always_forbid(graph.isEmpty());                     // still has vertices
 }
 
 template<class Graph>
@@ -267,21 +267,21 @@ void erase_vertex() {
     std::cout <<"  initial graph:\n" <<graph;
 
     graph.eraseVertex(v2);
-    ASSERT_require(graph.nVertices() == 3);
-    ASSERT_require(graph.nEdges() == 4);
+    ASSERT_always_require(graph.nVertices() == 3);
+    ASSERT_always_require(graph.nEdges() == 4);
 
     graph.eraseVertex(v0);
-    ASSERT_require(graph.nVertices() == 2);
-    ASSERT_require(graph.nEdges() == 1);
+    ASSERT_always_require(graph.nVertices() == 2);
+    ASSERT_always_require(graph.nEdges() == 1);
 
     graph.eraseVertex(v3);
-    ASSERT_require(graph.nVertices() == 1);
-    ASSERT_require(graph.nEdges() == 0);
+    ASSERT_always_require(graph.nVertices() == 1);
+    ASSERT_always_require(graph.nEdges() == 0);
 
     graph.eraseVertex(v1);
-    ASSERT_require(graph.nVertices() == 0);
-    ASSERT_require(graph.nEdges() == 0);
-    ASSERT_require(graph.isEmpty());
+    ASSERT_always_require(graph.nVertices() == 0);
+    ASSERT_always_require(graph.nEdges() == 0);
+    ASSERT_always_require(graph.isEmpty());
 }
 
 template<class Graph>
@@ -297,10 +297,10 @@ void iterator_conversion() {
     std::cout <<"  initial graph:\n" <<graph;
 
     typename Graph::VertexValueIterator vval = v0;
-    ASSERT_require(*vval == "vine");
+    ASSERT_always_require(*vval == "vine");
 
     typename Graph::EdgeValueIterator eval = e0;
-    ASSERT_require(*eval == "vine-vinegar");
+    ASSERT_always_require(*eval == "vine-vinegar");
 
 #if 0 // [Robb Matzke 2014-04-21]: going the other way is not indended to work (compile error)
     typename Graph::EdgeNodeIterator e0fail = eval;
@@ -329,20 +329,20 @@ void copy_ctor() {
     Graph g2(graph);
     std::cout <<"  new copy:\n" <<g2;
 
-    ASSERT_require(graph.nVertices() == g2.nVertices());
+    ASSERT_always_require(graph.nVertices() == g2.nVertices());
     for (size_t i=0; i<graph.nVertices(); ++i) {
         typename Graph::ConstVertexNodeIterator v1=graph.findVertex(i), v2=g2.findVertex(i);
-        ASSERT_require(v1->value() == v2->value());
-        ASSERT_require(v1->nOutEdges() == v2->nOutEdges());
-        ASSERT_require(v1->nInEdges() == v2->nInEdges());
+        ASSERT_always_require(v1->value() == v2->value());
+        ASSERT_always_require(v1->nOutEdges() == v2->nOutEdges());
+        ASSERT_always_require(v1->nInEdges() == v2->nInEdges());
     }
 
-    ASSERT_require(graph.nEdges() == g2.nEdges());
+    ASSERT_always_require(graph.nEdges() == g2.nEdges());
     for (size_t i=0; i<graph.nEdges(); ++i) {
         typename Graph::ConstEdgeNodeIterator e1=graph.findEdge(i), e2=g2.findEdge(i);
-        ASSERT_require(e1->value() == e2->value());
-        ASSERT_require(e1->source()->id() == e2->source()->id());
-        ASSERT_require(e1->target()->id() == e2->target()->id());
+        ASSERT_always_require(e1->value() == e2->value());
+        ASSERT_always_require(e1->source()->id() == e2->source()->id());
+        ASSERT_always_require(e1->target()->id() == e2->target()->id());
     }
 }
 
@@ -370,20 +370,20 @@ void assignment() {
     g2 = graph;
     std::cout <<"  new graph:\n" <<g2;
 
-    ASSERT_require(graph.nVertices() == g2.nVertices());
+    ASSERT_always_require(graph.nVertices() == g2.nVertices());
     for (size_t i=0; i<graph.nVertices(); ++i) {
         typename Graph::ConstVertexNodeIterator v1=graph.findVertex(i), v2=g2.findVertex(i);
-        ASSERT_require(v1->value() == v2->value());
-        ASSERT_require(v1->nOutEdges() == v2->nOutEdges());
-        ASSERT_require(v1->nInEdges() == v2->nInEdges());
+        ASSERT_always_require(v1->value() == v2->value());
+        ASSERT_always_require(v1->nOutEdges() == v2->nOutEdges());
+        ASSERT_always_require(v1->nInEdges() == v2->nInEdges());
     }
 
-    ASSERT_require(graph.nEdges() == g2.nEdges());
+    ASSERT_always_require(graph.nEdges() == g2.nEdges());
     for (size_t i=0; i<graph.nEdges(); ++i) {
         typename Graph::ConstEdgeNodeIterator e1=graph.findEdge(i), e2=g2.findEdge(i);
-        ASSERT_require(e1->value() == e2->value());
-        ASSERT_require(e1->source()->id() == e2->source()->id());
-        ASSERT_require(e1->target()->id() == e2->target()->id());
+        ASSERT_always_require(e1->value() == e2->value());
+        ASSERT_always_require(e1->source()->id() == e2->source()->id());
+        ASSERT_always_require(e1->target()->id() == e2->target()->id());
     }
 }
 
@@ -423,22 +423,22 @@ void conversion() {
     Graph2 g2(graph);
     std::cout <<"  new graph:\n" <<g2;
 
-    ASSERT_require(graph.nVertices() == g2.nVertices());
+    ASSERT_always_require(graph.nVertices() == g2.nVertices());
     for (size_t i=0; i<graph.nVertices(); ++i) {
         typename Graph::ConstVertexNodeIterator v1 = graph.findVertex(i);
         Graph2::ConstVertexNodeIterator v2 = g2.findVertex(i);
-        ASSERT_require(v1->value() == v2->value().string());
-        ASSERT_require(v1->nOutEdges() == v2->nOutEdges());
-        ASSERT_require(v1->nInEdges() == v2->nInEdges());
+        ASSERT_always_require(v1->value() == v2->value().string());
+        ASSERT_always_require(v1->nOutEdges() == v2->nOutEdges());
+        ASSERT_always_require(v1->nInEdges() == v2->nInEdges());
     }
 
-    ASSERT_require(graph.nEdges() == g2.nEdges());
+    ASSERT_always_require(graph.nEdges() == g2.nEdges());
     for (size_t i=0; i<graph.nEdges(); ++i) {
         typename Graph::ConstEdgeNodeIterator e1 = graph.findEdge(i);
         Graph2::ConstEdgeNodeIterator e2 = g2.findEdge(i);
-        ASSERT_require(e1->value() == e2->value().string());
-        ASSERT_require(e1->source()->id() == e2->source()->id());
-        ASSERT_require(e1->target()->id() == e2->target()->id());
+        ASSERT_always_require(e1->value() == e2->value().string());
+        ASSERT_always_require(e1->source()->id() == e2->source()->id());
+        ASSERT_always_require(e1->target()->id() == e2->target()->id());
     }
 }
 
@@ -468,22 +468,22 @@ void assignment_conversion() {
     g2 = graph;
     std::cout <<"  new graph:\n" <<g2;
 
-    ASSERT_require(graph.nVertices() == g2.nVertices());
+    ASSERT_always_require(graph.nVertices() == g2.nVertices());
     for (size_t i=0; i<graph.nVertices(); ++i) {
         typename Graph::ConstVertexNodeIterator v1 = graph.findVertex(i);
         Graph2::ConstVertexNodeIterator v2 = g2.findVertex(i);
-        ASSERT_require(v1->value() == v2->value().string());
-        ASSERT_require(v1->nOutEdges() == v2->nOutEdges());
-        ASSERT_require(v1->nInEdges() == v2->nInEdges());
+        ASSERT_always_require(v1->value() == v2->value().string());
+        ASSERT_always_require(v1->nOutEdges() == v2->nOutEdges());
+        ASSERT_always_require(v1->nInEdges() == v2->nInEdges());
     }
 
-    ASSERT_require(graph.nEdges() == g2.nEdges());
+    ASSERT_always_require(graph.nEdges() == g2.nEdges());
     for (size_t i=0; i<graph.nEdges(); ++i) {
         typename Graph::ConstEdgeNodeIterator e1 = graph.findEdge(i);
         Graph2::ConstEdgeNodeIterator e2 = g2.findEdge(i);
-        ASSERT_require(e1->value() == e2->value().string());
-        ASSERT_require(e1->source()->id() == e2->source()->id());
-        ASSERT_require(e1->target()->id() == e2->target()->id());
+        ASSERT_always_require(e1->value() == e2->value().string());
+        ASSERT_always_require(e1->source()->id() == e2->source()->id());
+        ASSERT_always_require(e1->target()->id() == e2->target()->id());
     }
 }
 
