@@ -126,7 +126,6 @@ void find_vertex() {
     typedef typename Graph::VertexNodeIterator VertexDesc;
     
     Graph graph;
-    std::vector<std::string> vertexValues;
     VertexDesc v0 = graph.insertVertex("vine");
     VertexDesc v1 = graph.insertVertex("vinegar");
     VertexDesc v2 = graph.insertVertex("violin");
@@ -146,7 +145,6 @@ void insert_edge() {
     typedef typename Graph::EdgeNodeIterator EdgeDescriptor;
 
     Graph graph;
-    std::vector<std::string> vertexValues;
     VertexDescriptor v0 = graph.insertVertex("vine");
     VertexDescriptor v1 = graph.insertVertex("vinegar");
     VertexDescriptor v2 = graph.insertVertex("violin");
@@ -198,7 +196,6 @@ void erase_edge() {
     typedef typename Graph::EdgeNodeIterator Edge;
     
     Graph graph;
-    std::vector<std::string> vertexValues;
     Vertex v0 = graph.insertVertex("vine");
     Vertex v1 = graph.insertVertex("vinegar");
     Vertex v2 = graph.insertVertex("violin");
@@ -258,7 +255,6 @@ void erase_vertex() {
     typedef typename Graph::EdgeNodeIterator Edge;
     
     Graph graph;
-    std::vector<std::string> vertexValues;
     Vertex v0 = graph.insertVertex("vine");
     Vertex v1 = graph.insertVertex("vinegar");
     Vertex v2 = graph.insertVertex("violin");
@@ -295,7 +291,6 @@ void iterator_conversion() {
     typedef typename Graph::EdgeNodeIterator Edge;
     
     Graph graph;
-    std::vector<std::string> vertexValues;
     Vertex v0 = graph.insertVertex("vine");
     Vertex v1 = graph.insertVertex("vinegar");
     Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
@@ -313,6 +308,185 @@ void iterator_conversion() {
     
 }
 
+template<class Graph>
+void copy_ctor() {
+    std::cout <<"copy constructor:\n";
+    typedef typename Graph::VertexNodeIterator Vertex;
+    typedef typename Graph::EdgeNodeIterator Edge;
+    
+    Graph graph;
+    Vertex v0 = graph.insertVertex("vine");
+    Vertex v1 = graph.insertVertex("vinegar");
+    Vertex v2 = graph.insertVertex("violin");
+    Vertex v3 = graph.insertVertex("visa");
+    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
+    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
+    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
+    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
+    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
+    std::cout <<"  initial graph:\n" <<graph;
+
+    Graph g2(graph);
+    std::cout <<"  new copy:\n" <<g2;
+
+    ASSERT_require(graph.nVertices() == g2.nVertices());
+    for (size_t i=0; i<graph.nVertices(); ++i) {
+        typename Graph::ConstVertexNodeIterator v1=graph.findVertex(i), v2=g2.findVertex(i);
+        ASSERT_require(v1->value() == v2->value());
+        ASSERT_require(v1->nOutEdges() == v2->nOutEdges());
+        ASSERT_require(v1->nInEdges() == v2->nInEdges());
+    }
+
+    ASSERT_require(graph.nEdges() == g2.nEdges());
+    for (size_t i=0; i<graph.nEdges(); ++i) {
+        typename Graph::ConstEdgeNodeIterator e1=graph.findEdge(i), e2=g2.findEdge(i);
+        ASSERT_require(e1->value() == e2->value());
+        ASSERT_require(e1->source()->id() == e2->source()->id());
+        ASSERT_require(e1->target()->id() == e2->target()->id());
+    }
+}
+
+template<class Graph>
+void assignment() {
+    std::cout <<"assignment operator:\n";
+    typedef typename Graph::VertexNodeIterator Vertex;
+    typedef typename Graph::EdgeNodeIterator Edge;
+    
+    Graph graph;
+    Vertex v0 = graph.insertVertex("vine");
+    Vertex v1 = graph.insertVertex("vinegar");
+    Vertex v2 = graph.insertVertex("violin");
+    Vertex v3 = graph.insertVertex("visa");
+    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
+    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
+    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
+    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
+    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
+    std::cout <<"  initial graph:\n" <<graph;
+
+    Graph g2;
+    Vertex v4 = g2.insertVertex("vertex to be clobbered");
+    g2.insertEdge(v4, v4, "edge to be clobbered");
+    g2 = graph;
+    std::cout <<"  new graph:\n" <<g2;
+
+    ASSERT_require(graph.nVertices() == g2.nVertices());
+    for (size_t i=0; i<graph.nVertices(); ++i) {
+        typename Graph::ConstVertexNodeIterator v1=graph.findVertex(i), v2=g2.findVertex(i);
+        ASSERT_require(v1->value() == v2->value());
+        ASSERT_require(v1->nOutEdges() == v2->nOutEdges());
+        ASSERT_require(v1->nInEdges() == v2->nInEdges());
+    }
+
+    ASSERT_require(graph.nEdges() == g2.nEdges());
+    for (size_t i=0; i<graph.nEdges(); ++i) {
+        typename Graph::ConstEdgeNodeIterator e1=graph.findEdge(i), e2=g2.findEdge(i);
+        ASSERT_require(e1->value() == e2->value());
+        ASSERT_require(e1->source()->id() == e2->source()->id());
+        ASSERT_require(e1->target()->id() == e2->target()->id());
+    }
+}
+
+class String {
+    std::string string_;
+public:
+    String() {}
+    String(const String &other): string_(other.string_) {}
+    explicit String(const std::string &s): string_(s) {}
+    const std::string& string() const { return string_; }
+};
+
+std::ostream& operator<<(std::ostream &output, const String &string) {
+    output << string.string();
+    return output;
+}
+
+template<class Graph>
+void conversion() {
+    std::cout <<"conversion constructor:\n";
+    typedef typename Graph::VertexNodeIterator Vertex;
+    typedef typename Graph::EdgeNodeIterator Edge;
+    
+    Graph graph;
+    Vertex v0 = graph.insertVertex("vine");
+    Vertex v1 = graph.insertVertex("vinegar");
+    Vertex v2 = graph.insertVertex("violin");
+    Vertex v3 = graph.insertVertex("visa");
+    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
+    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
+    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
+    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
+    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
+    std::cout <<"  initial graph:\n" <<graph;
+
+    typedef Sawyer::Container::Graph<String, String> Graph2;
+    Graph2 g2(graph);
+    std::cout <<"  new graph:\n" <<g2;
+
+    ASSERT_require(graph.nVertices() == g2.nVertices());
+    for (size_t i=0; i<graph.nVertices(); ++i) {
+        typename Graph::ConstVertexNodeIterator v1 = graph.findVertex(i);
+        Graph2::ConstVertexNodeIterator v2 = g2.findVertex(i);
+        ASSERT_require(v1->value() == v2->value().string());
+        ASSERT_require(v1->nOutEdges() == v2->nOutEdges());
+        ASSERT_require(v1->nInEdges() == v2->nInEdges());
+    }
+
+    ASSERT_require(graph.nEdges() == g2.nEdges());
+    for (size_t i=0; i<graph.nEdges(); ++i) {
+        typename Graph::ConstEdgeNodeIterator e1 = graph.findEdge(i);
+        Graph2::ConstEdgeNodeIterator e2 = g2.findEdge(i);
+        ASSERT_require(e1->value() == e2->value().string());
+        ASSERT_require(e1->source()->id() == e2->source()->id());
+        ASSERT_require(e1->target()->id() == e2->target()->id());
+    }
+}
+
+template<class Graph>
+void assignment_conversion() {
+    std::cout <<"assignment operator conversion:\n";
+    typedef typename Graph::VertexNodeIterator Vertex;
+    typedef typename Graph::EdgeNodeIterator Edge;
+    
+    Graph graph;
+    Vertex v0 = graph.insertVertex("vine");
+    Vertex v1 = graph.insertVertex("vinegar");
+    Vertex v2 = graph.insertVertex("violin");
+    Vertex v3 = graph.insertVertex("visa");
+    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
+    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
+    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
+    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
+    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
+    std::cout <<"  initial graph:\n" <<graph;
+
+    typedef Sawyer::Container::Graph<String, String> Graph2;
+    typedef Graph2::VertexNodeIterator Vertex2;
+    Graph2 g2;
+    Vertex2 v4 = g2.insertVertex(String("vertex to be clobbered"));
+    g2.insertEdge(v4, v4, String("edge to be clobbered"));
+    g2 = graph;
+    std::cout <<"  new graph:\n" <<g2;
+
+    ASSERT_require(graph.nVertices() == g2.nVertices());
+    for (size_t i=0; i<graph.nVertices(); ++i) {
+        typename Graph::ConstVertexNodeIterator v1 = graph.findVertex(i);
+        Graph2::ConstVertexNodeIterator v2 = g2.findVertex(i);
+        ASSERT_require(v1->value() == v2->value().string());
+        ASSERT_require(v1->nOutEdges() == v2->nOutEdges());
+        ASSERT_require(v1->nInEdges() == v2->nInEdges());
+    }
+
+    ASSERT_require(graph.nEdges() == g2.nEdges());
+    for (size_t i=0; i<graph.nEdges(); ++i) {
+        typename Graph::ConstEdgeNodeIterator e1 = graph.findEdge(i);
+        Graph2::ConstEdgeNodeIterator e2 = g2.findEdge(i);
+        ASSERT_require(e1->value() == e2->value().string());
+        ASSERT_require(e1->source()->id() == e2->source()->id());
+        ASSERT_require(e1->target()->id() == e2->target()->id());
+    }
+}
+
 int main() {
     typedef Sawyer::Container::Graph<std::string, std::string> G1;
     default_ctor<G1>();
@@ -324,4 +498,8 @@ int main() {
     erase_edge<G1>();
     erase_vertex<G1>();
     iterator_conversion<G1>();
+    copy_ctor<G1>();
+    assignment<G1>();
+    conversion<G1>();
+    assignment_conversion<G1>();
 }

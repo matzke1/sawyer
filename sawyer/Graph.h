@@ -698,42 +698,51 @@ public:
     /** Copy constructor.
      *
      *  Initializes this graph by copying all node and edge data from the @p other graph and initializing the same vertex
-     *  connectivity.  Vertices and edges in this new graph will have the same ID numbers as the @p other graph.
+     *  connectivity.  Vertices and edges in this new graph will have the same ID numbers as the @p other graph, but the order
+     *  of vertex and edges traversals is not expected to be the same.
      *
      *  Time complexity is linear in the total number of vertices and edges in @p other. */
-    Graph(const Graph &other);                          // FIXME[Robb Matzke 2014-04-23]: not implemented yet
+    Graph(const Graph &other) {
+        *this = other;
+    }
 
     /** Copy constructor.
      *
      *  Initializes this graph by copying all node and edge data from the @p other graph and initializing the same vertex
      *  connectivity.  The vertices and edges of @p other must be convertible to the types of vertices and edges in this
-     *  graph.  Vertices and edges in this new graph are likely to have different ID numbers than in the @p other graph.
+     *  graph, and the will have the same ID numbers as in the @p other graph.  The order of vertex and edge traversals is not
+     *  expected to be identical between the two graphs.
      *
      *  Time complexity is linear in the total number of vertices and edges in @p other. */
     template<class V2, class E2>
-    Graph(const Graph<V2, E2> &other);                  // FIXME[Robb Matzke 2014-04-23]: not implemented yet
-
-    /** Assignment.
-     *
-     *  Causes this graph to look like @p other in that this graph will have copies of all the @p other vertex and edge data
-     *  and the same vertex connectivity as @p other.  The vertices and edges in this graph will have the same ID numbers as in
-     *  the @p other graph.
-     *
-     *  Time complexity is linear in the sum of the number of vertices and edges in this graph and @p other. */
-    Graph& operator=(const Graph &other);               // FIXME[Robb Matzke 2014-04-24]: not implemented yet
+    Graph(const Graph<V2, E2> &other) {
+        *this = other;
+    }
 
     /** Assignment.
      *
      *  Causes this graph to look like @p other in that this graph will have copies of all the @p other vertex and edge data
      *  and the same vertex connectivity as @p other.  The vertices and edgse of @p other must be convertible to the types of
-     *  vertices and edges in this graph. The new copies of vertices and edges in this graph will likely have different ID
-     *  numbers than in @p other.
+     *  vertices and edges in this graph, and they will have the same ID numbers as in @p other.  The order of vertex and edge
+     *  traversals is not expected to be identical between the two graphs.
      *
      *  Time complexity is linear in the sum of the number of vertices and edges in this graph and @p other. */
     template<class V2, class E2>
-    Graph& operator=(const Graph<V2, E2> &other);       // FIXME[Robb Matzke 2014-04-24]: not implemented yet
-
-
+    Graph& operator=(const Graph<V2, E2> &other) {
+        clear();
+        for (size_t i=0; i<other.nVertices(); ++i) {
+            typename Graph<V2, E2>::ConstVertexNodeIterator vertex = other.findVertex(i);
+            VertexNodeIterator inserted __attribute__((unused)) = insertVertex(VertexValue(vertex->value()));
+            ASSERT_require(inserted->id() == i);
+        }
+        for (size_t i=0; i<other.nEdges(); ++i) {
+            typename Graph<V2, E2>::ConstEdgeNodeIterator edge = other.findEdge(i);
+            VertexNodeIterator vsrc = findVertex(edge->source()->id());
+            VertexNodeIterator vtgt = findVertex(edge->target()->id());
+            insertEdge(vsrc, vtgt, EdgeValue(edge->value()));
+        }
+        return *this;
+    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 public:
