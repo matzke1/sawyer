@@ -208,7 +208,7 @@ public:
 
     /** Find the first node whose interval ends at or above the specified scalar key.
      *
-     *  Returns an iterator to the node, or the @ref end iterator if no such node exists.
+     *  Returns an iterator to the node, or the end iterator if no such node exists.
      *
      * @{ */
     NodeIterator lowerBound(const typename Interval::base_type &scalar) {
@@ -221,7 +221,7 @@ public:
 
     /** Find the last node whose interval starts at or below the specified scalar key.
      *
-     *  Returns an iterator to the node, or the @ref end iterator if no such node exists.
+     *  Returns an iterator to the node, or the end iterator if no such node exists.
      *
      * @{ */
     NodeIterator findPrior(const typename Interval::base_type &scalar) {
@@ -250,7 +250,7 @@ public:
 
     /** Find the node containing the specified scalar key.
      *
-     *  Returns an iterator to the matching node, or the @ref end iterator if no such node exists.
+     *  Returns an iterator to the matching node, or the end iterator if no such node exists.
      *
      *  @{ */
     NodeIterator find(const typename Interval::base_type &scalar) {
@@ -271,7 +271,7 @@ public:
 
     /** Find first interval that overlaps with the specified interval.
      *
-     *  Returns an iterator to the matching node, or the @ref end iterator if no such node exists.
+     *  Returns an iterator to the matching node, or the end iterator if no such node exists.
      *
      * @{ */
     NodeIterator findFirstOverlap(const Interval &interval) {
@@ -289,7 +289,7 @@ public:
      *  The @p other container must use the same interval type, but may have different values and merge policies.  The search
      *  begins at the specified iterators and returns a pair of iterators pointing to the two nodes that overlap.  The first
      *  member of the pair is an iterator to this container, and the second is an iterator for the @p other container.  If no
-     *  such nodes exist at or after the starting locations, then the return value will be a pair of @ref end iterators for
+     *  such nodes exist at or after the starting locations, then the return value will be a pair of end iterators for
      *  their respective containers.
      *
      * @{ */
@@ -328,7 +328,7 @@ public:
     /** Find the first fit node at or after a starting point.
      *
      *  Finds the first node of contiguous values beginning at or after the specified starting iterator, @p start, and which is
-     *  at least as large as the desired @p size.  If there are no such nodes then the @ref end iterator is returned.
+     *  at least as large as the desired @p size.  If there are no such nodes then the end iterator is returned.
      *
      *  Caveat emptor: The @p size argument has the name type as the interval end points. If the end points have a signed type,
      *  then it is entirely likely that the size will overflow.  In fact, it is also possible that unsigned sizes overflow
@@ -358,7 +358,7 @@ public:
      *
      *  Finds a node of contiguous values beginning at or after the specified starting iterator, @p start, and which is at
      *  least as large as the desired @p size.  If there is more than one such node, then the first smallest such node is
-     *  returned.  If there are no such nodes then the @ref end iterator is returned.
+     *  returned.  If there are no such nodes then the end iterator is returned.
      *
      *  Caveat emptor: The @p size argument has the name type as the interval end points. If the end points have a signed type,
      *  then it is entirely likely that the size will overflow.  In fact, it is also possible that unsigned sizes overflow

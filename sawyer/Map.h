@@ -310,7 +310,7 @@ public:
 
     /** Find a node by key.
      *
-     *  Looks for a node whose key is equal to the specified @p key and returns an iterator to that node, or the @ref end
+     *  Looks for a node whose key is equal to the specified @p key and returns an iterator to that node, or the end
      *  iterator if no such node exists.  Two keys are considered equal if this container's Comparator object returns false
      *  reflexively. The method executes logorithmic time based on the number of nodes in the container.
      *
@@ -335,7 +335,7 @@ public:
     /** Find a node close to a key.
      *
      *  Finds the first node whose key is equal to or larger than the specified key and returns an iterator to that node. If no
-     *  such node exists, then the @ref end iterator is returned.  The internal @ref Comparator object is used to make the
+     *  such node exists, then the end iterator is returned.  The internal @ref Comparator object is used to make the
      *  comparison. This method executes in logorithmic time based on the number of nodes in the container.
      *
      *  @sa upperBound
@@ -352,7 +352,7 @@ public:
     /** Find a node close to a key.
      *
      *  Finds the first node whose key is larger than the specified key and returns an iterator to that node. If no such node
-     *  exists, then the @ref end iterator is returned.  The internal @ref Comparator object is used to make the
+     *  exists, then the end iterator is returned.  The internal @ref Comparator object is used to make the
      *  comparison. This method executes in logorithmic time based on the number of nodes in the container.
      *
      *  @sa lowerBound

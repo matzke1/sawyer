@@ -983,7 +983,7 @@ public:
     /** Erase all edges, but leave all vertices.
      *
      *  This method erases (withdraws and deletes) all edges but leaves all vertices. It is logically equivalent to calling
-     *  @ref erase for each edge, but is more efficient.
+     *  @ref eraseEdge for each edge, but is more efficient.
      *
      *  Time complexity is linear in the number of edges erased. */
     void clearEdges() {
