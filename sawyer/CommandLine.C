@@ -495,7 +495,7 @@ std::string Switch::synopsisForArgument(const SwitchArgument &sa) const {
 
     // If the name is a single word that is all lower-case (digits, hyphens, and underscores are also allowed except as the
     // leading character) then format it as a variable.
-    const std::string s = sa.name();
+    std::string s = sa.name();
     if (boost::find_regex(s, boost::regex("^[a-z][-_a-z0-9]*$"))) {
         retval += "@v{" + s + "}";
     } else {
