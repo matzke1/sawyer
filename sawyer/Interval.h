@@ -6,6 +6,16 @@
 namespace Sawyer {
 namespace Container {
 
+/** Range of values delimited by endpoints.
+ *
+ *  This class represents a range of contiguous values by specifying the lower and upper end points, both of which are included
+ *  in the range. Alternatively, a range may be empty; the default constructor creates empty ranges.  The value type, @p T, is
+ *  intended to be an unsigned integer type.  Signed integers may be used, but the caller should be prepared to handle negative
+ *  sizes due to overflow (see @ref size).  Non-integer types are not recommended since some methods (e.g., @ref size) assume
+ *  that <em>n</em> and <em>n+1</em> are adjacent values, which is not the case for floating point.
+ *
+ *  Values of this type are immutable except for the assignment operator; operations like intersection return a new object
+ *  rather than modifying an existing object. */
 template<class T>
 class Interval {
 public:

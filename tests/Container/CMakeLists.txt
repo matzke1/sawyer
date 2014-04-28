@@ -12,3 +12,6 @@ target_link_libraries(graphBoost sawyer ${Boost_LIBRARIES})
 
 add_executable(intervalUnitTests intervalUnitTests.C)
 target_link_libraries(intervalUnitTests sawyer ${Boost_LIBRARIES})
+
+add_executable(addressMapUnitTests addressMapUnitTests.C)
+target_link_libraries(addressMapUnitTests sawyer ${Boost_LIBRARIES})

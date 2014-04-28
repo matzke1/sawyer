@@ -1,0 +1,90 @@
+#include <sawyer/AddressMap.h>
+#include <sawyer/AllocatingBuffer.h>
+#include <sawyer/StaticBuffer.h>
+
+using namespace Sawyer::Container;
+
+static void test01() {
+    typedef unsigned Address;
+    typedef Interval<Address> Addresses;
+    typedef Buffer<Address, char>::Ptr BufferPtr;
+    typedef AddressSegment<Address, char> Segment;
+    typedef AddressMap<Address, char> MemoryMap;
+
+    // Allocate a couple distinct buffers.
+    BufferPtr buf1 = Sawyer::Container::AllocatingBuffer<Address, char>::instance(5);
+    BufferPtr buf2 = Sawyer::Container::AllocatingBuffer<Address, char>::instance(5);
+
+    // Map them to neighboring locations in the address space
+    MemoryMap map;
+    map.insert(Addresses(1000, 1004), Segment(buf2));
+    map.insert(Addresses(1005, 1009), Segment(buf1));
+
+    // Write something across the two buffers using mapped I/O
+    static const char *data1 = "abcdefghij";
+    Addresses accessed = map.write(data1, Addresses(1000, 1009));
+    ASSERT_always_require(accessed.size()==10);
+
+    // Read back the data
+    char data2[10];
+    memset(data2, 0, sizeof data2);
+    accessed = map.read(data2, Addresses(1000, 1009));
+    ASSERT_always_require(accessed.size()==10);
+    ASSERT_always_require(0==memcmp(data1, data2, 10));
+
+    // See what's in the individual buffers
+    memset(data2, 0, sizeof data2);
+    Address nread = buf1->read(data2, 0, 5);
+    ASSERT_always_require(nread==5);
+    ASSERT_always_require(0==memcmp(data2, "fghij", 5));
+
+    memset(data2, 0, sizeof data2);
+    nread = buf2->read(data2, 0, 5);
+    ASSERT_always_require(nread==5);
+    ASSERT_always_require(0==memcmp(data2, "abcde", 5));
+}
+
+static void test02() {
+    typedef unsigned Address;
+    typedef Interval<Address> Addresses;
+    typedef Buffer<Address, char>::Ptr BufferPtr;
+    typedef AddressSegment<Address, char> Segment;
+    typedef AddressMap<Address, char> MemoryMap;
+
+    // Create some buffer objects
+    char data1[15];
+    memcpy(data1, "---------------", 15);
+    BufferPtr buf1 = Sawyer::Container::StaticBuffer<Address, char>::instance(data1, 15);
+    char data2[5];
+    memcpy(data2, "##########", 10);
+    BufferPtr buf2 = Sawyer::Container::StaticBuffer<Address, char>::instance(data2, 5); // using only first 5 bytes
+
+    // Map data2 into the middle of data1
+    MemoryMap map;
+    map.insert(Addresses::baseSize(1000, 15), Segment(buf1));
+    map.insert(Addresses::baseSize(1005,  5), Segment(buf2)); 
+
+    // Write across both buffers and check that data2 occluded data1
+    Addresses accessed = map.write("bcdefghijklmn", Addresses::baseSize(1001, 13));
+    ASSERT_always_require(accessed.size()==13);
+    ASSERT_always_require(0==memcmp(data1, "-bcde-----klmn-", 15));
+    ASSERT_always_require(0==memcmp(data2,      "fghij#####", 10));
+
+    // Map the middle of data1 over the top of data2 again and check that the mapping has one element. I.e., the three
+    // separate parts were recombined into a single entry since they are three consecutive areas of a single buffer.
+    map.insert(Addresses::baseSize(1005, 5), Segment(buf1, 5));
+    ASSERT_always_require(map.nSegments()==1);
+
+    // Write some data again
+    accessed = map.write("BCDEFGHIJKLMN", Addresses::baseSize(1001, 13));
+    ASSERT_always_require(accessed.size()==13);
+    ASSERT_always_require(0==memcmp(data1, "-BCDEFGHIJKLMN-", 15));
+    ASSERT_always_require(0==memcmp(data2,      "fghij#####", 10));
+}
+
+
+
+int main() {
+    test01();
+    test02();
+}

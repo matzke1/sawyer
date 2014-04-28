@@ -46,7 +46,7 @@ public:
  *
  *  This container is somewhat like an STL <code>std::map</code> in that it stores key/value pairs.  However, it is optimized
  *  for the case when many consecutive keys are the same or related.  The values may be any type; the keys are any interval
- *  type that follows the API and semantics of @ref Interval, namely a closed interval with members
+ *  type that follows the API and semantics of Sawyer::Container::Interval, namely a closed interval with members
  *  <code>lower</code> and <code>upper</code> demarcating the inclusive end points, and a few other methods.
  *
  *  The key/value pair nodes that are stored in this container are managed by the container, automatically joining adjacent
