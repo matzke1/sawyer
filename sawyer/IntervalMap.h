@@ -33,21 +33,21 @@ public:
      *  splitPoint argument is the split point and becomes the lower value of the right interval. The @p value argument is
      *  modified in place to become the left value, and the right value is returned. This method is only invoked when the
      *  result would be two non-empty intervals. */
-    Value split(const Interval &interval, Value &value, const typename Interval::base_type &splitPoint) { return value; }
+    Value split(const Interval &interval, Value &value, const typename Interval::Value &splitPoint) { return value; }
 
     /** Discard the right part of a value.
      *
      *  This method is the same as @ref split except the right part of the resulting value is discarded.  This is sometimes
      *  more efficient than calling @ref split and then destroying the return value. */
-    void truncate(const Interval &interval, Value &value, const typename Interval::base_type &splitPoint) {}
+    void truncate(const Interval &interval, Value &value, const typename Interval::Value &splitPoint) {}
 };
 
 /** An associative container whose keys are non-overlapping intervals.
  *
  *  This container is somewhat like an STL <code>std::map</code> in that it stores key/value pairs.  However, it is optimized
  *  for the case when many consecutive keys are the same or related.  The values may be any type; the keys are any interval
- *  type that follows the API and semantics of <code>boost::interval</code>, namely a closed interval with members
- *  <code>lower</code> and <code>upper</code> demarcating the inclusive end points, and a few free functions.
+ *  type that follows the API and semantics of @ref Interval, namely a closed interval with members
+ *  <code>lower</code> and <code>upper</code> demarcating the inclusive end points, and a few other methods.
  *
  *  The key/value pair nodes that are stored in this container are managed by the container, automatically joining adjacent
  *  nodes when they are inserted, if possible and permitted, and automatically spliting nodes if necessary when something is
@@ -63,7 +63,7 @@ public:
  *  The following examples demonstrates some aspects of the interface:
  *
  * @code
- *  typedef boost::numeric::interval<unsigned> Interval; // integral types work best
+ *  typedef Sawyer::Container::interval<unsigned> Interval; // integral types work best
  *  class Stats {...} stats1=..., stats2=...; // needs at least a copy c'tor, assignment, and equality predicate.
  *  typedef IntervalMap<Interval, Stats> Map;
  *  Map map;
@@ -211,10 +211,10 @@ public:
      *  Returns an iterator to the node, or the end iterator if no such node exists.
      *
      * @{ */
-    NodeIterator lowerBound(const typename Interval::base_type &scalar) {
+    NodeIterator lowerBound(const typename Interval::Value &scalar) {
         return map_.lowerBound(Interval(scalar));
     }
-    ConstNodeIterator lowerBound(const typename Interval::base_type &scalar) const {
+    ConstNodeIterator lowerBound(const typename Interval::Value &scalar) const {
         return map_.lowerBound(Interval(scalar));
     }
     /** @} */
@@ -224,23 +224,23 @@ public:
      *  Returns an iterator to the node, or the end iterator if no such node exists.
      *
      * @{ */
-    NodeIterator findPrior(const typename Interval::base_type &scalar) {
+    NodeIterator findPrior(const typename Interval::Value &scalar) {
         typedef NodeIterator Iter;
         if (isEmpty())
             return nodes().end();
         Iter lb = lowerBound(scalar);
-        if (lb!=nodes().end() && posle(lb->key(), scalar))
+        if (lb!=nodes().end() && lb->key().lower() <= scalar)
             return lb;
         if (lb==nodes().begin())
             return nodes().end();
         return --lb;
     }
-    ConstNodeIterator findPrior(const typename Interval::base_type &scalar) const {
+    ConstNodeIterator findPrior(const typename Interval::Value &scalar) const {
         typedef ConstNodeIterator Iter;
         if (isEmpty())
             return nodes().end();
         Iter lb = lowerBound(scalar);
-        if (lb!=nodes().end() && posle(lb->key(), scalar))
+        if (lb!=nodes().end() && lb->key().lower() <= scalar)
             return lb;
         if (lb==nodes().begin())
             return nodes().end();
@@ -253,17 +253,17 @@ public:
      *  Returns an iterator to the matching node, or the end iterator if no such node exists.
      *
      *  @{ */
-    NodeIterator find(const typename Interval::base_type &scalar) {
+    NodeIterator find(const typename Interval::Value &scalar) {
         typedef NodeIterator Iter;
         Iter found = lowerBound(scalar);
-        if (found==nodes().end() || cerlt(scalar, found->key()))
+        if (found==nodes().end() || scalar < found->key().lower())
             return nodes().end();
         return found;
     }
-    ConstNodeIterator find(const typename Interval::base_type &scalar) const {
+    ConstNodeIterator find(const typename Interval::Value &scalar) const {
         typedef ConstNodeIterator Iter;
         Iter found = lowerBound(scalar);
-        if (found==nodes().end() || cerlt(scalar, found->key()))
+        if (found==nodes().end() || scalar < found->key().lower())
             return nodes().end();
         return found;
     }
@@ -276,11 +276,11 @@ public:
      * @{ */
     NodeIterator findFirstOverlap(const Interval &interval) {
         NodeIterator lb = lowerBound(interval.lower());
-        return lb!=nodes().end() && overlap(lb->key(), interval) ? lb : nodes().end();
+        return lb!=nodes().end() && interval.isOverlapping(lb->key()) ? lb : nodes().end();
     }
     ConstNodeIterator findFirstOverlap(const Interval &interval) const {
         ConstNodeIterator lb = lowerBound(interval.lower());
-        return lb!=nodes().end() && overlap(lb->key(), interval) ? lb : nodes().end();
+        return lb!=nodes().end() && interval.isOverlapping(lb->key()) ? lb : nodes().end();
     }
     /** @} */
 
@@ -298,7 +298,7 @@ public:
     findFirstOverlap(IntervalMap::NodeIterator thisIter, const IntervalMap<Interval, T2, Policy2> &other,
                      typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator otherIter) {
         while (thisIter!=nodes().end() && otherIter!=other.nodes().end()) {
-            if (overlap(thisIter->key(), otherIter->key()))
+            if (thisIter->key().isOverlapping(otherIter->key()))
                 return std::make_pair(thisIter, otherIter);
             if (thisIter->key().upper() < otherIter->key().upper()) {
                 ++thisIter;
@@ -313,7 +313,7 @@ public:
     findFirstOverlap(IntervalMap::ConstNodeIterator thisIter, const IntervalMap<Interval, T2, Policy2> &other,
                      typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator otherIter) const {
         while (thisIter!=nodes().end() && otherIter!=other.nodes().end()) {
-            if (overlap(thisIter->key(), otherIter->key()))
+            if (thisIter->key().isOverlapping(otherIter->key()))
                 return std::make_pair(thisIter, otherIter);
             if (thisIter->key().upper() < otherIter->key().upper()) {
                 ++thisIter;
@@ -336,7 +336,7 @@ public:
      *  Therefore, use this method with care.
      *
      * @{ */
-    NodeIterator firstFit(const typename Interval::base_type &size, NodeIterator start) {
+    NodeIterator firstFit(const typename Interval::Value &size, NodeIterator start) {
         typedef NodeIterator Iter;
         for (Iter iter=start; iter!=nodes().end(); ++iter) {
             if (isLarge(iter->key(), size))
@@ -344,7 +344,7 @@ public:
         }
         return nodes().end();
     }
-    ConstNodeIterator firstFit(const typename Interval::base_type &size, ConstNodeIterator start) const {
+    ConstNodeIterator firstFit(const typename Interval::Value &size, ConstNodeIterator start) const {
         typedef ConstNodeIterator Iter;
         for (Iter iter=start; iter!=nodes().end(); ++iter) {
             if (isLarge(iter->key(), size))
@@ -366,7 +366,7 @@ public:
      *  Therefore, use this method with care.
      *
      * @{ */
-    NodeIterator bestFit(const typename Interval::base_type &size, NodeIterator start) {
+    NodeIterator bestFit(const typename Interval::Value &size, NodeIterator start) {
         typedef NodeIterator Iter;
         Iter best = nodes().end();
         for (Iter iter=start; iter!=nodes().end(); ++iter) {
@@ -377,7 +377,7 @@ public:
         }
         return best;
     }
-    ConstNodeIterator bestFit(const typename Interval::base_type &size, ConstNodeIterator start) const {
+    ConstNodeIterator bestFit(const typename Interval::Value &size, ConstNodeIterator start) const {
         typedef ConstNodeIterator Iter;
         Iter best = nodes().end();
         for (Iter iter=start; iter!=nodes().end(); ++iter) {
@@ -414,21 +414,21 @@ public:
     /** Returns the number of values represented by this container.
      *
      *  The number of values in a container is the sum of the widths of all the nodes. */
-    typename Interval::base_type size() const {
-        typename Interval::base_type sum = 0;
+    typename Interval::Value size() const {
+        typename Interval::Value sum = 0;
         for (ConstKeyIterator iter=keys().begin(); iter!=keys().end(); ++iter)
-            sum += inclusiveWidth(*iter);
+            sum += iter->size();
         return sum;
     }
 
     /** Returns the minimum scalar key. */
-    typename Interval::base_type lower() const {
+    typename Interval::Value lower() const {
         ASSERT_forbid(isEmpty());
         return map_.keys().begin()->lower();
     }
 
     /** Returns the maximum scalar key. */
-    typename Interval::base_type upper() const {
+    typename Interval::Value upper() const {
         ASSERT_forbid(isEmpty());
         ConstKeyIterator last = map_.keys().end(); --last;
         return last->upper();
@@ -436,7 +436,7 @@ public:
 
     /** Returns the range of values in this map. */
     Interval hull() const {
-        return isEmpty() ? Interval::empty() : Interval(lower(), upper());
+        return isEmpty() ? Interval() : Interval(lower(), upper());
     }
 
 
@@ -452,7 +452,7 @@ public:
 
     /** Erase the specified interval. */
     void erase(const Interval &erasure) {
-        if (empty(erasure))
+        if (erasure.isEmpty())
             return;
 
         // Find what needs to be removed, and create a list of things to insert, but delay actual removing until after
@@ -460,10 +460,10 @@ public:
         Map insertions;                                 // what needs to be inserted back in
         NodeIterator eraseBegin = nodes().end();
         NodeIterator iter;
-        for (iter=lowerBound(erasure.lower()); iter!=nodes().end() && !cerlt(erasure, iter->key()); ++iter) {
+        for (iter=lowerBound(erasure.lower()); iter!=nodes().end() && !erasure.isLeftOf(iter->key()); ++iter) {
             Interval foundInterval = iter->key();
             Value &v = iter->value();
-            if (subset(foundInterval, erasure)) {
+            if (erasure.isContaining(foundInterval)) {
                 // erase entire found interval
                 if (eraseBegin==nodes().end())
                     eraseBegin = iter;
@@ -516,13 +516,13 @@ public:
      *  If @p makeHole is true then the interval being inserted is first erased; otherwise the insertion happens only if none
      *  of the interval being inserted already exists in the container.  */
     void insert(Interval key, Value value, bool makeHole=true) {
-        if (empty(key))
+        if (key.isEmpty())
             return;
         if (makeHole) {
             erase(key);
         } else {
             NodeIterator found = lowerBound(key.lower());
-            if (found!=nodes().end() && overlap(key, found->key()))
+            if (found!=nodes().end() && key.isOverlapping(found->key()))
                 return;
         }
 
@@ -594,7 +594,7 @@ public:
     }
 
     bool contains(Interval key) const {
-        if (empty(key))
+        if (key.isEmpty())
             return true;
         ConstNodeIterator found = find(key.lower());
         while (1) {
@@ -602,7 +602,7 @@ public:
                 return false;
             if (key.lower() < found->key().lower())
                 return false;
-            ASSERT_require(overlap(key, found->key()));
+            ASSERT_require(key.isOverlapping(found->key()));
             if (key.upper() <= found->key().upper())
                 return true;
             key = splitInterval(key, found->key().upper()+1).second;
@@ -619,8 +619,8 @@ public:
     //                                  Private support methods
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 private:
-    static IntervalPair splitInterval(const Interval &interval, const typename Interval::base_type &splitPoint) {
-        ASSERT_forbid(empty(interval));
+    static IntervalPair splitInterval(const Interval &interval, const typename Interval::Value &splitPoint) {
+        ASSERT_forbid(interval.isEmpty());
         ASSERT_require(splitPoint > interval.lower() && splitPoint <= interval.upper());
 
         Interval left(interval.lower(), splitPoint-1);
@@ -628,15 +628,9 @@ private:
         return IntervalPair(left, right);
     }
 
-    // boost::numberic::interval<>::width acts like upper() is not included for integer intervals
-    static boost::uint64_t inclusiveWidth(const Interval &interval) {
-        return empty(interval) ? 0 : width(interval) + 1;
-    }
-
     // a more convenient way to check whether interval contains at least size items and still handle overflow
     static bool isLarge(const Interval &interval, boost::uint64_t size) {
-        boost::uint64_t w = width(interval);
-        return w!=0 && (w+1==0 || w+1 >= size);
+        return !interval.isEmpty() && (interval.size()==0 || interval.size() >= size);
     }
 };
 

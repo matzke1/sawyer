@@ -15,7 +15,7 @@ namespace Container {
  *  numbers of values are contiguous.  It adds the ability to insert and erase intervals as well as scalars, and provides a
  *  mechanism to iterate over the storage nodes (intervals) rather than over the scalar values.
  *
- *  The @p Interval template parameter must implement the <code>boost::interval</code> API, at least to some extent. */
+ *  The @p Interval template parameter must implement the Sawyer::Container::Interval API, at least to some extent. */
 template<class I>
 class IntervalSet {
     // We use an IntervalMap to do all our work, always storing int(0) as the value.
@@ -23,7 +23,7 @@ class IntervalSet {
     Map map_;
 public:
     typedef I Interval;
-    typedef typename I::base_type Scalar;               /**< Type of scalar values stored in this set. */
+    typedef typename I::Value Scalar;                   /**< Type of scalar values stored in this set. */
 
     /** Node iterator.
      *
@@ -52,18 +52,18 @@ public:
      *  @li The set can hold a very large number of values, even the entire value space, in which case iterating over values
      *      rather than storage nodes could take a very long time.
      *  @li Iterating over values for a non-integral type is most likely nonsensical. */
-    class ConstScalarIterator: public boost::iterator_facade<ConstScalarIterator, const typename Interval::base_type,
+    class ConstScalarIterator: public boost::iterator_facade<ConstScalarIterator, const typename Interval::Value,
                                                              boost::bidirectional_traversal_tag> {
         ConstNodeIterator iter_;
-        typename Interval::base_type offset_;
-        mutable typename Interval::base_type value_;    // so dereference() can return a reference
+        typename Interval::Value offset_;
+        mutable typename Interval::Value value_;        // so dereference() can return a reference
     public:
         ConstScalarIterator(): offset_(0) {}
         ConstScalarIterator(ConstNodeIterator iter): iter_(iter), offset_(0) {}
     private:
         friend class boost::iterator_core_access;
         friend class IntervalSet;
-        const typename Interval::base_type& dereference() const {
+        const typename Interval::Value& dereference() const {
             ASSERT_require2(iter_->lower() <= iter_->upper(), "stored interval cannot be empty");
             ASSERT_require(iter_->lower() + offset_ <= iter_->upper());
             value_ = iter_->lower() + offset_;
@@ -182,7 +182,7 @@ public:
      *  Returns the number of scalar elements (not intervals or storage nodes) contained in this set.  Since the return type is
      *  the same as the type used in the interval end points, this function can return overflowed values.  For instance, a set
      *  that contains all possible values in the value space is likely to return zero. */
-    typename Interval::base_type size() const {
+    typename Interval::Value size() const {
         return map_.size();
     }
 
@@ -276,9 +276,9 @@ public:
     // FIXME[Robb Matzke 2014-04-12]: should probably not rely on integer_traits. See ROSE RangeMap::invert_within
     void invert() {
         IntervalSet inverted;
-        Interval all(boost::integer_traits<typename Interval::base_type>::const_min,
-                     boost::integer_traits<typename Interval::base_type>::const_max);
-        typename Interval::base_type pending = all.lower();
+        Interval all(boost::integer_traits<typename Interval::Value>::const_min,
+                     boost::integer_traits<typename Interval::Value>::const_max);
+        typename Interval::Value pending = all.lower();
         bool insertTop = true;
         for (ConstNodeIterator iter=nodes().begin(); iter!=nodes().end(); ++iter) {
             if (pending < iter->lower())

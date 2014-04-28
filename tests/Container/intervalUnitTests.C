@@ -1,45 +1,9 @@
+#include <sawyer/Interval.h>
 #include <sawyer/IntervalSet.h>
 #include <boost/foreach.hpp>
-#include <boost/numeric/interval.hpp>
-#include <boost/integer_traits.hpp>
 
-// Allow empty intervals without throwing an exception.
 template<typename T>
-struct AllowEmptyIntervals: boost::numeric::interval_lib::policies<
-    boost::numeric::interval_lib::rounded_math<T>,
-    boost::numeric::interval_lib::checking_no_nan<T> > {};
-
-// Intervals using any unsigned type and allowing them to be empty
-template<typename T>
-class UnsignedExtent: public boost::numeric::interval<T, AllowEmptyIntervals<T> > {
-    typedef                  boost::numeric::interval<T, AllowEmptyIntervals<T> > Super;
-public:
-    UnsignedExtent(): Super(Super::empty()) {}
-    UnsignedExtent(T value): Super(value) {}
-    UnsignedExtent(T lo, T hi): Super(lo, hi) {}
-    UnsignedExtent(const boost::numeric::interval<T, AllowEmptyIntervals<T> > &other): Super(other) {}
-
-    UnsignedExtent& operator=(T val) {
-        Super::operator=(val);
-        return *this;
-    }
-
-    UnsignedExtent& operator=(const boost::numeric::interval<T, AllowEmptyIntervals<T> > &other) {
-        Super::operator=(other);
-        return *this;
-    }
-
-    bool isEmpty() const {
-        return Super::traits_type::checking::is_empty(this->lower(), this->upper());
-    }
-
-    T size() const {
-        return isEmpty() ? 0 : width(*this) + 1;
-    }
-};
-
-template<typename T, class Policy>
-std::ostream& operator<<(std::ostream &o, const boost::numeric::interval<T, Policy> &interval) {
+std::ostream& operator<<(std::ostream &o, const Sawyer::Container::Interval<T> &interval) {
     o <<"[" <<interval.lower() <<"," <<interval.upper() <<"]";
     return o;
 }
@@ -75,20 +39,17 @@ static void interval_tests() {
 
     // Unlike boost::numeric::interval, our default constructor creates an empty interval
     Interval e1;
-    ASSERT_always_require(empty(e1));
-    ASSERT_always_require(width(e1)==0);
+    ASSERT_always_require(e1.isEmpty());
     ASSERT_always_require(e1.size()==0);
 
     // boost::numeric::interval_lib::width() is weird: it is as if upper() is not included in the interval.
     // Our version of size() is better, but it can overflow to zero.
     Interval e2(1);
-    ASSERT_always_forbid(empty(e2));
-    ASSERT_always_require(width(e2)==0);
+    ASSERT_always_forbid(e2.isEmpty());
     ASSERT_always_require(e2.size()==1);
 
-    Interval e3(0, boost::integer_traits<typename Interval::base_type>::const_max);
-    ASSERT_always_forbid(empty(e3));
-    ASSERT_always_require(width(e3)==boost::integer_traits<typename Interval::base_type>::const_max);
+    Interval e3(0, boost::integer_traits<typename Interval::Value>::const_max);
+    ASSERT_always_forbid(e3.isEmpty());
     ASSERT_always_require(e1.size()==0);                       // because of overflow
 }
 
@@ -248,25 +209,25 @@ public:
     typedef I Value;
 
     bool merge(const Interval &leftInterval, Value &leftValue, const Interval &rightInterval, Value &rightValue) {
-        ASSERT_always_forbid(empty(leftInterval));
-        ASSERT_always_forbid(empty(rightInterval));
-        ASSERT_always_require(equal(leftInterval, leftValue));
-        ASSERT_always_require(equal(rightInterval, rightValue));
+        ASSERT_always_forbid(leftInterval.isEmpty());
+        ASSERT_always_forbid(rightInterval.isEmpty());
+        ASSERT_always_require(leftInterval == leftValue);
+        ASSERT_always_require(rightInterval == rightValue);
         ASSERT_always_require(leftInterval.upper() + 1 == rightInterval.lower());
         leftValue = Interval(leftValue.lower(), rightValue.upper());
         return true;
     }
 
-    Value split(const Interval &interval, Value &value, const typename Interval::base_type &splitPoint) {
-        ASSERT_always_forbid(empty(interval));
-        ASSERT_always_require(equal(interval, value));
+    Value split(const Interval &interval, Value &value, const typename Interval::Value &splitPoint) {
+        ASSERT_always_forbid(interval.isEmpty());
+        ASSERT_always_require(interval == value);
         ASSERT_always_require(splitPoint > interval.lower() && splitPoint <= interval.upper());
         Value right(splitPoint, value.upper());
         value = Value(value.lower(), splitPoint-1);
         return right;
     }
 
-    void truncate(const Interval &interval, Value &value, const typename Interval::base_type &splitPoint) {
+    void truncate(const Interval &interval, Value &value, const typename Interval::Value &splitPoint) {
         split(interval, value, splitPoint);
     }
 };
@@ -326,7 +287,7 @@ static void imap_policy_tests() {
 }
 
 static void search_tests() {
-    typedef boost::numeric::interval<int> Interval;
+    typedef Sawyer::Container::Interval<int> Interval;
     typedef Sawyer::Container::IntervalMap<Interval, int> IMap;
     typedef Sawyer::Container::IntervalMap<Interval, float> IMap2;
     IMap imap;
@@ -439,11 +400,11 @@ static void basic_set_tests() {
     typedef Sawyer::Container::IntervalSet<Interval> Set;
     Set set;
 
-    Interval all(boost::integer_traits<typename Interval::base_type>::const_min,
-                 boost::integer_traits<typename Interval::base_type>::const_max);
+    Interval all(boost::integer_traits<typename Interval::Value>::const_min,
+                 boost::integer_traits<typename Interval::Value>::const_max);
 
     std::cerr <<"invert() empty set\n";
-    typename Interval::base_type allSize = (all.upper()-all.lower()) + 1;// must cast because width(all) returns wrong type
+    typename Interval::Value allSize = (all.upper()-all.lower()) + 1;// must cast because width(all) returns wrong type
     set.invert();
     show(set);
     ASSERT_always_require(!set.isEmpty());
@@ -502,7 +463,7 @@ static void basic_set_tests() {
     std::cerr <<"invert()\n";
     set.invert();
     show(set);
-    ASSERT_always_require(set.size()==typename Interval::base_type(allSize-10));
+    ASSERT_always_require(set.size()==typename Interval::Value(allSize-10));
     ASSERT_always_require(set.nIntervals()==3);
 
     // Invert again
@@ -575,62 +536,56 @@ static void set_iterators_tests() {
 
 int main() {
 
-    // Test that UnsignedExtent behaves as an interval
-    interval_tests<UnsignedExtent<unsigned> >();
-    interval_tests<UnsignedExtent<unsigned long> >();
-    interval_tests<UnsignedExtent<boost::uint64_t> >();
-    interval_tests<UnsignedExtent<unsigned short> >();
-    interval_tests<UnsignedExtent<boost::uint8_t> >();
+    // Basic interval tests
+    interval_tests<Sawyer::Container::Interval<unsigned> >();
+    interval_tests<Sawyer::Container::Interval<unsigned long> >();
+    interval_tests<Sawyer::Container::Interval<boost::uint64_t> >();
+    interval_tests<Sawyer::Container::Interval<unsigned short> >();
+    interval_tests<Sawyer::Container::Interval<boost::uint8_t> >();
 
-    // Test that UnsignedExtent can be used in an IntervalMap
-    imap_tests<UnsignedExtent<unsigned>, int>(1, 2);
-    imap_tests<UnsignedExtent<unsigned long>, int>(1, 2);
-    imap_tests<UnsignedExtent<boost::uint64_t>, int>(1, 2);
-    imap_tests<UnsignedExtent<unsigned short>, int>(1, 2);
-    imap_tests<UnsignedExtent<boost::uint8_t>, int>(1, 2);
+    // Test that Interval can be used in an IntervalMap
+    imap_tests<Sawyer::Container::Interval<unsigned>, int>(1, 2);
+    imap_tests<Sawyer::Container::Interval<unsigned long>, int>(1, 2);
+    imap_tests<Sawyer::Container::Interval<boost::uint64_t>, int>(1, 2);
+    imap_tests<Sawyer::Container::Interval<unsigned short>, int>(1, 2);
+    imap_tests<Sawyer::Container::Interval<boost::uint8_t>, int>(1, 2);
 
-    // Test that other intervals can be used in an IntervalMap even if they don't behave
-    // like UnsignedExtent (IntervalMap should not depend on anything specific to UnsignedExtent).
-    imap_tests<boost::numeric::interval<int>, int>(1, 2);
-    imap_tests<boost::numeric::interval<boost::uint64_t>, int>(1, 2);
-    imap_tests<boost::numeric::interval<double>, int>(1, 2);
+    // Test some non-unsigned stuff
+    imap_tests<Sawyer::Container::Interval<int>, int>(1, 2);
+    imap_tests<Sawyer::Container::Interval<double>, int>(1, 2);
 
     // Test whether other types can be used as the values in an IntervalMap
-    imap_tests<UnsignedExtent<unsigned>, short>(1, 2);
-    imap_tests<UnsignedExtent<unsigned>, double>(1.0, 2.0);
-    imap_tests<UnsignedExtent<unsigned>, bool>(false, true);
-    imap_tests<UnsignedExtent<unsigned>, Pair>(Pair(1, 2), Pair(3, 4));
-    imap_tests<UnsignedExtent<unsigned>, MinimalApi>(MinimalApi(0), MinimalApi(1));
+    imap_tests<Sawyer::Container::Interval<unsigned>, short>(1, 2);
+    imap_tests<Sawyer::Container::Interval<unsigned>, double>(1.0, 2.0);
+    imap_tests<Sawyer::Container::Interval<unsigned>, bool>(false, true);
+    imap_tests<Sawyer::Container::Interval<unsigned>, Pair>(Pair(1, 2), Pair(3, 4));
+    imap_tests<Sawyer::Container::Interval<unsigned>, MinimalApi>(MinimalApi(0), MinimalApi(1));
 
     // Check that merging and splitting of values works correctly.
-    imap_policy_tests<UnsignedExtent<unsigned> >();
-    imap_policy_tests<boost::numeric::interval<boost::uint64_t> >();
-    imap_policy_tests<boost::numeric::interval<double> >();
+    imap_policy_tests<Sawyer::Container::Interval<unsigned> >();
+    imap_policy_tests<Sawyer::Container::Interval<boost::uint64_t> >();
+    imap_policy_tests<Sawyer::Container::Interval<double> >();
 
     // others
     search_tests();
 
     // Basic IntervalSet tests
-    basic_set_tests<UnsignedExtent<unsigned> >();
-    basic_set_tests<UnsignedExtent<unsigned long> >();
-    basic_set_tests<UnsignedExtent<boost::uint64_t> >();
-    basic_set_tests<UnsignedExtent<unsigned short> >();
-    basic_set_tests<UnsignedExtent<boost::uint8_t> >();
-
-    // Basic IntervalSet tests using boost intervals
-    basic_set_tests<boost::numeric::interval<int> >();
-    basic_set_tests<boost::numeric::interval<boost::uint64_t> >();
+    basic_set_tests<Sawyer::Container::Interval<unsigned> >();
+    basic_set_tests<Sawyer::Container::Interval<unsigned long> >();
+    basic_set_tests<Sawyer::Container::Interval<boost::uint64_t> >();
+    basic_set_tests<Sawyer::Container::Interval<unsigned short> >();
+    basic_set_tests<Sawyer::Container::Interval<boost::uint8_t> >();
+    basic_set_tests<Sawyer::Container::Interval<int> >();
 
     // IntervalSet constructors
-    set_ctor_tests<UnsignedExtent<unsigned> >();
-    set_ctor_tests<UnsignedExtent<unsigned long> >();
-    set_ctor_tests<UnsignedExtent<boost::uint64_t> >();
-    set_ctor_tests<UnsignedExtent<unsigned short> >();
-    set_ctor_tests<UnsignedExtent<boost::uint8_t> >();
-    set_ctor_tests<boost::numeric::interval<int> >();
-    set_ctor_tests<boost::numeric::interval<boost::uint64_t> >();
+    set_ctor_tests<Sawyer::Container::Interval<unsigned> >();
+    set_ctor_tests<Sawyer::Container::Interval<unsigned long> >();
+    set_ctor_tests<Sawyer::Container::Interval<boost::uint64_t> >();
+    set_ctor_tests<Sawyer::Container::Interval<unsigned short> >();
+    set_ctor_tests<Sawyer::Container::Interval<boost::uint8_t> >();
+    set_ctor_tests<Sawyer::Container::Interval<int> >();
 
-    set_iterators_tests<UnsignedExtent<unsigned> >();
+    set_iterators_tests<Sawyer::Container::Interval<unsigned> >();
 
     return 0;
 }
