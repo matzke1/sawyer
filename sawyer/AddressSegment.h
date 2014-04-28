@@ -15,7 +15,9 @@ namespace Container {
  *  that part of the address space.
  *
  *  A segment doesn't store information about where it's mapped in an address space since that's the responsibility of the map
- *  containing the segment. */
+ *  containing the segment.  A segment points to a buffer which might not be the same size as what is entered in the map;
+ *  buffers that are longer than the mapped interval of address space have data which is not accessible (at least not through
+ *  that segment), and buffers that are shorter may return short data from read and write operations. */
 template<class A = size_t, class T = boost::uint8_t>
 class AddressSegment {
     typename Buffer<A, T>::Ptr buffer_;                 // reference counted buffer

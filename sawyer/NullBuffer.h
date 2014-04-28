@@ -6,7 +6,7 @@
 namespace Sawyer {
 namespace Container {
 
-/** Buffer that has no data.
+/** %Buffer that has no data.
  *
  *  This can be useful to reserve areas of of a BufferMap address space without actually storing any data at them.  All
  *  reads return default values and writes using such a buffer will fail (return zero). */

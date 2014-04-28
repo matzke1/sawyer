@@ -14,8 +14,8 @@ namespace Container {
 template<class A, class T>
 class AllocatingBuffer: public Buffer<A, T> {
 public:
-    typedef A Address;
-    typedef T Value;
+    typedef A Address;                                  /** Type of addresses used to index the stored data. */
+    typedef T Value;                                    /** Type of data that is stored. */
 
 private:
     Address size_;

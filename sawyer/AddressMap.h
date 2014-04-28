@@ -10,6 +10,7 @@
 namespace Sawyer {
 namespace Container {
 
+// Used internally to split and merge segments
 template<class A, class T>
 class SegmentMergePolicy {
 public:
@@ -55,7 +56,52 @@ public:
  *
  *  An address map implements read and write concepts for copying values between user-supplied buffers and the storage areas
  *  referenced by the map.  It also provides a notion of access permissions, which the read and write operations optionally
- *  check.  Reads and writes may be partial, copying fewer values than requested. */
+ *  check.  Reads and writes may be partial, copying fewer values than requested.
+ *
+ *  Here's an example that creates two buffers (they happen to point to arrays that the Buffer objects do not own), maps them
+ *  at addresses in such a way that part of the smaller of the two buffers occludes the larger buffer, and then
+ *  performs a write operation that touches parts of both buffers.  We then rewrite part of the mapping and do another write
+ *  operation:
+ *
+ * @code
+ *  using namespace Sawyer::Container;
+ *
+ *  typedef unsigned Address;
+ *  typedef Interval<Address> Addresses;
+ *  typedef Buffer<Address, char>::Ptr BufferPtr;
+ *  typedef AddressSegment<Address, char> Segment;
+ *  typedef AddressMap<Address, char> MemoryMap;
+ *  
+ *  // Create some buffer objects
+ *  char data1[15];
+ *  memcpy(data1, "---------------", 15);
+ *  BufferPtr buf1 = Sawyer::Container::StaticBuffer<Address, char>::instance(data1, 15);
+ *  char data2[5];
+ *  memcpy(data2, "##########", 10);
+ *  BufferPtr buf2 = Sawyer::Container::StaticBuffer<Address, char>::instance(data2, 5); // using only first 5 bytes
+ *  
+ *  // Map data2 into the middle of data1
+ *  MemoryMap map;
+ *  map.insert(Addresses::baseSize(1000, 15), Segment(buf1));
+ *  map.insert(Addresses::baseSize(1005,  5), Segment(buf2)); 
+ *  
+ *  // Write across both buffers and check that data2 occluded data1
+ *  Addresses accessed = map.write("bcdefghijklmn", Addresses::baseSize(1001, 13));
+ *  ASSERT_always_require(accessed.size()==13);
+ *  ASSERT_always_require(0==memcmp(data1, "-bcde-----klmn-", 15));
+ *  ASSERT_always_require(0==memcmp(data2,      "fghij#####", 10));
+ *  
+ *  // Map the middle of data1 over the top of data2 again and check that the mapping has one element. I.e., the three
+ *  // separate parts were recombined into a single entry since they are three consecutive areas of a single buffer.
+ *  map.insert(Addresses::baseSize(1005, 5), Segment(buf1, 5));
+ *  ASSERT_always_require(map.nSegments()==1);
+ *  
+ *  // Write some data again
+ *  accessed = map.write("BCDEFGHIJKLMN", Addresses::baseSize(1001, 13));
+ *  ASSERT_always_require(accessed.size()==13);
+ *  ASSERT_always_require(0==memcmp(data1, "-BCDEFGHIJKLMN-", 15));
+ *  ASSERT_always_require(0==memcmp(data2,      "fghij#####", 10));
+ * @endcode */
 template<class A, class T = boost::uint8_t>
 class AddressMap: public IntervalMap<Interval<A>, AddressSegment<A, T>, SegmentMergePolicy<A, T> > {
     typedef              IntervalMap<Interval<A>, AddressSegment<A, T>, SegmentMergePolicy<A, T> > Super;
@@ -69,7 +115,13 @@ public:
     typedef typename Super::NodeIterator NodeIterator;  /**< Iterates over address interval, segment pairs in the map. */
     typedef typename Super::ConstNodeIterator ConstNodeIterator; /**< Iterates over address interval, segment pairs in the map. */
 
+    /** Constructs an empty address map. */
     AddressMap() {}
+
+    /** Copy constructor.
+     *
+     *  The new address map has the same addresses mapped to the same buffers as the @p other map.  The buffers themselves are
+     *  not copied since they are reference counted. */
     AddressMap(const AddressMap &other): Super(other) {}
 
     /** Iterator range for address intervals.
