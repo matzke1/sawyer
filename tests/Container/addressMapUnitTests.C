@@ -1,5 +1,6 @@
 #include <sawyer/AddressMap.h>
 #include <sawyer/AllocatingBuffer.h>
+#include <sawyer/MappedBuffer.h>
 #include <sawyer/StaticBuffer.h>
 
 using namespace Sawyer::Container;
@@ -82,9 +83,29 @@ static void test02() {
     ASSERT_always_require(0==memcmp(data2,      "fghij#####", 10));
 }
 
+static void test03() {
+    typedef unsigned Address;
+    typedef Interval<Address> Addresses;
+    typedef Buffer<Address, char>::Ptr BufferPtr;
+    typedef AddressSegment<Address, char> Segment;
+    typedef AddressMap<Address, char> MemoryMap;
 
+    boost::iostreams::mapped_file_params mfp;
+    mfp.path = "/etc/passwd";
+    mfp.flags = boost::iostreams::mapped_file_base::priv;
+    BufferPtr buf1 = Sawyer::Container::MappedBuffer<Address, char>::instance(mfp);
+
+    MemoryMap map;
+    map.insert(Addresses::baseSize(1000, 64), Segment(buf1));
+
+    char data[64];
+    Address nread = map.read(data, 1000, 64);
+    ASSERT_always_require(nread==64);
+    std::cout <<data <<"...\n";
+}
 
 int main() {
     test01();
     test02();
+    test03();
 }

@@ -30,7 +30,7 @@ public:
     /** Split one value into two values.
      *
      *  The IntervalMap calls this method when the @p interval is being split into two smaller, adjacent intervals. The @p
-     *  splitPoint argument is the split point and becomes the lower value of the right interval. The @p value argument is
+     *  splitPoint argument is the split point and becomes the least value of the right interval. The @p value argument is
      *  modified in place to become the left value, and the right value is returned. This method is only invoked when the
      *  result would be two non-empty intervals. */
     Value split(const Interval &interval, Value &value, const typename Interval::Value &splitPoint) { return value; }
@@ -47,7 +47,7 @@ public:
  *  This container is somewhat like an STL <code>std::map</code> in that it stores key/value pairs.  However, it is optimized
  *  for the case when many consecutive keys are the same or related.  The values may be any type; the keys are any interval
  *  type that follows the API and semantics of Sawyer::Container::Interval, namely a closed interval with members
- *  <code>lower</code> and <code>upper</code> demarcating the inclusive end points, and a few other methods.
+ *  <code>least</code> and <code>greatest</code> demarcating the inclusive end points, and a few other methods.
  *
  *  The key/value pair nodes that are stored in this container are managed by the container, automatically joining adjacent
  *  nodes when they are inserted, if possible and permitted, and automatically spliting nodes if necessary when something is
@@ -93,9 +93,9 @@ public:
  *      const Stats &stats = iter->second;
  *      std::cout <<" (";
  *      if (singleton(interval))
- *          std::cout <<interval.lower() <<", ";
+ *          std::cout <<interval.least() <<", ";
  *      } else {
- *          std::cout <<"[" <<interval.lower() <<"," <<interval.upper() <<"], ";
+ *          std::cout <<"[" <<interval.least() <<"," <<interval.greatest() <<"], ";
  *      }
  *      std::cout <<stats <<")";
  *  }
@@ -113,11 +113,11 @@ public:
 
 private:
     // Nodes of the underlying map are sorted by their last value so that we can use that map's lowerBound method to find the
-    // range to which a scalar key might belong.  Since the intervals in the map are non-overlapping, sorting by upper values
-    // has the same effect as sorting by lower values.
+    // range to which a scalar key might belong.  Since the intervals in the map are non-overlapping, sorting by greatest values
+    // has the same effect as sorting by least values.
     struct IntervalCompare {
         bool operator()(const Interval &a, const Interval &b) const {
-            return a.upper() < b.upper();
+            return a.greatest() < b.greatest();
         }
     };
 
@@ -229,7 +229,7 @@ public:
         if (isEmpty())
             return nodes().end();
         Iter lb = lowerBound(scalar);
-        if (lb!=nodes().end() && lb->key().lower() <= scalar)
+        if (lb!=nodes().end() && lb->key().least() <= scalar)
             return lb;
         if (lb==nodes().begin())
             return nodes().end();
@@ -240,7 +240,7 @@ public:
         if (isEmpty())
             return nodes().end();
         Iter lb = lowerBound(scalar);
-        if (lb!=nodes().end() && lb->key().lower() <= scalar)
+        if (lb!=nodes().end() && lb->key().least() <= scalar)
             return lb;
         if (lb==nodes().begin())
             return nodes().end();
@@ -256,14 +256,14 @@ public:
     NodeIterator find(const typename Interval::Value &scalar) {
         typedef NodeIterator Iter;
         Iter found = lowerBound(scalar);
-        if (found==nodes().end() || scalar < found->key().lower())
+        if (found==nodes().end() || scalar < found->key().least())
             return nodes().end();
         return found;
     }
     ConstNodeIterator find(const typename Interval::Value &scalar) const {
         typedef ConstNodeIterator Iter;
         Iter found = lowerBound(scalar);
-        if (found==nodes().end() || scalar < found->key().lower())
+        if (found==nodes().end() || scalar < found->key().least())
             return nodes().end();
         return found;
     }
@@ -275,11 +275,11 @@ public:
      *
      * @{ */
     NodeIterator findFirstOverlap(const Interval &interval) {
-        NodeIterator lb = lowerBound(interval.lower());
+        NodeIterator lb = lowerBound(interval.least());
         return lb!=nodes().end() && interval.isOverlapping(lb->key()) ? lb : nodes().end();
     }
     ConstNodeIterator findFirstOverlap(const Interval &interval) const {
-        ConstNodeIterator lb = lowerBound(interval.lower());
+        ConstNodeIterator lb = lowerBound(interval.least());
         return lb!=nodes().end() && interval.isOverlapping(lb->key()) ? lb : nodes().end();
     }
     /** @} */
@@ -300,7 +300,7 @@ public:
         while (thisIter!=nodes().end() && otherIter!=other.nodes().end()) {
             if (thisIter->key().isOverlapping(otherIter->key()))
                 return std::make_pair(thisIter, otherIter);
-            if (thisIter->key().upper() < otherIter->key().upper()) {
+            if (thisIter->key().greatest() < otherIter->key().greatest()) {
                 ++thisIter;
             } else {
                 ++otherIter;
@@ -315,7 +315,7 @@ public:
         while (thisIter!=nodes().end() && otherIter!=other.nodes().end()) {
             if (thisIter->key().isOverlapping(otherIter->key()))
                 return std::make_pair(thisIter, otherIter);
-            if (thisIter->key().upper() < otherIter->key().upper()) {
+            if (thisIter->key().greatest() < otherIter->key().greatest()) {
                 ++thisIter;
             } else {
                 ++otherIter;
@@ -422,50 +422,50 @@ public:
     }
 
     /** Returns the minimum scalar key. */
-    typename Interval::Value lower() const {
+    typename Interval::Value least() const {
         ASSERT_forbid(isEmpty());
-        return map_.keys().begin()->lower();
+        return map_.keys().begin()->least();
     }
 
     /** Returns the maximum scalar key. */
-    typename Interval::Value upper() const {
+    typename Interval::Value greatest() const {
         ASSERT_forbid(isEmpty());
         ConstKeyIterator last = map_.keys().end(); --last;
-        return last->upper();
+        return last->greatest();
     }
 
     /** Returns the limited-minimum scalar key.
      *
      *  Returns the minimum scalar key that exists in the map and which is greater than or equal to @p lowerLimit.  If no such
      *  value exists then nothing is returned. */
-    boost::optional<typename Interval::Value> lower(typename Interval::Value lowerLimit) const {
+    boost::optional<typename Interval::Value> least(typename Interval::Value lowerLimit) const {
         ConstNodeIterator found = lowerBound(lowerLimit); // first node ending at or after lowerLimit
         if (found==nodes().end())
             return boost::none;
-        return std::max(lowerLimit, found->key().lower());
+        return std::max(lowerLimit, found->key().least());
     }
 
     /** Returns the limited-maximum scalar key.
      *
      *  Returns the maximum scalar key that exists in the map and which is less than or equal to @p upperLimit.  If no such
      *  value exists then nothing is returned. */
-    boost::optional<typename Interval::Value> upper(typename Interval::Value upperLimit) const {
+    boost::optional<typename Interval::Value> greatest(typename Interval::Value upperLimit) const {
         ConstNodeIterator found = findPrior(upperLimit); // last node beginning at or before upperLimit
         if (found==nodes().end())
             return boost::none;
-        return std::min(upperLimit, found->key().upper());
+        return std::min(upperLimit, found->key().greatest());
     }
 
     /** Returns the limited-minimum unmapped scalar key.
      *
      *  Returns the lowest unmapped scalar key equal to or greater than the @p lowerLimit.  If no such value exists then
      *  nothing is returned. */
-    boost::optional<typename Interval::Value> lowerUnmapped(typename Interval::Value lowerLimit) const {
+    boost::optional<typename Interval::Value> leastUnmapped(typename Interval::Value lowerLimit) const {
         for (ConstNodeIterator iter = lowerBound(lowerLimit); iter!=nodes().end(); ++iter) {
-            if (lowerLimit < iter->key().lower())
+            if (lowerLimit < iter->key().least())
                 return lowerLimit;
-            lowerLimit = iter->key().upper() + 1;
-            if (lowerLimit < iter->key().upper())
+            lowerLimit = iter->key().greatest() + 1;
+            if (lowerLimit < iter->key().greatest())
                 return boost::none;                     // overflow
         }
         return lowerLimit;
@@ -475,12 +475,12 @@ public:
      *
      *  Returns the maximum unmapped scalar key equal to or less than the @p upperLimit.  If no such value exists then nothing
      *  is returned. */
-    boost::optional<typename Interval::Value> upperUnmapped(typename Interval::Value upperLimit) const {
+    boost::optional<typename Interval::Value> greatestUnmapped(typename Interval::Value upperLimit) const {
         for (ConstNodeIterator iter = findPrior(upperLimit); iter!=nodes().end(); --iter) {
-            if (upperLimit > iter->key().upper())
+            if (upperLimit > iter->key().greatest())
                 return upperLimit;
-            upperLimit = iter->key().lower()- 1;
-            if (upperLimit > iter->key().lower())
+            upperLimit = iter->key().least()- 1;
+            if (upperLimit > iter->key().least())
                 return boost::none;                     // overflow
             if (iter==nodes().begin())
                 break;
@@ -490,7 +490,7 @@ public:
     
     /** Returns the range of values in this map. */
     Interval hull() const {
-        return isEmpty() ? Interval() : Interval(lower(), upper());
+        return isEmpty() ? Interval() : Interval(least(), greatest());
     }
 
 
@@ -514,36 +514,36 @@ public:
         Map insertions;                                 // what needs to be inserted back in
         NodeIterator eraseBegin = nodes().end();
         NodeIterator iter;
-        for (iter=lowerBound(erasure.lower()); iter!=nodes().end() && !erasure.isLeftOf(iter->key()); ++iter) {
+        for (iter=lowerBound(erasure.least()); iter!=nodes().end() && !erasure.isLeftOf(iter->key()); ++iter) {
             Interval foundInterval = iter->key();
             Value &v = iter->value();
             if (erasure.isContaining(foundInterval)) {
                 // erase entire found interval
                 if (eraseBegin==nodes().end())
                     eraseBegin = iter;
-            } else if (erasure.lower()>foundInterval.lower()&& erasure.upper()<foundInterval.upper()) {
+            } else if (erasure.least()>foundInterval.least()&& erasure.greatest()<foundInterval.greatest()) {
                 // erase the middle of the node, leaving a left and a right portion
                 ASSERT_require(eraseBegin==nodes().end());
                 eraseBegin = iter;
-                IntervalPair rt = splitInterval(foundInterval, erasure.upper()+1);
-                Value rightValue = policy_.split(foundInterval, v /*in,out*/, rt.second.lower());
+                IntervalPair rt = splitInterval(foundInterval, erasure.greatest()+1);
+                Value rightValue = policy_.split(foundInterval, v /*in,out*/, rt.second.least());
                 insertions.insert(rt.second, rightValue);
-                IntervalPair lt = splitInterval(rt.first, erasure.lower());
-                policy_.truncate(rt.first, v /*in,out*/, erasure.lower());
+                IntervalPair lt = splitInterval(rt.first, erasure.least());
+                policy_.truncate(rt.first, v /*in,out*/, erasure.least());
                 insertions.insert(lt.first, v);
-            } else if (erasure.lower() > foundInterval.lower()) {
+            } else if (erasure.least() > foundInterval.least()) {
                 // erase the right part of the node
                 ASSERT_require(eraseBegin==nodes().end());
                 eraseBegin = iter;
-                IntervalPair halves = splitInterval(foundInterval, erasure.lower());
-                policy_.truncate(foundInterval, v /*in,out*/, erasure.lower());
+                IntervalPair halves = splitInterval(foundInterval, erasure.least());
+                policy_.truncate(foundInterval, v /*in,out*/, erasure.least());
                 insertions.insert(halves.first, v);
-            } else if (erasure.upper() < foundInterval.upper()) {
+            } else if (erasure.greatest() < foundInterval.greatest()) {
                 // erase the left part of the node
                 if (eraseBegin==nodes().end())
                     eraseBegin = iter;
-                IntervalPair halves = splitInterval(foundInterval, erasure.upper()+1);
-                Value rightValue = policy_.split(foundInterval, v /*in,out*/, halves.second.lower());
+                IntervalPair halves = splitInterval(foundInterval, erasure.greatest()+1);
+                Value rightValue = policy_.split(foundInterval, v /*in,out*/, halves.second.least());
                 insertions.insert(halves.second, rightValue);
             }
         }
@@ -575,30 +575,30 @@ public:
         if (makeHole) {
             erase(key);
         } else {
-            NodeIterator found = lowerBound(key.lower());
+            NodeIterator found = lowerBound(key.least());
             if (found!=nodes().end() && key.isOverlapping(found->key()))
                 return;
         }
 
         // Attempt to merge with a left-adjoining node
-        if (key.lower() - 1 < key.lower()) {
-            NodeIterator left = find(key.lower() - 1);
+        if (key.least() - 1 < key.least()) {
+            NodeIterator left = find(key.least() - 1);
             if (left!=nodes().end() &&
-                left->key().upper()+1==key.lower() &&
+                left->key().greatest()+1==key.least() &&
                 policy_.merge(left->key(), left->value(), key, value)) {
-                key = Interval::hull(left->key().lower(), key.upper());
+                key = Interval::hull(left->key().least(), key.greatest());
                 std::swap(value, left->value());
                 map_.eraseAt(left);
             }
         }
 
         // Attempt to merge with a right-adjoining node
-        if (key.upper() + 1 > key.upper()) {
-            NodeIterator right = find(key.upper() + 1);
+        if (key.greatest() + 1 > key.greatest()) {
+            NodeIterator right = find(key.greatest() + 1);
             if (right!=nodes().end() &&
-                key.upper()+1==right->key().lower() &&
+                key.greatest()+1==right->key().least() &&
                 policy_.merge(key, value, right->key(), right->value())) {
-                key = Interval::hull(key.lower(), right->key().upper());
+                key = Interval::hull(key.least(), right->key().greatest());
                 map_.eraseAt(right);
             }
         }
@@ -650,16 +650,16 @@ public:
     bool contains(Interval key) const {
         if (key.isEmpty())
             return true;
-        ConstNodeIterator found = find(key.lower());
+        ConstNodeIterator found = find(key.least());
         while (1) {
             if (found==nodes().end())
                 return false;
-            if (key.lower() < found->key().lower())
+            if (key.least() < found->key().least())
                 return false;
             ASSERT_require(key.isOverlapping(found->key()));
-            if (key.upper() <= found->key().upper())
+            if (key.greatest() <= found->key().greatest())
                 return true;
-            key = splitInterval(key, found->key().upper()+1).second;
+            key = splitInterval(key, found->key().greatest()+1).second;
             ++found;
         }
     }
@@ -675,10 +675,10 @@ public:
 private:
     static IntervalPair splitInterval(const Interval &interval, const typename Interval::Value &splitPoint) {
         ASSERT_forbid(interval.isEmpty());
-        ASSERT_require(splitPoint > interval.lower() && splitPoint <= interval.upper());
+        ASSERT_require(splitPoint > interval.least() && splitPoint <= interval.greatest());
 
-        Interval left(interval.lower(), splitPoint-1);
-        Interval right(splitPoint, interval.upper());
+        Interval left(interval.least(), splitPoint-1);
+        Interval right(splitPoint, interval.greatest());
         return IntervalPair(left, right);
     }
 

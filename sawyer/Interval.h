@@ -70,13 +70,13 @@ public:
     }
 
     /** Returns lower limit. */
-    T lower() const {
+    T least() const {
         ASSERT_forbid(isEmpty());
         return lo_;
     }
 
     /** Returns upper limit. */
-    T upper() const {
+    T greatest() const {
         ASSERT_forbid(isEmpty());
         return hi_;
     }
@@ -103,7 +103,7 @@ public:
      *  other interval, even another empty interval. */
     bool isContaining(const Interval &other) const {
         return (other.isEmpty() ||
-                (!isEmpty() && lower()<=other.lower() && upper()>=other.upper()));
+                (!isEmpty() && least()<=other.least() && greatest()>=other.greatest()));
     }
 
     /** Adjacency predicate.
@@ -113,15 +113,15 @@ public:
      *
      *  @{ */
     bool isLeftAdjacent(const Interval &right) const {
-        return isEmpty() || right.isEmpty() || (!isWhole() && upper()+1 == right.lower());
+        return isEmpty() || right.isEmpty() || (!isWhole() && greatest()+1 == right.least());
     }
     bool isRightAdjacent(const Interval &left) const {
-        return isEmpty() || left.isEmpty() || (!left.isWhole() && left.upper()+1 == lower());
+        return isEmpty() || left.isEmpty() || (!left.isWhole() && left.greatest()+1 == least());
     }
     bool isAdjacent(const Interval &other) const {
         return (isEmpty() || other.isEmpty() ||
-                (!isWhole() && upper()+1 == other.lower()) ||
-                (!other.isWhole() && other.upper()+1 == lower()));
+                (!isWhole() && greatest()+1 == other.least()) ||
+                (!other.isWhole() && other.greatest()+1 == least()));
     }
     /** @} */
 
@@ -132,10 +132,10 @@ public:
      *
      *  @{ */
     bool isLeftOf(const Interval &right) const {
-        return isEmpty() || right.isEmpty() || upper() < right.lower();
+        return isEmpty() || right.isEmpty() || greatest() < right.least();
     }
     bool isRightOf(const Interval &left) const {
-        return isEmpty() || left.isEmpty() || left.upper() < lower();
+        return isEmpty() || left.isEmpty() || left.greatest() < least();
     }
     /** @} */
 
@@ -161,9 +161,9 @@ public:
      *
      *  Returns an interval which is the intersection of this interval with another. */
     Interval intersection(const Interval &other) const {
-        if (isEmpty() || other.isEmpty() || upper()<other.lower() || lower()>other.upper())
+        if (isEmpty() || other.isEmpty() || greatest()<other.least() || least()>other.greatest())
             return Interval();
-        return Interval(std::max(lower(), other.lower()), std::min(upper(), other.upper()));
+        return Interval(std::max(least(), other.least()), std::min(greatest(), other.greatest()));
     }
 
     /** Hull.
@@ -175,7 +175,7 @@ public:
         } else if (other.isEmpty()) {
             return *this;
         } else {
-            return Interval(std::min(lower(), other.lower()), std::max(upper(), other.upper()));
+            return Interval(std::min(least(), other.least()), std::max(greatest(), other.greatest()));
         }
     }
 
@@ -186,7 +186,7 @@ public:
         if (isEmpty()) {
             return Interval(value);
         } else {
-            return Interval(std::min(lower(), value), std::max(upper(), value));
+            return Interval(std::min(least(), value), std::max(greatest(), value));
         }
     }
 };

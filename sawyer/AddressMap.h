@@ -22,7 +22,7 @@ public:
                const Interval<Address> &rightInterval, Segment &rightSegment) {
         ASSERT_forbid(leftInterval.isEmpty());
         ASSERT_forbid(rightInterval.isEmpty());
-        ASSERT_require(leftInterval.upper() + 1 == rightInterval.lower());
+        ASSERT_require(leftInterval.greatest() + 1 == rightInterval.least());
         return (leftSegment.accessibility() == rightSegment.accessibility() &&
                 leftSegment.buffer() == rightSegment.buffer() &&
                 leftSegment.offset() + leftInterval.size() == rightSegment.offset());
@@ -32,7 +32,7 @@ public:
         ASSERT_forbid(interval.isEmpty());
         ASSERT_require(interval.isContaining(splitPoint));
         Segment right = segment;
-        right.offset(segment.offset() + splitPoint - interval.lower());
+        right.offset(segment.offset() + splitPoint - interval.least());
         return right;
     }
 
@@ -155,13 +155,13 @@ public:
         Interval<Address> retval;
         ConstNodeIterator found = this->find(start);
         if (found != this->nodes().end()) {
-            retval = Interval<Address>(start, found->key().upper());
+            retval = Interval<Address>(start, found->key().greatest());
             for (++found; found!=this->nodes().end(); ++found) {
-                if (found->key().lower() != retval.upper() + 1)
+                if (found->key().least() != retval.greatest() + 1)
                     break;                              // discontinuity
                 if (!isAccessAllowed(found->value().accessibility(), requiredAccess, prohibitedAccess))
                     break;                              // disallowed
-                retval = Interval<Address>(start, found->key().upper());
+                retval = Interval<Address>(start, found->key().greatest());
             }
         }
         return retval;
@@ -182,16 +182,16 @@ public:
                            unsigned requiredAccess=0, unsigned prohibitedAccess=0) const {
         Interval<Address> retval;
         if (!where.isEmpty()) {
-            for (ConstNodeIterator found = this->find(where.lower()); found!=this->nodes().end(); ++found) {
+            for (ConstNodeIterator found = this->find(where.least()); found!=this->nodes().end(); ++found) {
                 if (!isAccessAllowed(found->value().accessibility(), requiredAccess, prohibitedAccess))
                     break;
                 Interval<Address> part = where.intersection(found->key());
-                if (part.isEmpty() || (!retval.isEmpty() && retval.upper()+1 != part.lower()))
+                if (part.isEmpty() || (!retval.isEmpty() && retval.greatest()+1 != part.least()))
                     break;
-                Address bufferOffset = part.lower() - found->key().lower() + found->value().offset();
+                Address bufferOffset = part.least() - found->key().least() + found->value().offset();
                 Address nread = found->value().buffer()->read(buf, bufferOffset, part.size());
                 if (nread!=part.size())                 // short read from buffer
-                    return retval.hull(Interval<Address>::baseSize(part.lower(), nread));
+                    return retval.hull(Interval<Address>::baseSize(part.least(), nread));
                 buf += nread;
                 retval = retval.hull(part);
             }
@@ -230,16 +230,16 @@ public:
                             unsigned requiredAccess=0, unsigned prohibitedAccess=0) {
         Interval<Address> retval;
         if (!where.isEmpty()) {
-            for (ConstNodeIterator found = this->find(where.lower()); found!=this->nodes().end(); ++found) {
+            for (ConstNodeIterator found = this->find(where.least()); found!=this->nodes().end(); ++found) {
                 if (!isAccessAllowed(found->value().accessibility(), requiredAccess, prohibitedAccess))
                     break;
                 Interval<Address> part = where.intersection(found->key());
-                if (part.isEmpty() || (!retval.isEmpty() && retval.upper()+1 != part.lower()))
+                if (part.isEmpty() || (!retval.isEmpty() && retval.greatest()+1 != part.least()))
                     break;
-                Address bufferOffset = part.lower() - found->key().lower() + found->value().offset();
+                Address bufferOffset = part.least() - found->key().least() + found->value().offset();
                 Address nwritten = found->value().buffer()->write(buf, bufferOffset, part.size());
                 if (nwritten!=part.size())              // short write to buffer
-                    return retval.hull(Interval<Address>::baseSize(part.lower(), nwritten));
+                    return retval.hull(Interval<Address>::baseSize(part.least(), nwritten));
                 buf += nwritten;
                 retval = retval.hull(part);
             }

@@ -64,17 +64,17 @@ public:
         friend class boost::iterator_core_access;
         friend class IntervalSet;
         const typename Interval::Value& dereference() const {
-            ASSERT_require2(iter_->lower() <= iter_->upper(), "stored interval cannot be empty");
-            ASSERT_require(iter_->lower() + offset_ <= iter_->upper());
-            value_ = iter_->lower() + offset_;
+            ASSERT_require2(iter_->least() <= iter_->greatest(), "stored interval cannot be empty");
+            ASSERT_require(iter_->least() + offset_ <= iter_->greatest());
+            value_ = iter_->least() + offset_;
             return value_;                              // must return a reference
         }
         bool equal(const ConstScalarIterator &other) const {
             return iter_ == other.iter_ && offset_ == other.offset_;
         }
         void increment() {
-            ASSERT_require2(iter_->lower() <= iter_->upper(), "stored interval cannot be empty");
-            if (iter_->lower() + offset_ == iter_->upper()) {
+            ASSERT_require2(iter_->least() <= iter_->greatest(), "stored interval cannot be empty");
+            if (iter_->least() + offset_ == iter_->greatest()) {
                 ++iter_;
                 offset_ = 0;
             } else {
@@ -82,7 +82,7 @@ public:
             }
         }
         void decrement() {
-            ASSERT_require2(iter_->lower() <= iter_->upper(), "stored interval cannot be empty");
+            ASSERT_require2(iter_->least() <= iter_->greatest(), "stored interval cannot be empty");
             if (0==offset_) {
                 --iter_;
                 offset_ = width(*iter_);
@@ -267,47 +267,47 @@ public:
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     
     /** Returns the minimum scalar contained in this set. */
-    Scalar lower() const {
+    Scalar least() const {
         ASSERT_forbid(isEmpty());
-        return map_.lower();
+        return map_.least();
     }
 
     /** Returns the maximum scalar contained in this set. */
-    Scalar upper() const {
+    Scalar greatest() const {
         ASSERT_forbid(isEmpty());
-        return map_.upper();
+        return map_.greatest();
     }
 
     /** Returns the limited-minimum scalar contained in this set.
      *
      *  Returns the minimum scalar that exists in this set and which is greater than or equal to @p lowerLimit.  If no such
      *  value exists then nothing is returned. */
-    boost::optional<Scalar> lower(Scalar lowerLimit) const {
-        return map_.lower(lowerLimit);
+    boost::optional<Scalar> least(Scalar lowerLimit) const {
+        return map_.least(lowerLimit);
     }
 
     /** Returns the limited-maximum scalar contained in this set.
      *
      *  Returns the maximum scalar that exists in this set and which is less than or equal to @p upperLimit.  If no such
      *  value exists then nothing is returned. */
-    boost::optional<Scalar> upper(Scalar upperLimit) const {
-        return map_.upper(upperLimit);
+    boost::optional<Scalar> greatest(Scalar upperLimit) const {
+        return map_.greatest(upperLimit);
     }
 
     /** Returns the limited-minimum scalar not contained in this set.
      *
      *  Returns the minimum scalar equal to or greater than the @p lowerLimit which is not in this set.  If no such value
      *  exists then nothing is returned. */
-    boost::optional<Scalar> lowerNonExistent(Scalar lowerLimit) const {
-        return map_.lowerUnmapped(lowerLimit);
+    boost::optional<Scalar> leastNonExistent(Scalar lowerLimit) const {
+        return map_.leastUnmapped(lowerLimit);
     }
 
     /** Returns the limited-maximum scalar not contained in this set.
      *
      *  Returns the maximum scalar equal to or less than the @p upperLimit which is not in this set.  If no such value exists
      *  then nothing is returned. */
-    boost::optional<Scalar> upperNonExistent(Scalar upperLimit) const {
-        return map_.upperUnmapped(upperLimit);
+    boost::optional<Scalar> greatestNonExistent(Scalar upperLimit) const {
+        return map_.greatestUnmapped(upperLimit);
     }
 
 
@@ -327,13 +327,13 @@ public:
         IntervalSet inverted;
         Interval all(boost::integer_traits<typename Interval::Value>::const_min,
                      boost::integer_traits<typename Interval::Value>::const_max);
-        typename Interval::Value pending = all.lower();
+        typename Interval::Value pending = all.least();
         bool insertTop = true;
         for (ConstNodeIterator iter=nodes().begin(); iter!=nodes().end(); ++iter) {
-            if (pending < iter->lower())
-                inverted.insert(Interval(pending, iter->lower()-1));
-            if (iter->upper() < all.upper()) {
-                pending = iter->upper() + 1;
+            if (pending < iter->least())
+                inverted.insert(Interval(pending, iter->least()-1));
+            if (iter->greatest() < all.greatest()) {
+                pending = iter->greatest() + 1;
             } else {
                 insertTop = false;
                 ASSERT_require(++iter==nodes().end());
@@ -341,7 +341,7 @@ public:
             }
         }
         if (insertTop)
-            inverted.insert(Interval(pending, all.upper()));
+            inverted.insert(Interval(pending, all.greatest()));
         std::swap(map_, inverted.map_);
     }
 
