@@ -115,6 +115,12 @@ public:
     typedef typename Super::NodeIterator NodeIterator;  /**< Iterates over address interval, segment pairs in the map. */
     typedef typename Super::ConstNodeIterator ConstNodeIterator; /**< Iterates over address interval, segment pairs in the map. */
 
+    static const unsigned READABLE      = 0x00000004;   /**< Read accessibility bit. */
+    static const unsigned WRITABLE      = 0x00000002;   /**< Write accessibility bit. */
+    static const unsigned EXECUTABLE    = 0x00000001;   /**< Execute accessibility bit. */
+    static const unsigned RESERVED_MASK = 0x000000ff;   /**< Accessibility bits reserved for use by the library. */
+    static const unsigned USERDEF_MASK  = 0xffffff00;   /**< Accessibility bits available to users. */
+
     /** Constructs an empty address map. */
     AddressMap() {}
 
@@ -160,7 +166,7 @@ public:
         }
         return retval;
     }
-    
+
     /** Reads data into the supplied buffer.
      *
      *  Fills the supplied buffer, @p buf, by copying values from the underlying buffers corresponding to the specified address
@@ -191,6 +197,22 @@ public:
             }
         }
         return retval;
+    }
+
+    /** Reads data into the supplied buffer.
+     *
+     *  Fills the supplied buffer, @p buf, by copying values from the underlying buffers corresponding to the specified address
+     *  range given as a starting address and number of values to read.  The read is terminated at the first address where any
+     *  of the following conditions are satisfied:
+     *
+     *  @li The requsted number of values have been copied.
+     *  @li The address is not a mapped address.
+     *  @li The segment lacks the required accessibility.
+     *  @li The read operation on the underlying buffer fails.
+     *
+     *  Returns the number of values that were copied into the supplied buffer, subject to overflow. */
+    Address read(Value *buf, Address start, Address size, unsigned requiredAccess=0, unsigned prohibitedAccess=0) const {
+        return read(buf, Interval<Address>::baseSize(start, size), requiredAccess, prohibitedAccess).size();
     }
     
     /** Writes data from the supplied buffer.
@@ -223,6 +245,21 @@ public:
             }
         }
         return retval;
+    }
+
+    /** Writes data from the supplied buffer.
+     *
+     *  Copies data from buffer @p buf into the underlying buffers corresponding to the specified address range.  The write is
+     *  terminated at the first address where any of the following conditions are satisfied:
+     *
+     *  @li The requested number of values have been written.
+     *  @li The address is not a mapped address.
+     *  @li The segment lacks the required accessibility.
+     *  @li The write operation on the underlying buffer fails.
+     *
+     *  Returns the number of values that were copied from the supplied buffer, subject to overflow. */
+    Address write(const Value *buf, Address start, Address size, unsigned requiredAccess=0, unsigned prohibitedAccess=0) {
+        return write(buf, Interval<Address>::baseSize(start, size), requiredAccess, prohibitedAccess).size();
     }
 
 private:
