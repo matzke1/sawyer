@@ -434,6 +434,60 @@ public:
         return last->upper();
     }
 
+    /** Returns the limited-minimum scalar key.
+     *
+     *  Returns the minimum scalar key that exists in the map and which is greater than or equal to @p lowerLimit.  If no such
+     *  value exists then nothing is returned. */
+    boost::optional<typename Interval::Value> lower(typename Interval::Value lowerLimit) const {
+        ConstNodeIterator found = lowerBound(lowerLimit); // first node ending at or after lowerLimit
+        if (found==nodes().end())
+            return boost::none;
+        return std::max(lowerLimit, found->key().lower());
+    }
+
+    /** Returns the limited-maximum scalar key.
+     *
+     *  Returns the maximum scalar key that exists in the map and which is less than or equal to @p upperLimit.  If no such
+     *  value exists then nothing is returned. */
+    boost::optional<typename Interval::Value> upper(typename Interval::Value upperLimit) const {
+        ConstNodeIterator found = findPrior(upperLimit); // last node beginning at or before upperLimit
+        if (found==nodes().end())
+            return boost::none;
+        return std::min(upperLimit, found->key().upper());
+    }
+
+    /** Returns the limited-minimum unmapped scalar key.
+     *
+     *  Returns the lowest unmapped scalar key equal to or greater than the @p lowerLimit.  If no such value exists then
+     *  nothing is returned. */
+    boost::optional<typename Interval::Value> lowerUnmapped(typename Interval::Value lowerLimit) const {
+        for (ConstNodeIterator iter = lowerBound(lowerLimit); iter!=nodes().end(); ++iter) {
+            if (lowerLimit < iter->key().lower())
+                return lowerLimit;
+            lowerLimit = iter->key().upper() + 1;
+            if (lowerLimit < iter->key().upper())
+                return boost::none;                     // overflow
+        }
+        return lowerLimit;
+    }
+
+    /** Returns the limited-maximum unmapped scalar key.
+     *
+     *  Returns the maximum unmapped scalar key equal to or less than the @p upperLimit.  If no such value exists then nothing
+     *  is returned. */
+    boost::optional<typename Interval::Value> upperUnmapped(typename Interval::Value upperLimit) const {
+        for (ConstNodeIterator iter = findPrior(upperLimit); iter!=nodes().end(); --iter) {
+            if (upperLimit > iter->key().upper())
+                return upperLimit;
+            upperLimit = iter->key().lower()- 1;
+            if (upperLimit > iter->key().lower())
+                return boost::none;                     // overflow
+            if (iter==nodes().begin())
+                break;
+        }
+        return upperLimit;
+    }
+    
     /** Returns the range of values in this map. */
     Interval hull() const {
         return isEmpty() ? Interval() : Interval(lower(), upper());

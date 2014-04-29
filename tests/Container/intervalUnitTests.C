@@ -56,7 +56,9 @@ static void interval_tests() {
 template<class Interval, class Value>
 static void imap_tests(const Value &v1, const Value &v2) {
     typedef Sawyer::Container::IntervalMap<Interval, Value> Map;
+    typedef typename Interval::Value Scalar;
     Map imap;
+    boost::optional<Scalar> opt;
 
     std::cerr <<"insert([100,119], v1)\n";
     imap.insert(Interval(100, 119), v1);
@@ -76,6 +78,32 @@ static void imap_tests(const Value &v1, const Value &v2) {
     ASSERT_always_require(imap.findPrior(100)==imap.nodes().begin());
     ASSERT_always_require(imap.findPrior(119)==imap.nodes().begin());
     ASSERT_always_require(imap.findPrior(120)==imap.nodes().begin());
+
+    // Test lower() against one node
+    ASSERT_always_require(imap.lower()==100);
+    opt = imap.lower(Scalar(99));
+    ASSERT_always_require(opt && *opt==100);
+    opt = imap.lower(Scalar(100));
+    ASSERT_always_require(opt && *opt==100);
+    opt = imap.lower(Scalar(101));
+    ASSERT_always_require(opt && *opt==101);
+    opt = imap.lower(Scalar(119));
+    ASSERT_always_require(opt && *opt==119);
+    opt = imap.lower(Scalar(120));
+    ASSERT_always_require(!opt);
+
+    // Test upper() against one node
+    ASSERT_always_require(imap.upper()==119);
+    opt = imap.upper(Scalar(120));
+    ASSERT_always_require(opt && *opt==119);
+    opt = imap.upper(Scalar(119));
+    ASSERT_always_require(opt && *opt==119);
+    opt = imap.upper(Scalar(118));
+    ASSERT_always_require(opt && *opt==118);
+    opt = imap.upper(Scalar(100));
+    ASSERT_always_require(opt && *opt==100);
+    opt = imap.upper(Scalar(99));
+    ASSERT_always_require(!opt);
 
     // Erase the right part
     std::cerr <<"erase([110,119])\n";
@@ -143,23 +171,93 @@ static void imap_tests(const Value &v1, const Value &v2) {
     ASSERT_always_require(imap.find(119)==secondIter);
     ASSERT_always_require(imap.find(120)==imap.nodes().end());
 
-    // Re-insert the middle part
-    std::cerr <<"insert([105,114], v1)\n";
-    imap.insert(Interval(105, 114), v1);
-    show(imap);
-    ASSERT_always_require(imap.size()==20);
-    ASSERT_always_require(imap.nIntervals()==1);
-
     // Overwrite the right end with a different value
     std::cerr <<"insert(119, v2)\n";
     imap.insert(119, v2);
     show(imap);
-    ASSERT_always_require(imap.size()==20);
-    ASSERT_always_require(imap.nIntervals()==2);
+    ASSERT_always_require(imap.size()==10);
+    ASSERT_always_require(imap.nIntervals()==3);
 
     // Overwrite the left end with a different value
     std::cerr <<"insert(100, v2)\n";
     imap.insert(100, v2);
+    show(imap);
+    ASSERT_always_require(imap.size()==10);
+    ASSERT_always_require(imap.nIntervals()==4);
+
+    // Test lower against multiple nodes
+    ASSERT_always_require(imap.lower()==100);
+    opt = imap.lower(Scalar(99));  ASSERT_always_require(opt && *opt==100);
+    opt = imap.lower(Scalar(100)); ASSERT_always_require(opt && *opt==100);
+    opt = imap.lower(Scalar(101)); ASSERT_always_require(opt && *opt==101);
+    opt = imap.lower(Scalar(102)); ASSERT_always_require(opt && *opt==102);
+    opt = imap.lower(Scalar(103)); ASSERT_always_require(opt && *opt==103);
+    opt = imap.lower(Scalar(104)); ASSERT_always_require(opt && *opt==104);
+    opt = imap.lower(Scalar(105)); ASSERT_always_require(opt && *opt==115);
+    opt = imap.lower(Scalar(114)); ASSERT_always_require(opt && *opt==115);
+    opt = imap.lower(Scalar(115)); ASSERT_always_require(opt && *opt==115);
+    opt = imap.lower(Scalar(116)); ASSERT_always_require(opt && *opt==116);
+    opt = imap.lower(Scalar(117)); ASSERT_always_require(opt && *opt==117);
+    opt = imap.lower(Scalar(118)); ASSERT_always_require(opt && *opt==118);
+    opt = imap.lower(Scalar(119)); ASSERT_always_require(opt && *opt==119);
+    opt = imap.lower(Scalar(120)); ASSERT_always_require(!opt);
+
+    // Test upper() against multiple nodes
+    ASSERT_always_require(imap.upper()==119);
+    opt = imap.upper(Scalar(99));  ASSERT_always_require(!opt);
+    opt = imap.upper(Scalar(100)); ASSERT_always_require(opt && *opt==100);
+    opt = imap.upper(Scalar(101)); ASSERT_always_require(opt && *opt==101);
+    opt = imap.upper(Scalar(102)); ASSERT_always_require(opt && *opt==102);
+    opt = imap.upper(Scalar(103)); ASSERT_always_require(opt && *opt==103);
+    opt = imap.upper(Scalar(104)); ASSERT_always_require(opt && *opt==104);
+    opt = imap.upper(Scalar(105)); ASSERT_always_require(opt && *opt==104);
+    opt = imap.upper(Scalar(114)); ASSERT_always_require(opt && *opt==104);
+    opt = imap.upper(Scalar(115)); ASSERT_always_require(opt && *opt==115);
+    opt = imap.upper(Scalar(116)); ASSERT_always_require(opt && *opt==116);
+    opt = imap.upper(Scalar(117)); ASSERT_always_require(opt && *opt==117);
+    opt = imap.upper(Scalar(118)); ASSERT_always_require(opt && *opt==118);
+    opt = imap.upper(Scalar(119)); ASSERT_always_require(opt && *opt==119);
+    opt = imap.upper(Scalar(120)); ASSERT_always_require(opt && *opt==119);
+
+    // Test lowerUnmapped against multiple nodes
+    opt = imap.lowerUnmapped(Scalar(0  )); ASSERT_always_require(opt && *opt==0);
+    opt = imap.lowerUnmapped(Scalar(99 )); ASSERT_always_require(opt && *opt==99);
+    opt = imap.lowerUnmapped(Scalar(100)); ASSERT_always_require(opt && *opt==105);
+    opt = imap.lowerUnmapped(Scalar(101)); ASSERT_always_require(opt && *opt==105);
+    opt = imap.lowerUnmapped(Scalar(102)); ASSERT_always_require(opt && *opt==105);
+    opt = imap.lowerUnmapped(Scalar(103)); ASSERT_always_require(opt && *opt==105);
+    opt = imap.lowerUnmapped(Scalar(104)); ASSERT_always_require(opt && *opt==105);
+    opt = imap.lowerUnmapped(Scalar(105)); ASSERT_always_require(opt && *opt==105);
+    opt = imap.lowerUnmapped(Scalar(114)); ASSERT_always_require(opt && *opt==114);
+    opt = imap.lowerUnmapped(Scalar(115)); ASSERT_always_require(opt && *opt==120);
+    opt = imap.lowerUnmapped(Scalar(116)); ASSERT_always_require(opt && *opt==120);
+    opt = imap.lowerUnmapped(Scalar(117)); ASSERT_always_require(opt && *opt==120);
+    opt = imap.lowerUnmapped(Scalar(118)); ASSERT_always_require(opt && *opt==120);
+    opt = imap.lowerUnmapped(Scalar(119)); ASSERT_always_require(opt && *opt==120);
+    opt = imap.lowerUnmapped(Scalar(120)); ASSERT_always_require(opt && *opt==120);
+    opt = imap.lowerUnmapped(Scalar(121)); ASSERT_always_require(opt && *opt==121);
+
+    // Test upperUnmapped against multiple nodes
+    opt = imap.upperUnmapped(Scalar(0  )); ASSERT_always_require(opt && *opt==0);
+    opt = imap.upperUnmapped(Scalar(99 )); ASSERT_always_require(opt && *opt==99);
+    opt = imap.upperUnmapped(Scalar(100)); ASSERT_always_require(opt && *opt==99);
+    opt = imap.upperUnmapped(Scalar(101)); ASSERT_always_require(opt && *opt==99);
+    opt = imap.upperUnmapped(Scalar(102)); ASSERT_always_require(opt && *opt==99);
+    opt = imap.upperUnmapped(Scalar(103)); ASSERT_always_require(opt && *opt==99);
+    opt = imap.upperUnmapped(Scalar(104)); ASSERT_always_require(opt && *opt==99);
+    opt = imap.upperUnmapped(Scalar(105)); ASSERT_always_require(opt && *opt==105);
+    opt = imap.upperUnmapped(Scalar(114)); ASSERT_always_require(opt && *opt==114);
+    opt = imap.upperUnmapped(Scalar(115)); ASSERT_always_require(opt && *opt==114);
+    opt = imap.upperUnmapped(Scalar(116)); ASSERT_always_require(opt && *opt==114);
+    opt = imap.upperUnmapped(Scalar(117)); ASSERT_always_require(opt && *opt==114);
+    opt = imap.upperUnmapped(Scalar(118)); ASSERT_always_require(opt && *opt==114);
+    opt = imap.upperUnmapped(Scalar(119)); ASSERT_always_require(opt && *opt==114);
+    opt = imap.upperUnmapped(Scalar(120)); ASSERT_always_require(opt && *opt==120);
+    opt = imap.upperUnmapped(Scalar(121)); ASSERT_always_require(opt && *opt==121);
+
+    // Re-insert the middle part
+    std::cerr <<"insert([105,114], v1)\n";
+    imap.insert(Interval(105, 114), v1);
     show(imap);
     ASSERT_always_require(imap.size()==20);
     ASSERT_always_require(imap.nIntervals()==3);

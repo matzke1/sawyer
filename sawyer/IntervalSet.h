@@ -263,6 +263,55 @@ public:
     /** @} */
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //                                  Searching
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    /** Returns the minimum scalar contained in this set. */
+    Scalar lower() const {
+        ASSERT_forbid(isEmpty());
+        return map_.lower();
+    }
+
+    /** Returns the maximum scalar contained in this set. */
+    Scalar upper() const {
+        ASSERT_forbid(isEmpty());
+        return map_.upper();
+    }
+
+    /** Returns the limited-minimum scalar contained in this set.
+     *
+     *  Returns the minimum scalar that exists in this set and which is greater than or equal to @p lowerLimit.  If no such
+     *  value exists then nothing is returned. */
+    boost::optional<Scalar> lower(Scalar lowerLimit) const {
+        return map_.lower(lowerLimit);
+    }
+
+    /** Returns the limited-maximum scalar contained in this set.
+     *
+     *  Returns the maximum scalar that exists in this set and which is less than or equal to @p upperLimit.  If no such
+     *  value exists then nothing is returned. */
+    boost::optional<Scalar> upper(Scalar upperLimit) const {
+        return map_.upper(upperLimit);
+    }
+
+    /** Returns the limited-minimum scalar not contained in this set.
+     *
+     *  Returns the minimum scalar equal to or greater than the @p lowerLimit which is not in this set.  If no such value
+     *  exists then nothing is returned. */
+    boost::optional<Scalar> lowerNonExistent(Scalar lowerLimit) const {
+        return map_.lowerUnmapped(lowerLimit);
+    }
+
+    /** Returns the limited-maximum scalar not contained in this set.
+     *
+     *  Returns the maximum scalar equal to or less than the @p upperLimit which is not in this set.  If no such value exists
+     *  then nothing is returned. */
+    boost::optional<Scalar> upperNonExistent(Scalar upperLimit) const {
+        return map_.upperUnmapped(upperLimit);
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                  Modifiers
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
