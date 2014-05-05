@@ -186,52 +186,12 @@ void nonoverlappingCopy(const Word *src, const BitRange &srcRange, Word *dst, co
     }
 }
 
-// This function is called during the two-vector traversal. During that traversal, we copy the desired range second vector into
-// (this) temporary vector and shift it downward so it starts in the first word (the number of words shifted is the return
-// value). We also left/right shift it in order to give it the same intraword bit alignment as the first vector's range (r1).
-template<class Word>
-void traversalCopy(const Word *src, const BitRange &srcRange, size_t alignment, Word *dst) {
-#if 0 // [Robb Matzke 2014-05-02]
-    size_t shift = wordIndex<Word>(srcRange.least());   // number of low words discarded
-    size_t nWordsSrc = numberOfWords<Word>(srcRange.size());
-    size_t nWordsDst = numberOfWords<Word>(alignment + srcRange.size());
-    if (alignment < bitIndex<Word>(srcRange.least())) {
-        size_t bs = bitIndex<Word>(srcRange.least()) - alignment; // amount by which to right shift
-        for (size_t i=0; i<nWordsDst; ++i) {
-            dst[i] = src[i+shift] >> bs;
-            if (i+shift+1 < nWordsSrc)
-                dst[i] |= src[i+shift+1] << (bitsPerWord<Word>::value - bs);
-        }
-    } else if (alignment > bitIndex<Word>(srcRange.least())) {
-        size_t bs = alignment - bitIndex<Word>(srcRange.least()); // amount by which to left shift
-        for (size_t i=0; i<nWordsDst; ++i) {
-            if (i+shift > 0) {
-                dst[i] = (src[i+shift-1] >> (bitsPerWord<Word>::value - bs)) & bitMask<Word>(0, bs);
-            } else {
-                dst[i] = 0;
-            }
-            dst[i] |= src[i+shift] << bs;
-        }
-    } else {
-        for (size_t i=0; i<nWordsDst; i++)
-            dst[i] = src[i+shift];
-    }
-    return shift;
-#else
-    nonoverlappingCopy(src, srcRange, dst, BitRange::baseSize(alignment, srcRange.size()));
-#endif
-}
-
 template<class Src, class Dst>
-void conditionalCopy(const Src *src, size_t alignment, Dst *dst, const BitRange dstRange) {
-    ASSERT_require(sizeof(Src)==sizeof(Dst));
-    size_t dstWordIdx = wordIndex<Dst>(dstRange.least());
-    size_t dstBitIdx = bitIndex<Dst>(dstRange.least());
-    BitRange srcRange = BitRange::baseSize(alignment, dstRange.size());
-    traversalCopy(src, srcRange, dstBitIdx, dst + dstWordIdx);
+void conditionalCopy(const Src *src, const BitRange &srcRange, Dst *dst, const BitRange &dstRange) {
+    nonoverlappingCopy(src, srcRange, dst, dstRange);
 }
 template<class Src, class Dst>
-void conditionalCopy(const Src *src, size_t alignment, const Dst *dst, const BitRange dstRange) {
+void conditionalCopy(const Src *src, const BitRange &srcRange, const Dst *dst, const BitRange &dstRange) {
     // do not copy when dst is const
 }
 
@@ -304,7 +264,8 @@ void traverse2(Processor &processor, Word1 *vec1, const BitRange &range1, Word2 
     const size_t nWordsTmp = numberOfWords<Word2>(offsetInWord + range2.size());
     typename RemoveConst<Word1>::Base tmp[nWordsTmp];
     memset(tmp, 0, sizeof tmp);                         // only for making debugging easier
-    traversalCopy(vec1, range1, offsetInWord, tmp);     // copy from vec1 to tmp, and align data as for vec2
+    BitRange tmpRange = BitRange::baseSize(offsetInWord, range1.size());
+    nonoverlappingCopy(vec1, range1, tmp, tmpRange);
 
     // Do the traversal.  The first iteration's words are offset by offsetInWord bits, the remainder start at bit zero. All the
     // words except possibly the first and last are the full size.
@@ -321,7 +282,7 @@ void traverse2(Processor &processor, Word1 *vec1, const BitRange &range1, Word2 
     }
 
     // Copy tmp back into vec1, but only if vec1 is non-const
-    conditionalCopy(tmp, bitIndex<Word2>(range2.least()), vec1, range1);
+    conditionalCopy(tmp, tmpRange, vec1, range1);
 }
 
 /** Traverse two ranges of bits from high to low. */
@@ -339,7 +300,8 @@ void traverse2(Processor &processor, Word1 *vec1, const BitRange &range1, Word2 
     const size_t offsetInWord = bitIndex<Word2>(range2.least());
     const size_t nWordsTmp = numberOfWords<Word2>(offsetInWord + range2.size());
     typename RemoveConst<Word1>::Base tmp[nWordsTmp];
-    traversalCopy(vec1, range1, offsetInWord, tmp);    // copy from vec1 to tmp, and align data as for vec2
+    BitRange tmpRange = BitRange::baseSize(offsetInWord, range1.size());
+    nonoverlappingCopy(vec1, range1, tmp, tmpRange);
 
     // Traversal high-to-low.
     size_t nRemaining = range2.size();
@@ -367,7 +329,7 @@ void traverse2(Processor &processor, Word1 *vec1, const BitRange &range1, Word2 
     }
 
     // Copy tmp back into vec1, but only if vec1 is non-const
-    conditionalCopy(tmp, offsetInWord, vec1, range1);
+    conditionalCopy(tmp, tmpRange, vec1, range1);
 }
 
 template<class Processor, class Word>
