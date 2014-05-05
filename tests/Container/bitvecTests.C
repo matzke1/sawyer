@@ -495,6 +495,17 @@ static void addition_tests() {
     carry = v1.add(BitRange::baseSize(24, 12), BitRange::baseSize(20, 12));
     showBin(v1, "v1[24+12] += v1[20+12]");
     check(v1.toHex() == "ee56649f5b");
+
+    std::cout <<"  increment\n";
+    carry = v1.increment(BitRange::baseSize(28, 12));
+    showBin(v1, "v1[28+12] += 1");
+    check(v1.toHex() == "ee66649f5b");
+    check(!carry);
+
+    carry = v1.increment(BitRange::baseSize(8, 5));
+    showBin(v1, "v1[8+5] += 1");
+    check(v1.toHex() == "ee6664805b");
+    check(carry);
 }
 
 static void subtraction_tests() {
@@ -530,6 +541,37 @@ static void subtraction_tests() {
     showBin(v1, "v1[24+12] -= v1[20+12]");
     check(v1.toHex() == "d5f94cdccd");
     check(!carry);
+
+    std::cout <<"  decrement\n";
+    carry = v1.decrement(BitRange::baseSize(28, 12));
+    showBin(v1, "v1[28+12] -= 1");
+    check(v1.toHex() == "d5e94cdccd");
+    check(!carry);
+
+    v1.clear(BitRange::baseSize(8, 5));
+    showBin(v1, "cleared [8+5]");
+    carry = v1.decrement(BitRange::baseSize(8, 5));
+    showBin(v1, "v1[8+5] -= 1");
+    check(v1.toHex() == "d5e94cdfcd");
+    check(carry);
+}
+
+static void negate_tests() {
+    std::cout <<"negate\n";
+
+    std::cout <<"  initializing\n";
+    BitVector v1(40);
+    v1.fromHex("7cc6d8be14");
+    showBin(v1, "v1");
+
+    std::cout <<"  testing\n";
+    v1.negate(BitRange::baseSize(28, 12));
+    showBin(v1, "v1[28+12] = -v1[28+12]");
+    check(v1.toHex() == "8346d8be14");
+
+    v1.negate();
+    showBin(v1, "v1 = -v1");
+    check(v1.toHex() == "7cb92741ec");
 }
 
 static void sign_extend_tests() {
@@ -672,6 +714,7 @@ int main() {
     rotate_tests();
     addition_tests();
     subtraction_tests();
+    negate_tests();
     sign_extend_tests();
     boolean_tests();
     numeric_tests();

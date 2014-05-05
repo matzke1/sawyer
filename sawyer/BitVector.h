@@ -570,6 +570,61 @@ public:
     //                                  Arithmetic
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    /** Negates bits as integer.
+     *
+     *  Treats @p range1 of this vector as a two's complement integer and negates it, storing the result back into the same
+     *  range of bits.  The range must be valid for this vector. */
+    BitVector& negate(const BitRange &range1) {
+        checkRange(range1);
+        BitVectorSupport::negate(data(), range1);
+        return *this;
+    }
+    
+    /** Negates bits as integer.
+     *
+     *  Treats all bits of this vector as a two's complement integer and negates it, storing the result back into this
+     *  vector. */
+    BitVector& negate() {
+        BitVectorSupport::negate(data(), hull());
+        return *this;
+    }
+
+    /** Increment bits as integer.
+     *
+     *  Treats @p range1 of this vector as an integer and adds one to it, storing the result back into this vector. The range
+     *  must be valid for this vector. Returns true if all bits were originally set and the result is all clear (i.e., returns
+     *  the carry-out value) . */
+    bool increment(const BitRange &range1) {
+        checkRange(range1);
+        return BitVectorSupport::increment(data(), range1);
+    }
+
+    /** Increment bits as integer.
+     *
+     *  Treats the entire vector as an integer and adds one to it, storing the result back into the vector.  Returns true if
+     *  all bits were originally set and the result is all clear (i.e., returns the carry-out value). */
+    bool increment() {
+        return BitVectorSupport::increment(data(), hull());
+    }
+
+    /** Decrement bits as integer.
+     *
+     *  Treats @p range1 of this vector as an integer and subtracts one from it, storing the result back into this vector. The
+     *  range must be valid for this vector. Returns true if all bits were originally clear and the result is all set (i.e.,
+     *  returns the overflow bit) . */
+    bool decrement(const BitRange &range1) {
+        checkRange(range1);
+        return BitVectorSupport::decrement(data(), range1);
+    }
+
+    /** Decrement bits as integer.
+     *
+     *  Treats the entire vector as an integer and subtracts one from it, storing the result back into the vector.  Returns
+     *  true if all bits were originally clear and the result is all set (i.e., returns the overflow bit). */
+    bool decrement() {
+        return BitVectorSupport::decrement(data(), hull());
+    }
+    
     /** Add bits as integers.
      *
      *  Treats @p range1 of this vector and @p range2 of the @p other vector as integers, sums them, and stores the result in

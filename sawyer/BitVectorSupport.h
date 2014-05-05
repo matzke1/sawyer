@@ -877,21 +877,66 @@ boost::uint64_t toInteger(const Word *words, const BitRange &range) {
     return result;
 }
 
+/** Negate bits as an integer.
+ *
+ *  Interprets @p range of @p vec1 as a two's complement integer and negates its value. */
 template<class Word>
-struct InvertBits {
+void negate(Word *vec1, const BitRange &range) {
+    invert(vec1, range);
+    increment(vec1, range);
+}
+
+template<class Word>
+struct Increment {
+    bool carry;
+    Increment(): carry(true) {}
     bool operator()(Word &word, size_t nbits) {
-        word ^= bitMask<Word>(0, nbits);
-        return false;
+        ASSERT_require(carry);
+        Word mask = bitMask<Word>(0, nbits);
+        Word arg1 = word & mask;
+        Word sum = arg1 + 1;
+        word &= ~mask;
+        word |= sum & mask;
+        carry = (sum & mask) < arg1;
+        return !carry;                                  // terminate traversal when carry is false
     }
 };
 
-/** Invert bits.
+/** Increment.
  *
- *  Inverts all bits in the specified range. */
+ *  Interprets @p range of @p vec1 as an integer and increments the value by one.  The return value is the carry-out bit. */
 template<class Word>
-void invert(Word *words, const BitRange &range) {
-    InvertBits<Word> visitor;
-    traverse(visitor, words, range, LowToHigh());
+bool increment(Word *vec1, const BitRange &range1) {
+    Increment<Word> visitor;
+    traverse(visitor, vec1, range1, LowToHigh());
+    return visitor.carry;
+}
+
+template<class Word>
+struct Decrement {
+    bool borrowed;
+    Decrement(): borrowed(true) {}
+    bool operator()(Word &word, size_t nbits) {
+        ASSERT_require(borrowed);
+        Word mask = bitMask<Word>(0, nbits);
+        Word arg1 = word & mask;
+        borrowed = 0==arg1;
+        Word difference = (arg1 - 1) & mask;
+        word &= ~mask;
+        word |= difference;
+        return !borrowed;                               // terminate traversal unless we borrowed
+    }
+};
+
+/** Decrement.
+ *
+ *  Interprets @p range of @p vec1 as an integer and decrements the value by one. Returns true if the original value was zero
+ *  or empty. */
+template<class Word>
+bool decrement(Word *vec1, const BitRange &range1) {
+    Decrement<Word> visitor;
+    traverse(visitor, vec1, range1, LowToHigh());
+    return visitor.borrowed;
 }
 
 template<class Word>
@@ -974,6 +1019,23 @@ bool signExtend(const Word *vec1, const BitRange &range1, Word *vec2, const BitR
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Bit-wise Boolean logic
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<class Word>
+struct InvertBits {
+    bool operator()(Word &word, size_t nbits) {
+        word ^= bitMask<Word>(0, nbits);
+        return false;
+    }
+};
+
+/** Invert bits.
+ *
+ *  Inverts all bits in the specified range. */
+template<class Word>
+void invert(Word *words, const BitRange &range) {
+    InvertBits<Word> visitor;
+    traverse(visitor, words, range, LowToHigh());
+}
 
 template<class Word>
 struct AndBits {
