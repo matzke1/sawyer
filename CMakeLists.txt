@@ -6,7 +6,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
 
 find_package(PkgConfig)
-find_package(Boost 1.47.0 REQUIRED COMPONENTS system filesystem regex signals)
+find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex signals)
 
 set(lib_src
   sawyer/Assert.C

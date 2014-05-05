@@ -15,3 +15,6 @@ target_link_libraries(intervalUnitTests sawyer ${Boost_LIBRARIES})
 
 add_executable(addressMapUnitTests addressMapUnitTests.C)
 target_link_libraries(addressMapUnitTests sawyer ${Boost_LIBRARIES})
+
+add_executable(bitvecTests bitvecTests.C)
+target_link_libraries(bitvecTests sawyer ${Boost_LIBRARIES})
