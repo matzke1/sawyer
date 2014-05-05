@@ -951,12 +951,10 @@ struct AddBits {
         Word sum = addend1 + addend2 + addend3;
         w2 &= ~mask;
         w2 |= sum & mask;
-        if (nbits == bitsPerWord<Word>::value && (sum < addend2 || (sum==addend2 && carry))) {
-            carry = true;
-        } else if (0 != (sum & bitMask<Word>(nbits, 1))) {
-            carry = true;
+        if (nbits == bitsPerWord<Word>::value) {
+            carry = sum < addend2 || (sum==addend2 && carry);
         } else {
-            carry = false;
+            carry = 0 != (sum & bitMask<Word>(nbits, 1));
         }
         return false;
     }
