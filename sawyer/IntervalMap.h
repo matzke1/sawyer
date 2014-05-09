@@ -390,6 +390,79 @@ public:
     }
     /** @} */
 
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //                                  Accessors
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+public:
+    /** Returns a reference to an existing value.
+     *
+     *  Returns a reference to the value at the node with the specified @p scalar.  Unlike <code>std::map</code>, this
+     *  container does not instantiate a new value if the @p scalar key is not in the map's domain.  In other words, the
+     *  array operator for this class is more like an array operator on arrays or vectors--such objects are not automatically
+     *  extended if dereferenced with an operand that is outside the domain.
+     *
+     *  If the @p scalar is not part of this map's domain then an <code>std:domain_error</code> is thrown.
+     *
+     *  @{ */
+    Value& operator[](const typename Interval::Value &scalar) {
+        NodeIterator found = find(scalar);
+        if (found==nodes().end())
+            throw std::domain_error("key lookup failure; key is not in map domain");
+        return found->value();
+    }
+    const Value& operator[](const typename Interval::Value &scalar) const {
+        ConstNodeIterator found = find(scalar);
+        if (found==nodes().end())
+            throw std::domain_error("key lookup failure; key is not in map domain");
+        return found->value();
+    }
+    /** @} */
+
+    /** Lookup and return a value or nothing.
+     *
+     *  Looks up the node with the specified @p scalar key and returns either a copy of its value, or nothing. This method
+     *  executes in logorithmic time.
+     *
+     *  Here's an example of one convenient way to use this:
+     *
+     * @code
+     *  IntervalMap<AddressInterval, FileInfo> files;
+     *  ...
+     *  if (boost::optional<FileInfo> fileInfo = files.get(address))
+     *      std::cout <<"file info for " <<address <<" is " <<*fileInfo <<"\n";
+     * @endcode */
+    boost::optional<Value> get(const typename Interval::Value &scalar) const {
+        ConstNodeIterator found = find(scalar);
+        return found == nodes().end() ? boost::optional<Value>() : boost::optional<Value>(found->value());
+    }
+    
+    /** Lookup and return a value or something else.
+     *
+     *  This is similar to the @ref get method, except a default can be provided.  If a node with the specified @p scalar key
+     *  is present in this container, then a reference to that node's value is returned, otherwise the (reference to) supplied
+     *  default is returned.
+     *
+     * @{ */
+    Value& getOrElse(const typename Interval::Value &scalar, Value &dflt) {
+        NodeIterator found = find(scalar);
+        return found == nodes().end() ? dflt : found->value();
+    }
+    const Value& getOrElse(const typename Interval::Value &scalar, const Value &dflt) const {
+        ConstNodeIterator found = find(scalar);
+        return found == nodes().end() ? dflt : found->value();
+    }
+    /** @} */
+
+    /** Lookup and return a value or a default.
+     *
+     *  This is similar to the @ref getOrElse method except when the @p scalar key is not present in the map, a reference to a
+     *  const, default-constructed value is returned. */
+    const Value& getOrDefault(const typename Interval::Value &scalar) const {
+        static const Value dflt;
+        ConstNodeIterator found = find(scalar);
+        return found==nodes().end() ? dflt : found->value();
+    }
     
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                  Capacity
