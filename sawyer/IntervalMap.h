@@ -127,6 +127,12 @@ public:
     /** Type of the underlying map. */
     typedef Container::Map<Interval, Value, IntervalCompare> Map;
 
+    /** Storage node.
+     *
+     *  An Interval/Value pair with methods <code>key</code> and <code>value</code> for accessing the interval and its
+     *  associated value. */
+    typedef typename Map::Node Node;
+
     /** Iterator type.
      *
      *  This iterator visits the nodes of the container. Each node is an interval/value pair.
