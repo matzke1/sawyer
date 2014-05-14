@@ -146,7 +146,8 @@ public:
 
     /** Equality test.
      *
-     *  Two intervals are equal if they have the same lower and upper bound, and unequal if either bound differs.
+     *  Two intervals are equal if they have the same lower and upper bound, and unequal if either bound differs. Two empty
+     *  ranges are considered to be equal.
      *
      *  @{ */
     bool operator==(const Interval &other) const {
@@ -168,7 +169,9 @@ public:
 
     /** Hull.
      *
-     *  Returns the smallest interval that contains both this interval and the @p other interval. */
+     *  Returns the smallest interval that contains both this interval and the @p other interval.
+     *
+     *  @sa join */
     Interval hull(const Interval &other) const {
         if (isEmpty()) {
             return other;
@@ -189,6 +192,43 @@ public:
             return Interval(std::min(least(), value), std::max(greatest(), value));
         }
     }
+
+    /** Split interval in two.
+     *
+     *  Returns two interval by splitting this interval so that @p splitPoint is in the left returned interval.  If the split
+     *  is not a member of this interval then one of the two returned intervals will be empty, depending on whether the split
+     *  point is less than or greater than this interval.  If this interval is empty then both returned intervals will be empty
+     *  regardless of the split point. */
+    std::pair<Interval, Interval> split(T splitPoint) const {
+        if (isEmpty()) {
+            return std::make_pair(Interval(), Interval());
+        } else if (splitPoint < least()) {
+            return std::make_pair(Interval(), *this);
+        } else if (splitPoint <= greatest()) {
+            return std::make_pair(Interval(least(), splitPoint), Interval(splitPoint+1, greatest()));
+        } else {
+            return std::make_pair(*this, Interval());
+        }
+    }
+
+    /** Creates an interval by joining two adjacent intervals.
+     *
+     *  Concatenates this interval with the @p right interval and returns the result.  This is similar to @ref hull except
+     *  when neither interval is empty then the greatest value of this interval must be one less than the least value of the @p
+     *  right interval.
+     *
+     *  @sa hull */
+    Interval join(const Interval &right) const {
+        if (isEmpty()) {
+            return right;
+        } else if (right.isEmpty()) {
+            return *this;
+        } else {
+            ASSERT_require(greatest()+1 == right.least() && right.least() > greatest());
+            return hull(right);
+        }
+    }
+    
 };
 
 } // namespace
