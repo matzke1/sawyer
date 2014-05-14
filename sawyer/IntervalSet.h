@@ -322,26 +322,29 @@ public:
         map_.clear();
     }
 
-    // FIXME[Robb Matzke 2014-04-12]: should probably not rely on integer_traits. See ROSE RangeMap::invert_within
-    void invert() {
+    /** Invert and intersect.
+     *
+     *  Inverts this set and then intersects it with @p restricted. */
+    void invert(const Interval &restricted) {
         IntervalSet inverted;
-        Interval all(boost::integer_traits<typename Interval::Value>::const_min,
-                     boost::integer_traits<typename Interval::Value>::const_max);
-        typename Interval::Value pending = all.least();
-        bool insertTop = true;
-        for (ConstNodeIterator iter=nodes().begin(); iter!=nodes().end(); ++iter) {
-            if (pending < iter->least())
-                inverted.insert(Interval(pending, iter->least()-1));
-            if (iter->greatest() < all.greatest()) {
-                pending = iter->greatest() + 1;
-            } else {
-                insertTop = false;
-                ASSERT_require(++iter==nodes().end());
-                break;
+        if (!restricted.isEmpty()) {
+            typename Interval::Value pending = restricted.least();
+            bool insertTop = true;
+            for (typename Map::ConstKeyIterator iter=map_.lowerBound(restricted.least()); iter!=map_.keys().end(); ++iter) {
+                if (iter->least() > restricted.greatest())
+                    break;
+                if (pending < iter->least())
+                    inverted.insert(Interval(pending, iter->least()-1));
+                if (iter->greatest() < restricted.greatest()) {
+                    pending = iter->greatest() + 1;
+                } else {
+                    insertTop = false;
+                    break;
+                }
             }
+            if (insertTop)
+                inverted.insert(Interval(pending, restricted.greatest()));
         }
-        if (insertTop)
-            inverted.insert(Interval(pending, all.greatest()));
         std::swap(map_, inverted.map_);
     }
 

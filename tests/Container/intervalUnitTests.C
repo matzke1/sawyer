@@ -503,14 +503,14 @@ static void basic_set_tests() {
 
     std::cerr <<"invert() empty set\n";
     typename Interval::Value allSize = (all.greatest()-all.least()) + 1;// must cast because width(all) returns wrong type
-    set.invert();
+    set.invert(all);
     show(set);
     ASSERT_always_require(!set.isEmpty());
     ASSERT_always_require(set.size()==allSize);
     ASSERT_always_require(set.nIntervals()==1);
 
     std::cerr <<"invert() all set\n";
-    set.invert();
+    set.invert(all);
     show(set);
     ASSERT_always_require(set.isEmpty());
     ASSERT_always_require(set.size()==0);
@@ -559,14 +559,14 @@ static void basic_set_tests() {
 
     // Invert selection
     std::cerr <<"invert()\n";
-    set.invert();
+    set.invert(all);
     show(set);
     ASSERT_always_require(set.size()==typename Interval::Value(allSize-10));
     ASSERT_always_require(set.nIntervals()==3);
 
     // Invert again
     std::cerr <<"invert()\n";
-    set.invert();
+    set.invert(all);
     show(set);
     ASSERT_always_require(set.size()==10);
     ASSERT_always_require(set.nIntervals()==2);
