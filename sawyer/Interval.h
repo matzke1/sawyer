@@ -32,6 +32,7 @@ public:
     /** Constructs a singleton interval. */
     Interval(T value): lo_(value), hi_(value) {}
 
+#if 0 // [Robb Matzke 2014-05-14]: too much confusion with "hi" vs. "size". Use either baseSize or hull instead.
     /** Constructs an interval from endpoints.
      *
      *  The first end point must be less than or equal to the second end point.  If both endpoints are equal then a singleton
@@ -39,12 +40,16 @@ public:
     Interval(T lo, T hi): lo_(lo), hi_(hi) {
         ASSERT_require(lo <= hi);
     }
+#endif
 
     /** Construct an interval from two endpoints.
      *
      *  Returns the smallest interal that contains both points. */
     static Interval hull(T v1, T v2) {
-        return Interval(std::min(v1, v2), std::max(v1, v2));
+        Interval retval;
+        retval.lo_ = std::min(v1, v2);
+        retval.hi_ = std::max(v1, v2);
+        return retval;
     }
 
     /** Construct an interval from one endpoint and a size.
@@ -53,7 +58,7 @@ public:
      *  then an empty interval is created, in which case @p lo is irrelevant. */
     static Interval baseSize(T lo, T size) {
         ASSERT_require2(lo + size >= lo, "overflow");
-        return 0==size ? Interval() : Interval(lo, lo+size-1);
+        return 0==size ? Interval() : Interval::hull(lo, lo+size-1);
     }
 
     /** Assignment from an interval. */
@@ -164,7 +169,7 @@ public:
     Interval intersection(const Interval &other) const {
         if (isEmpty() || other.isEmpty() || greatest()<other.least() || least()>other.greatest())
             return Interval();
-        return Interval(std::max(least(), other.least()), std::min(greatest(), other.greatest()));
+        return Interval::hull(std::max(least(), other.least()), std::min(greatest(), other.greatest()));
     }
 
     /** Hull.
@@ -178,7 +183,7 @@ public:
         } else if (other.isEmpty()) {
             return *this;
         } else {
-            return Interval(std::min(least(), other.least()), std::max(greatest(), other.greatest()));
+            return Interval::hull(std::min(least(), other.least()), std::max(greatest(), other.greatest()));
         }
     }
 
@@ -189,7 +194,7 @@ public:
         if (isEmpty()) {
             return Interval(value);
         } else {
-            return Interval(std::min(least(), value), std::max(greatest(), value));
+            return Interval::hull(std::min(least(), value), std::max(greatest(), value));
         }
     }
 

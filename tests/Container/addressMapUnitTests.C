@@ -18,18 +18,18 @@ static void test01() {
 
     // Map them to neighboring locations in the address space
     MemoryMap map;
-    map.insert(Addresses(1000, 1004), Segment(buf2));
-    map.insert(Addresses(1005, 1009), Segment(buf1));
+    map.insert(Addresses::hull(1000, 1004), Segment(buf2));
+    map.insert(Addresses::hull(1005, 1009), Segment(buf1));
 
     // Write something across the two buffers using mapped I/O
     static const char *data1 = "abcdefghij";
-    Addresses accessed = map.write(data1, Addresses(1000, 1009));
+    Addresses accessed = map.write(data1, Addresses::hull(1000, 1009));
     ASSERT_always_require(accessed.size()==10);
 
     // Read back the data
     char data2[10];
     memset(data2, 0, sizeof data2);
-    accessed = map.read(data2, Addresses(1000, 1009));
+    accessed = map.read(data2, Addresses::hull(1000, 1009));
     ASSERT_always_require(accessed.size()==10);
     ASSERT_always_require(0==memcmp(data1, data2, 10));
 

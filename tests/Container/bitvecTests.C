@@ -54,7 +54,7 @@ static void string_tests() {
     check(v1.toOctal()=="11416625031020");
     check(v1.toBinary()=="1001100001110110010101000011001000010000");
 
-    check(v1.toHex(BitRange(10, 25)) == "950c");
+    check(v1.toHex(BitRange::hull(10, 25)) == "950c");
 }
 
 static void copy_ctor_tests() {
@@ -157,7 +157,7 @@ static void copybit_tests() {
     showBin(v2, "initial source");
 
     std::cout <<"  copy from one vector to another\n";
-    v1.copy(BitRange(20, 28), v2, BitRange(1, 9));
+    v1.copy(BitRange::hull(20, 28), v2, BitRange::hull(1, 9));
     showBin(v1, "copied [1-9] to [20-28]");
     check(v1.toHex()=="9866f43210");
     check(v2.toHex()=="abcde");
@@ -168,12 +168,12 @@ static void copybit_tests() {
     check(v1.toHex()=="9866f43433");
 
     std::cout <<"  overlapping copy right\n";
-    v1.copy(BitRange(3, 38), BitRange(4, 39));
+    v1.copy(BitRange::hull(3, 38), BitRange::hull(4, 39));
     showBin(v1, "copied [4-39] to [3-38]");
     check(v1.toHex()=="cc337a1a1b");
 
     std::cout <<"  overlapping copy left\n";
-    v1.copy(BitRange(3, 38), BitRange(2, 37));
+    v1.copy(BitRange::hull(3, 38), BitRange::hull(2, 37));
     showBin(v1, "copied [2-37] to [3-38]");
     check(v1.toHex()=="9866f43433");
 }
@@ -189,7 +189,7 @@ static void swap_tests() {
     showBin(v2, "v2");
 
     std::cout <<"  swap between buffers\n";
-    v1.swap(BitRange(4, 35), v2, BitRange(4, 35));
+    v1.swap(BitRange::hull(4, 35), v2, BitRange::hull(4, 35));
     showBin(v1, "v1");
     showBin(v2, "v2");
     check(v1.toHex()=="9789abcde0");
@@ -217,17 +217,17 @@ static void bitsearch_tests() {
     check(!idx);
 
     std::cout <<"  least set in [33-38]\n";
-    idx = v1.leastSignificantSetBit(BitRange(33, 38));
+    idx = v1.leastSignificantSetBit(BitRange::hull(33, 38));
     check(idx);
     check(*idx == 33);
 
     std::cout <<"  least set in [35-39]\n";
-    idx = v1.leastSignificantSetBit(BitRange(35, 39));
+    idx = v1.leastSignificantSetBit(BitRange::hull(35, 39));
     check(idx);
     check(*idx == 36);
 
     std::cout <<"  least set in [8-10]\n";
-    idx = v1.leastSignificantSetBit(BitRange(8, 10));
+    idx = v1.leastSignificantSetBit(BitRange::hull(8, 10));
     check(!idx);
 
     std::cout <<"  least set in hull\n";
@@ -238,17 +238,17 @@ static void bitsearch_tests() {
     //---- Most significant set
 
     std::cout <<"  most set in [33-38]\n";
-    idx = v1.mostSignificantSetBit(BitRange(33, 38));
+    idx = v1.mostSignificantSetBit(BitRange::hull(33, 38));
     check(idx);
     check(*idx == 37);
 
     std::cout <<"  most set in [0-10]\n";
-    idx = v1.mostSignificantSetBit(BitRange(0, 10));
+    idx = v1.mostSignificantSetBit(BitRange::hull(0, 10));
     check(idx);
     check(*idx == 7);
 
     std::cout <<"  most set in [8-10]\n";
-    idx = v1.mostSignificantSetBit(BitRange(8, 10));
+    idx = v1.mostSignificantSetBit(BitRange::hull(8, 10));
     check(!idx);
 
     std::cout <<"  most set in hull\n";
@@ -259,17 +259,17 @@ static void bitsearch_tests() {
     //---- Least significant clear
 
     std::cout <<"  least clear in [33-38]\n";
-    idx = v1.leastSignificantClearBit(BitRange(33, 38));
+    idx = v1.leastSignificantClearBit(BitRange::hull(33, 38));
     check(idx);
     check(*idx == 35);
 
     std::cout <<"  least clear in [1-39]\n";
-    idx = v1.leastSignificantClearBit(BitRange(1, 39));
+    idx = v1.leastSignificantClearBit(BitRange::hull(1, 39));
     check(idx);
     check(*idx == 6);
 
     std::cout <<"  least clear in [20-23]\n";
-    idx = v1.leastSignificantClearBit(BitRange(20, 23));
+    idx = v1.leastSignificantClearBit(BitRange::hull(20, 23));
     check(!idx);
 
     std::cout <<"  least clear in hull\n";
@@ -280,17 +280,17 @@ static void bitsearch_tests() {
     //----  Most significant clear
 
     std::cout <<"  most clear in [33-38]\n";
-    idx = v1.mostSignificantClearBit(BitRange(33, 38));
+    idx = v1.mostSignificantClearBit(BitRange::hull(33, 38));
     check(idx);
     check(*idx == 38);
 
     std::cout <<"  most clear in [0-28]\n";
-    idx = v1.mostSignificantClearBit(BitRange(0, 28));
+    idx = v1.mostSignificantClearBit(BitRange::hull(0, 28));
     check(idx);
     check(*idx == 25);
 
     std::cout <<"  most clear in [20-23]\n";
-    idx = v1.mostSignificantClearBit(BitRange(20, 23));
+    idx = v1.mostSignificantClearBit(BitRange::hull(20, 23));
     check(!idx);
 }
 
@@ -305,30 +305,30 @@ static void counting_tests() {
 
     std::cout <<"  isAllSet\n";
     check(v1.isAllSet(BitRange()));
-    check(v1.isAllSet(BitRange(29, 36)));
-    check(!v1.isAllSet(BitRange(29, 37)));
-    check(v1.isAllSet(BitRange(20, 24)));
+    check(v1.isAllSet(BitRange::hull(29, 36)));
+    check(!v1.isAllSet(BitRange::hull(29, 37)));
+    check(v1.isAllSet(BitRange::hull(20, 24)));
     check(!v1.isAllSet());
 
     std::cout <<"  isAllClear\n";
     check(v1.isAllClear(BitRange()));
-    check(v1.isAllClear(BitRange(25, 28)));
-    check(!v1.isAllClear(BitRange(25, 29)));
-    check(!v1.isAllClear(BitRange(24, 28)));
+    check(v1.isAllClear(BitRange::hull(25, 28)));
+    check(!v1.isAllClear(BitRange::hull(25, 29)));
+    check(!v1.isAllClear(BitRange::hull(24, 28)));
     check(v1.isAllClear(10));
     check(!v1.isAllClear(0));
     check(!v1.isAllClear());
 
     std::cout <<"  nSet\n";
     check(v1.nSet(BitRange()) == 0);
-    check(v1.nSet(BitRange(0, 4)) == 4);
-    check(v1.nSet(BitRange(30, 35)) == 6);
+    check(v1.nSet(BitRange::hull(0, 4)) == 4);
+    check(v1.nSet(BitRange::hull(30, 35)) == 6);
     check(v1.nSet() == 23);
 
     std::cout <<"  nClear\n";
     check(v1.nClear(BitRange()) == 0);
-    check(v1.nClear(BitRange(0, 4)) == 1);
-    check(v1.nClear(BitRange(25, 35)) == 4);
+    check(v1.nClear(BitRange::hull(0, 4)) == 1);
+    check(v1.nClear(BitRange::hull(25, 35)) == 4);
     check(v1.nClear() == 17);
 }
 
@@ -347,22 +347,22 @@ static void find_difference_tests() {
     //---- Least difference
 
     std::cout <<"  least difference two vectors\n";
-    idx = v1.leastSignificantDifference(BitRange(32, 35), v2, BitRange(32, 35));
+    idx = v1.leastSignificantDifference(BitRange::hull(32, 35), v2, BitRange::hull(32, 35));
     check(!idx);
 
-    idx = v1.leastSignificantDifference(BitRange(32, 39), v2, BitRange(32, 39));
+    idx = v1.leastSignificantDifference(BitRange::hull(32, 39), v2, BitRange::hull(32, 39));
     check(idx);
     check(*idx == 36-32);
 
-    idx = v1.leastSignificantDifference(BitRange(25, 35), v2, BitRange(25, 35));
+    idx = v1.leastSignificantDifference(BitRange::hull(25, 35), v2, BitRange::hull(25, 35));
     check(idx);
     check(*idx == 31-25);
 
     std::cout <<"  least difference one vector overlap\n";
-    idx = v1.leastSignificantDifference(BitRange(12, 24), BitRange(21, 33));
+    idx = v1.leastSignificantDifference(BitRange::hull(12, 24), BitRange::hull(21, 33));
     check(!idx);
 
-    idx = v1.leastSignificantDifference(BitRange(12, 25), BitRange(21, 34));
+    idx = v1.leastSignificantDifference(BitRange::hull(12, 25), BitRange::hull(21, 34));
     check(idx);
     check(*idx == 25-12);
 
@@ -374,18 +374,18 @@ static void find_difference_tests() {
     //---- Most difference
 
     std::cout <<"  most difference two vectors\n";
-    idx = v1.mostSignificantDifference(BitRange(32, 35), v2, BitRange(32, 35));
+    idx = v1.mostSignificantDifference(BitRange::hull(32, 35), v2, BitRange::hull(32, 35));
     check(!idx);
 
-    idx = v1.mostSignificantDifference(BitRange(20, 35), v2, BitRange(20, 35));
+    idx = v1.mostSignificantDifference(BitRange::hull(20, 35), v2, BitRange::hull(20, 35));
     check(idx);
     check(*idx == 31-20);
 
     std::cout <<"  most difference one vector overlap\n";
-    idx = v1.mostSignificantDifference(BitRange(12, 24), BitRange(21, 33));
+    idx = v1.mostSignificantDifference(BitRange::hull(12, 24), BitRange::hull(21, 33));
     check(!idx);
 
-    idx = v1.mostSignificantDifference(BitRange(11, 24), BitRange(20, 33));
+    idx = v1.mostSignificantDifference(BitRange::hull(11, 24), BitRange::hull(20, 33));
     check(idx);
     check(*idx == 0);
 
@@ -426,7 +426,7 @@ static void shift_tests() {
     showBin(v1, "[28+8] by 2");
     check(v1.toHex() == "ce4d8be147");
 
-    v1.shiftRightArithmetic(BitRange(4, 31), 4);
+    v1.shiftRightArithmetic(BitRange::hull(4, 31), 4);
     showBin(v1, "[4-31] by 4");
     check(v1.toHex() == "ce04d8be17");
 
@@ -475,7 +475,7 @@ static void addition_tests() {
     showBin(v2, "v2");
 
     std::cout <<"  from two vectors\n";
-    carry = v1.add(BitRange(24, 35), v2, BitRange(4, 15));
+    carry = v1.add(BitRange::hull(24, 35), v2, BitRange::hull(4, 15));
     showBin(v1, "v1[24-35] += v2[4-15]");
     check(v1.toHex() == "7adad8be14");
     check(carry);
@@ -520,7 +520,7 @@ static void subtraction_tests() {
     showBin(v2, "v2");
 
     std::cout <<"  from two vectors\n";
-    carry = v1.subtract(BitRange(24, 35), v2, BitRange(4, 15));
+    carry = v1.subtract(BitRange::hull(24, 35), v2, BitRange::hull(4, 15));
     showBin(v1, "v1[24-35] -= v2[4-15]");
     check(v1.toHex() == "7eb2d8be14");
     check(!carry);
@@ -678,16 +678,16 @@ static void numeric_tests() {
     check(!v1.isEqualToZero());
 
     std::cout <<"  compare unsigned\n";
-    check(v1.compare(BitRange(8, 39), v2, v2.hull()) < 0);
-    check(v1.compare(BitRange(7, 38), v2, v2.hull()) > 0);
-    check(v1.compare(BitRange(0, 1), v2, BitRange(10, 14))==0);
+    check(v1.compare(BitRange::hull(8, 39), v2, v2.hull()) < 0);
+    check(v1.compare(BitRange::hull(7, 38), v2, v2.hull()) > 0);
+    check(v1.compare(BitRange::hull(0, 1), v2, BitRange::hull(10, 14))==0);
     check(v1.compare(BitRange::baseSize(34, 5), BitRange::baseSize(9, 5))==0);
     check(v1.compare(v2) > 0);
     check(v2.compare(v1) < 0);
 
     std::cout <<"  compare signed\n";
-    check(v1.compareSigned(BitRange(0, 4), v2, BitRange(0, 4)) < 0);
-    check(v1.compareSigned(BitRange(4, 4), BitRange::baseSize(9, 5)) == 0);
+    check(v1.compareSigned(BitRange::hull(0, 4), v2, BitRange::hull(0, 4)) < 0);
+    check(v1.compareSigned(BitRange::hull(4, 4), BitRange::baseSize(9, 5)) == 0);
     check(v1.compareSigned(v2) > 0);
     check(v2.compareSigned(v1) < 0);
     check(v1.compareSigned(v1) == 0);

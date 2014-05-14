@@ -166,6 +166,27 @@ public:
                                                           ConstScalarIterator(nodes().end()));
     }
 
+    /** Find the first node whose interval ends at or above the specified scalar key.
+     *
+     *  Returns an iterator to the node, or the end iterator if no such node exists. */
+    ConstNodeIterator lowerBound(const typename Interval::Value &scalar) const {
+        return ConstNodeIterator(map_.lowerBound(scalar));
+    }
+
+    /** Find the last node whose interval starts at or below the specified scalar key.
+     *
+     *  Returns an iterator to the node, or the end iterator if no such node exists. */
+    ConstNodeIterator findPrior(const typename Interval::Value &scalar) const {
+        return ConstNodeIterator(map_.findPrior(scalar));
+    }
+
+    /** Find the node containing the specified scalar key.
+     *
+     *  Returns an iterator to the matching node, or the end iterator if no such node exists. */
+    ConstNodeIterator find(const typename Interval::Value &scalar) const {
+        return ConstNodeIterator(map_.find(scalar));
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                  Size
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -192,6 +213,11 @@ public:
      *  intervals.  Most algorithms employed by IntervalSet methods are either logarithmic or scalar in this number. */
     size_t nIntervals() const {
         return map_.nIntervals();
+    }
+
+    /** Returns the range of values in this map. */
+    Interval hull() const {
+        return map_.hull();
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -310,6 +336,34 @@ public:
         return map_.greatestUnmapped(upperLimit);
     }
 
+    /** Find the first fit node at or after a starting point.
+     *
+     *  Finds the first node of contiguous values beginning at or after the specified starting iterator, @p start, and which is
+     *  at least as large as the desired @p size.  If there are no such nodes then the end iterator is returned.
+     *
+     *  Caveat emptor: The @p size argument has the name type as the interval end points. If the end points have a signed type,
+     *  then it is entirely likely that the size will overflow.  In fact, it is also possible that unsigned sizes overflow
+     *  since, for example, an 8-bit unsigned size cannot hold the size of an interval representing the entire 8-bit space.
+     *  Therefore, use this method with care. */
+    ConstNodeIterator firstFit(const typename Interval::Value &size, ConstNodeIterator start) const {
+        return ConstNodeIterator(map_.firstFit(size, start.iter_));
+    }
+
+    /** Find the best fit node at or after a starting point.
+     *
+     *  Finds a node of contiguous values beginning at or after the specified starting iterator, @p start, and which is at
+     *  least as large as the desired @p size.  If there is more than one such node, then the first smallest such node is
+     *  returned.  If there are no such nodes then the end iterator is returned.
+     *
+     *  Caveat emptor: The @p size argument has the name type as the interval end points. If the end points have a signed type,
+     *  then it is entirely likely that the size will overflow.  In fact, it is also possible that unsigned sizes overflow
+     *  since, for example, an 8-bit unsigned size cannot hold the size of an interval representing the entire 8-bit space.
+     *  Therefore, use this method with care. */
+    ConstNodeIterator bestFit(const typename Interval::Value &size, ConstNodeIterator start) const {
+        return ConstNodeIterator(map_.bestFit(size, start.iter_));
+    }
+
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                  Modifiers
@@ -334,7 +388,7 @@ public:
                 if (iter->least() > restricted.greatest())
                     break;
                 if (pending < iter->least())
-                    inverted.insert(Interval(pending, iter->least()-1));
+                    inverted.insert(Interval::hull(pending, iter->least()-1));
                 if (iter->greatest() < restricted.greatest()) {
                     pending = iter->greatest() + 1;
                 } else {
@@ -343,7 +397,7 @@ public:
                 }
             }
             if (insertTop)
-                inverted.insert(Interval(pending, restricted.greatest()));
+                inverted.insert(Interval::hull(pending, restricted.greatest()));
         }
         std::swap(map_, inverted.map_);
     }
@@ -361,16 +415,16 @@ public:
 
     template<class Interval2>
     void insertMultiple(const IntervalSet<Interval2> &other) {
-        typedef typename IntervalSet<Interval2>::ConstNodeIterator OtherNodeIterator;
-        for (OtherNodeIterator otherIter=other.begin(); otherIter!=other.end(); ++otherIter)
+        typedef typename IntervalSet<Interval2>::ConstNodeIterator OtherIterator;
+        for (OtherIterator otherIter=other.nodes().begin(); otherIter!=other.nodes().end(); ++otherIter)
             map_.insert(*otherIter, 0);
     }
 
     template<class Interval2, class T, class Policy>
     void insertMultiple(const IntervalMap<Interval2, T, Policy> &other) {
-        typedef typename IntervalMap<Interval2, T, Policy>::ConstNodeIterator OtherNodeIterator;
-        for (OtherNodeIterator otherIter=other.begin(); otherIter!=other.end(); ++otherIter)
-            map_.insert(otherIter->first, 0);
+        typedef typename IntervalMap<Interval2, T, Policy>::ConstKeyIterator OtherIterator;
+        for (OtherIterator otherIter=other.keys().begin(); otherIter!=other.keys().end(); ++otherIter)
+            map_.insert(*otherIter, 0);
     }
     /** @} */
 
@@ -387,7 +441,7 @@ public:
 
     template<class Interval2>
     void eraseMultiple(const IntervalSet<Interval2> &other) {
-        ASSERT_forbid2((void*)other==(void*)this, "use IntervalSet::clear() instead");
+        ASSERT_forbid2((void*)&other==(void*)this, "use IntervalSet::clear() instead");
         typedef typename IntervalSet<Interval2>::ConstNodeIterator OtherNodeIterator;
         for (OtherNodeIterator otherIter=other.nodes().begin(); otherIter!=other.nodes().end(); ++otherIter)
             map_.erase(*otherIter);

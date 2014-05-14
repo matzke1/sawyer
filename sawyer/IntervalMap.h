@@ -376,9 +376,9 @@ public:
         typedef NodeIterator Iter;
         Iter best = nodes().end();
         for (Iter iter=start; iter!=nodes().end(); ++iter) {
-            if (inclusiveWidth(iter->key())==size && size!=0)
+            if (iter->key().size()==size && size!=0)
                 return iter;
-            if (inclusiveWidth(iter->key()) > size && (best==nodes().end() || width(iter->key()) < width(best->key())))
+            if (iter->key().size() > size && (best==nodes().end() || iter->key().size() < best->key().size()))
                 best = iter;
         }
         return best;
@@ -387,9 +387,9 @@ public:
         typedef ConstNodeIterator Iter;
         Iter best = nodes().end();
         for (Iter iter=start; iter!=nodes().end(); ++iter) {
-            if (inclusiveWidth(iter->key())==size && size!=0)
+            if (iter->key().size()==size && size!=0)
                 return iter;
-            if (inclusiveWidth(iter->key()) > size && (best==nodes().end() || width(iter->key()) < width(best->key())))
+            if (iter->key().size() > size && (best==nodes().end() || iter->key().size() < best->key().size()))
                 best = iter;
         }
         return best;
@@ -569,7 +569,7 @@ public:
     
     /** Returns the range of values in this map. */
     Interval hull() const {
-        return isEmpty() ? Interval() : Interval(least(), greatest());
+        return isEmpty() ? Interval() : Interval::hull(least(), greatest());
     }
 
 
@@ -637,7 +637,7 @@ public:
      *
      *  Every interval in @p other is erased from this container. */
     template<typename T2, class Policy2>
-    void erase(const IntervalMap<Interval, T2, Policy2> &other) {
+    void eraseMultiple(const IntervalMap<Interval, T2, Policy2> &other) {
         ASSERT_forbid2((const void*)&other != (const void*)this, "use clear() instead");
         typedef typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator OtherIter;
         for (OtherIter oi=other.nodes().begin(); oi!=other.nodes().end(); ++oi)
@@ -694,7 +694,7 @@ public:
         ASSERT_forbid2((const void*)&other != (const void*)this, "cannot insert a container into itself");
         typedef typename IntervalMap<Interval, T2, Policy>::ConstNodeIterator OtherIter;
         for (OtherIter oi=other.nodes().begin(); oi!=other.nodes().end(); ++oi)
-            insert(oi->first, Value(oi->second), makeHole);
+            insert(oi->key(), Value(oi->value()), makeHole);
     }
 
 // FIXME[Robb Matzke 2014-04-13]
@@ -756,8 +756,8 @@ private:
         ASSERT_forbid(interval.isEmpty());
         ASSERT_require(splitPoint > interval.least() && splitPoint <= interval.greatest());
 
-        Interval left(interval.least(), splitPoint-1);
-        Interval right(splitPoint, interval.greatest());
+        Interval left = Interval::hull(interval.least(), splitPoint-1);
+        Interval right = Interval::hull(splitPoint, interval.greatest());
         return IntervalPair(left, right);
     }
 
