@@ -587,7 +587,7 @@ target(typename graph_traits<const Sawyer::Container::Graph<V, E> >::edge_descri
 template<class V, class E>
 std::pair<typename graph_traits<Sawyer::Container::Graph<V, E> >::out_edge_iterator,
           typename graph_traits<Sawyer::Container::Graph<V, E> >::out_edge_iterator>
-out_edges(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+out_edges(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
           Sawyer::Container::Graph<V, E> &graph) {
     typename Sawyer::Container::Graph<V, E>::VertexNodeIterator v = graph.findVertex(vertex);
     return std::make_pair(Sawyer::Boost::EdgeOuterIterator<V, E>(v->outEdges().begin()),
@@ -597,7 +597,7 @@ out_edges(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descrip
 template<class V, class E>
 std::pair<typename graph_traits<const Sawyer::Container::Graph<V, E> >::out_edge_iterator,
           typename graph_traits<const Sawyer::Container::Graph<V, E> >::out_edge_iterator>
-out_edges(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+out_edges(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
           const Sawyer::Container::Graph<V, E> &graph) {
     typename Sawyer::Container::Graph<V, E>::ConstVertexNodeIterator v = graph.findVertex(vertex);
     return std::make_pair(Sawyer::Boost::ConstEdgeOuterIterator<V, E>(v->outEdges().begin()),
@@ -606,14 +606,14 @@ out_edges(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_d
 
 template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::degree_size_type
-out_degree(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+out_degree(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
            Sawyer::Container::Graph<V, E> &graph) {
     return graph.findVertex(vertex)->nOutEdges();
 }
 
 template<class V, class E>
 typename graph_traits<const Sawyer::Container::Graph<V, E> >::degree_size_type
-out_degree(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+out_degree(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
            const Sawyer::Container::Graph<V, E> &graph) {
     return graph.findVertex(vertex)->nOutEdges();
 }
@@ -625,7 +625,7 @@ out_degree(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_
 template<class V, class E>
 std::pair<typename graph_traits<Sawyer::Container::Graph<V, E> >::in_edge_iterator,
           typename graph_traits<Sawyer::Container::Graph<V, E> >::in_edge_iterator>
-in_edges(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+in_edges(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
          Sawyer::Container::Graph<V, E> &graph) {
     typename Sawyer::Container::Graph<V, E>::VertexNodeIterator v = graph.findVertex(vertex);
     return std::make_pair(Sawyer::Boost::EdgeOuterIterator<V, E>(v->inEdges().begin()),
@@ -635,7 +635,7 @@ in_edges(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descript
 template<class V, class E>
 std::pair<typename graph_traits<const Sawyer::Container::Graph<V, E> >::in_edge_iterator,
           typename graph_traits<const Sawyer::Container::Graph<V, E> >::in_edge_iterator>
-in_edges(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+in_edges(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
          const Sawyer::Container::Graph<V, E> &graph) {
     typename Sawyer::Container::Graph<V, E>::ConstVertexNodeIterator v = graph.findVertex(vertex);
     return std::make_pair(Sawyer::Boost::ConstEdgeOuterIterator<V, E>(v->inEdges().begin()),
@@ -644,28 +644,28 @@ in_edges(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_de
 
 template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::degree_size_type
-in_degree(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+in_degree(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
           Sawyer::Container::Graph<V, E> &graph) {
     return graph.findVertex(vertex)->nInEdges();
 }
 
 template<class V, class E>
 typename graph_traits<const Sawyer::Container::Graph<V, E> >::degree_size_type
-in_degree(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+in_degree(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
           const Sawyer::Container::Graph<V, E> &graph) {
     return graph.findVertex(vertex)->nInEdges();
 }
 
 template<class V, class E>
 typename graph_traits<Sawyer::Container::Graph<V, E> >::degree_size_type
-degree(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+degree(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
        Sawyer::Container::Graph<V, E> &graph) {
     return in_degree(vertex) + out_degree(vertex);
 }
 
 template<class V, class E>
 typename graph_traits<const Sawyer::Container::Graph<V, E> >::degree_size_type
-degree(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor &vertex,
+degree(typename graph_traits<const Sawyer::Container::Graph<V, E> >::vertex_descriptor vertex,
        const Sawyer::Container::Graph<V, E> &graph) {
     return in_degree(vertex) + out_degree(vertex);
 }
