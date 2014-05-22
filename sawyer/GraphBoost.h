@@ -422,6 +422,7 @@ struct graph_traits<Sawyer::Container::Graph<V, E> > {
     typedef size_t edge_descriptor;
     typedef directed_tag directed_category;
     typedef allow_parallel_edge_tag edge_parallel_category;
+    static size_t null_vertex() { return (size_t)(-1); }
 
     // VertexListGraph concepts
     typedef Sawyer::Boost::VertexOuterIterator<V, E> vertex_iterator;
