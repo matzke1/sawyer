@@ -6,8 +6,8 @@ using namespace Sawyer::Message;
 
 struct timespec delay = {0, 100000};
 
-template <typename T>
-void work(T niter, ProgressBar<T> &progress) {
+template <typename T, typename S>
+void work(T niter, ProgressBar<T, S> &progress) {
     Message::mlog[WHERE] <<"starting work, going up\n";
     for (T i=0; i<niter; ++i, ++progress) {
         nanosleep(&delay, NULL); // represents substantial work
@@ -26,13 +26,27 @@ void work(T niter, ProgressBar<T> &progress) {
 void test1(size_t niter, const SProxy &stream) {
     Message::mlog[WHERE] <<"basic progress bar\n";
     ProgressBar<size_t> progress(niter, stream, "test1");
+    progress.suffix(" items");
     work(niter, progress);
+}
+
+struct Suffix {
+    std::string name;
+    Suffix() {}
+    Suffix(const std::string &name): name(name) {}
+};
+
+std::ostream& operator<<(std::ostream &o, const Suffix &suffix) {
+    o <<" (" <<suffix.name <<")";
+    return o;
 }
 
 // Offset progress bar
 void test2(size_t niter, const SProxy &stream) {
+    Suffix suffix("hello world");
     Message::mlog[WHERE] <<"progress bar with offset\n";
-    ProgressBar<size_t> progress(1000000, 1000000, 1000000+niter, stream);
+    ProgressBar<size_t, Suffix> progress(1000000, 1000000, 1000000+niter, stream);
+    progress.suffix(suffix);
     work(niter, progress);
 }
 
