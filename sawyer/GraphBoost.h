@@ -730,14 +730,7 @@ remove_edge(typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descr
             typename graph_traits<Sawyer::Container::Graph<V, E> >::vertex_descriptor target,
             Sawyer::Container::Graph<V, E> &graph) {
     typename Sawyer::Container::Graph<V, E>::VertexNodeIterator src=graph.findVertex(source), tgt=graph.findVertex(target);
-    typename Sawyer::Container::Graph<V, E>::EdgeNodeIterator edge = src->outEdges().begin();
-    while (edge != src->outEdges().end()) {
-        if (edge->target() == tgt) {
-            edge = graph.eraseEdge(edge);
-        } else {
-            ++edge;
-        }
-    }
+    graph.eraseEdges(src, tgt);
 }
 
 template<class V, class E>
