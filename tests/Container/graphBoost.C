@@ -293,11 +293,28 @@ void example_sawyer_graph() {
 //                                      Hybrid Example
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// This mess is due to not being able to partially specialize boost::property_traits for arbitrary ConstVertexPropertyMap types.
+// See comments in GraphBoost.h for the disabled boost::property_traits specializations. It also precludes hybrid_example()
+// from being implemented more generally as a fuction template.
+typedef Sawyer::Container::Graph<VertexData, std::string> HybridExampleGraph;
+typedef Sawyer::Boost::ConstVertexIdPropertyMap<const HybridExampleGraph> HybridExampleGraphVertexIdPropertyMap;
+
+namespace boost {
+    template<>
+    struct property_traits<HybridExampleGraphVertexIdPropertyMap> {
+        typedef size_t value_type;
+        typedef const size_t &reference;
+        typedef size_t key_type;                            // vertex ID number
+        typedef boost::readable_property_map_tag category;
+    };
+} // namespace
+
+
 // This example uses the BGL wrapper around a Sawyer::Container::Graph.  The idea is that we can use either API interchangeably
 // and use the algorithms provided by BGL.
 void hybrid_example() {
     // Use Sawyer as the graph.
-    typedef Sawyer::Container::Graph<VertexData, std::string> Graph;
+    typedef HybridExampleGraph Graph;
 
     // Types.  Get types from boost rather than Sawyer.
     typedef boost::graph_traits<Graph>::vertex_descriptor VertexDesc;
