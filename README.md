@@ -13,6 +13,9 @@ when writing other C++ libraries and tools.  It's main components are:
 + Containers, including Graph, IndexedList, IntervalSet,
   IntervalMap, Map, and BitVector.
 
++ Miscellaneous: Memory pool allocators, small object support,
+  stopwatch-like timers.
+
 Documentation
 =============
 
