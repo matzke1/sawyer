@@ -1,9 +1,13 @@
 #ifndef Sawyer_PoolAllocator_H
 #define Sawyer_PoolAllocator_H
 
+#include <boost/foreach.hpp>
 #include <boost/static_assert.hpp>
+#include <boost/cstdint.hpp>
 #include <list>
 #include <sawyer/Assert.h>
+#include <sawyer/Interval.h>
+#include <sawyer/IntervalMap.h>
 
 namespace Sawyer {
 
@@ -35,10 +39,18 @@ namespace Sawyer {
  *  destructors for those objects. */
 template<size_t smallestCell, size_t sizeDelta, size_t nPools, size_t chunkSize>
 class PoolAllocatorBase {
+public:
+    enum { SMALLEST_CELL = smallestCell };
+    enum { SIZE_DELTA = sizeDelta };
+    enum { N_POOLS = nPools };
+    enum { CHUNK_SIZE = chunkSize };
+
 private:
 
     // Singly-linked list of cells (units of object backing store) that are not being used by the caller.
     struct FreeCell { FreeCell *next; };
+
+    typedef Sawyer::Container::Interval<boost::uint64_t> ChunkAddressInterval;
 
     // Basic unit of allocation.
     class Chunk {
@@ -50,15 +62,32 @@ private:
             ASSERT_require(cellSize >= sizeof(FreeCell));
             ASSERT_require(cellSize <= chunkSize);
             FreeCell *retval = NULL;
-            size_t nCells = chunkSize / cellSize;
-            for (size_t i=nCells; i>0; --i) {           // free list in address order is easier to debug at no extra expense
+            size_t n = chunkSize / cellSize;
+            for (size_t i=n; i>0; --i) {                // free list in address order is easier to debug at no extra expense
                 FreeCell *cell = reinterpret_cast<FreeCell*>(data_+(i-1)*cellSize);
                 cell->next = retval;
                 retval = cell;
             }
             return retval;
         }
+
+        ChunkAddressInterval extent() const {
+            return ChunkAddressInterval::hull(reinterpret_cast<boost::uint64_t>(data_),
+                                              reinterpret_cast<boost::uint64_t>(data_+chunkSize-1));
+        }
     };
+
+    struct ChunkInfo {
+        const Chunk *chunk;
+        size_t nUsed;
+        ChunkInfo(): chunk(NULL), nUsed(0) {}
+        ChunkInfo(const Chunk *chunk, size_t nUsed): chunk(chunk), nUsed(nUsed) {}
+        bool operator==(const ChunkInfo &other) const {
+            return chunk==other.chunk && nUsed==other.nUsed;
+        }
+    };
+
+    typedef Sawyer::Container::IntervalMap<ChunkAddressInterval, ChunkInfo> ChunkInfoMap;
 
     // Manages a list of chunks for cells that are all the same size.
     class Pool {
@@ -74,6 +103,8 @@ private:
             for (typename std::list<Chunk*>::iterator ci=chunks_.begin(); ci!=chunks_.end(); ++ci)
                 delete *ci;
         }
+
+        bool isEmpty() const { return chunks_.empty(); }
 
         // Obtains the cell at the front of the free list, allocating more space if necessary.
         void* aquire() {                                // hot
@@ -96,23 +127,64 @@ private:
             freedCell->next = freeList_;
             freeList_ = freedCell;
         }
+
+        // Information about each chunk
+        ChunkInfoMap chunkInfo() const {
+            ChunkInfoMap map;
+            BOOST_FOREACH (const Chunk* chunk, chunks_)
+                map.insert(chunk->extent(), ChunkInfo(chunk, chunkSize / cellSize_));
+            for (FreeCell *cell=freeList_; cell!=NULL; cell=cell->next) {
+                typename ChunkInfoMap::ValueIterator found = map.find(reinterpret_cast<boost::uint64_t>(cell));
+                ASSERT_require2(found!=map.values().end(), "each freelist item must be some chunk cell");
+                ASSERT_require2(found->nUsed > 0, "freelist must be consistent with chunk capacities");
+                --found->nUsed;
+            }
+            return map;
+        }
+
+        void vacuum() {
+            ChunkInfoMap map = chunkInfo();
+
+            // Create a new free list that doesn't have any cells that belong to chunks that are about to be deleted
+            FreeCell *cell = freeList_, *next = NULL;
+            freeList_ = NULL;
+            for (/*void*/; cell!=NULL; cell=next) {
+                next = cell->next;
+                boost::uint64_t cellAddr = reinterpret_cast<boost::uint64_t>(cell);
+                if (map[cellAddr].nUsed != 0) {
+                    cell->next = freeList_;
+                    freeList_ = cell;
+                }
+            }
+
+            // Delete chunks that have no used cells.
+            typename std::list<Chunk*>::iterator iter = chunks_.begin();
+            while (iter!=chunks_.end()) {
+                Chunk *chunk = *iter;
+                boost::uint64_t cellAddr = chunk->extent().least(); // any cell will do
+                if (map[cellAddr].nUsed == 0) {
+                    delete chunk;
+                    iter = chunks_.erase(iter);
+                } else {
+                    ++iter;
+                }
+            }
+        }
+
+        void showInfo(std::ostream &out) const {
+            const size_t nCells = chunkSize / cellSize_;
+            BOOST_FOREACH (const ChunkInfo &info, chunkInfo().values())
+                out <<"  chunk " <<info.chunk <<"\t" <<info.nUsed <<"/" <<nCells <<"\t= " <<100.0*info.nUsed/nCells <<"%\n";
+        }
     };
 
 private:
     std::vector<Pool> pools_;
 
-    static size_t poolNumber(size_t size) {             // maps request size to pool number, assuming infinite number of pools
-        return (size - smallestCell - 1) / sizeDelta;
-    }
-
-    static size_t poolSize(size_t poolNumber) {
-        return smallestCell + poolNumber * sizeDelta;
-    }
-
     void init() {
         pools_.reserve(nPools);
         for (size_t i=0; i<nPools; ++i)
-            pools_.push_back(Pool(poolSize(i)));
+            pools_.push_back(Pool(cellSize(i)));
     }
 
 public:
@@ -132,6 +204,30 @@ public:
      *  Destroying a pool allocator destroys all its pools, which means that any objects that use storage managed by this pool
      *  will have their storage deleted. */
     virtual ~PoolAllocatorBase() {}
+
+public:
+    /** Pool number for a request size.
+     *
+     *  The return value is a pool number assuming that an infinite number of pools is available.  In practice, if the return
+     *  value is greater than or equal to the @p nPools template argument then allocation is handled by the global "new"
+     *  operator rather than this allocator. */
+    static size_t poolNumber(size_t size) {
+        return size <= smallestCell ? 0 : (size - smallestCell + sizeDelta - 1) / sizeDelta;
+    }
+
+    /** Size of each cell for a given pool.
+     *
+     *  Returns the number of bytes per cell for the given pool. */
+    static size_t cellSize(size_t poolNumber) {
+        return smallestCell + poolNumber * sizeDelta;
+    }
+
+    /** Number of cells per chunk.
+     *
+     *  Returns the number of cells contained in each chunk of the specified pool. */
+    static size_t nCells(size_t poolNumber) {
+        return chunkSize / cellSize(poolNumber);
+    }
 
     /** Allocate one object of specified size.
      *
@@ -159,6 +255,28 @@ public:
             pools_[pn].release(addr);
         } else {
             ::operator delete(addr);
+        }
+    }
+
+    /** Delete unused chunks.
+     *
+     *  A pool allocator is optimized for the utmost performance when allocating and deallocating small objects, and therefore
+     *  does minimal bookkeeping and does not free chunks.  This method traverses the free lists to discover which chunks have
+     *  no cells in use, removes those cells from the free list, and frees the chunk. */
+    void vacuum() {
+        for (size_t pn=0; pn<nPools; ++pn)
+            pools_[pn].vacuum();
+    }
+
+    /** Print pool allocation information.
+     *
+     *  Prints some interesting information about each chunk of each pool. The output will be multiple lines. */
+    void showInfo(std::ostream &out) const {
+        for (size_t pn=0; pn<nPools; ++pn) {
+            if (!pools_[pn].isEmpty()) {
+                out <<"  pool #" <<pn <<"; cellSize = " <<cellSize(pn) <<" bytes:\n";
+                pools_[pn].showInfo(out);
+            }
         }
     }
 };

@@ -30,12 +30,14 @@ int main() {
 
     std::vector<Object> objects(nObjects);
 
-#if 0 // [Robb Matzke 2014-05-24]
-    Sawyer::PoolAllocator allocator;
+#if 1 // [Robb Matzke 2014-05-24]
+    typedef Sawyer::PoolAllocator Allocator;
 #else
-    SystemAllocator allocator;
+    typedef SystemAllocator Allocator;
 #endif
+    Allocator allocator;
 
+    // Allocate and deallocate at random
     Sawyer::Stopwatch stopwatch;
     size_t nalloc=0, nfree=0;
     for (size_t iter=0; iter<nIterations; ++iter) {
@@ -52,9 +54,21 @@ int main() {
         }
     }
     double elapsed = stopwatch.stop();
-
     std::cout <<"allocations:   " <<nalloc <<"\n";
     std::cout <<"deallocations: " <<nfree <<"\n";
     std::cout <<"elapsed:       " <<elapsed <<" seconds\n";
     std::cout <<"rate:          " <<((nalloc+nfree)/elapsed*1e-6) <<" MOPS\n";
+
+#if 0 // [Robb Matzke 2014-05-27]
+    // Deallocate everything
+    for (size_t i=0; i<objects.size(); ++i) {
+        if (objects[i].address!=NULL) {
+            allocator.deallocate(objects[i].address, objects[i].size);
+            objects[i] = Object();
+            ++nfree;
+        }
+    }
+    allocator.vacuum();
+    allocator.showInfo(std::cout);
+#endif
 }
