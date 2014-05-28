@@ -1,6 +1,8 @@
 #include <sawyer/BitVector.h>
 #include <sawyer/Assert.h>
 
+#include <iostream>
+
 #define check(COND) ASSERT_always_require((COND))
 
 using namespace Sawyer::Container;

@@ -1,7 +1,10 @@
 #include <sawyer/AddressMap.h>
+
 #include <sawyer/AllocatingBuffer.h>
 #include <sawyer/MappedBuffer.h>
 #include <sawyer/StaticBuffer.h>
+
+#include <iostream>
 
 using namespace Sawyer::Container;
 

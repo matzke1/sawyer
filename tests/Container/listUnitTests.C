@@ -1,6 +1,7 @@
 #include <sawyer/IndexedList.h>
 #include <sawyer/Assert.h>
 #include <boost/foreach.hpp>
+#include <iostream>
 #include <string>
 
 using namespace Sawyer::Container;

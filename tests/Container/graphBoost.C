@@ -8,6 +8,7 @@
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/foreach.hpp>
+#include <iostream>
 #include <string>
 
 // User-defined data per vertex and stored inside the graph.

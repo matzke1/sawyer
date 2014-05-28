@@ -1,6 +1,7 @@
 #include <sawyer/Graph.h>
 #include <sawyer/Assert.h>
 #include <boost/foreach.hpp>
+#include <iostream>
 #include <string>
 #include <vector>
 

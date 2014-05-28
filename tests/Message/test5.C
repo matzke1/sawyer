@@ -1,5 +1,6 @@
 // Tests some message filters
 #include <sawyer/Message.h>
+#include <iostream>
 
 using namespace Sawyer::Message;
 

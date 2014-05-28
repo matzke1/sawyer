@@ -1,6 +1,7 @@
 #include <sawyer/Interval.h>
 #include <sawyer/IntervalSet.h>
 #include <boost/foreach.hpp>
+#include <iostream>
 
 template<typename T>
 std::ostream& operator<<(std::ostream &o, const Sawyer::Container::Interval<T> &interval) {

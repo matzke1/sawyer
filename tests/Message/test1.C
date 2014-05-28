@@ -1,6 +1,7 @@
 #include <sawyer/Message.h>
 
 #include <cstdio>
+#include <iostream>
 #include <syslog.h>
 
 using namespace Sawyer::Message;
