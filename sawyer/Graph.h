@@ -722,7 +722,18 @@ public:
     /** Assignment.
      *
      *  Causes this graph to look like @p other in that this graph will have copies of all the @p other vertex and edge data
-     *  and the same vertex connectivity as @p other.  The vertices and edgse of @p other must be convertible to the types of
+     *  and the same vertex connectivity as @p other.  The vertices and edges will have the same ID numbers as in @p other.
+     *  The order of vertex and edge traversals is not expected to be identical between the two graphs.
+     *
+     *  Time complexity is linear in the sum of the number of vertices and edges in this graph and @p other. */
+    Graph& operator=(const Graph &other) {
+        return operator=<V, E>(other);
+    }
+    
+    /** Assignment.
+     *
+     *  Causes this graph to look like @p other in that this graph will have copies of all the @p other vertex and edge data
+     *  and the same vertex connectivity as @p other.  The vertices and edges of @p other must be convertible to the types of
      *  vertices and edges in this graph, and they will have the same ID numbers as in @p other.  The order of vertex and edge
      *  traversals is not expected to be identical between the two graphs.
      *

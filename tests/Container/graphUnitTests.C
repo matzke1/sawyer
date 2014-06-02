@@ -352,40 +352,63 @@ void assignment() {
     std::cout <<"assignment operator:\n";
     typedef typename Graph::VertexNodeIterator Vertex;
     typedef typename Graph::EdgeNodeIterator Edge;
-    
-    Graph graph;
-    Vertex v0 = graph.insertVertex("vine");
-    Vertex v1 = graph.insertVertex("vinegar");
-    Vertex v2 = graph.insertVertex("violin");
-    Vertex v3 = graph.insertVertex("visa");
-    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
-    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
-    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
-    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
-    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
-    std::cout <<"  initial graph:\n" <<graph;
 
     Graph g2;
     Vertex v4 = g2.insertVertex("vertex to be clobbered");
     g2.insertEdge(v4, v4, "edge to be clobbered");
-    g2 = graph;
-    std::cout <<"  new graph:\n" <<g2;
 
-    ASSERT_always_require(graph.nVertices() == g2.nVertices());
-    for (size_t i=0; i<graph.nVertices(); ++i) {
-        typename Graph::ConstVertexNodeIterator v1=graph.findVertex(i), v2=g2.findVertex(i);
-        ASSERT_always_require(v1->value() == v2->value());
-        ASSERT_always_require(v1->nOutEdges() == v2->nOutEdges());
-        ASSERT_always_require(v1->nInEdges() == v2->nInEdges());
+    {
+        Graph graph;
+        Vertex v0 = graph.insertVertex("vine");
+        Vertex v1 = graph.insertVertex("vinegar");
+        Vertex v2 = graph.insertVertex("violin");
+        Vertex v3 = graph.insertVertex("visa");
+        Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
+        Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
+        Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
+        Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
+        Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
+        std::cout <<"  initial graph:\n" <<graph;
+        g2 = graph;
+
+        std::cout <<"  new graph:\n" <<g2;
+
+        ASSERT_always_require(graph.nVertices() == g2.nVertices());
+        for (size_t i=0; i<graph.nVertices(); ++i) {
+            typename Graph::ConstVertexNodeIterator v1=graph.findVertex(i), v2=g2.findVertex(i);
+            ASSERT_always_require(v1->value() == v2->value());
+            ASSERT_always_require(v1->nOutEdges() == v2->nOutEdges());
+            ASSERT_always_require(v1->nInEdges() == v2->nInEdges());
+        }
+
+        ASSERT_always_require(graph.nEdges() == g2.nEdges());
+        for (size_t i=0; i<graph.nEdges(); ++i) {
+            typename Graph::ConstEdgeNodeIterator e1=graph.findEdge(i), e2=g2.findEdge(i);
+            ASSERT_always_require(e1->value() == e2->value());
+            ASSERT_always_require(e1->source()->id() == e2->source()->id());
+            ASSERT_always_require(e1->target()->id() == e2->target()->id());
+        }
     }
 
-    ASSERT_always_require(graph.nEdges() == g2.nEdges());
-    for (size_t i=0; i<graph.nEdges(); ++i) {
-        typename Graph::ConstEdgeNodeIterator e1=graph.findEdge(i), e2=g2.findEdge(i);
-        ASSERT_always_require(e1->value() == e2->value());
-        ASSERT_always_require(e1->source()->id() == e2->source()->id());
-        ASSERT_always_require(e1->target()->id() == e2->target()->id());
+    // graph is deleted now.
+    for (typename Graph::VertexNodeIterator vi=g2.vertices().begin(); vi!=g2.vertices().end(); ++vi) {
+        typename Graph::VertexNode &vertex = *vi;
+#if 1 /*DEBUGGING [Robb Matzke 2014-06-02]*/
+        typename Graph::EdgeNodeIterator xxx=vertex.outEdges().begin();
+        ++xxx;
+        typename Graph::EdgeNodeIterator yyy=vertex.outEdges().end();
+#endif
+        for (typename Graph::EdgeNodeIterator ei=vertex.outEdges().begin(); ei!=vertex.outEdges().end(); ++ei) {
+            typename Graph::EdgeNode &edge = *ei;
+            ASSERT_always_require(edge.source()->id() == vertex.id());
+        }
+        for (typename Graph::EdgeNodeIterator ei=vertex.inEdges().begin(); ei!=vertex.inEdges().end(); ++ei) {
+            typename Graph::EdgeNode &edge = *ei;
+            ASSERT_always_require(edge.target()->id() == vertex.id());
+        }
     }
+    BOOST_FOREACH (typename Graph::EdgeNode &edge, g2.edges())
+        (void) edge.value();
 }
 
 class String {

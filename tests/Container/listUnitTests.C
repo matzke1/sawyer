@@ -319,29 +319,42 @@ template<class List>
 void list_assignment() {
     std::cout <<"list assignment:\n";
 
-    List list;
-    list.pushFront("third");                            // id=0
-    list.pushBack("fourth");                            // id=1
-    list.pushFront("second");                           // id=2
-    list.pushBack("fifth");                             // id=3
-    list.pushFront("first");                            // id=4
-    list.pushBack("sixth");                             // id=5
-    std::cout <<"  initial list:     " <<list <<"\n";
-
     List list2;
-    list2.pushBack("aaa");
-    list2.pushBack("bbb");
-    list2 = list;
-    std::cout <<"  assignment:       " <<list2 <<"\n";
-    ASSERT_always_require(list2.size()==6);
-    ASSERT_always_require(list2.frontNode().value()=="first");
-    ASSERT_always_require(list2.backNode().value()=="sixth");
-    ASSERT_always_require(list2.nodes().begin()!=list.nodes().begin());
+    list2.pushBack("aaa");                              // will be clobbered
+    list2.pushBack("bbb");                              // ditto
+    {
+        List list;                                      // destroyed at end of scope
+        list.pushFront("third");                        // id=0
+        list.pushBack("fourth");                        // id=1
+        list.pushFront("second");                       // id=2
+        list.pushBack("fifth");                         // id=3
+        list.pushFront("first");                        // id=4
+        list.pushBack("sixth");                         // id=5
+        std::cout <<"  initial list:     " <<list <<"\n";
 
-    std::cout <<"  original list:    " <<list <<"\n";
-    ASSERT_always_require(list.size()==6);
-    ASSERT_always_require(list.frontNode().value()=="first");
-    ASSERT_always_require(list.backNode().value()=="sixth");
+        list2 = list;
+        std::cout <<"  assignment:       " <<list2 <<"\n";
+        ASSERT_always_require(list2.size()==6);
+        ASSERT_always_require(list2.frontNode().value()=="first");
+        ASSERT_always_require(list2.backNode().value()=="sixth");
+        ASSERT_always_require(list2.nodes().begin()!=list.nodes().begin());
+
+        std::cout <<"  original list:    " <<list <<"\n";
+        ASSERT_always_require(list.size()==6);
+        ASSERT_always_require(list.frontNode().value()=="first");
+        ASSERT_always_require(list.backNode().value()=="sixth");
+    }
+
+    // iterate over list2 now that list has been destroyed.
+    size_t x = list2.size();
+    for (size_t i=0; i<x; ++i) {
+        (void) list2.find(i)->id();
+        (void) list2.find(i)->value();
+    }
+    BOOST_FOREACH (const typename List::Node &node, list2.nodes()) {
+        x += node.id();
+    }
+
 }
 
 template<class List>
