@@ -1,5 +1,7 @@
 #include <sawyer/IndexedList.h>
+
 #include <sawyer/Assert.h>
+#include <sawyer/PoolAllocator.h>
 #include <boost/foreach.hpp>
 #include <iostream>
 #include <string>
@@ -401,6 +403,13 @@ struct Elmt2 {
 
 Sawyer::Container::IndexedList<Elmt2> index_list_self_referent_test;
 
+// Tests user-specified allocator
+void user_allocator() {
+    Sawyer::PoolAllocator pools;
+    Sawyer::AllocatorProxy<Sawyer::PoolAllocator> alloc(pools);
+    Sawyer::Container::IndexedList<int, Sawyer::AllocatorProxy<Sawyer::PoolAllocator> > list(alloc);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main() {
 
@@ -419,4 +428,5 @@ int main() {
     copy_ctor<L1>();
     list_assignment<L1>();
     iter_from_ptr<L1>();
+    user_allocator();
 }

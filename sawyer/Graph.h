@@ -1,6 +1,7 @@
 #ifndef Sawyer_Graph_H
 #define Sawyer_Graph_H
 
+#include <sawyer/DefaultAllocator.h>
 #include <sawyer/IndexedList.h>
 #include <boost/range/iterator_range.hpp>
 #include <ostream>
@@ -68,18 +69,19 @@ namespace Container {
  *  @li %Graph copy: O(|V|+|E|)
  *
  *  Insertion is amortized constant time due to a vector-based ID map that may require reallocation. */
-template<class V, class E>
+template<class V, class E, class Alloc = DefaultAllocator>
 class Graph {
 public:
     typedef V VertexValue;                              /**< User-level data associated with vertices. */
     typedef E EdgeValue;                                /**< User-level data associated with edges. */
+    typedef Alloc Allocator;                            /**< Allocator for vertex and edge nodes. */
     class VertexNode;                                   /**< All information about a vertex. User info plus connectivity info. */
     class EdgeNode;                                     /**< All information about an edge. User info plus connectivity info. */
 
 private:
     enum EdgePhase { IN_EDGES=0, OUT_EDGES=1, N_PHASES=2 };
-    typedef IndexedList<EdgeNode> EdgeList;
-    typedef IndexedList<VertexNode> VertexList;
+    typedef IndexedList<EdgeNode, Allocator> EdgeList;
+    typedef IndexedList<VertexNode, Allocator> VertexList;
 
     template<class T>
     class VirtualList {
@@ -694,7 +696,7 @@ public:
      *  Creates an empty graph.
      *
      *  Time complexity is constant. */
-    Graph() {};
+    Graph(const Allocator &allocator = Allocator()): edges_(allocator), vertices_(allocator) {};
 
     /** Copy constructor.
      *
@@ -702,8 +704,11 @@ public:
      *  connectivity.  Vertices and edges in this new graph will have the same ID numbers as the @p other graph, but the order
      *  of vertex and edges traversals is not expected to be the same.
      *
+     *  The new graph's allocator is copy constructed from the source graph's allocator, which results in the new allocator
+     *  having the same settings but sharing none of the original data.
+     *
      *  Time complexity is linear in the total number of vertices and edges in @p other. */
-    Graph(const Graph &other) {
+    Graph(const Graph &other): edges_(other.edges_.allocator()), vertices_(other.vertices_.allocator()) {
         *this = other;
     }
 
@@ -715,8 +720,9 @@ public:
      *  expected to be identical between the two graphs.
      *
      *  Time complexity is linear in the total number of vertices and edges in @p other. */
-    template<class V2, class E2>
-    Graph(const Graph<V2, E2> &other) {
+    template<class V2, class E2, class Alloc2>
+    Graph(const Graph<V2, E2, Alloc2> &other, const Allocator &allocator = Allocator())
+        : edges_(allocator), vertices_(allocator) {
         *this = other;
     }
 
@@ -739,8 +745,8 @@ public:
      *  traversals is not expected to be identical between the two graphs.
      *
      *  Time complexity is linear in the sum of the number of vertices and edges in this graph and @p other. */
-    template<class V2, class E2>
-    Graph& operator=(const Graph<V2, E2> &other) {
+    template<class V2, class E2, class Alloc2>
+    Graph& operator=(const Graph<V2, E2, Alloc2> &other) {
         clear();
         for (size_t i=0; i<other.nVertices(); ++i) {
             typename Graph<V2, E2>::ConstVertexNodeIterator vertex = other.findVertex(i);
@@ -754,6 +760,13 @@ public:
             insertEdge(vsrc, vtgt, EdgeValue(edge->value()));
         }
         return *this;
+    }
+
+    /** Allocator.
+     *
+     *  Returns the allocator used for vertices (and probably edges). */
+    const Allocator& allocator() {
+        return vertices_.allocator();
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

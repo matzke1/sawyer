@@ -210,9 +210,16 @@ public:
         init();
     }
 
+    /** Copy constructor.
+     *
+     *  Copying an allocator does not copy its pools, but rather creates a new allocator that is empty but has the same
+     *  settings as the source allocator. */
+    PoolAllocatorBase(const PoolAllocatorBase&) {
+        init();
+    }
+
 private:
-    // Pool allocators are not copyable.
-    PoolAllocatorBase(const PoolAllocatorBase&);
+    // Assignment is nonsensical
     PoolAllocatorBase& operator=(const PoolAllocatorBase&);
 
 public:
@@ -299,6 +306,17 @@ public:
             }
         }
     }
+};
+
+
+
+template<class Allocator>
+class AllocatorProxy {
+    Allocator &allocator_;
+public:
+    explicit AllocatorProxy(Allocator &allocator): allocator_(allocator) {}
+    void *allocate(size_t size) { return allocator_.allocate(size); }
+    void deallocate(void *addr, size_t size) { allocator_.deallocate(addr, size); }
 };
 
 /** Small object allocation from memory pools.
