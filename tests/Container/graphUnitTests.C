@@ -511,6 +511,88 @@ void assignment_conversion() {
     }
 }
 
+struct DfsExpected {
+    size_t sourceId, targetId;
+    bool sourceSeen, targetSeen;
+    std::string edgeName;
+    DfsExpected() {}
+    DfsExpected(size_t sourceId, bool sourceSeen, size_t targetId, bool targetSeen, const std::string &edgeName)
+        : sourceId(sourceId), targetId(targetId), sourceSeen(sourceSeen), targetSeen(targetSeen), edgeName(edgeName) {}
+};
+
+template<class Graph>
+struct DfsVisitor {
+    std::vector<DfsExpected> stack;
+    DfsVisitor(const std::vector<DfsExpected> &expected): stack(expected) {
+        std::reverse(stack.begin(), stack.end());
+    }
+
+    void operator()(const typename Graph::ConstVertexNodeIterator &source, bool sourceSeen,
+                    const typename Graph::ConstVertexNodeIterator &target, bool targetSeen,
+                    const typename Graph::ConstEdgeNodeIterator &edge) {
+        std::cout <<"    "
+                  <<"edge " <<edge->value() <<" (v" <<source->id() <<" " <<(sourceSeen ? "  seen" : "unseen") <<" -> "
+                  <<"    v" <<target->id() <<" " <<(targetSeen ? "  seen" : "unseen") <<")\n";
+        ASSERT_always_require(edge->source() == source);
+        ASSERT_always_require(edge->target() == target);
+        ASSERT_always_forbid2(stack.empty(), "too many edges visited");
+        ASSERT_always_require(source->id() == stack.back().sourceId);
+        ASSERT_always_require(sourceSeen == stack.back().sourceSeen);
+        ASSERT_always_require(target->id() == stack.back().targetId);
+        ASSERT_always_require(targetSeen == stack.back().targetSeen);
+        ASSERT_always_require(stack.back().edgeName == edge->value());
+        stack.pop_back();
+    }
+};
+
+template<class Graph>
+void depth_first_visit() {
+    std::cout <<"depth first visit:\n";
+    typedef typename Graph::VertexNodeIterator Vertex;
+    typedef typename Graph::EdgeNodeIterator Edge;
+    
+    Graph graph;
+
+    Vertex v0 = graph.insertVertex("v0");
+    Vertex v1 = graph.insertVertex("v1");
+    Vertex v2 = graph.insertVertex("v2");
+    Vertex v3 = graph.insertVertex("v3");
+    Vertex v4 = graph.insertVertex("v4");
+    Vertex v5 = graph.insertVertex("v5");
+    Vertex v6 = graph.insertVertex("v6");
+
+    Edge ea = graph.insertEdge(v0, v1, "A");            // large cycle
+    Edge eb = graph.insertEdge(v1, v2, "B");
+    Edge ec = graph.insertEdge(v2, v3, "C");
+    Edge ed = graph.insertEdge(v3, v4, "D");
+    Edge ee = graph.insertEdge(v4, v5, "E");
+    Edge ef = graph.insertEdge(v5, v0, "F");
+
+    Edge eg = graph.insertEdge(v4, v6, "G");            // edge to leaf
+    Edge eh = graph.insertEdge(v2, v2, "H");            // self edge
+    Edge ei = graph.insertEdge(v5, v4, "I");            // back edge
+    Edge ej = graph.insertEdge(v1, v3, "J");            // extra forward edge
+    Edge ek = graph.insertEdge(v3, v4, "K");            // parallel edge
+
+    std::cout <<"  initial graph:\n" <<graph;
+
+    std::vector<DfsExpected> expect;
+    expect.push_back(DfsExpected(0, false, 1, false, "A"));
+    expect.push_back(DfsExpected(1, true,  2, false, "B"));
+    expect.push_back(DfsExpected(2, true,  3, false, "C"));
+    expect.push_back(DfsExpected(3, true,  4, false, "D"));
+    expect.push_back(DfsExpected(4, true,  5, false, "E"));
+    expect.push_back(DfsExpected(5, true,  0, true,  "F"));
+    expect.push_back(DfsExpected(5, true,  4, true,  "I"));
+    expect.push_back(DfsExpected(4, true,  6, false, "G"));
+    expect.push_back(DfsExpected(3, true,  4, true,  "K"));
+    expect.push_back(DfsExpected(2, true,  2, true,  "H"));
+    expect.push_back(DfsExpected(1, true,  3, true,  "J"));
+
+    DfsVisitor<Graph> visitor(expect);
+    graph.depthFirstVisit(visitor, graph.findVertex(0));
+}
+
 int main() {
     typedef Sawyer::Container::Graph<std::string, std::string> G1;
     default_ctor<G1>();
@@ -526,4 +608,5 @@ int main() {
     assignment<G1>();
     conversion<G1>();
     assignment_conversion<G1>();
+    depth_first_visit<G1>();
 }

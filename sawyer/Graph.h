@@ -3,6 +3,7 @@
 
 #include <sawyer/IndexedList.h>
 #include <boost/range/iterator_range.hpp>
+#include <ostream>
 #if 1 /*DEBUGGING [Robb Matzke 2014-04-21]*/
 #include <iomanip>
 #endif
@@ -1080,6 +1081,41 @@ public:
     void clear() {
         edges_.clear();
         vertices_.clear();
+    }
+
+private:
+    struct DfsWorkItem {
+        ConstVertexNodeIterator vertex;
+        ConstEdgeNodeIterator edge;
+        DfsWorkItem(const ConstVertexNodeIterator &vertex, const ConstEdgeNodeIterator &edge): vertex(vertex), edge(edge) {}
+    };
+
+public:
+    /** Visits vertices and edges in a depth-first order.
+     *
+     *  Visits every vertex reachable from @p startVertex in depth-first order, traversing every reachable edge exactly once.
+     *  Since all reachable edges are traversed, vertices might be visited more than once. */
+    template<class Visitor>
+    void depthFirstVisit(Visitor &visitor, const ConstVertexNodeIterator &startVertex) const {
+        if (startVertex==vertices().end())
+            return;
+        std::vector<bool> visitedVertex(nVertices(), false);
+        std::vector<DfsWorkItem> workStack;
+        workStack.push_back(DfsWorkItem(startVertex, startVertex->outEdges().begin()));
+        while (!workStack.empty()) {
+            ConstVertexNodeIterator source = workStack.back().vertex;
+            ConstEdgeNodeIterator edge = workStack.back().edge;
+            if (source==vertices().end() || edge==source->outEdges().end()) {
+                workStack.pop_back();
+            } else {
+                ConstVertexNodeIterator target = edge->target();
+                visitor(source, visitedVertex[source->id()], target, visitedVertex[target->id()], edge);
+                workStack.back().edge = ++edge;
+                if (!visitedVertex[target->id()])
+                    workStack.push_back(DfsWorkItem(target, target->outEdges().begin()));
+                visitedVertex[source->id()] = visitedVertex[target->id()] = true;
+            }
+        }
     }
 };
 
