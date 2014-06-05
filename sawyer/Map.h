@@ -385,12 +385,28 @@ public:
      *
      *  @{ */
     Value& operator[](const Key &key) {
+        return get(key);
+    }
+    const Value& operator[](const Key &key) const {
+        return get(key);
+    }
+    /** @} */
+
+    /** Lookup and return an existing value.
+     *
+     *  Returns a reference to the value at the node with the specified @p key, which must exist. If the @p key is not part of
+     *  this map's domain then an <code>std:domain_error</code> is thrown.
+     *
+     *  @sa insert insertDefault
+     *
+     *  @{ */
+    Value& get(const Key &key) {
         typename StlMap::iterator found = map_.find(key);
         if (found==map_.end())
             throw std::domain_error("key lookup failure; key is not in map domain");
         return found->second;
     }
-    const Value& operator[](const Key &key) const {
+    const Value& get(const Key &key) const {
         typename StlMap::const_iterator found = map_.find(key);
         if (found==map_.end())
             throw std::range_error("key lookup failure; key is not in map domain");
@@ -408,7 +424,7 @@ public:
      * @code
      *  Map<std::string, FileInfo> files;
      *  ...
-     *  if (boost::optional<FileInfo> fileInfo = files.get(fileName))
+     *  if (boost::optional<FileInfo> fileInfo = files.getOptional(fileName))
      *      std::cout <<"file info for \"" <<fileName <<"\" is " <<*fileInfo <<"\n";
      * @endcode
      *
@@ -421,7 +437,7 @@ public:
      *  if (fileIter != files.end())
      *      std::cout <<"file info for \"" <<fileName <<"\" is " <<filesIter->second <<"\n";
      * @endcode */
-    boost::optional<Value> get(const Key &key) const {
+    boost::optional<Value> getOptional(const Key &key) const {
         typename StlMap::const_iterator found = map_.find(key);
         return found == map_.end() ? boost::optional<Value>() : boost::optional<Value>(found->second);
     }
