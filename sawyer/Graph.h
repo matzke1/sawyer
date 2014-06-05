@@ -140,12 +140,12 @@ namespace Container {
  *
  *  The %Boost %Graph Library (<a href="http://www.boost.org/doc/libs/1_55_0/libs/graph/doc/index.html">BGL</a>) defines an API
  *  suitable for operating on a wide variety of graph implementations when the appropriate graph and property traits are
- *  defined.  In order to operate on Sawyer::Container::Graph using the BGL API, the GraphBoost.h header file should be
+ *  defined.  In order to operate on a %Sawyer graph using the BGL API, the GraphBoost.h header file should be
  *  included.  See the @ref Sawyer::Boost name space for details.
  *
  *  The main philosophical difference between %Sawyer graphs and %Boost Graphs is how internal and external properties are
  *  stored. %Sawyer stores internal properties as user-defined value members within the vertex and edge storage nodes, and uses
- *  the small, contiguous vertex and edge ID numbers to look up vector-stored external properties on constant time. BGL graphs
+ *  the small, contiguous vertex and edge ID numbers to look up vector-stored external properties in constant time. BGL graphs
  *  abstract internal and external properties to property maps (property maps are a separate part of the %Boost library but
  *  originated as part of BGL). The %Sawyer approach tends to be easier for users to understand because of its similarity to
  *  STL containers.
