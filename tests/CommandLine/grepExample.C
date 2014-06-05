@@ -34,11 +34,6 @@ struct Options {
 };
     
 
-static void showHelpAndExit(const ParserResult &cmdline) {
-    cmdline.parser().emitDocumentationToPager();
-    exit(0);
-}
-
 int main(int argc, char *argv[]) {
 
     // Command-line parsing will "push" parsed values into members of this struct when ParserResult::apply is called.
@@ -66,13 +61,18 @@ int main(int argc, char *argv[]) {
                 "Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. In rutrum "
                 "accumsan ultricies. Mauris vitae nisi at sem facilisis semper ac in est.");
     generic.insert(Switch("help")
-                   .action(userAction(showHelpAndExit))
+                   .action(showHelpAndExit(0))
                    .doc("Print a usage message briefly summarizing these command-line options and the bug-reporting "
                         "address, then exit."));
     generic.insert(Switch("version", 'V')
                    .action(showVersion(VERSION_STRING))
                    .doc("Print the version number of @prop{programName} to the standard output stream. This version "
                         "number should be included in all bug reports (see below)."));
+    generic.insert(Switch("log")
+                   .action(configureDiagnostics("log", Sawyer::Message::mfacilities))
+                   .argument("config")
+                   .whichValue(SAVE_ALL)
+                   .doc("Controls Sawyer diagnostics.  See Sawyer::Message::Facilities::control for details."));
 
     SwitchGroup matcher("Matcher Selection");
     matcher.switchOrder(INSERTION_ORDER);

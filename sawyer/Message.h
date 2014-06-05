@@ -8,6 +8,7 @@
 #include <boost/logic/tribool.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
+#include <cassert>
 #include <cstring>
 #include <list>
 #include <ostream>

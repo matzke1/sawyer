@@ -1354,6 +1354,62 @@ private:
     virtual void operator()(const ParserResult&) /*override*/;
 };
 
+/** Functor to print the Unix man page and exit.  This functor is the same as ShowHelp except it also exits with the specified
+ *  value. */
+class ShowHelpAndExit: public SwitchAction {
+    int exitStatus_;
+protected:
+    /** Constructor for derived classes.  Non-subclass users should use @ref instance instead. */
+    ShowHelpAndExit(int exitStatus): exitStatus_(exitStatus) {}
+public:
+    /** Reference counting pointer for this class. */
+    typedef boost::shared_ptr<ShowHelpAndExit> Ptr;
+
+    /** Allocating constructor.  Returns a pointer to a new ShowHelpAndExit object.  Users will most likely want to use the
+     * @ref showHelpAndExit factory instead, which requires less typing.
+     *
+     * @sa @ref action_factories, and the @ref SwitchAction class. */
+    static Ptr instance(int exitStatus) { return Ptr(new ShowHelpAndExit(exitStatus)); }
+private:
+    virtual void operator()(const ParserResult&) /*override*/;
+};
+
+/** Functor to configure diagnostics.  This functor uses the string(s) from the specified switch key to configure the specified
+ *  message facilities object.  If a string is the word "list" then the message facility configuration is shown on standard
+ *  output.
+ *
+ *  Here's an example usage.  In particular, be sure to specify SAVE_ALL so that more than one <code>--log</code> switch can
+ *  appear on the command line, like: <tt>a.out --log ">=info" --log list</tt>
+ *
+ * @code
+ *  generic.insert(Switch("log")
+ *                 .action(configureDiagnostics("log", Sawyer::Message::mfacilities))
+ *                 .argument("config")
+ *                 .whichValue(SAVE_ALL)
+ *                 .doc("Configures diagnostics..."));
+ * @endcode */
+class ConfigureDiagnostics: public SwitchAction {
+    std::string switchKey_;
+    Message::Facilities &facilities_;
+protected:
+    /** Constructor for derived classes.  Non-subclass users should use @ref instance instead. */
+    ConfigureDiagnostics(const std::string &switchKey, Message::Facilities &facilities)
+        : switchKey_(switchKey), facilities_(facilities) {}
+public:
+    /** Reference counting pointer for this class. */
+    typedef boost::shared_ptr<ConfigureDiagnostics> Ptr;
+
+    /** Allocating constructor.  Returns a pointer to a new ConfigureDiagnostics object.  Users will most likely want to use
+     * the @ref configureDiagnostics factory instead, which requires less typing.
+     *
+     * @sa @ref action_factories, and the @ref SwitchAction class. */
+    static Ptr instance(const std::string &switchKey, Message::Facilities &facilities) {
+        return Ptr(new ConfigureDiagnostics(switchKey, facilities));
+    }
+private:
+    virtual void operator()(const ParserResult&) /*override*/;
+};
+
 /** Wrapper around a user functor.  User code doesn't often use reference counting smart pointers for functors, but more often
  *  creates functors in global data or on the stack.  The purpose of UserAction is to be a wrapper around these functors, to
  *  be a bridge between the world of reference counting pointers and objects or object references.  For example, say the
@@ -1423,6 +1479,10 @@ private:
 ShowVersion::Ptr showVersion(const std::string &versionString);
 
 ShowHelp::Ptr showHelp();
+
+ShowHelpAndExit::Ptr showHelpAndExit(int exitStatus);
+
+ConfigureDiagnostics::Ptr configureDiagnostics(const std::string&, Message::Facilities&);
 
 template<class Functor>
 typename UserAction<Functor>::Ptr userAction(const Functor &functor) {
