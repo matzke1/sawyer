@@ -1529,6 +1529,16 @@ extern Facility mlog;
  *  facilities across all users can be controlled from this one place. */
 extern Facilities mfacilities;
 
+/** The stream to be used for assertions. The default is to use <code>Sawyer::Message::mlog[FATAL]</code>. This variable is
+ *  initialized at the first call to @ref Assert::fail if it is a null pointer. Users can assign a different stream to it any
+ *  time before then:
+ *
+ * @code
+ * int main(int argc, char *argv[]) {
+ *     Sawyer::Message::assertionStream = Sawer::Message::mlog[FATAL];
+ * @endcode */
+extern SProxy assertionStream;
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      The most commonly used stuff
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1557,5 +1567,6 @@ using Message::Facilities;
 
 } // namespace
 } // namespace
+
 
 #endif

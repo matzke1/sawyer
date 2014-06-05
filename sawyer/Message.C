@@ -1233,6 +1233,7 @@ DestinationPtr merr;
 Facility mlog("sawyer");
 Facilities mfacilities;
 bool isInitialized;
+SProxy assertionStream;
 
 bool initializeLibrary() {
     if (!isInitialized) {
