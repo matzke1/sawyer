@@ -35,7 +35,7 @@ public:
 private:
     mutable TimePoint begin_;                           // time that this stopwatch (re)started
     mutable Duration elapsed_;                          // sum of elapsed run time in seconds
-    bool running_;                                      // static of the stopwatch: running or not
+    bool running_;                                      // state of the stopwatch: running or not
 
 public:
     /** Construct and optionally start a timer.
