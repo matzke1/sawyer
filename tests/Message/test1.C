@@ -1,4 +1,5 @@
 #include <sawyer/Message.h>
+#include <sawyer/Optional.h>
 
 #include <cstdio>
 #include <iostream>
@@ -433,7 +434,7 @@ void test18(const DestinationPtr &sink) {
     public:
         static MyPrefixPtr instance() { return MyPrefixPtr(new MyPrefix); }
         virtual std::string toString(const Mesg&, const MesgProps &props) const /*override*/ {
-            return "MY PREFIX {" + stringifyImportance(props.importance.get_value_or(INFO)) + "} ";
+            return "MY PREFIX {" + stringifyImportance(props.importance.getOrElse(INFO)) + "} ";
         }
     };
     unf->prefix(MyPrefix::instance());

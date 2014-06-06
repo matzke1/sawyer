@@ -1,5 +1,6 @@
 #include <sawyer/Interval.h>
 #include <sawyer/IntervalSet.h>
+#include <sawyer/Optional.h>
 #include <boost/foreach.hpp>
 #include <iostream>
 
@@ -59,7 +60,7 @@ static void imap_tests(const Value &v1, const Value &v2) {
     typedef Sawyer::Container::IntervalMap<Interval, Value> Map;
     typedef typename Interval::Value Scalar;
     Map imap;
-    boost::optional<Scalar> opt;
+    Sawyer::Optional<Scalar> opt;
 
     std::cerr <<"insert([100,119], v1)\n";
     imap.insert(Interval::hull(100, 119), v1);

@@ -1,7 +1,7 @@
 #ifndef Sawyer_Map_H
 #define Sawyer_Map_H
 
-#include <boost/optional.hpp>
+#include <sawyer/Optional.h>
 #include <boost/range/iterator_range.hpp>
 #include <map>
 #include <stdexcept>
@@ -40,7 +40,7 @@ namespace Container {
  *  This container is similar to the <code>std::map</code> container in the standard template library, but with these
  *  differences in addition to those described in the documentation for the Sawyer::Container name space:
  *
- *  @li It extends the interface with additional methods that return optional values (<code>boost::optional</code>) and a few
+ *  @li It extends the interface with additional methods that return optional values (@ref Optional) and a few
  *      convenience methods (like @ref exists).
  *  @li It provides iterators over keys and values in addition to the STL-like iterator over nodes.
  *  @li The insert methods always insert the specified value(s) regardless of whether a node with the same key already
@@ -424,7 +424,7 @@ public:
      * @code
      *  Map<std::string, FileInfo> files;
      *  ...
-     *  if (boost::optional<FileInfo> fileInfo = files.getOptional(fileName))
+     *  if (Optional<FileInfo> fileInfo = files.getOptional(fileName))
      *      std::cout <<"file info for \"" <<fileName <<"\" is " <<*fileInfo <<"\n";
      * @endcode
      *
@@ -437,9 +437,9 @@ public:
      *  if (fileIter != files.end())
      *      std::cout <<"file info for \"" <<fileName <<"\" is " <<filesIter->second <<"\n";
      * @endcode */
-    boost::optional<Value> getOptional(const Key &key) const {
+    Optional<Value> getOptional(const Key &key) const {
         typename StlMap::const_iterator found = map_.find(key);
-        return found == map_.end() ? boost::optional<Value>() : boost::optional<Value>(found->second);
+        return found == map_.end() ? Optional<Value>() : Optional<Value>(found->second);
     }
 
     /** Lookup and return a value or something else.

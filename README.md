@@ -14,7 +14,7 @@ when writing other C++ libraries and tools.  It's main components are:
   IntervalMap, Map, and BitVector.
 
 + Miscellaneous: Memory pool allocators, small object support,
-  stopwatch-like timers.
+  stopwatch-like timers, optional values.
 
 Documentation
 =============

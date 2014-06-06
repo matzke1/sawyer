@@ -1,3 +1,6 @@
+add_executable(optionalUnitTests optionalUnitTests.C)
+target_link_libraries(optionalUnitTests sawyer ${Boost_LIBRARIES})
+
 add_executable(mapUnitTests mapUnitTests.C)
 target_link_libraries(mapUnitTests sawyer ${Boost_LIBRARIES})
 

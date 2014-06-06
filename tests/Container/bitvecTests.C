@@ -205,7 +205,7 @@ static void swap_tests() {
 
 static void bitsearch_tests() {
     std::cout <<"bit searching\n";
-    boost::optional<size_t> idx;
+    Sawyer::Optional<size_t> idx;
 
     std::cout <<"  initializing\n";
     BitVector v1(40);
@@ -336,7 +336,7 @@ static void counting_tests() {
 
 static void find_difference_tests() {
     std::cout <<"differencing\n";
-    boost::optional<size_t> idx;
+    Sawyer::Optional<size_t> idx;
 
     std::cout <<"  initializing\n";
     BitVector v1(40), v2(40);

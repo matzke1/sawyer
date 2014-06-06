@@ -2,6 +2,7 @@
 #include <sawyer/CommandLine.h>
 #include <sawyer/MarkupRoff.h>
 #include <sawyer/Message.h>
+#include <sawyer/Optional.h>
 
 #include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>
@@ -1319,7 +1320,7 @@ ParserResult Parser::parseInternal(const std::vector<std::string> &programArgume
 
 bool Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
     ASSERT_require(cursor.atArgBegin());
-    boost::optional<std::runtime_error> saved_error;
+    Optional<std::runtime_error> saved_error;
 
     // Single long switch
     ParsedValues values;
@@ -1371,7 +1372,7 @@ static bool decreasingLength(const std::string &a, const std::string &b) {
 }
 
 const Switch* Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues,
-                                      boost::optional<std::runtime_error> &saved_error) {
+                                      Optional<std::runtime_error> &saved_error) {
     ASSERT_require(cursor.atArgBegin());
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
@@ -1404,7 +1405,7 @@ const Switch* Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues
 }
 
 const Switch* Parser::parseShortSwitch(Cursor &cursor, ParsedValues &parsedValues,
-                                       boost::optional<std::runtime_error> &saved_error, bool mayNestle) {
+                                       Optional<std::runtime_error> &saved_error, bool mayNestle) {
     ASSERT_require(mayNestle || cursor.atArgBegin());
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
@@ -1510,7 +1511,7 @@ std::vector<std::string> Parser::readArgsFromFile(const std::string &filename) {
 
 const std::string& Parser::programName() const {
     if (programName_.empty()) {
-        boost::optional<std::string> s = Message::Prefix::instance()->programName();
+        Optional<std::string> s = Message::Prefix::instance()->programName();
         if (s)
             programName_ = *s;
     }

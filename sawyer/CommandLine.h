@@ -5,6 +5,7 @@
 #include <sawyer/Assert.h>
 #include <sawyer/Map.h>
 #include <sawyer/Message.h>
+#include <sawyer/Optional.h>
 
 #include <boost/any.hpp>
 #include <boost/cstdint.hpp>
@@ -12,7 +13,6 @@
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/cast.hpp>
-#include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <cerrno>
 #include <stdexcept>
@@ -1653,7 +1653,7 @@ enum WhichValue {
 class Switch {
 private:
     std::vector<std::string> longNames_;                /**< Long name of switch, or empty string. */
-    std::string shortNames_;                            /**< Optional short names for this switch. */
+    std::string shortNames_;                            /**< %Optional short names for this switch. */
     std::string key_;                                   /**< Unique key, usually the long name or the first short name. */
     ParsingProperties properties_;                      /**< Properties valid at multiple levels of the hierarchy. */
     std::string synopsis_;                              /**< User-defined synopsis or empty string. */
@@ -1661,7 +1661,7 @@ private:
     std::string documentationKey_;                      /**< For sorting documentation. */
     bool hidden_;                                       /**< Whether to hide documentation. */
     std::vector<SwitchArgument> arguments_;             /**< Arguments with optional default values. */
-    SwitchAction::Ptr action_;                          /**< Optional action to perform during ParserResult::apply. */
+    SwitchAction::Ptr action_;                          /**< %Optional action to perform during ParserResult::apply. */
     WhichValue whichValue_;                             /**< Which switch values should be saved. */
     ValueAugmenter::Ptr valueAugmenter_;                /**< Used if <code>whichValue_==SAVE_AUGMENTED</code>. */
     ParsedValue intrinsicValue_;                        /**< Value for switches that have no declared arguments. */
@@ -2311,7 +2311,7 @@ class Parser {
     StringStringMap sectionDoc_;                        /**< Extra documentation for any section by lower-case section name. */
     StringStringMap sectionOrder_;                      /**< Maps section keys to section names. */
     Message::SProxy errorStream_;                       /**< Send errors here and exit instead of throwing runtime_error. */
-    boost::optional<std::string> exitMessage_;          /**< Additional message before exit when errorStream_ is not empty. */
+    Optional<std::string> exitMessage_;                 /**< Additional message before exit when errorStream_ is not empty. */
     SortOrder switchGroupOrder_;                        /**< Order of switch groups in the documentation. */
     
 public:
@@ -2581,7 +2581,7 @@ private:
      *  pointer is valid only as long as this parser is allocated). If no switch is available for parsing then the null pointer
      *  is returned. If some other parsing error occurs then a null value is returned and the @p saved_error is updated to
      *  reflect the nature of the error.  This function does not throw <code>std::runtime_error</code> exceptions. */
-    const Switch* parseLongSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&);
+    const Switch* parseLongSwitch(Cursor&, ParsedValues&, Optional<std::runtime_error>&);
 
     /** Parse one short switch.  Upon entry, the cursor is either at the beginning of a program argument, or at the beginning
      *  of a (potential) short switch name. On success, for non-nestled switches the cursor will be positioned at the beginning
@@ -2591,7 +2591,7 @@ private:
      *  available for parsing then the null pointer is returned. If some other parsing error occurs then a null value is
      *  returned and the @p saved_error is updated to reflect the nature of the error.  This function does not throw
      *  <code>std::runtime_error</code> exceptions. */
-    const Switch* parseShortSwitch(Cursor&, ParsedValues&, boost::optional<std::runtime_error>&, bool mayNestle);
+    const Switch* parseShortSwitch(Cursor&, ParsedValues&, Optional<std::runtime_error>&, bool mayNestle);
 
     // Returns true if the program argument at the cursor looks like it might be a switch.  Apparent switches are any program
     // argument that starts with a long or short prefix.
