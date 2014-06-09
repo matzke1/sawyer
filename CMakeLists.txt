@@ -38,6 +38,7 @@ add_subdirectory(tests/Assert)
 add_subdirectory(tests/ProgressBar)
 add_subdirectory(tests/CommandLine)
 add_subdirectory(tests/Allocation)
+add_subdirectory(tests/Pointers)
 
 #-------------------------------------------------------------------------------
 #                     _              _           _        _ _
