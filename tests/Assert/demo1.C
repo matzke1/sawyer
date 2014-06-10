@@ -2,6 +2,7 @@
 // doxygen documentation for the Sawyer::Assert namespace.
 
 #include <sawyer/Assert.h>
+#include <sawyer/Message.h>
 
 #include <cstdlib>
 #include <cstring>

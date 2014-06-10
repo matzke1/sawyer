@@ -216,7 +216,7 @@ void test9(const DestinationPtr &sink)
 void test12(const DestinationPtr &sink) 
 {
     // A stupid little sink that surrounds each message with "--->" and "<---"
-    typedef boost::shared_ptr<class MySink> MySinkPtr;
+    typedef Sawyer::SharedPointer<class MySink> MySinkPtr;
     class MySink: public StreamSink {
     protected:
         explicit MySink(std::ostream &o): StreamSink(o) {}
@@ -341,7 +341,7 @@ void test17(const DestinationPtr &sink) {
     banner("test17 - colors");
     Facility log("test17", sink);
 
-    UnformattedSinkPtr unf = boost::dynamic_pointer_cast<UnformattedSink>(sink);
+    UnformattedSinkPtr unf = sink.dynamicCast<UnformattedSink>();
     if (unf==NULL) {
         std::cerr <<"skipped: colors can only be tested with sinks that support them\n";
         return;
@@ -406,7 +406,7 @@ void test18(const DestinationPtr &sink) {
     banner("test18 - custom prefix");
     Facility log("test18", sink);
     
-    UnformattedSinkPtr unf = boost::dynamic_pointer_cast<UnformattedSink>(sink);
+    UnformattedSinkPtr unf = sink.dynamicCast<UnformattedSink>();
     if (unf==NULL) {
         std::cerr <<"skipped: colors can only be tested with sinks that support them\n";
         return;
@@ -427,7 +427,7 @@ void test18(const DestinationPtr &sink) {
     
     // Prefix that starts each message with "MY PREFIX {<importance>} "
     std::cerr <<"use our own prefix generator:\n";
-    typedef boost::shared_ptr<class MyPrefix> MyPrefixPtr;
+    typedef Sawyer::SharedPointer<class MyPrefix> MyPrefixPtr;
     class MyPrefix: public Prefix {
     protected:
         MyPrefix() {}

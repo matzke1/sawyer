@@ -2,7 +2,6 @@
 #define Sawyer_Assert_H
 
 #include <sawyer/Sawyer.h>
-#include <sawyer/Message.h>
 #include <string>
 
 // If SAWYER_NDEBUG is defined then some of the macros defined in this header become no-ops.  For interoperability with the

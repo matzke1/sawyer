@@ -189,7 +189,7 @@ ListParser::Ptr ListParser::limit(size_t minLength, size_t maxLength) {
         throw std::runtime_error("minimum ListParser length must be less than or equal to maximum length");
     minLength_ = minLength;
     maxLength_ = maxLength;
-    return boost::dynamic_pointer_cast<ListParser>(shared_from_this());
+    return sharedFromThis().dynamicCast<ListParser>();
 }
 
 ParsedValue ListParser::operator()(Cursor &cursor) {
@@ -1586,7 +1586,7 @@ std::vector<std::string> Parser::docSections() const {
 
 // @s{NAME} where NAME is either a long or short switch name without prefix.
 typedef Container::Map<std::string, std::string> PreferredPrefixes; // maps switch names to their best prefixes
-typedef boost::shared_ptr<class SwitchTag> SwitchTagPtr;
+typedef SharedPointer<class SwitchTag> SwitchTagPtr;
 class SwitchTag: public Markup::Tag {
     PreferredPrefixes preferredPrefixes_;
     std::string bestShortPrefix_;                       // short prefix if the switch name is not recognized
@@ -1620,7 +1620,7 @@ public:
 };
 
 // @seeAlso is replaced by the list @man references that have been processed so far.
-typedef boost::shared_ptr<class SeeAlsoTag> SeeAlsoTagPtr;
+typedef SharedPointer<class SeeAlsoTag> SeeAlsoTagPtr;
 class SeeAlsoTag: public Markup::Tag {
 public:
 public:
@@ -1648,7 +1648,7 @@ public:
 };
 
 // @man{PAGE}{CHAPTER} converted to @b{PAGE}(CHAPTER) to cite Unix manual pages.
-typedef boost::shared_ptr<class ManTag> ManTagPtr;
+typedef SharedPointer<class ManTag> ManTagPtr;
 class ManTag: public Markup::Tag {
     SeeAlsoTagPtr seeAlso_;
 protected:
@@ -1669,7 +1669,7 @@ public:
 };
 
 // @prop{KEY} is replaced with the property string stored for KEY
-typedef boost::shared_ptr<class PropTag> PropTagPtr;
+typedef SharedPointer<class PropTag> PropTagPtr;
 class PropTag: public Markup::Tag {
     Container::Map<std::string, std::string> values_;
 protected:
@@ -1678,7 +1678,7 @@ public:
     static PropTagPtr instance() { return PropTagPtr(new PropTag); }
     PropTagPtr with(const std::string &key, const std::string &value) {
         values_.insert(key, value);
-        return boost::dynamic_pointer_cast<PropTag>(shared_from_this());
+        return sharedFromThis().dynamicCast<PropTag>();
     }
     virtual Markup::ContentPtr eval(const Markup::TagArgs &args) /*overload*/ {
         using namespace Markup;

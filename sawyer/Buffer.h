@@ -1,7 +1,7 @@
 #ifndef Sawyer_Buffer_H
 #define Sawyer_Buffer_H
 
-#include <boost/shared_ptr.hpp>
+#include <sawyer/SharedPointer.h>
 #include <string>
 
 namespace Sawyer {
@@ -12,7 +12,7 @@ namespace Container {
  *  A buffer stores a sequence of elements somewhat like a vector, but imparts a read/write paradigm for accessing those
  *  elements. */
 template<class A, class T>
-class Buffer {
+class Buffer: public SharedObject {
     std::string name_;
 protected:
     Buffer() {}
@@ -20,7 +20,7 @@ public:
     /** Reference counting smart pointer.
      *
      *  @sa smart_pointers */
-    typedef boost::shared_ptr<Buffer> Ptr;
+    typedef SharedPointer<Buffer> Ptr;
 
     /** Key type for addressing data.
      *

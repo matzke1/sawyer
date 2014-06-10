@@ -1,6 +1,7 @@
 #ifndef Sawyer_StaticBuffer_H
 #define Sawyer_StaticBuffer_H
 
+#include <sawyer/Assert.h>
 #include <sawyer/Buffer.h>
 
 namespace Sawyer {

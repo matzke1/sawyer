@@ -243,7 +243,7 @@ bool Mesg::hasText() const {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void Destination::bakeDestinations(const MesgProps &props, BakedDestinations &baked) {
-    baked.push_back(std::make_pair(shared_from_this(), mergeProperties(props)));
+    baked.push_back(std::make_pair(sharedFromThis(), mergeProperties(props)));
 }
 
 MesgProps Destination::mergeProperties(const MesgProps &props) {
@@ -271,26 +271,26 @@ MultiplexerPtr Multiplexer::addDestination(const DestinationPtr &destination) {
     std::vector<DestinationPtr> work(1, destination);
     while (!work.empty()) {
         DestinationPtr d = work.back();
-        if (d.get()==this)
+        if (get(d)==this)
             throw std::runtime_error("cycle introduced in Sawyer::Multiplexer tree");
         work.pop_back();
-        if (Multiplexer *seq = dynamic_cast<Multiplexer*>(d.get()))
+        if (Multiplexer *seq = dynamic_cast<Multiplexer*>(get(d)))
             work.insert(work.end(), seq->destinations_.begin(), seq->destinations_.end());
     }
     
     // Add it as the last child
     destinations_.push_back(destination);
-    return boost::dynamic_pointer_cast<Multiplexer>(shared_from_this());
+    return sharedFromThis().dynamicCast<Multiplexer>();
 }
 
 MultiplexerPtr Multiplexer::removeDestination(const DestinationPtr &destination) {
     destinations_.erase(std::remove(destinations_.begin(), destinations_.end(), destination), destinations_.end());
-    return boost::dynamic_pointer_cast<Multiplexer>(shared_from_this());
+    return sharedFromThis().dynamicCast<Multiplexer>();
 }
 
 MultiplexerPtr Multiplexer::to(const DestinationPtr &destination) {
     addDestination(destination);
-    return boost::dynamic_pointer_cast<Multiplexer>(shared_from_this());
+    return sharedFromThis().dynamicCast<Multiplexer>();
 }
 
 MultiplexerPtr Multiplexer::to(const DestinationPtr &d1, const DestinationPtr &d2) {
@@ -337,7 +337,7 @@ TimeFilterPtr TimeFilter::initialDelay(double delta) {
         if (0==nPosted_)
             lastBakeTime_ = now();
     }
-    return boost::dynamic_pointer_cast<TimeFilter>(shared_from_this());
+    return sharedFromThis().dynamicCast<TimeFilter>();
 }
 
 bool TimeFilter::shouldForward(const MesgProps&) {
@@ -359,12 +359,12 @@ bool ImportanceFilter::shouldForward(const MesgProps &props) {
 
 ImportanceFilterPtr ImportanceFilter::enable(Importance imp) {
     enabled(imp, true);
-    return boost::dynamic_pointer_cast<ImportanceFilter>(shared_from_this());
+    return sharedFromThis().dynamicCast<ImportanceFilter>();
 }
 
 ImportanceFilterPtr ImportanceFilter::disable(Importance imp) {
     enabled(imp, false);
-    return boost::dynamic_pointer_cast<ImportanceFilter>(shared_from_this());
+    return sharedFromThis().dynamicCast<ImportanceFilter>();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

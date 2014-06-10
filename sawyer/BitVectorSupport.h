@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <boost/cstdint.hpp>
 #include <boost/lexical_cast.hpp>
+#include <cstring>
 #include <string>
 
 namespace Sawyer {

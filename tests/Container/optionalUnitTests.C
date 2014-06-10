@@ -1,5 +1,6 @@
 #include <sawyer/Optional.h>
 
+#include <iostream>
 #include <sawyer/Assert.h>
 
 using namespace Sawyer;

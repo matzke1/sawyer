@@ -262,7 +262,7 @@ int main(int argc, char *argv[]) {
     // course, this silly example can probably be delayed until after parsing, but when the syntax is for an optional switch
     // argument you sometimes need to do it during parsing.  The interface shown has an API like strtod() et al. There's also
     // an interface for parsing values that span multiple program arguments.
-    typedef boost::shared_ptr<class MyParser> MyParserPtr;
+    typedef Sawyer::SharedPointer<class MyParser> MyParserPtr;
     struct MyParser: ValueParser {
         static MyParserPtr instance() { return MyParserPtr(new MyParser); } // or use a global myParser() factory function
         boost::any operator()(const char *s, const char **rest) {

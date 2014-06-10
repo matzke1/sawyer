@@ -1,11 +1,10 @@
 #ifndef Sawyer_IntervalMap_H
 #define Sawyer_IntervalMap_H
 
-#include <sawyer/Map.h>
-#include <sawyer/Optional.h>
-
 #include <boost/cstdint.hpp>
 #include <sawyer/Assert.h>
+#include <sawyer/Map.h>
+#include <sawyer/Optional.h>
 
 namespace Sawyer {
 namespace Container {
