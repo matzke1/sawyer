@@ -8,12 +8,14 @@
 #include <sawyer/Optional.h>
 #include <sawyer/SharedPointer.h>
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/any.hpp>
 #include <boost/cstdint.hpp>
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 #include <cerrno>
+#include <ctype.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -908,7 +910,7 @@ private:
             const char **list = 0==negpos ? neg : pos;
             size_t listsz = 0==negpos ? sizeof(neg)/sizeof(*neg) : sizeof(pos)/sizeof(*pos);
             for (size_t i=0; i<listsz; ++i) {
-                if (0==strncasecmp(list[i], input, strlen(list[i]))) {
+                if (0==my_strncasecmp(list[i], input, strlen(list[i]))) {
                     *rest = input + strlen(list[i]);
                     while (isspace(**rest)) ++*rest;
                     std::string parsed(start, *rest-start);
@@ -917,6 +919,21 @@ private:
             }
         }
         throw std::runtime_error("Boolean expected");
+    }
+
+    // Microsoft doesn't have the POSIX.1-2001 strncasecmp function
+    int my_strncasecmp(const char *a, const char *b, size_t nchars) {
+        ASSERT_not_null(a);
+        ASSERT_not_null(b);
+        for (size_t i=0; i<nchars; ++i) {
+            if (!a[i] || !b[i])
+                return a[i] ? 1 : (b[i] ? -1 : 0);
+            char achar = tolower(a[i]);
+            char bchar = tolower(b[i]);
+            if (achar != bchar)
+                return achar < bchar ? -1 : 1;
+        }
+        return 0;
     }
 };
 

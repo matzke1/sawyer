@@ -1034,6 +1034,7 @@ public:
     virtual void post(const Mesg&, const MesgProps&) /*override*/;
 };
 
+#ifndef _MSC_VER
 /** Sends messages to the syslog daemon. */
 class SyslogSink: public Destination {
 protected:
@@ -1050,6 +1051,7 @@ public:
 private:
     void init();
 };
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Message streams

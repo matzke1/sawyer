@@ -9,11 +9,11 @@ set(CMAKE_BUILD_TYPE Debug)
 #    set(CMAKE_EXE_LINKER_FLAGS "-s")  ## Strip binary
 #endif()
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
+#set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
+#set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
 
 find_package(PkgConfig)
-find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex signals chrono)
+find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono)
 
 set(lib_src
   sawyer/Assert.C

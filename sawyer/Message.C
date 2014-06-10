@@ -10,7 +10,9 @@
 #include <stdexcept>
 #include <sstream>
 #include <sys/stat.h>
+#ifndef _MSC_VER
 #include <syslog.h>
+#endif
 #include <vector>
 
 #if defined(SAWYER_HAVE_BOOST_CHRONO)
@@ -619,6 +621,7 @@ void StreamSink::post(const Mesg &mesg, const MesgProps &props) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#ifndef _MSC_VER
 SyslogSink::SyslogSink(const char *ident, int option, int facility) {
     init();
     openlog(ident, option, facility);
@@ -644,6 +647,7 @@ void SyslogSink::post(const Mesg &mesg, const MesgProps &props) {
         syslog(priority, "%s", mesg.text().c_str());
     }
 }
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
