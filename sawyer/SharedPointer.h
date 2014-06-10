@@ -7,6 +7,12 @@
 
 namespace Sawyer {
 
+/** Reference-counting smart pointer.
+ *
+ *  This class is a reference-counting pointer to an object that inherits from @ref SharedObject. Usage is similar to
+ *  <code>boost::shared_ptr</code>.
+ *
+ *  @todo Write documentation for SharedPointer. */
 template<class T>
 class SharedPointer {
 public:
@@ -243,9 +249,24 @@ public:
     }
 };
 
+/** Creates SharedPointer from this.
+ *
+ *  If an object inherits from SharedObject then it has a @ref sharedFromThis method that allows creation of a
+ *  reference-counting pointer from <code>this</code> object. The template parameter, @p T, is the type of object that the
+ *  shared pointer will point to, and is typically the type being derived from SharedObject:
+ *
+ * @code
+ *  class MyClass: public SharedFromThis<MyClass> { ... };
+ * @endcode
+ *
+ * @todo SharedFromThis should not inherit from SharedObject because SharedFromThis this can be added at any level of the class
+ * hierarchy, but SharedObject should only be added to base classes. */
 template<class T>
 class SharedFromThis: public SharedObject {
 public:
+    /** Create a shared pointer from <code>this</code>.
+     *
+     *  Returns a shared pointer that points to this object. */
     SharedPointer<T> sharedFromThis() {
         T *derived = dynamic_cast<T*>(this);
         ASSERT_not_null(derived);
