@@ -344,19 +344,19 @@ static T fromSigned(const boost::any &v) {
 template<typename T>
 static T fromUnsigned(const boost::any &v) {
     if (v.type() == typeid(boost::uint64_t)) {
-        return boost::any_cast<boost::uint64_t>(v);
+        return boost::numeric_cast<T>(boost::any_cast<boost::uint64_t>(v));
     } else if (v.type() == typeid(unsigned long long)) {
-        return boost::any_cast<unsigned long long>(v);
+        return boost::numeric_cast<T>(boost::any_cast<unsigned long long>(v));
     } else if (v.type() == typeid(unsigned long)) {
-        return boost::any_cast<unsigned long>(v);
+        return boost::numeric_cast<T>(boost::any_cast<unsigned long>(v));
     } else if (v.type() == typeid(unsigned int)) {
-        return boost::any_cast<unsigned int>(v);
+        return boost::numeric_cast<T>(boost::any_cast<unsigned int>(v));
     } else if (v.type() == typeid(unsigned short)) {
-        return boost::any_cast<unsigned short>(v);
+        return boost::numeric_cast<T>(boost::any_cast<unsigned short>(v));
     } else if (v.type() == typeid(unsigned char)) {
-        return boost::any_cast<unsigned char>(v);
+        return boost::numeric_cast<T>(boost::any_cast<unsigned char>(v));
     } else if (v.type() == typeid(size_t)) {
-        return boost::any_cast<size_t>(v);
+        return boost::numeric_cast<T>(boost::any_cast<size_t>(v));
     } else {
         return boost::any_cast<T>(v);
     }

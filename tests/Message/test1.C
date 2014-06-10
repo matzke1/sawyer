@@ -3,7 +3,9 @@
 
 #include <cstdio>
 #include <iostream>
+#ifndef _MSC_VER
 #include <syslog.h>
+#endif
 
 using namespace Sawyer::Message;
 
@@ -59,14 +61,14 @@ void test4(const DestinationPtr &sink)
     int i=0;
     SAWYER_MESG(log[DEBUG]) <<"i=" <<++i <<"\n";
     SAWYER_MESG(log[DEBUG]) <<"i=" <<++i <<"\n";
-    log[DEBUG] and log[DEBUG] <<"i=" <<++i <<"\n";
-    log[DEBUG] and log[DEBUG] <<"i=" <<++i <<"\n";
+    log[DEBUG] && log[DEBUG] <<"i=" <<++i <<"\n";
+    log[DEBUG] && log[DEBUG] <<"i=" <<++i <<"\n";
 
     log[DEBUG].disable();
     SAWYER_MESG(log[DEBUG]) <<"i=" <<++i <<"\n";
     SAWYER_MESG(log[DEBUG]) <<"i=" <<++i <<"\n";
-    log[DEBUG] and log[DEBUG] <<"i=" <<++i <<"\n";
-    log[DEBUG] and log[DEBUG] <<"i=" <<++i <<"\n";
+    log[DEBUG] && log[DEBUG] <<"i=" <<++i <<"\n";
+    log[DEBUG] && log[DEBUG] <<"i=" <<++i <<"\n";
 
     log[DEBUG].enable();
     log[DEBUG] <<"final value for i=" <<i <<" (should be 4)\n";
@@ -77,9 +79,11 @@ void test5(const DestinationPtr &sink)
 {
     banner("test5 - single partial");
     Facility log("test5", sink);
-    log[DEBUG] <<"five characters, one per second [";
+    log[DEBUG] <<"five characters, one per second (except on Windows) [";
     for (size_t i=0; i<5; ++i) {
+#ifndef _MSC_VER                                        // FIXME[Robb Matzke 2014-06-10]: how on windows?
         sleep(1);
+#endif
         log[DEBUG] <<"#";
     }
     log[DEBUG] <<"]\n";
@@ -383,7 +387,7 @@ void test17(const DestinationPtr &sink) {
     for (size_t fg=COLOR_BLACK; fg<=COLOR_DEFAULT; ++fg) {
         for (size_t bg=COLOR_BLACK; bg<=COLOR_DEFAULT; ++bg) {
             for (int isBold=0; isBold<=1; ++isBold) {
-                prefix->colorSet()[DEBUG] = ColorSpec((AnsiColor)fg, (AnsiColor)bg, isBold);
+                prefix->colorSet()[DEBUG] = ColorSpec((AnsiColor)fg, (AnsiColor)bg, isBold!=0);
                 log[DEBUG] <<stringifyColor((AnsiColor)fg) <<" on " <<stringifyColor((AnsiColor)bg)
                            <<(isBold ? " bold" : " regular") <<"\n";
             }

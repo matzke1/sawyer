@@ -263,7 +263,8 @@ int main(int argc, char *argv[]) {
     // argument you sometimes need to do it during parsing.  The interface shown has an API like strtod() et al. There's also
     // an interface for parsing values that span multiple program arguments.
     typedef Sawyer::SharedPointer<class MyParser> MyParserPtr;
-    struct MyParser: ValueParser {
+    class MyParser: public ValueParser {
+    public:
         static MyParserPtr instance() { return MyParserPtr(new MyParser); } // or use a global myParser() factory function
         boost::any operator()(const char *s, const char **rest) {
             if (0==strncmp(s, ":module:", 8) && isalnum(s[8])) {

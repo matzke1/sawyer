@@ -313,7 +313,7 @@ public:
      * @{ */
     template<typename T2, class Policy2>
     std::pair<NodeIterator, typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator>
-    findFirstOverlap(IntervalMap::NodeIterator thisIter, const IntervalMap<Interval, T2, Policy2> &other,
+    findFirstOverlap(typename IntervalMap::NodeIterator thisIter, const IntervalMap<Interval, T2, Policy2> &other,
                      typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator otherIter) {
         while (thisIter!=nodes().end() && otherIter!=other.nodes().end()) {
             if (thisIter->key().isOverlapping(otherIter->key()))
@@ -328,7 +328,7 @@ public:
     }
     template<typename T2, class Policy2>
     std::pair<ConstNodeIterator, typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator>
-    findFirstOverlap(IntervalMap::ConstNodeIterator thisIter, const IntervalMap<Interval, T2, Policy2> &other,
+    findFirstOverlap(typename IntervalMap::ConstNodeIterator thisIter, const IntervalMap<Interval, T2, Policy2> &other,
                      typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator otherIter) const {
         while (thisIter!=nodes().end() && otherIter!=other.nodes().end()) {
             if (thisIter->key().isOverlapping(otherIter->key()))

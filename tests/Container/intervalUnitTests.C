@@ -595,11 +595,11 @@ template<class Interval>
 static void set_ctor_tests() {
     typedef Sawyer::Container::IntervalMap<Interval, float> Map;
     Map map1;
-    map1.insert(Interval::hull(70, 79), 3.141);
-    map1.insert(Interval::hull(100, 109), 1.414);
+    map1.insert(Interval::hull(70, 79), 3.141f);
+    map1.insert(Interval::hull(100, 109), 1.414f);
 
     Map map2;
-    map2.insert(65, 6.28);
+    map2.insert(65, 6.28f);
 
     std::cerr <<"construct set from map\n";
     typedef Sawyer::Container::IntervalSet<Interval> Set;

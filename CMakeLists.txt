@@ -26,6 +26,7 @@ set(lib_src
   sawyer/SmallObject.C
   sawyer/Stopwatch.C)
 add_library(sawyer SHARED ${lib_src})
+target_link_libraries(sawyer ${Boost_LIBRARIES})
 
 include_directories(
   ${CMAKE_SOURCE_DIR}

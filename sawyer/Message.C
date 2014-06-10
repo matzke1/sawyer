@@ -20,6 +20,8 @@
 #elif defined(_MSC_VER)
 #   include <time.h>
 #   include <windows.h>
+#   undef ERROR                                         // not sure where this pollution comes from
+#   undef max                                           // more pollution
 #else // POSIX
 #   include <sys/time.h>                                // gettimeofday() and struct timeval
 #endif
@@ -463,8 +465,14 @@ std::string Prefix::toString(const Mesg &mesg, const MesgProps &props) const {
     if (showProgramName_ && programName_) {
         programNameShown = *programName_;
         retval <<*programName_;
-        if (showThreadId_)
+        if (showThreadId_) {
+#ifdef _MSC_VER
+            // FIXME[Robb Matzke 2014-06-10]: How does one get a process ID or thread identifier on Windows?
+            retval <<"[?]";
+#else
             retval <<"[" <<getpid() <<"]";
+#endif
+        }
         separator = " ";
     }
 
@@ -568,6 +576,11 @@ std::string UnformattedSink::render(const Mesg &mesg, const MesgProps &props) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void FdSink::init() {
+#ifdef _MSC_VER
+    gangInternal(Gang::instanceForId(fd_));
+    overrideProperties().useColor = false;
+    defaultProperties().isBuffered = true;
+#else
     if (isatty(fd_)) {
         gangInternal(Gang::instanceForTty());
         defaultProperties().useColor = true;            // use color if the user doesn't care
@@ -576,9 +589,14 @@ void FdSink::init() {
         overrideProperties().useColor = false;          // force false; user can still set this if they really want color
     }
     defaultProperties().isBuffered = 2!=fd_;            // assume stderr is unbuffered and the rest are buffered
+#endif
 }
 
 void FdSink::post(const Mesg &mesg, const MesgProps &props) {
+#ifdef _MSC_VER
+    // FIXME[Robb Matzke 2014-06-10]: what is the most basic file level on Windows; one which doesn't need construction?
+    std::cout <<render(mesg, props);
+#else
     std::string s = render(mesg, props);
     const char *buf = s.c_str();
     size_t nbytes = s.size();
@@ -594,11 +612,17 @@ void FdSink::post(const Mesg &mesg, const MesgProps &props) {
             nbytes -= nwritten;
         }
     }
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void FileSink::init() {
+#ifdef _MSC_VER
+    gangInternal(Gang::instanceForTty());
+    overrideProperties().useColor = false;
+    defaultProperties().isBuffered = true;
+#else
     if (isatty(fileno(file_))) {
         gangInternal(Gang::instanceForTty());
         overrideProperties().useColor = true;           // use color if the user doesn't care
@@ -607,6 +631,7 @@ void FileSink::init() {
         overrideProperties().useColor = false;          // force false; user can still set this if they really want color
     }
     defaultProperties().isBuffered = 2!=fileno(file_);  // assume stderr is unbuffered and the rest are buffered
+#endif
 }
 
 void FileSink::post(const Mesg &mesg, const MesgProps &props) {

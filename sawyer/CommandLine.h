@@ -1468,10 +1468,10 @@ protected:
  * @endcode */
 template<class Functor>
 class UserAction: public SwitchAction {
-    const Functor &functor_;
+    Functor &functor_;
 protected:
     /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
-    UserAction(const Functor &f): functor_(f) {}
+    UserAction(Functor &f): functor_(f) {}
 public:
     /** Reference counting pointer for this class. */
     typedef SharedPointer<class UserAction> Ptr;
@@ -1480,7 +1480,7 @@ public:
      *  userAction factory instead, which requires less typing.
      *
      * @sa @ref action_factories, and the @ref SwitchAction class. */
-    static Ptr instance(const Functor &f) { return Ptr(new UserAction(f)); }
+    static Ptr instance(Functor &f) { return Ptr(new UserAction(f)); }
 protected:
     virtual void operator()(const ParserResult &parserResult) /*override*/ { (functor_)(parserResult); }
 };

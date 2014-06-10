@@ -4,19 +4,25 @@
 using namespace Sawyer;
 using namespace Sawyer::Message;
 
+#ifndef _MSC_VER                                        // FIXME[Robb Matzke 2014-06-10]: how to specify duration on Windows?
 struct timespec delay = {0, 100000};
+#endif
 
 template <typename T, typename S>
 void work(T niter, ProgressBar<T, S> &progress) {
     Message::mlog[WHERE] <<"starting work, going up\n";
     for (T i=0; i<niter; ++i, ++progress) {
+#ifndef _MSC_VER                                        // FIXME[Robb Matzke 2014-06-10]
         nanosleep(&delay, NULL); // represents substantial work
+#endif
         if (i==niter/2)
             Message::mlog[WARN] <<"about half way\n";
     }
     Message::mlog[WHERE] <<"now going down\n";
     for (T i=0; i<niter; ++i, --progress) {
+#ifndef _MSC_VER                                        // FIXME[Robb Matzke 2014-06-10]
         nanosleep(&delay, NULL); // represents substantial work
+#endif
         if (i==niter/2)
             Message::mlog[WARN] <<"about half way\n";
     }
@@ -70,7 +76,9 @@ void test5(size_t niter, const SProxy &stream) {
     ProgressBar<double> progress(0.0, 0.0, 1.0, stream, "probability");
     double delta = 1.0 / niter;
     for (size_t i=0; i<niter; ++i, progress+=delta)
+#ifndef _MSC_VER                                        // FIXME[Robb Matzke 2014-06-10]
         nanosleep(&delay, NULL); // represents substantial work
+#endif
 }
 
 // Floating point progress bar with negative values
@@ -79,7 +87,9 @@ void test6(size_t niter, const SProxy &stream) {
     ProgressBar<double> progress(-1.0, -1.0, 0.0, stream, "negative");
     double delta = 1.0 / niter;
     for (size_t i=0; i<niter; ++i, progress+=delta)
+#ifndef _MSC_VER                                        // FIXME[Robb Matzke 2014-06-10]
         nanosleep(&delay, NULL); // represents substantial work
+#endif
 }
 
 // underflow and overflow

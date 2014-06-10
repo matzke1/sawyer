@@ -408,7 +408,8 @@ void user_allocator() {
     Sawyer::PoolAllocator pools;
     typedef Sawyer::ProxyAllocator<Sawyer::PoolAllocator> PoolProxy;
 
-    Sawyer::Container::IndexedList<int, PoolProxy> list(PoolProxy(pools));
+    Sawyer::Container::IndexedList<int, PoolProxy> list(pools);
+    list.pushBack(123);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

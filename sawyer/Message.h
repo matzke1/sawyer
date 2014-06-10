@@ -1230,11 +1230,14 @@ public:
      *  mlog[DEBUG] and mlog[DEBUG] <<"the memory map is: " <<memoryMap <<"\n";
      *  
      *  SAWYER_MESG(mlog[DEBUG]) <<"the memory map is: " <<memoryMap <<"\n";
-     * @endcode */
+     * @endcode
+     *
+     *  Note: Although "and" looks slightly better than "&&" in the above examples, it is not portable across Microsoft
+     *  compilers. */
     operator bool() { return enabled(); }
 
     // See Stream::bool()
-    #define SAWYER_MESG(message_stream) message_stream and message_stream
+    #define SAWYER_MESG(message_stream) message_stream && message_stream
 
     /** Enable or disable a stream.  A disabled stream buffers the latest partial message and enabling the stream will cause
      * the entire accumulated message to be emitted--whether the partial message immediately appears on the output is up to
