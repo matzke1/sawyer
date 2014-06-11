@@ -101,13 +101,19 @@ public:
  *  ASSERT_always_require(accessed.size()==13);
  *  ASSERT_always_require(0==memcmp(data1, "-BCDEFGHIJKLMN-", 15));
  *  ASSERT_always_require(0==memcmp(data2,      "fghij#####", 10));
- * @endcode */
+ * @endcode
+ *
+ * @section errors Microsoft C++ compilers
+ *
+ * Microsoft Visual Studio 12 2013 (MSVC 18.0.30501.0) and possibly other versions look up non-dependent names in template base
+ * classes in violation of C++ standards and apparently no switch to make their behavior compliant with the standard.  This
+ * causes problems for AddressMap because unqualified references to <tt>%Interval</tt> should refer to the
+ * Sawyer::Container::Interval class template, but instead they refer to the @ref IntervalMap::Interval "Interval" typedef in
+ * the base class.  Our work around is to qualify all occurrences of <tt>%Interval</tt> where Microsoft compilers go wrong. */
 template<class A, class T = boost::uint8_t>
 class AddressMap: public IntervalMap<Interval<A>, AddressSegment<A, T>, SegmentMergePolicy<A, T> > {
-    // Microsoft compiler doesn't like "Interval<A>", it must be fully qualified.
-    //typedef              IntervalMap<Interval<A>, AddressSegment<A, T>, SegmentMergePolicy<A, T> > Super;
-    typedef Sawyer::Container::Interval<A> I;
-    typedef IntervalMap<I, AddressSegment<A, T>, SegmentMergePolicy<A, T> > Super;
+    // "Interval" is qualified to work around bug in Microsoft compilers. See doxygen note above.
+    typedef IntervalMap<Sawyer::Container::Interval<A>, AddressSegment<A, T>, SegmentMergePolicy<A, T> > Super;
 
 public:
     typedef A Address;                                  /**< Type for addresses. This should be an unsigned type. */
@@ -156,7 +162,7 @@ public:
      *  Determines which part of the address space beginning at @p start is mapped and accessible.  Returns an address
      *  interval, which will be empty if start itself is not mapped and accessible. */
     Sawyer::Container::Interval<Address> available(Address start, unsigned requiredAccess=0, unsigned prohibitedAccess=0) const {
-        Sawyer::Container::Interval<Address> retval;    // fully qualified for Microsoft compiler
+        Sawyer::Container::Interval<Address> retval;    // fully qualified for Microsoft compiler bug
         ConstNodeIterator found = this->find(start);
         if (found != this->nodes().end()) {
             retval = Sawyer::Container::Interval<Address>(start, found->key().greatest());
@@ -184,7 +190,7 @@ public:
      *  Returns the interval for the values that were copied into the supplied buffer. */
     Sawyer::Container::Interval<Address> read(Value *buf, const Sawyer::Container::Interval<Address> &where,
                                               unsigned requiredAccess=0, unsigned prohibitedAccess=0) const {
-        Sawyer::Container::Interval<Address> retval;    // fully qualified for Microsoft compiler
+        Sawyer::Container::Interval<Address> retval;    // fully qualified for Microsoft compiler bug
         if (!where.isEmpty()) {
             for (ConstNodeIterator found = this->find(where.least()); found!=this->nodes().end(); ++found) {
                 if (!isAccessAllowed(found->value().accessibility(), requiredAccess, prohibitedAccess))
@@ -216,7 +222,7 @@ public:
      *
      *  Returns the number of values that were copied into the supplied buffer, subject to overflow. */
     Address read(Value *buf, Address start, Address size, unsigned requiredAccess=0, unsigned prohibitedAccess=0) const {
-        // Interval fully qualified for Microsoft compiler
+        // Interval fully qualified for Microsoft compiler bug
         return read(buf, Sawyer::Container::Interval<Address>::baseSize(start, size), requiredAccess, prohibitedAccess).size();
     }
     
@@ -233,7 +239,7 @@ public:
      *  Returns the interval for the values that were copied into this map. */
     Sawyer::Container::Interval<Address> write(const Value *buf, const Sawyer::Container::Interval<Address> &where,
                                                unsigned requiredAccess=0, unsigned prohibitedAccess=0) {
-        Sawyer::Container::Interval<Address> retval;    // fully qualified for Microsoft compiler
+        Sawyer::Container::Interval<Address> retval;    // fully qualified for Microsoft compiler bug
         if (!where.isEmpty()) {
             for (ConstNodeIterator found = this->find(where.least()); found!=this->nodes().end(); ++found) {
                 if (!isAccessAllowed(found->value().accessibility(), requiredAccess, prohibitedAccess))
@@ -264,7 +270,7 @@ public:
      *
      *  Returns the number of values that were copied from the supplied buffer, subject to overflow. */
     Address write(const Value *buf, Address start, Address size, unsigned requiredAccess=0, unsigned prohibitedAccess=0) {
-        // Interval fully qualified for Microsoft compiler
+        // Interval fully qualified for Microsoft compiler bug
         return write(buf, Sawyer::Container::Interval<Address>::baseSize(start, size), requiredAccess, prohibitedAccess).size();
     }
 
