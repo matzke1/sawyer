@@ -104,7 +104,11 @@ public:
  * @endcode */
 template<class A, class T = boost::uint8_t>
 class AddressMap: public IntervalMap<Interval<A>, AddressSegment<A, T>, SegmentMergePolicy<A, T> > {
-    typedef              IntervalMap<Interval<A>, AddressSegment<A, T>, SegmentMergePolicy<A, T> > Super;
+    // Microsoft compiler doesn't like "Interval<A>", it must be fully qualified.
+    //typedef              IntervalMap<Interval<A>, AddressSegment<A, T>, SegmentMergePolicy<A, T> > Super;
+    typedef Sawyer::Container::Interval<A> I;
+    typedef IntervalMap<I, AddressSegment<A, T>, SegmentMergePolicy<A, T> > Super;
+
 public:
     typedef A Address;                                  /**< Type for addresses. This should be an unsigned type. */
     typedef T Value;                                    /**< Type of data stored in the address space. */
@@ -151,17 +155,17 @@ public:
      *
      *  Determines which part of the address space beginning at @p start is mapped and accessible.  Returns an address
      *  interval, which will be empty if start itself is not mapped and accessible. */
-    Interval<Address> available(Address start, unsigned requiredAccess=0, unsigned prohibitedAccess=0) const {
-        Interval<Address> retval;
+    Sawyer::Container::Interval<Address> available(Address start, unsigned requiredAccess=0, unsigned prohibitedAccess=0) const {
+        Sawyer::Container::Interval<Address> retval;    // fully qualified for Microsoft compiler
         ConstNodeIterator found = this->find(start);
         if (found != this->nodes().end()) {
-            retval = Interval<Address>(start, found->key().greatest());
+            retval = Sawyer::Container::Interval<Address>(start, found->key().greatest());
             for (++found; found!=this->nodes().end(); ++found) {
                 if (found->key().least() != retval.greatest() + 1)
                     break;                              // discontinuity
                 if (!isAccessAllowed(found->value().accessibility(), requiredAccess, prohibitedAccess))
                     break;                              // disallowed
-                retval = Interval<Address>(start, found->key().greatest());
+                retval = Sawyer::Container::Interval<Address>(start, found->key().greatest());
             }
         }
         return retval;
@@ -178,20 +182,20 @@ public:
      *  @li The read operation on the underlying buffer fails.
      *
      *  Returns the interval for the values that were copied into the supplied buffer. */
-    Interval<Address> read(Value *buf, const Interval<Address> &where,
-                           unsigned requiredAccess=0, unsigned prohibitedAccess=0) const {
-        Interval<Address> retval;
+    Sawyer::Container::Interval<Address> read(Value *buf, const Sawyer::Container::Interval<Address> &where,
+                                              unsigned requiredAccess=0, unsigned prohibitedAccess=0) const {
+        Sawyer::Container::Interval<Address> retval;    // fully qualified for Microsoft compiler
         if (!where.isEmpty()) {
             for (ConstNodeIterator found = this->find(where.least()); found!=this->nodes().end(); ++found) {
                 if (!isAccessAllowed(found->value().accessibility(), requiredAccess, prohibitedAccess))
                     break;
-                Interval<Address> part = where.intersection(found->key());
+                Sawyer::Container::Interval<Address> part = where.intersection(found->key());
                 if (part.isEmpty() || (!retval.isEmpty() && retval.greatest()+1 != part.least()))
                     break;
                 Address bufferOffset = part.least() - found->key().least() + found->value().offset();
                 Address nread = found->value().buffer()->read(buf, bufferOffset, part.size());
                 if (nread!=part.size())                 // short read from buffer
-                    return retval.hull(Interval<Address>::baseSize(part.least(), nread));
+                    return retval.hull(Sawyer::Container::Interval<Address>::baseSize(part.least(), nread));
                 buf += nread;
                 retval = retval.hull(part);
             }
@@ -212,7 +216,8 @@ public:
      *
      *  Returns the number of values that were copied into the supplied buffer, subject to overflow. */
     Address read(Value *buf, Address start, Address size, unsigned requiredAccess=0, unsigned prohibitedAccess=0) const {
-        return read(buf, Interval<Address>::baseSize(start, size), requiredAccess, prohibitedAccess).size();
+        // Interval fully qualified for Microsoft compiler
+        return read(buf, Sawyer::Container::Interval<Address>::baseSize(start, size), requiredAccess, prohibitedAccess).size();
     }
     
     /** Writes data from the supplied buffer.
@@ -226,20 +231,20 @@ public:
      *  @li The write operation on the underlying buffer fails.
      *
      *  Returns the interval for the values that were copied into this map. */
-    Interval<Address> write(const Value *buf, const Interval<Address> &where,
-                            unsigned requiredAccess=0, unsigned prohibitedAccess=0) {
-        Interval<Address> retval;
+    Sawyer::Container::Interval<Address> write(const Value *buf, const Sawyer::Container::Interval<Address> &where,
+                                               unsigned requiredAccess=0, unsigned prohibitedAccess=0) {
+        Sawyer::Container::Interval<Address> retval;    // fully qualified for Microsoft compiler
         if (!where.isEmpty()) {
             for (ConstNodeIterator found = this->find(where.least()); found!=this->nodes().end(); ++found) {
                 if (!isAccessAllowed(found->value().accessibility(), requiredAccess, prohibitedAccess))
                     break;
-                Interval<Address> part = where.intersection(found->key());
+                Sawyer::Container::Interval<Address> part = where.intersection(found->key());
                 if (part.isEmpty() || (!retval.isEmpty() && retval.greatest()+1 != part.least()))
                     break;
                 Address bufferOffset = part.least() - found->key().least() + found->value().offset();
                 Address nwritten = found->value().buffer()->write(buf, bufferOffset, part.size());
                 if (nwritten!=part.size())              // short write to buffer
-                    return retval.hull(Interval<Address>::baseSize(part.least(), nwritten));
+                    return retval.hull(Sawyer::Container::Interval<Address>::baseSize(part.least(), nwritten));
                 buf += nwritten;
                 retval = retval.hull(part);
             }
@@ -259,7 +264,8 @@ public:
      *
      *  Returns the number of values that were copied from the supplied buffer, subject to overflow. */
     Address write(const Value *buf, Address start, Address size, unsigned requiredAccess=0, unsigned prohibitedAccess=0) {
-        return write(buf, Interval<Address>::baseSize(start, size), requiredAccess, prohibitedAccess).size();
+        // Interval fully qualified for Microsoft compiler
+        return write(buf, Sawyer::Container::Interval<Address>::baseSize(start, size), requiredAccess, prohibitedAccess).size();
     }
 
 private:
