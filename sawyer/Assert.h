@@ -93,13 +93,6 @@ void fail(const char *mesg, const char *expr, const std::string &note,
 } // namespace
 } // namespace
 
-#ifndef _MSC_VER
-#define SAWYER_PRETTY_FUNCTION __PRETTY_FUNCTION__
-#else
-#define SAWYER_PRETTY_FUNCTION "UNKNOWN_FUNCTION"
-#endif
-
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // These "always" macros are enabled regardless of whether SAWYER_NDEBUG is defined.  Don't use them for
 // expensive assertions.

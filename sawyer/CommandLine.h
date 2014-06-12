@@ -773,11 +773,7 @@ public:
 private:
     virtual ParsedValue operator()(const char *input, const char **rest, const Location &loc) /*override*/ {
         errno = 0;
-#ifdef _MSC_VER
-        boost::int64_t big = _strtoi64(input, (char**)rest, 0);
-#else
         boost::int64_t big = strtoll(input, (char**)rest, 0);
-#endif
         if (*rest==input)
             throw std::runtime_error("integer expected");
         while (isspace(**rest)) ++*rest;
@@ -825,11 +821,7 @@ private:
         while (isspace(*input)) ++input;
         if ('+'!=*input && !isdigit(*input))
             throw std::runtime_error("unsigned integer expected");
-#ifdef _MSC_VER
-        boost::uint64_t big = _strtoui64(input, (char**)rest, 0);
-#else
         boost::uint64_t big = strtoull(input, (char**)rest, 0);
-#endif
         if (*rest==input)
             throw std::runtime_error("unsigned integer expected");
         while (isspace(**rest)) ++*rest;
