@@ -15,6 +15,10 @@ set(CMAKE_BUILD_TYPE Debug)
 find_package(PkgConfig)
 find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono)
 
+# We need additional libraries when the target OS is windows, but we don't want errors when compiling for Linux where those
+# libraries don't exist.  I'm not sure how to do this....
+find_library(Windows_LIBRARIES psapi NAMES m)
+
 set(lib_src
   sawyer/Assert.C
   sawyer/CommandLine.C
@@ -26,7 +30,7 @@ set(lib_src
   sawyer/SmallObject.C
   sawyer/Stopwatch.C)
 add_library(sawyer SHARED ${lib_src})
-target_link_libraries(sawyer ${Boost_LIBRARIES})
+target_link_libraries(sawyer ${Boost_LIBRARIES} ${Windows_LIBRARIES})
 
 include_directories(
   ${CMAKE_SOURCE_DIR}

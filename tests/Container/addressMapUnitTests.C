@@ -103,6 +103,7 @@ static void test03() {
 
     char data[64];
     Address nread = map.read(data, 1000, 64);
+    data[sizeof(data)-1] = '\0';
     ASSERT_always_require(nread==64);
     std::cout <<data <<"...\n";
 }

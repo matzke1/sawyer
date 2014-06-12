@@ -1,9 +1,10 @@
 #include <sawyer/Message.h>
 #include <sawyer/Optional.h>
 
+#include <boost/config.hpp>
 #include <cstdio>
 #include <iostream>
-#ifndef _MSC_VER
+#ifndef BOOST_WINDOWS
 #include <syslog.h>
 #endif
 
@@ -81,7 +82,7 @@ void test5(const DestinationPtr &sink)
     Facility log("test5", sink);
     log[DEBUG] <<"five characters, one per second (except on Windows) [";
     for (size_t i=0; i<5; ++i) {
-#ifndef _MSC_VER                                        // FIXME[Robb Matzke 2014-06-10]: how on windows?
+#ifndef BOOST_WINDOWS                                        // FIXME[Robb Matzke 2014-06-10]: how on windows?
         sleep(1);
 #endif
         log[DEBUG] <<"#";
