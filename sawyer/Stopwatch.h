@@ -3,6 +3,7 @@
 
 #include <boost/chrono/duration.hpp>
 #include <boost/chrono/system_clocks.hpp>
+#include <sawyer/Sawyer.h>
 
 namespace Sawyer {
 
@@ -27,15 +28,17 @@ namespace Sawyer {
  *  Thread safety: These functions are not thread-safe, although multiple threads can invoke the methods concurrently on
  *  different objects.  It is permissible for different threads to invoke methods on the same object provided that
  *  synchronization occurs above the method calls. */
-class Stopwatch {
+class SAWYER_EXPORT Stopwatch {
 public:
     typedef boost::chrono::high_resolution_clock::time_point TimePoint;
     typedef boost::chrono::duration<double> Duration;
 
 private:
+#include <sawyer/WarningsOff.h>
     mutable TimePoint begin_;                           // time that this stopwatch (re)started
     mutable Duration elapsed_;                          // sum of elapsed run time in seconds
     bool running_;                                      // state of the stopwatch: running or not
+#include <sawyer/WarningsRestore.h>
 
 public:
     /** Construct and optionally start a timer.

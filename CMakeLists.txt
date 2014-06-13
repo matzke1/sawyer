@@ -1,18 +1,18 @@
 cmake_minimum_required(VERSION 2.8)
 project(Sawyer)
 
-# Set either the build type or the G++ flags
-set(CMAKE_BUILD_TYPE Debug)
-#set(CMAKE_BUILD_TYPE Release)
-#if(CMAKE_COMPILER_IS_GNUCXX)
-#    set(CMAKE_CXX_FLAGS "-O3 -fomit-frame-pointer -DNDEBUG")
-#    set(CMAKE_EXE_LINKER_FLAGS "-s")  ## Strip binary
-#endif()
+# Set either the build type or the G++ flags (i.e., cmake -DCMAKE_BUILD_TYPE=Debug ...) or else choose a default here
+if("${CMAKE_BUILD_TYPE}" STREQUAL "")
+  set(CMAKE_BUILD_TYPE Debug)
+endif()
 
-#set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
-#set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
+# Extra optimization switches for GCC compilers
+if(CMAKE_COMPILER_IS_GNUCXX AND (${CMAKE_BUILD_TYPE} STREQUAL "Release"))
+    set(CMAKE_CXX_FLAGS "-O3 -fomit-frame-pointer -DNDEBUG")
+    set(CMAKE_EXE_LINKER_FLAGS "-s")  ## Strip binary
+endif()
 
-find_package(PkgConfig)
+
 find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono)
 
 # Microsoft Visual Studio needs to be told where the boost libraries are located or else you'll get
@@ -38,8 +38,9 @@ set(lib_src
   sawyer/Sawyer.C
   sawyer/SmallObject.C
   sawyer/Stopwatch.C)
-add_library(sawyer SHARED ${lib_src})
-target_link_libraries(sawyer ${Boost_LIBRARIES} ${Windows_LIBRARIES})
+add_library(libsawyer SHARED ${lib_src})
+target_link_libraries(libsawyer ${Boost_LIBRARIES} ${Windows_LIBRARIES})
+set_target_properties(libsawyer PROPERTIES DEFINE_SYMBOL "SAWYER_DO_EXPORTS")
 
 include_directories(
   ${CMAKE_SOURCE_DIR}
@@ -63,7 +64,7 @@ add_subdirectory(tests/Pointers)
 #    |_| |_| |_|\__,_|_|\_\___|     |_|_| |_|___/\__\__,_|_|_|
 #
 #-------------------------------------------------------------------------------
-install(TARGETS sawyer
+install(TARGETS libsawyer
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)

@@ -163,6 +163,16 @@
  *  };
  * @endcode */
 
+#ifdef BOOST_WINDOWS
+#   ifdef SAWYER_DO_EXPORTS                             // defined in CMake when compiling libsawyer
+#       define SAWYER_EXPORT __declspec(dllexport)
+#   else
+#       define SAWYER_EXPORT __declspec(dllimport)
+#   endif
+#else
+#   define SAWYER_EXPORT /*void*/
+#endif
+
 
 /** Name space for the entire library.  All %Sawyer functionality except for some C preprocessor macros exists inside this
  * namespace.  Most of the macros begin with the string "SAWYER_". */
@@ -171,20 +181,20 @@ namespace Sawyer {
 /** Explicitly initialize the library. This initializes any global objects provided by the library to users.  This happens
  *  automatically for many API calls, but sometimes needs to be called explicitly. Calling this after the library has already
  *  been initialized does nothing. The function always returns true. */
-bool initializeLibrary();
+SAWYER_EXPORT bool initializeLibrary();
 
 /** True if the library has been initialized. */
-extern bool isInitialized;
+SAWYER_EXPORT extern bool isInitialized;
 
 /** Portable replacement for ::strtoll
  *
  *  Microsoft doesn't define this function, so we define it in the Sawyer namespace. */
-boost::int64_t strtoll(const char*, char**, int);
+SAWYER_EXPORT boost::int64_t strtoll(const char*, char**, int);
 
 /** Portable replacement for ::strtoull
  *
  *  Microsoft doesn't define this function, so we define it in the Sawyer namespace. */
-boost::uint64_t strtoull(const char*, char**, int);
+SAWYER_EXPORT boost::uint64_t strtoull(const char*, char**, int);
 
 
 } // namespace
@@ -227,5 +237,7 @@ boost::uint64_t strtoull(const char*, char**, int);
     TYPE NAME[SIZE];
 
 #endif
+
+#define SAWYER_CONFIGURED /*void*/
 
 #endif
