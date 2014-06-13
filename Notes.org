@@ -1,0 +1,77 @@
+* Portability
+
+  We have not tried to make the libsawyer portable across multiple
+  compilers, compiler versions, compiler switches, or Boost
+  libraries.  Although it should compile and run correctly with
+  different choices of compiler, etc., the library doesn't attempt to
+  handle or even detect cases where the library was compiled with one
+  configuration and the user's code compiled with some other
+  configuration.
+
+* Prerequisites
+
+** Boost 1.47 through 1.55
+
+   Other versions of Boost may or may not work.
+
+* Targeting Microsoft Windows
+
+  Microsoft targets are largely untested. Sawyer should compile okay,
+  but may or may not run correctly.
+
+** Cross compiling on Linux for Windows
+
+   Sawyer and its tests can be compiled on Linux with the MinGW
+   project's compilers.  Here's the steps for Debian Squeeze:
+
+*** Install MinGW
+
+    $ sudo aptitude install mingw-w64
+
+*** Cross compile Boost libraries
+
+    1. Download and untar boost source code (this example uses boost-1.47)
+    2. Run "bootstrap.sh"
+    3. Edit project-config.jam and replace "using gcc" with:
+       "using gcc : mingw32 : i586-mingw32msvc-g++ ;"
+    4. Create the installation directory
+       I used ~/lib-mingw32/boost-1.47
+    5. Compile
+       $ ./bjam --help
+       $ ./bjam install toolset=gcc-mingw32 \
+	   --prefix=/home/matzke/lib-mingw32/boost-1.47 \
+	   --layout=versioned \
+	   --with-iostreams --with-system --with-filesystem --with-regex --with-chrono \
+	   -sNO_ZLIB=1 -sNO_BZIP2=1
+
+       The NO_ZLIB and NO_BZIP2 are for the iostreams package since
+       we didn't compile mingw32 versions of zlib or bzip2.
+
+*** Cross compile libsawyer
+
+    $ cmake -DCMAKE_TOOLCHAIN_FILE=../Toolchain-cross-mingw32-linux.cmake ...
+
+    Make sure you point to the mingw32-compiled versions of boost.
+    The directory with the boost headers and libraries must be a
+    directory that's at or below one of the directories specified in
+    Toolchain-cross-mingw32-linux.cmake's CMAKE_FIND_ROOT_PATH
+    variable.
+
+** Compile with Microsoft Visual Studio
+
+   Version 10 2010 and 12 2013 have been tested.
+
+*** Install Boost libraries
+
+    Follow instructions at the [[http://boost.org][Boost web site]].  The instructions
+    didn't work for my with Windows 8.1 Enterprise and Visual Studio
+    12 2013, so I used precompiled Boost libraries found at boost.org.
+
+*** Compile libsawyer
+
+    Generate a project file:
+
+    $ cmake -G "Visual Studio 12 2013" ...
+
+    Then fire up the IDE, open the project file, right click on a
+    "solution" and select "Build".
