@@ -15,10 +15,19 @@ set(CMAKE_BUILD_TYPE Debug)
 find_package(PkgConfig)
 find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono)
 
-# We need additional libraries when the target OS is windows, but we don't want errors when compiling for Linux where those
-# libraries don't exist.  I'm not sure how to do this....
-find_library(Windows_LIBRARIES psapi NAMES m)
+# Microsoft Visual Studio needs to be told where the boost libraries are located or else you'll get
+# errors like "fatal error LNK1104: cannot open file 'libboost_system-vc90-mt-gd-1_44.lib'" even though cmake was
+# able to find the libraries.
+link_directories(${LINK_DIRECTORIES} ${Boost_LIBRARY_DIRS})
 
+# We need additional libraries when compiling with MinGW.
+if(${MINGW})
+  find_library(Windows_LIBRARIES psapi)
+else()
+  set(Windows_LIBRARIES "")
+endif()
+
+# libsawyer
 set(lib_src
   sawyer/Assert.C
   sawyer/CommandLine.C
