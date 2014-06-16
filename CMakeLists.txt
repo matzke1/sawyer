@@ -8,8 +8,13 @@ endif()
 
 # Extra optimization switches for GCC compilers
 if(CMAKE_COMPILER_IS_GNUCXX AND (${CMAKE_BUILD_TYPE} STREQUAL "Release"))
-    set(CMAKE_CXX_FLAGS "-O3 -fomit-frame-pointer -DNDEBUG")
-    set(CMAKE_EXE_LINKER_FLAGS "-s")  ## Strip binary
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fomit-frame-pointer -DNDEBUG")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s")  ## Strip binary
+endif()
+
+# Extra warning switches for GCC compilers
+if(CMAKE_COMPILER_IS_GNUCXX)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 endif()
 
 
@@ -29,10 +34,10 @@ endif()
 
 # libsawyer
 set(lib_src
+  sawyer/Markup.C
+  sawyer/MarkupPod.C
   sawyer/Assert.C
   sawyer/CommandLine.C
-  sawyer/Markup.C
-  sawyer/MarkupRoff.C
   sawyer/Message.C
   sawyer/ProgressBar.C
   sawyer/Sawyer.C
@@ -47,13 +52,14 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
 )
 
+add_subdirectory(tests/Allocation)
+add_subdirectory(tests/Pointers)
 add_subdirectory(tests/Container)
 add_subdirectory(tests/Message)
 add_subdirectory(tests/Assert)
 add_subdirectory(tests/ProgressBar)
+add_subdirectory(tests/Markup)
 add_subdirectory(tests/CommandLine)
-add_subdirectory(tests/Allocation)
-add_subdirectory(tests/Pointers)
 
 #-------------------------------------------------------------------------------
 #                     _              _           _        _ _

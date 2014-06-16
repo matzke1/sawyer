@@ -21,9 +21,9 @@
 //      thing inside the delimiters can use more of the same delimiters as long as they balance.  There cannot be white space
 //      between the tag name and first argument and between arguments (unless, of course, white space is the delimiter).
 //
-//  (4) Use @b and @i for bold and italic.
+//  (4) Use @em for emphasis
 //
-//  (5) To get a real "@b" into the document, add a backslash before it.  Since "@foobar" is not a recognized tag, there's no
+//  (5) To get a real "@em" into the document, add a backslash before it.  Since "@foobar" is not a recognized tag, there's no
 //      need to add anything before it. Don't forget, this is C, so you'll need two backslashes.
 //      FIXME[Robb Matzke 2014-02-24]: not tested yet
 //
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
                .doc("When the repository to clone is on the local machine, instead of using hard links, automatically "
                     "setup .git/objects/info/alternates to share the objects with the source repository. The resulting "
                     "repository starts out without any object of its own.\n\n"
-                    "@b NOTE: this is a possibly dangerous operation; do not use it unless you understand what it does. If "
+                    "@em NOTE: this is a possibly dangerous operation; do not use it unless you understand what it does. If "
                     "you clone your repository using this option and then delete branches (or use any other git command "
                     "that makes any existing commit unreferenced) in the source repository, some objects may become "
                     "unreferenced (or dangling). These objects may be removed by normal git operations (such as "
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
                     "to obtain objects from the reference repository. Using an already existing repository as an alternate "
                     "will require fewer objects to be copied from the repository being cloned, reducing network and local "
                     "storage costs.\n\n"
-                    "@b{NOTE:} see the NOTE for the @s shared option."));
+                    "@em{@em NOTE}: see the NOTE for the @s shared option.")); // double emphasis
     cmd.insert(Switch("quiet", 'q')
                .doc("Operate quietly. Progress is not reported to the standard error stream. This flag is also passed to "
                     "the 'rsync' command when given."));
@@ -261,9 +261,9 @@ int main(int argc, char *argv[]) {
         // up in the See Also section since "authors" comes before "zzz" alphabetically.
         .doc("Authors",
              "Git was started by Linus Torvalds, and is currently maintained by Junio C Hamano. Numerous contributions "
-             "have come from the git mailing list @b{<git@vger.kernel.org>}. For a more complete list of contributors, see "
-             "@i{http://git-scm.com/about}. If you have a clone of git.git itself, the output of @man{git-shortlog}(1) "
-             " and @man{git-blame}(1) can show you the authors for specific parts of the project.")
+             "have come from the git mailing list @link{git@vger.kernel.org}{}. For a more complete list of contributors, see "
+             "@link{http://git-scm.com/about}{}. If you have a clone of git.git itself, the output of @man{git-shortlog}(1) "
+             " and @man{git-blame}(1) can show you the authors for specific parts of the projecyt.")
 
         // You can delete some sections (this example's a bit stupid because you wouldn't normally delete a section you
         // just created, but you might want to delete a section if the parser was created in source code you don't "own".
