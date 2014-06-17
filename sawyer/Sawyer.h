@@ -166,15 +166,11 @@
  * @endcode */
 
 #ifdef BOOST_WINDOWS
-# if 1 // [Robb Matzke 2014-06-13] import/export temporarily disabled for ROSE debugging
-#   define SAWYER_EXPORT /*void*/
-# else
-#   if defined(SAWYER_DO_EXPORTS) || defined(ROSE_DLL_EXPORTS) // defined in CMake when compiling libsawyer
+#   ifdef SAWYER_DO_EXPORTS // defined in CMake when compiling libsawyer
 #       define SAWYER_EXPORT __declspec(dllexport)
 #   else
 #       define SAWYER_EXPORT __declspec(dllimport)
 #   endif
-# endif
 #else
 #   define SAWYER_EXPORT /*void*/
 #endif
@@ -237,6 +233,7 @@ int pclose(FILE*);
 # define SAWYER_ATTR_UNUSED /*unused*/
 # define SAWYER_ATTR_NORETURN /*noreturn*/
 # define SAWYER_PRETTY_FUNCTION __FUNCSIG__
+# define SAWYER_MAY_ALIAS /*void*/
 
 // MVC doesn't support stack arrays whose size is not known at compile time.  We fudge by using an STL vector, which will be
 // cleaned up propertly at end of scope or exceptions.
@@ -248,6 +245,7 @@ int pclose(FILE*);
 # define SAWYER_ATTR_UNUSED __attribute__((unused))
 # define SAWYER_ATTR_NORETURN __attribute__((noreturn))
 # define SAWYER_PRETTY_FUNCTION __PRETTY_FUNCTION__
+# define SAWYER_MAY_ALIAS __attribute__((may_alias))
 
 # define SAWYER_VARIABLE_LENGTH_ARRAY(TYPE, NAME, SIZE) \
     TYPE NAME[SIZE];
