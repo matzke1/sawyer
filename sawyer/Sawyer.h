@@ -2,6 +2,8 @@
 #define Sawyer_H
 
 #include <boost/cstdint.hpp>
+#include <cstdio>
+#include <string>
 
 /** @mainpage
  *
@@ -196,6 +198,16 @@ SAWYER_EXPORT boost::int64_t strtoll(const char*, char**, int);
  *  Microsoft doesn't define this function, so we define it in the Sawyer namespace. */
 SAWYER_EXPORT boost::uint64_t strtoull(const char*, char**, int);
 
+/** Reads one line of input from a file.
+ *
+ *  Returns one line, including any line termination.  Returns an empty string at the end of the file. */
+std::string readOneLine(FILE*);
+
+/** Semi-portable replacement for popen. */
+FILE *popen(const std::string&, const char *how);
+
+/** Semi-portable replacement for pclose. */
+int pclose(FILE*);
 
 } // namespace
 
@@ -221,6 +233,7 @@ SAWYER_EXPORT boost::uint64_t strtoull(const char*, char**, int);
 # define SAWYER_ATTR_UNUSED /*unused*/
 # define SAWYER_ATTR_NORETURN /*noreturn*/
 # define SAWYER_PRETTY_FUNCTION __FUNCSIG__
+# define SAWYER_MAY_ALIAS /*void*/
 
 // MVC doesn't support stack arrays whose size is not known at compile time.  We fudge by using an STL vector, which will be
 // cleaned up propertly at end of scope or exceptions.
@@ -232,6 +245,7 @@ SAWYER_EXPORT boost::uint64_t strtoull(const char*, char**, int);
 # define SAWYER_ATTR_UNUSED __attribute__((unused))
 # define SAWYER_ATTR_NORETURN __attribute__((noreturn))
 # define SAWYER_PRETTY_FUNCTION __PRETTY_FUNCTION__
+# define SAWYER_MAY_ALIAS __attribute__((may_alias))
 
 # define SAWYER_VARIABLE_LENGTH_ARRAY(TYPE, NAME, SIZE) \
     TYPE NAME[SIZE];

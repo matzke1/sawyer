@@ -6,7 +6,17 @@ using namespace Sawyer::CommandLine;
 enum WhenColor { NEVER, AUTO, ALWAYS };
 
 void showRawManPage(const ParserResult &parserResult) {
-    std::cout <<parserResult.parser().manpage();
+    std::cout <<parserResult.parser().manDocumentation();
+    exit(0);
+}
+
+void showRawPod(const ParserResult &parserResult) {
+    std::cout <<parserResult.parser().podDocumentation();
+    exit(0);
+}
+
+void showRawMarkup(const ParserResult &parserResult) {
+    std::cout <<parserResult.parser().documentationMarkup();
     exit(0);
 }
 
@@ -65,6 +75,14 @@ int main(int argc, char *argv[]) {
     ss.insert(Switch("raw-man")
               .action(userAction(showRawManPage))
               .doc("Prints the raw nroff man page to standard output for debugging."));
+
+    ss.insert(Switch("raw-pod")
+              .action(userAction(showRawPod))
+              .doc("Prints the raw Perl POD source to standard output for debugging."));
+
+    ss.insert(Switch("raw-markup")
+              .action(userAction(showRawMarkup))
+              .doc("Prints the raw markup to standard output for debugging."));
 
     // An argumentless switch can can be given a different value than true when it occurs.  For instance, this switch will
     // parse the mathematical integer "130" (can be any C/C++ format) and store it as an int as if the string "130" appeared on

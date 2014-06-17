@@ -267,7 +267,7 @@ int main(int argc, char *argv[]) {
                           "file matches, or no message if there is no match.  If @v{type} is \"without-match"
                           "@prop{programName} assumes that a binary file does not match; this is equivalent to "
                           "the @s{I} option.  If @v{type} is \"text\", @prop{programName} processes a binary "
-                          "file as if it were text; ths is equivalent to the @s{a} option.  @b{Warning:} "
+                          "file as if it were text; ths is equivalent to the @s{a} option.  @em Warning: "
                           "\"@prop{programName} @s{binary-files}=text\" might output binary garbage, which can "
                           "have nasty side effects if the output is a terminal and if the terminal driver "
                           "interprets some of it as commands."));
@@ -359,8 +359,8 @@ int main(int argc, char *argv[]) {
         .purpose("print lines matching a pattern")
         .version(VERSION_STRING)
         .doc("Synopsis",
-             "@b{@prop{programName}} [@v{options}] @v{pattern} [@v{file}...]\n\n"
-             "@b{@prop{programName}} [@v{options}] [@s{e} @v{pattern} | @s{f} @v{file}] [@v{file}...]")
+             "@em{@prop{programName}} [@v{options}] @v{pattern} [@v{file}...]\n\n"
+             "@em{@prop{programName}} [@v{options}] [@s{e} @v{pattern} | @s{f} @v{file}] [@v{file}...]")
         .doc("Description",
              "@prop{programName} searches the named input @v{file}s (or standard input if no files are named, or if "
              "a single hyphen-minus (\"-\") is given as the file name) for lines containing a match to the given "
