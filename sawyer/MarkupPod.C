@@ -83,9 +83,12 @@ PodFormatter::toNroff(const ParserResult &parsed) {
                       " " + tmpfile.name.string();
 
     FILE *f = popen(cmd.c_str(), "r");
-    if (!f)
+    if (!f) {
+#include <sawyer/WarningsOff.h>                         // suppress strerror unsafe warning from Microsoft C++
         throw std::runtime_error(std::string("cannot run command: ") + strerror(errno) + "\ncommand: " + cmd);
-
+#include <sawyer/WarningsRestore.h>
+    }
+    
     std::string result;
     while (1) {
         std::string line = readOneLine(f);

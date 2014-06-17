@@ -138,7 +138,7 @@ Content::Ptr Content::fixupLists() const {
             if (list && i+1<elmts_.size() && elmts_[i+1]->tag().dynamicCast<ListItemTag>()) {
                 bool allSpace = true;
                 for (size_t i=0; allSpace && i<data->text().size(); ++i)
-                    allSpace = isspace(data->text()[i]);
+                    allSpace = isspace(data->text()[i]) ? true : false; // avoid Microsoft C++ warning
                 if (allSpace) {
                     list->args().back()->append(elmtFixed);
                     continue;

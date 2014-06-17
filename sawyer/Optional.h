@@ -1,6 +1,8 @@
 #ifndef Sawyer_Optional_H
 #define Sawyer_Optional_H
 
+#include <sawyer/Sawyer.h>
+
 #include <stdexcept>
 
 namespace Sawyer {

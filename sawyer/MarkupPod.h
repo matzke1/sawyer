@@ -10,6 +10,7 @@ namespace Sawyer {
 namespace Markup {
 
 class SAWYER_EXPORT PodFormatter: public Formatter {
+#include <sawyer/WarningsOff.h>
     std::string pageName_;                              // command name, usually upper case. E.g., "LS"
     std::string chapterNumber_;                         // usually a number. E.g., "1" for commands
     std::string chapterName_;                           // E.g., "User Commands"
@@ -17,6 +18,7 @@ class SAWYER_EXPORT PodFormatter: public Formatter {
     std::string versionString_;                         // E.g., "GNU coreutils 8.5"
     std::vector<Tag::Ptr> tagStack_;                    // tags currently processed
     bool atBeginningOfLine_;                            // true when output cursor is at the beginning of a line
+#include <sawyer/WarningsRestore.h>
 protected:
     PodFormatter(): pageName_("Command"), chapterNumber_("1"), chapterName_("User Commands"), atBeginningOfLine_(true) {}
 

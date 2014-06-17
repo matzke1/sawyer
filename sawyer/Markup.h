@@ -107,11 +107,14 @@ public:
 };
 
 class SAWYER_EXPORT Tag: public SharedFromThis<Tag> {
+#include <sawyer/WarningsOff.h>
     DivSpan divspan_;                                   // tag type
     std::string name_;                                  // tag name without the leading "@"
 
     // Number and types of arguments.  An argument that is SPANNING cannot have a DIVIDING tag within it.
     std::vector<ArgumentDeclaration> argDecls_;
+#include <sawyer/WarningsRestore.h>
+
 public:
     typedef SharedPointer<Tag> Ptr;
 protected:
@@ -148,7 +151,9 @@ public:
 };
 
 class SAWYER_EXPORT NullTag: public Tag {
+#include <sawyer/WarningsOff.h>
     std::string text_;
+#include <sawyer/WarningsRestore.h>
 protected:
     explicit NullTag(const std::string &text): Tag(DIVIDING, "null"), text_(text) {}
 public:
@@ -401,8 +406,10 @@ public:
 enum TextMode { PROSE, NONPROSE };
 
 /** Base class for formatting markup. */
-class Formatter: public SharedFromThis<Formatter> {
+class SAWYER_EXPORT Formatter: public SharedFromThis<Formatter> {
+#include <sawyer/WarningsOff.h>
     std::vector<TextMode> textModeStack_;
+#include <sawyer/WarningsRestore.h>
 protected:
     Formatter(): textModeStack_(1, PROSE) {}
 
@@ -448,8 +455,10 @@ public:
 
 class SAWYER_EXPORT TagInstance: public SharedObject {
 private:
+#include <sawyer/WarningsOff.h>
     Tag::Ptr tag_;
     TagArgs args_;
+#include <sawyer/WarningsRestore.h>
 public:
     typedef SharedPointer<TagInstance> Ptr;
 protected:
@@ -477,7 +486,9 @@ public:
 // A sequence of tag instances
 class SAWYER_EXPORT Content: public SharedObject {
 private:
+#include <sawyer/WarningsOff.h>
     std::vector<TagInstance::Ptr> elmts_;
+#include <sawyer/WarningsRestore.h>
 protected:
     Content() {}
 public:
@@ -537,7 +548,9 @@ public:
 };
         
 class SAWYER_EXPORT ParserResult {
+#include <sawyer/WarningsOff.h>
     Content::Ptr content_;
+#include <sawyer/WarningsRestore.h>
 public:
     ParserResult() {}
     ParserResult(const Content::Ptr &content): content_(content) {}
@@ -546,8 +559,10 @@ public:
 };
 
 class SAWYER_EXPORT Parser {
+#include <sawyer/WarningsOff.h>
     typedef Container::Map<std::string, Tag::Ptr> SymbolTable;
     SymbolTable symtab_;
+#include <sawyer/WarningsRestore.h>
 public:
     Parser() { init(); }
     Parser& registerTag(const Tag::Ptr&, const std::string &name="");
