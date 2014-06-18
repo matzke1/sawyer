@@ -4,6 +4,7 @@
 #include <boost/cstdint.hpp>
 #include <sawyer/AllocatingBuffer.h>
 #include <sawyer/NullBuffer.h>
+#include <sawyer/Sawyer.h>
 
 namespace Sawyer {
 namespace Container {

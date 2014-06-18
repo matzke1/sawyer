@@ -2,6 +2,7 @@
 #define Sawyer_NullBuffer_H
 
 #include <sawyer/Buffer.h>
+#include <sawyer/Sawyer.h>
 
 namespace Sawyer {
 namespace Container {

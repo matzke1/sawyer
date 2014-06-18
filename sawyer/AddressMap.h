@@ -5,6 +5,7 @@
 #include <sawyer/Assert.h>
 #include <sawyer/Interval.h>
 #include <sawyer/IntervalMap.h>
+#include <sawyer/Sawyer.h>
 #include <boost/cstdint.hpp>
 
 namespace Sawyer {

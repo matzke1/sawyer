@@ -2,6 +2,7 @@
 #define Sawyer_SmallObject_H
 
 #include <sawyer/PoolAllocator.h>
+#include <sawyer/Sawyer.h>
 
 namespace Sawyer {
 

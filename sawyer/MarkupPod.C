@@ -6,6 +6,7 @@
 #include <boost/foreach.hpp>
 #include <fstream>
 #include <sawyer/Assert.h>
+#include <sawyer/Sawyer.h>
 #include <sstream>
 
 #ifdef BOOST_WINDOWS
@@ -19,7 +20,7 @@
 namespace Sawyer {
 namespace Markup {
 
-PodFormatter::Ptr
+SAWYER_EXPORT PodFormatter::Ptr
 PodFormatter::title(const std::string &pageName, const std::string &chapterNumber, const std::string &chapterName) {
     this->pageName(pageName);
     this->chapterNumber(chapterNumber);
@@ -27,7 +28,7 @@ PodFormatter::title(const std::string &pageName, const std::string &chapterNumbe
     return self();
 }
 
-PodFormatter::Ptr
+SAWYER_EXPORT PodFormatter::Ptr
 PodFormatter::version(const std::string &versionString, const std::string &dateString) {
     this->versionString(versionString);
     this->dateString(dateString);                       // FIXME[Robb Matzke 2014-06-14]: use current date if empty
@@ -126,7 +127,7 @@ escapeSingleQuoted(const std::string &s) {
     return result;
 }
 
-std::string
+SAWYER_EXPORT std::string
 PodFormatter::toNroff(const ParserResult &parsed) {
     // Generate POD documentation into a temporary file
     TempFile tmpfile(tempFileName(".pod"));
@@ -162,7 +163,7 @@ PodFormatter::toNroff(const ParserResult &parsed) {
     return result;
 }
 
-void
+SAWYER_EXPORT void
 PodFormatter::emit(const ParserResult &parsed) {
     // Generate POD documentation into a temporary file.  Since perldoc doesn't support the "name" property, but rather
     // uses the file name, we create a temporary directory and place a POD file inside with the name we want.
@@ -185,7 +186,7 @@ PodFormatter::emit(const ParserResult &parsed) {
 }
     
 // Number of times a tag with the same name as the top-of-stack tag appears in the stack, not counting the top-of-stack.
-size_t
+SAWYER_EXPORT size_t
 PodFormatter::nested() const {
     ASSERT_forbid(tagStack_.empty());
     size_t count = 0;
@@ -198,7 +199,7 @@ PodFormatter::nested() const {
 }
 
 // Check that the expected number of arguments are present.
-void
+SAWYER_EXPORT void
 PodFormatter::checkArgs(const Tag::Ptr &tag, size_t nArgs, const TagArgs &args) const {
     if (args.size()!=nArgs) {
         std::ostringstream ss;
@@ -208,23 +209,23 @@ PodFormatter::checkArgs(const Tag::Ptr &tag, size_t nArgs, const TagArgs &args) 
 }
 
 // Escape S so that it will appear verbatim in pod output
-std::string
+SAWYER_EXPORT std::string
 PodFormatter::escape(const std::string &s) const {
     return s;
 }
 
-void
+SAWYER_EXPORT void
 PodFormatter::beginDocument(std::ostream &out) {
     out <<"=pod\n\n";
     atBeginningOfLine_ = true;
 }
 
-void
+SAWYER_EXPORT void
 PodFormatter::endDocument(std::ostream &out) {
     out <<(atBeginningOfLine_?"":"\n") <<"\n=cut\n";
 }
 
-bool
+SAWYER_EXPORT bool
 PodFormatter::beginTag(std::ostream &out, const Tag::Ptr &tag, const TagArgs &args) {
     tagStack_.push_back(tag);
     if (tag->type() == DIVIDING) {
@@ -316,7 +317,7 @@ PodFormatter::beginTag(std::ostream &out, const Tag::Ptr &tag, const TagArgs &ar
     return true;
 }
 
-void
+SAWYER_EXPORT void
 PodFormatter::endTag(std::ostream &out, const Tag::Ptr &tag, const TagArgs &args) {
     ASSERT_forbid(tagStack_.empty());
     ASSERT_require(tagStack_.back()==tag);
@@ -332,7 +333,7 @@ PodFormatter::endTag(std::ostream &out, const Tag::Ptr &tag, const TagArgs &args
     }
 }
 
-void
+SAWYER_EXPORT void
 PodFormatter::text(std::ostream &out, const std::string &s) {
     BOOST_FOREACH (char ch, escape(s)) {
         if ('\n'==ch) {

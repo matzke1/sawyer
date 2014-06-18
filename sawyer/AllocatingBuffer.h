@@ -2,6 +2,7 @@
 #define Sawyer_AllocatingBuffer_H
 
 #include <sawyer/Buffer.h>
+#include <sawyer/Sawyer.h>
 #include <vector>
 
 namespace Sawyer {

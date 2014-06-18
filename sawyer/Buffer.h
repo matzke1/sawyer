@@ -1,6 +1,7 @@
 #ifndef Sawyer_Buffer_H
 #define Sawyer_Buffer_H
 
+#include <sawyer/Sawyer.h>
 #include <sawyer/SharedPointer.h>
 #include <string>
 

@@ -1,4 +1,5 @@
 #include <sawyer/Stopwatch.h>
+#include <sawyer/Sawyer.h>
 
 namespace Sawyer {
 
@@ -6,7 +7,8 @@ static Stopwatch::TimePoint getCurrentTime() {
     return boost::chrono::high_resolution_clock::now();
 }
 
-double Stopwatch::report(bool clear) const {
+SAWYER_EXPORT double
+Stopwatch::report(bool clear) const {
     if (running_) {
         TimePoint now = getCurrentTime();
         elapsed_ += now - begin_;
@@ -18,7 +20,8 @@ double Stopwatch::report(bool clear) const {
     return retval;
 }
 
-double Stopwatch::start(bool clear) {
+SAWYER_EXPORT double
+Stopwatch::start(bool clear) {
     double retval = report(clear);
     if (!running_) {
         begin_ = getCurrentTime();
@@ -27,13 +30,15 @@ double Stopwatch::start(bool clear) {
     return retval;
 }
 
-double Stopwatch::stop(bool clear) {
+SAWYER_EXPORT double
+Stopwatch::stop(bool clear) {
     double retval = report(clear);
     running_ = false;
     return retval;
 }
 
-double Stopwatch::clear(double value) {
+SAWYER_EXPORT double
+Stopwatch::clear(double value) {
     double retval = stop();
     elapsed_ = Duration(value);
     return retval;

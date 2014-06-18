@@ -3,6 +3,7 @@
 
 #include <sawyer/Assert.h>
 #include <sawyer/Buffer.h>
+#include <sawyer/Sawyer.h>
 
 namespace Sawyer {
 namespace Container {
