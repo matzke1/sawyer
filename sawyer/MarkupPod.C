@@ -8,6 +8,14 @@
 #include <sawyer/Assert.h>
 #include <sstream>
 
+#ifdef BOOST_WINDOWS
+# include <windows.h>                                   // GetTempPath
+#else
+# include <unistd.h>                                    // access
+# include <sys/stat.h>                                  // IS_DIR
+# include <paths.h>                                     // _PATH_TMP
+#endif
+
 namespace Sawyer {
 namespace Markup {
 
@@ -28,9 +36,60 @@ PodFormatter::version(const std::string &versionString, const std::string &dateS
 
 static boost::filesystem::path
 tempFileName(const std::string &ext="") {
+#if 0 // [Robb Matzke 2014-06-18]: temp_directory_path and unique_path are not always available
     boost::filesystem::path path = boost::filesystem::temp_directory_path().string();
     path /= "%%%%-%%%%-%%%%-%%%%" + ext;
     return boost::filesystem::unique_path(path);
+#else
+# ifdef BOOST_WINDOWS
+    char dummy;
+    size_t size = GetTempPath(0, &dummy);               // size includes NUL terminator
+    if (0==size)
+        throw std::runtime_error("could not get system temporary directory name");
+    std::vector<char> tempPath(size);
+    size = GetTempPath(size, &tempPath[0]);
+    ASSERT_require(size==tempPath.size());
+    std::string str(tempPath.begin(), tempPath.begin()+size-1);
+    boost::filesystem::path path = str;
+# else
+    std::string tempPath;
+    if (0!=geteuid()) {
+        if (char *e = getenv("TMPDIR")) {
+            struct stat sb;
+            if (0==stat(e, &sb) && S_ISDIR(sb.st_mode))
+                tempPath = e;
+        }
+    }
+    if (tempPath.empty()) {
+        struct stat sb;
+        if (0==stat(P_tmpdir, &sb) && S_ISDIR(sb.st_mode))
+            tempPath = P_tmpdir;
+    }
+    if (tempPath.empty())
+        tempPath = _PATH_TMP;
+    boost::filesystem::path path = tempPath;
+# endif
+    while (1) {
+        std::string basename;
+        for (int i=0; i<4; ++i) {
+            if (i!=0)
+                basename += '-';
+            for (int j=0; j<4; ++j) {
+                int k = rand() % 16;
+                char ch = k < 10 ? '0'+k : 'a'+k-10;
+                basename += ch;
+            }
+        }
+        basename += ext;
+        boost::filesystem::path check = path;
+        check /= basename;
+        if (!exists(status(check))) {
+            path /= basename;
+            break;
+        }
+    }
+    return path;
+#endif
 }
     
 struct TempFile {
