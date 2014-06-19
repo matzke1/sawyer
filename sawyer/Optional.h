@@ -175,7 +175,7 @@ public:
      *
      * @code
      *  unsigned key = ...;
-     *  std:;string value;
+     *  std::string value;
      *  IntervalMap<Interval<unsigned>, std::string> imap = ...;
      *  while (imap.getOptional(key).apply(value)) ...
      * @endcode
