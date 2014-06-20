@@ -27,7 +27,9 @@ link_directories(${LINK_DIRECTORIES} ${Boost_LIBRARY_DIRS})
 
 # We need additional libraries when compiling with MinGW.
 if(${MINGW})
-  find_library(Windows_LIBRARIES psapi)
+  find_library(libpsapi psapi)
+  find_library(libshlwapi shlwapi)
+  set(Windows_LIBRARIES ${libpsapi} ${libshlwapi})
 else()
   set(Windows_LIBRARIES "")
 endif()
