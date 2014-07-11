@@ -1419,7 +1419,8 @@ protected:
 
 /** Functor to configure diagnostics.  This functor uses the string(s) from the specified switch key to configure the specified
  *  message facilities object.  If a string is the word "list" then the message facility configuration is shown on standard
- *  output.
+ *  output.  If the string is the word "help" then some documentation is emitted on <code>std::cout</code> and the program
+ *  optionally exits with success (depending on @p exitOnHelp).
  *
  *  Here's an example usage.  In particular, be sure to specify SAVE_ALL so that more than one <code>--log</code> switch can
  *  appear on the command line, like: <tt>a.out --log ">=info" --log list</tt>
@@ -1435,11 +1436,12 @@ class SAWYER_EXPORT ConfigureDiagnostics: public SwitchAction {
 #include <sawyer/WarningsOff.h>
     std::string switchKey_;
     Message::Facilities &facilities_;
+    bool exitOnHelp_;
 #include <sawyer/WarningsRestore.h>
 protected:
     /** Constructor for derived classes.  Non-subclass users should use @ref instance instead. */
-    ConfigureDiagnostics(const std::string &switchKey, Message::Facilities &facilities)
-        : switchKey_(switchKey), facilities_(facilities) {}
+    ConfigureDiagnostics(const std::string &switchKey, Message::Facilities &facilities, bool exitOnHelp)
+        : switchKey_(switchKey), facilities_(facilities), exitOnHelp_(exitOnHelp) {}
 public:
     /** Reference counting pointer for this class. */
     typedef SharedPointer<ConfigureDiagnostics> Ptr;
@@ -1448,9 +1450,18 @@ public:
      * the @ref configureDiagnostics factory instead, which requires less typing.
      *
      * @sa @ref action_factories, and the @ref SwitchAction class. */
-    static Ptr instance(const std::string &switchKey, Message::Facilities &facilities) {
-        return Ptr(new ConfigureDiagnostics(switchKey, facilities));
+    static Ptr instance(const std::string &switchKey, Message::Facilities &facilities, bool exitOnHelp=true) {
+        return Ptr(new ConfigureDiagnostics(switchKey, facilities, exitOnHelp));
     }
+
+    /** Property: program exit after help is displayed.
+     *
+     *  If true, then the program exits with success immediately after a "help" command is processed.
+     *
+     *  @{ */
+    bool exitOnHelp() const { return exitOnHelp_; }
+    void exitOnHelp(bool b) { exitOnHelp_=b; }
+    /** @} */
 protected:
     virtual void operator()(const ParserResult&) /*override*/;
 };
@@ -1528,7 +1539,7 @@ SAWYER_EXPORT ShowHelp::Ptr showHelp();
 
 SAWYER_EXPORT ShowHelpAndExit::Ptr showHelpAndExit(int exitStatus);
 
-SAWYER_EXPORT ConfigureDiagnostics::Ptr configureDiagnostics(const std::string&, Message::Facilities&);
+SAWYER_EXPORT ConfigureDiagnostics::Ptr configureDiagnostics(const std::string&, Message::Facilities&, bool exitOnHelp=true);
 
 template<class Functor>
 typename UserAction<Functor>::Ptr userAction(const Functor &functor) {

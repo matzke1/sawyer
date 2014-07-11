@@ -374,6 +374,8 @@ ConfigureDiagnostics::operator()(const ParserResult &parserResult) {
                       <<"   all,!debug                     -- turn on everything except debug\n"
                       <<"   none, foo(debug)               -- turn off everything bug foo's debug\n"
                       <<"   none, >=info, foo(none,debug)  -- info and greater everywhere; foo's debug\n";
+            if (exitOnHelp_)
+                exit(0);
         } else {
             std::string errorMessage = facilities_.control(value.string());
             if (!errorMessage.empty())
@@ -397,8 +399,8 @@ SAWYER_EXPORT ShowHelpAndExit::Ptr
 showHelpAndExit(int exitStatus) { return ShowHelpAndExit::instance(exitStatus); }
 
 SAWYER_EXPORT ConfigureDiagnostics::Ptr
-configureDiagnostics(const std::string &switchKey, Message::Facilities &facilities) {
-    return ConfigureDiagnostics::instance(switchKey, facilities);
+configureDiagnostics(const std::string &switchKey, Message::Facilities &facilities, bool exitOnHelp) {
+    return ConfigureDiagnostics::instance(switchKey, facilities, exitOnHelp);
 }
 
 /*******************************************************************************************************************************
