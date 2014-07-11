@@ -189,6 +189,31 @@ ValueParser::operator()(const char *s, const char **rest, const Location &loc) {
     throw std::runtime_error("subclass must implement an operator() with a cursor or C strings");
 }
 
+SAWYER_EXPORT AnyParser<std::string>::Ptr
+anyParser() {
+    return AnyParser<std::string>::instance();
+}
+
+SAWYER_EXPORT IntegerParser<int>::Ptr
+integerParser() {
+    return IntegerParser<int>::instance();
+}
+
+SAWYER_EXPORT NonNegativeIntegerParser<unsigned>::Ptr
+nonNegativeIntegerParser() {
+    return NonNegativeIntegerParser<unsigned>::instance();
+}
+
+SAWYER_EXPORT RealNumberParser<double>::Ptr
+realNumberParser() {
+    return RealNumberParser<double>::instance();
+}
+
+SAWYER_EXPORT BooleanParser<bool>::Ptr
+booleanParser() {
+    return BooleanParser<bool>::instance();
+}
+
 SAWYER_EXPORT ParsedValue
 StringSetParser::operator()(Cursor &cursor) {
     Location locStart = cursor.location();

@@ -1165,10 +1165,7 @@ template<typename T>
 typename AnyParser<T>::Ptr anyParser() {
     return AnyParser<T>::instance();
 }
-AnyParser<std::string>::Ptr anyParser() {
-    return AnyParser<std::string>::instance();
-}
-
+SAWYER_EXPORT AnyParser<std::string>::Ptr anyParser();
 
 template<typename T>
 typename IntegerParser<T>::Ptr integerParser(T &storage) {
@@ -1178,10 +1175,7 @@ template<typename T>
 typename IntegerParser<T>::Ptr integerParser() {
     return IntegerParser<T>::instance();
 }
-IntegerParser<int>::Ptr integerParser() {
-    return IntegerParser<int>::instance();
-}
-
+SAWYER_EXPORT IntegerParser<int>::Ptr integerParser();
 
 template<typename T>
 typename NonNegativeIntegerParser<T>::Ptr nonNegativeIntegerParser(T &storage) {
@@ -1191,10 +1185,7 @@ template<typename T>
 typename NonNegativeIntegerParser<T>::Ptr nonNegativeIntegerParser() {
     return NonNegativeIntegerParser<T>::instance();
 }
-NonNegativeIntegerParser<unsigned>::Ptr nonNegativeIntegerParser() {
-    return NonNegativeIntegerParser<unsigned>::instance();
-}
-
+SAWYER_EXPORT NonNegativeIntegerParser<unsigned>::Ptr nonNegativeIntegerParser();
 
 template<typename T>
 typename RealNumberParser<T>::Ptr realNumberParser(T &storage) {
@@ -1204,10 +1195,7 @@ template<typename T>
 typename RealNumberParser<T>::Ptr realNumberParser() {
     return RealNumberParser<T>::instance();
 }
-RealNumberParser<double>::Ptr realNumberParser() {
-    return RealNumberParser<double>::instance();
-}
-
+SAWYER_EXPORT RealNumberParser<double>::Ptr realNumberParser();
 
 template<typename T>
 typename BooleanParser<T>::Ptr booleanParser(T &storage) {
@@ -1217,10 +1205,7 @@ template<typename T>
 typename BooleanParser<T>::Ptr booleanParser() {
     return BooleanParser<T>::instance();
 }
-BooleanParser<bool>::Ptr booleanParser() {
-    return BooleanParser<bool>::instance();
-}
-
+SAWYER_EXPORT BooleanParser<bool>::Ptr booleanParser();
 
 template<typename T>
 typename EnumParser<T>::Ptr enumParser(T &storage) {
