@@ -6,7 +6,7 @@
 
 namespace Sawyer {
 
-/** Histogram of symbols.
+/** %Histogram of symbols.
  *
  *  This class is a histogram of symbols of type @p T.  Symbols are inserted with the @ref insert method and erased with the @p
  *  erase method.  At any point, various statistics can be queried. */

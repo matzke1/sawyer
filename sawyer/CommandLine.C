@@ -324,7 +324,31 @@ SAWYER_EXPORT void
 ConfigureDiagnostics::operator()(const ParserResult &parserResult) {
     BOOST_FOREACH (const ParsedValue &value, parserResult.parsed(switchKey_)) {
         if (0==value.string().compare("list")) {
+            std::cout <<"Logging facilities status\n"
+                //       xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (80 cols)
+                      <<"  Letters indicate a stream that is enabled; hyphens indicate disabled.\n"
+                      <<"  D=debug, T=trace, W=where, I=info, W=warning, E=error, F=fatal\n";
             facilities_.print(std::cout);
+        } else if (0==value.string().compare("help")) {
+            //           xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (80 cols)
+            std::cout <<"Logging is controlled with a simple language consisting of a comma-separated\n"
+                      <<"list of facility specifications, where each facility specification is a\n"
+                      <<"facility name (use \"list\" to get a listing of facilities) followed by a\n"
+                      <<"parentheses-enclosed, comma-separated list of importance specifications. An\n"
+                      <<"importance specification is an importance name (debug, trace, where, info,\n"
+                      <<"warn, error, fatal). Each importance name may be preceded by a bang (\"!\")\n"
+                      <<"to disable that stream, or a relational operator (\"<\", \"<=\", \">\", or \">=\")\n"
+                      <<"to enable related streams.  The special name \"all\" means all importance levels\n"
+                      <<"and the name \"none\" is an alias for \"!all\" (i.e., disable all levels).  If\n"
+                      <<"the facility name and parentheses are omitted, then the naked importance levels\n"
+                      <<"affect all facilities.  The specification is processed from left to right.\n"
+                      <<"Examples:\n"
+                      <<"   help                           -- show this documentation\n"
+                      <<"   list                           -- list status for all streams\n"
+                      <<"   all                            -- turn on everything\n"
+                      <<"   all,!debug                     -- turn on everything except debug\n"
+                      <<"   none, foo(debug)               -- turn off everything bug foo's debug\n"
+                      <<"   none, >=info, foo(none,debug)  -- info and greater everywhere; foo's debug\n";
         } else {
             std::string errorMessage = facilities_.control(value.string());
             if (!errorMessage.empty())
