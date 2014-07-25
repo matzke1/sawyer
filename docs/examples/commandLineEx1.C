@@ -88,6 +88,7 @@ parseCommandLine(int argc, char *argv[], Settings &settings) {
                 .doc("The first byte of the file is mapped at the specified "
                      "@v{virtual-address}, which defaults to " +
                      boost::lexical_cast<std::string>(settings.startVa) + "."));
+
     tool.insert(Switch("alignment")
                 .argument("align", nonNegativeIntegerParser(settings.alignment))
                 .doc("Alignment for instructions.  The default is 1 (no alignment).  Values "

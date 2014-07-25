@@ -114,12 +114,12 @@ namespace Sawyer { // documented in Sawyer.h
  *  We place all the tool-specific switches in another switch group we call <code>tool</code>.  The <code>--isa</code> switch
  *  will accept an argument that can be anything and is stored in <code>std::string settings.isaName</code>.  If the arguent is
  *  the word "list" then the function that eventually parses it will generate a list (this function is part of the tool source
- *  code and is not part of Sawyer).
+ *  code and is not part of %Sawyer).
  *
  * @snippet commandLineEx1.C parseCommandLine isa
  *
  *  The next two switches are similar except they expect arguments that are non-negative integers.  The argument will be parsed
- *  by Sawyer, which accepts decimal, octal, and hexadecimal using C syntax, and eventually assigned to the specified
+ *  by %Sawyer, which accepts decimal, octal, and hexadecimal using C syntax, and eventually assigned to the specified
  *  <code>settings</code> data member, both of which are of type <code>unsigned long</code>.  The parser function,
  *  <code>nonNegativeIntegerParser</code>, is overloaded to accept a variety of integer types and a parsing exception will be
  *  thrown if the argument string parses to a value which doesn't fit in the specified variable.
