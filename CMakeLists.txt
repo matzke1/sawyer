@@ -54,6 +54,7 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
 )
 
+add_subdirectory(docs/examples)
 add_subdirectory(tests/Allocation)
 add_subdirectory(tests/Pointers)
 add_subdirectory(tests/Container)
