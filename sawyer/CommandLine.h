@@ -96,7 +96,7 @@ namespace Sawyer { // documented in Sawyer.h
  * @snippet commandLineEx1.C parseCommandLine decl
  *
  *  We'll divide the command-line into two groups of switches: switches that are common to all our tools, and switches that are
- *  specific to this particular tool.  In real live, the common switches would be returned from some other function defined in
+ *  specific to this particular tool.  In real life, the common switches would be returned from some other function defined in
  *  a library that all the tools share.  Each switch group may have its own documentation, which causes its switches to be
  *  grouped together in the manual page.  Documentation is free-flowing and automatically wrapped to the width of the terminal
  *  window in which the command runs, so there is no need to have line feeds within the source code string literals, although
@@ -131,7 +131,7 @@ namespace Sawyer { // documented in Sawyer.h
  *
  * @snippet commandLineEx1.C parseCommandLine parser
  *
- *  Finally we can do the actual parsing.  We could split this statement into multiple statements, but one of Sawyer's idioms
+ *  Finally we can do the actual parsing.  We could split this statement into multiple statements, but one of %Sawyer's idioms
  *  is to chain things together in a functional programming style.  The <code>with</code> method inserts our switch
  *  declarations from above into the parser; the <code>parse</code> method, of which there are multiple overloaded varieties,
  *  does the real work; and the <code>apply</code> method applies the results of a successful parse by copying values into the
