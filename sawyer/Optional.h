@@ -151,19 +151,34 @@ public:
      *
      *  Returns a reference to the contained value if it exists, otherwise returns a reference to the argument.
      *
+     * @code
+     *  Object bar = ...;
+     *  Object foo = objects.getOptional(key).orElse(bar);
+     *  Optional<Object> baz = ...;
+     *  std::cerr <<"baz is " <<baz.orElse(bar) <<"\n";
+     * @endcode
+     *
      *  @{ */
-    const Value& getOrElse(const Value &dflt) const {
+    const Value& orElse(const Value &dflt) const {
         return isEmpty_ ? dflt : **this;
     }
-    const Value& getOrElse(Value &dflt) {
+    const Value& orElse(Value &dflt) {
         return isEmpty_ ? dflt : **this;
     }
     /** @} */
 
     /** Obtain a value or a default.
      *
-     *  Returns a copy of the contained value if it exists, otherwise returns a default constructed value. */
-    Value getOrDefault() const {
+     *  Returns a copy of the contained value if it exists, otherwise returns a default constructed value.
+     *  
+     * @code
+     *  Object bar = ...;
+     *  Object foo = objects.getOptional(key).orDefault();
+     *  Optional<Object> baz = ...;
+     *  std::cerr <<"baz is " <<baz.orDefault() <<"\n";
+     * @endcode
+     */
+    Value orDefault() const {
         return isEmpty_ ? Value() : **this;
     }
 

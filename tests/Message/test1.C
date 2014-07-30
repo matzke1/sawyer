@@ -439,7 +439,7 @@ void test18(const DestinationPtr &sink) {
     public:
         static MyPrefixPtr instance() { return MyPrefixPtr(new MyPrefix); }
         virtual std::string toString(const Mesg&, const MesgProps &props) const /*override*/ {
-            return "MY PREFIX {" + stringifyImportance(props.importance.getOrElse(INFO)) + "} ";
+            return "MY PREFIX {" + stringifyImportance(props.importance.orElse(INFO)) + "} ";
         }
     };
     unf->prefix(MyPrefix::instance());
