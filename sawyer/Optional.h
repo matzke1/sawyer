@@ -192,7 +192,7 @@ public:
      *  unsigned key = ...;
      *  std::string value;
      *  IntervalMap<Interval<unsigned>, std::string> imap = ...;
-     *  while (imap.getOptional(key).apply(value)) ...
+     *  while (imap.getOptional(key).assignTo(value)) ...
      * @endcode
      *
      *  where the alternative would be
@@ -203,7 +203,7 @@ public:
      *  while (Optional<std::string> opt = imap.getOptional(key)) {
      *      std::string value = *opt;
      * @endcode */
-    bool apply(Value &out) const {
+    bool assignTo(Value &out) const {
         if (isEmpty_) {
             return false;
         } else {
