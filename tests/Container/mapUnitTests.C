@@ -332,7 +332,21 @@ void erase_iterator() {
     std::cout <<"    NOT IMPLEMENTED YET\n";
 }
 
-    
+void hull() {
+    std::cout <<"least/greatest/hull\n";
+    Sawyer::Container::Map<std::string, int> map1;
+    map1.insert("abc", 1);
+    map1.insert("def", 2);
+    map1.insert("ghi", 3);
+
+    ASSERT_always_require(map1.least() == "abc");
+    ASSERT_always_require(map1.greatest() == "ghi");
+
+    Sawyer::Container::Map<int, std::string> map2;
+    map2.insert(1, "abc");
+    map2.insert(2, "def");
+    map2.insert(3, "ghi");
+}
 
 int main() {
     typedef std::string Key;
@@ -344,6 +358,7 @@ int main() {
     insert_other<Map>();
     find<Map>();
     test_existence<Map>();
+    hull();
     clear_all<Map>();
     erase_one<Map>();
     erase_other<Map>();

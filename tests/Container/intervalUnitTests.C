@@ -75,11 +75,30 @@ static void imap_tests(const Value &v1, const Value &v2) {
     ASSERT_always_require(imap.lowerBound(119)==imap.nodes().begin());
     ASSERT_always_require(imap.lowerBound(120)==imap.nodes().end());
 
+    // Test upperBound against one node
+    ASSERT_always_require(imap.upperBound(99)==imap.nodes().begin());
+    ASSERT_always_require(imap.upperBound(100)==imap.nodes().end());
+    ASSERT_always_require(imap.upperBound(118)==imap.nodes().end());
+    ASSERT_always_require(imap.upperBound(119)==imap.nodes().end());
+    ASSERT_always_require(imap.upperBound(120)==imap.nodes().end());
+
     // Test findPrior against one node
     ASSERT_always_require(imap.findPrior(99)==imap.nodes().end());
     ASSERT_always_require(imap.findPrior(100)==imap.nodes().begin());
     ASSERT_always_require(imap.findPrior(119)==imap.nodes().begin());
     ASSERT_always_require(imap.findPrior(120)==imap.nodes().begin());
+
+    // Test findAll against one node
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(99, 99)))==0);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(99, 100)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(99, 119)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(99, 120)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(100, 100)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(100, 119)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(100, 120)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(119, 119)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(119, 120)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(120, 120)))==0);
 
     // Test least() against one node
     ASSERT_always_require(imap.least()==100);
@@ -153,6 +172,16 @@ static void imap_tests(const Value &v1, const Value &v2) {
     ASSERT_always_require(imap.lowerBound(119)==secondIter);
     ASSERT_always_require(imap.lowerBound(120)==imap.nodes().end());
 
+    // Test upperBound against multiple nodes
+    ASSERT_always_require(imap.upperBound(99)==imap.nodes().begin());
+    ASSERT_always_require(imap.upperBound(100)==secondIter);
+    ASSERT_always_require(imap.upperBound(104)==secondIter);
+    ASSERT_always_require(imap.upperBound(105)==secondIter);
+    ASSERT_always_require(imap.upperBound(114)==secondIter);
+    ASSERT_always_require(imap.upperBound(115)==imap.nodes().end());
+    ASSERT_always_require(imap.upperBound(119)==imap.nodes().end());
+    ASSERT_always_require(imap.upperBound(120)==imap.nodes().end());
+
     // Test findPrior against multiple nodes
     ASSERT_always_require(imap.findPrior(99)==imap.nodes().end());
     ASSERT_always_require(imap.findPrior(100)==imap.nodes().begin());
@@ -173,6 +202,44 @@ static void imap_tests(const Value &v1, const Value &v2) {
     ASSERT_always_require(imap.find(119)==secondIter);
     ASSERT_always_require(imap.find(120)==imap.nodes().end());
 
+    // Test findAll against multiple nodes
+    ASSERT_always_require(distance(imap.findAll(Interval::hull( 99,  99)))==0);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull( 99, 100)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull( 99, 104)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull( 99, 105)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull( 99, 114)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull( 99, 115)))==2);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull( 99, 119)))==2);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull( 99, 120)))==2);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(100, 100)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(100, 104)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(100, 105)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(100, 114)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(100, 115)))==2);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(100, 119)))==2);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(100, 120)))==2);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(104, 104)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(104, 105)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(104, 114)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(104, 115)))==2);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(104, 119)))==2);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(104, 120)))==2);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(105, 105)))==0);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(105, 114)))==0);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(105, 115)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(105, 119)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(105, 120)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(114, 114)))==0);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(114, 115)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(114, 119)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(114, 120)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(115, 115)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(115, 119)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(115, 120)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(119, 119)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(119, 120)))==1);
+    ASSERT_always_require(distance(imap.findAll(Interval::hull(120, 120)))==0);
+    
     // Overwrite the right end with a different value
     std::cerr <<"insert(119, v2)\n";
     imap.insert(119, v2);
