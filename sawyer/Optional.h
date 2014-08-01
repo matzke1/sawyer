@@ -147,6 +147,20 @@ public:
     }
     /** @} */
 
+    /** Obtain a pointer to the value.
+     *
+     *  If this optional contains a value then a pointer to the value is returned. Otherwise an <code>std::domain_error</code>
+     *  is thrown (the value is not in the container's domain).
+     *
+     *  @{ */
+    const Value* operator->() const {
+        return &get();
+    }
+    Value* operator->() {
+        return &get();
+    }
+    /** @} */
+
     /** Obtain value or something else.
      *
      *  Returns a reference to the contained value if it exists, otherwise returns a reference to the argument.
