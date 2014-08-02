@@ -690,7 +690,7 @@ public:
      *  Every interval in @p other is erased from this container. */
     template<typename T2, class Policy2>
     void eraseMultiple(const IntervalMap<Interval, T2, Policy2> &other) {
-        ASSERT_forbid2((const void*)&other != (const void*)this, "use clear() instead");
+        ASSERT_forbid2((const void*)&other == (const void*)this, "use clear() instead");
         typedef typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator OtherIter;
         for (OtherIter oi=other.nodes().begin(); oi!=other.nodes().end(); ++oi)
             erase(oi->key());
@@ -743,7 +743,7 @@ public:
      *  type. */
     template<typename T2, class Policy2>
     void insertMultiple(const IntervalMap<Interval, T2, Policy2> &other, bool makeHole=true) {
-        ASSERT_forbid2((const void*)&other != (const void*)this, "cannot insert a container into itself");
+        ASSERT_forbid2((const void*)&other == (const void*)this, "cannot insert a container into itself");
         typedef typename IntervalMap<Interval, T2, Policy>::ConstNodeIterator OtherIter;
         for (OtherIter oi=other.nodes().begin(); oi!=other.nodes().end(); ++oi)
             insert(oi->key(), Value(oi->value()), makeHole);
