@@ -1,8 +1,9 @@
 #ifndef Sawyer_Histogram_H
 #define Sawyer_Histogram_H
 
-#include <map>
 #include <sawyer/Assert.h>
+#include <sawyer/Map.h>
+#include <boost/foreach.hpp>
 
 namespace Sawyer {
 
@@ -14,31 +15,31 @@ template<typename T, class Cmp = std::less<T> >
 class Histogram {
 public:
     typedef T Value;
+    typedef Sawyer::Container::Map<Value, size_t, Cmp> ForwardMap;
+    typedef Sawyer::Container::Map<size_t, std::vector<Value> > ReverseMap;
 protected:
-    typedef std::map<Value, size_t, Cmp> Map;
-    Map map_;
+    ForwardMap map_;
 public:
 
     /** Insert a symbol.
      *
-     *  The symbol @p x is inserted into this histogram and statistics are updated. */
-    void insert(T x) {
-        std::pair<typename Map::iterator, bool> inserted = map_.insert(std::make_pair(x, 1));
-        if (!inserted.second)
-            ++inserted.first->second;
+     *  The symbol is inserted into this histogram and statistics are updated. */
+    void insert(T symbol) {
+        size_t &count = map_.insertMaybe(symbol, 0);
+        ++count;
     }
 
     /** Erase a symbol.
      *
-     *  The symbol @p x, which must exist in the histogram, is removed from the histogram and statistics are updated. */
-    void erase(T x) {
-        typename Map::iterator found = map_.find(x);
-        ASSERT_require(found!=map_.end());
-        ASSERT_require(found->second > 0);
-        if (1==found->second) {
-            map_.erase(found);
+     *  The symbol, which must exist in the histogram, is removed from the histogram and statistics are updated. */
+    void erase(T symbol) {
+        typename ForwardMap::NodeIterator found = map_.find(symbol);
+        ASSERT_require(found!=map_.nodes().end());
+        ASSERT_require(found->value() > 0);
+        if (1==found->value()) {
+            map_.eraseAt(found);
         } else {
-            --found->second;
+            --found->value();
         }
     }
 
@@ -51,10 +52,42 @@ public:
 
     /** Number of occurrences of a symbol.
      *
-     *  Returns the number of times symbol @p x appears in this histogram. */
-    size_t count(T x) const {
-        typename Map::const_iterator found = map_.find(x);
-        return found==map_.end() ? 0 : found->second;
+     *  Returns the number of times the symbol appears in this histogram. */
+    size_t count(T symbol) const {
+        return map_.getOptional(symbol).orElse(0);
+    }
+
+    /** Histogram map.
+     *
+     *  Returns the histogram map whose keys are the symbols and whose values are the counts. */
+    const ForwardMap& symbols() const {
+        return map_;
+    }
+
+    /** Returns the inverted map.
+     *
+     *  Returns a map whose keys are the counts and whose values are lists of symbols having those counts. */
+    ReverseMap counts() const {
+        ReverseMap cmap;
+        BOOST_FOREACH (const typename ForwardMap::Node &node, map_.nodes())
+            cmap.insertMaybeDefault(node.value()).push_back(node.key());
+        return cmap;
+    }
+
+    /** Returns the symbols with the highest frequency. */
+    std::vector<Value> mostFrequentSymbols() const {
+        std::vector<Value> bestSymbols;
+        size_t bestFrequency;
+        BOOST_FOREACH (const typename ForwardMap::Node &node, map_.nodes()) {
+            if (bestSymbols.empty() || node.value()>bestFrequency) {
+                bestSymbols.clear();
+                bestSymbols.push_back(node.key());
+                bestFrequency = node.value();
+            } else if (node.value() == bestFrequency) {
+                bestSymbols.push_back(node.key());
+            }
+        }
+        return bestSymbols;
     }
 };
 
