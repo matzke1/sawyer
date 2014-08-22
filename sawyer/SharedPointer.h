@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <ostream>
 #include <sawyer/Assert.h>
+#include <sawyer/Optional.h>                            // FIXME[Robb Matzke 2014-08-22]: only needed for Sawyer::Nothing
 #include <sawyer/Sawyer.h>
 
 namespace Sawyer {
@@ -39,7 +40,7 @@ public:
         aquireOwnership(pointee_);
     }
     template<class Y>
-    SharedPointer(const SharedPointer<Y> &other): pointee_(get(other)) {
+    SharedPointer(const SharedPointer<Y> &other): pointee_(getRawPointer(other)) {
         aquireOwnership(pointee_);
     }
     /** @} */
@@ -69,15 +70,23 @@ public:
     }
     template<class Y>
     SharedPointer& operator=(const SharedPointer<Y> &other) {
-        if (pointee_!=get(other)) {
+        if (pointee_!=getRawPointer(other)) {
             if (pointee_!=NULL && 0==releaseOwnership(pointee_))
                 delete pointee_;
-            pointee_ = get(other);
+            pointee_ = getRawPointer(other);
             aquireOwnership(pointee_);
         }
         return *this;
     }
     /** @} */
+
+    /** Assignment.  This pointer is caused to point to nothing. */
+    SharedPointer& operator=(const Sawyer::Nothing&) {
+        if (pointee_!=NULL && 0==releaseOwnership(pointee_))
+            delete pointee_;
+        pointee_ = NULL;
+        return *this;
+    }
 
     /** Reference to the pointed-to object.  An assertion will fail if assertions are enabled and this method is invoked on an
      *  empty pointer. */
@@ -110,27 +119,27 @@ public:
      *  @{ */
     template<class U>
     bool operator==(const SharedPointer<U> &other) const {
-        return pointee_ == get(other);
+        return pointee_ == getRawPointer(other);
     }
     template<class U>
     bool operator!=(const SharedPointer<U> &other) const {
-        return pointee_ != get(other);
+        return pointee_ != getRawPointer(other);
     }
     template<class U>
     bool operator<(const SharedPointer<U> &other) const {
-        return pointee_ < get(other);
+        return pointee_ < getRawPointer(other);
     }
     template<class U>
     bool operator<=(const SharedPointer<U> &other) const {
-        return pointee_ <= get(other);
+        return pointee_ <= getRawPointer(other);
     }
     template<class U>
     bool operator>(const SharedPointer<U> &other) const {
-        return pointee_ > get(other);
+        return pointee_ > getRawPointer(other);
     }
     template<class U>
     bool operator>=(const SharedPointer<U> &other) const {
-        return pointee_ >= get(other);
+        return pointee_ >= getRawPointer(other);
     }
 
     /** Comparison of two pointers.
@@ -178,7 +187,7 @@ public:
      *
      *  Printing a shared pointer is the same as printing the pointee's address. */
     friend std::ostream& operator<<(std::ostream &out, const SharedPointer &ptr) {
-        out <<get(ptr);
+        out <<getRawPointer(ptr);
         return out;
     }
     
@@ -213,7 +222,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /** Obtain the pointed-to object.  The pointed-to object is returned. Returns null for empty pointers. */
-    friend Pointee* get(const SharedPointer &ptr) {
+    friend Pointee* getRawPointer(const SharedPointer &ptr) {
         return ptr.pointee_;
     }
 
@@ -295,12 +304,20 @@ public:
 
     /** Create a shared pointer from <code>this</code>.
      *
-     *  Returns a shared pointer that points to this object.  The type @c T must be derived from SharedObject. */
+     *  Returns a shared pointer that points to this object.  The type @c T must be derived from SharedObject.
+     *
+     *  @{ */
     SharedPointer<T> sharedFromThis() {
         T *derived = dynamic_cast<T*>(this);
         ASSERT_not_null(derived);
         return SharedPointer<T>(derived);
     }
+    SharedPointer<const T> sharedFromThis() const {
+        const T *derived = dynamic_cast<const T*>(this);
+        ASSERT_not_null(derived);
+        return SharedPointer<const T>(derived);
+    }
+    /** @} */
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

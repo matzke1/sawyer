@@ -32,7 +32,7 @@ struct Subclass: MonitoredObject {
 // Tests that a default constructor creates the equivalent of a null pointer.
 static void default_ctor() {
     SharedPointer<MonitoredObject> ptr;
-    ASSERT_always_require(get(ptr)==NULL);
+    ASSERT_always_require(getRawPointer(ptr)==NULL);
     ASSERT_always_require(ownershipCount(ptr)==0);
 }
 
@@ -40,7 +40,7 @@ static void default_ctor() {
 static void null_ctor() {
     MonitoredObject *obj = NULL;
     SharedPointer<MonitoredObject> ptr3(obj);
-    ASSERT_always_require(get(ptr3)==NULL);
+    ASSERT_always_require(getRawPointer(ptr3)==NULL);
 }
 
 // Tests that a shared pointer can be created from a pointer to a raw object.
@@ -49,7 +49,7 @@ static void raw_ctor() {
     MonitoredObject *obj = new MonitoredObject(stats);
     {
         SharedPointer<MonitoredObject> ptr(obj);
-        ASSERT_always_require(get(ptr)==obj);
+        ASSERT_always_require(getRawPointer(ptr)==obj);
         ASSERT_always_require(ownershipCount(ptr)==1);
     }
     ASSERT_always_require(stats.deleted);
@@ -61,7 +61,7 @@ static void raw_ctor_const() {
     MonitoredObject *obj = new MonitoredObject(stats);
     {
         SharedPointer<const MonitoredObject> ptr(obj);
-        ASSERT_always_require(get(ptr)==obj);
+        ASSERT_always_require(getRawPointer(ptr)==obj);
         ASSERT_always_require(ownershipCount(ptr)==1);
     }
     ASSERT_always_require(stats.deleted);
@@ -73,7 +73,7 @@ static void raw_ctor_upcast() {
     Subclass *obj = new Subclass(stats, 123);
     {
         SharedPointer<MonitoredObject> ptr(obj);
-        ASSERT_always_require(get(ptr)==obj);
+        ASSERT_always_require(getRawPointer(ptr)==obj);
         ASSERT_always_require(ownershipCount(ptr)==1);
     }
     ASSERT_always_require(stats.deleted);
@@ -98,7 +98,7 @@ static void copy_ctor() {
     SharedPointer<MonitoredObject> ptr1(obj);
     {
         SharedPointer<MonitoredObject>ptr2(ptr1);
-        ASSERT_always_require(get(ptr1)==get(ptr2));
+        ASSERT_always_require(getRawPointer(ptr1)==getRawPointer(ptr2));
         ASSERT_always_require(ownershipCount(ptr1)==2);
         ASSERT_always_require(ownershipCount(ptr2)==2);
     }
@@ -113,7 +113,7 @@ static void copy_ctor_const() {
     SharedPointer<MonitoredObject> ptr1(obj);
     {
         SharedPointer<const MonitoredObject> ptr2(ptr1);
-        ASSERT_always_require(get(ptr1)==get(ptr2));
+        ASSERT_always_require(getRawPointer(ptr1)==getRawPointer(ptr2));
         ASSERT_always_require(ownershipCount(ptr1)==2);
         ASSERT_always_require(ownershipCount(ptr2)==2);
     }
@@ -128,7 +128,7 @@ static void copy_ctor_upcast() {
     SharedPointer<Subclass> ptr1(obj);
     {
         SharedPointer<MonitoredObject> ptr2(ptr1);
-        ASSERT_always_require(get(ptr1)==get(ptr2));
+        ASSERT_always_require(getRawPointer(ptr1)==getRawPointer(ptr2));
         ASSERT_always_require(ownershipCount(ptr1)==2);
         ASSERT_always_require(ownershipCount(ptr2)==2);
     }
@@ -142,7 +142,7 @@ static void assignment_to_null() {
         SharedPointer<MonitoredObject> src;
         SharedPointer<MonitoredObject> dst;
         dst = src;
-        ASSERT_always_require(get(dst)==NULL);
+        ASSERT_always_require(getRawPointer(dst)==NULL);
     }
 
     ObjectStats stats;
@@ -151,7 +151,7 @@ static void assignment_to_null() {
     {
         SharedPointer<MonitoredObject> dst;
         dst = src;
-        ASSERT_always_require(get(src)==get(dst));
+        ASSERT_always_require(getRawPointer(src)==getRawPointer(dst));
         ASSERT_always_require(ownershipCount(src)==2);
         ASSERT_always_require(ownershipCount(dst)==2);
     }
@@ -167,7 +167,16 @@ static void assignment() {
         MonitoredObject *dstobj = new MonitoredObject(dststats);
         SharedPointer<MonitoredObject> dst(dstobj);
         dst = src;
-        ASSERT_always_require(get(dst)==NULL);
+        ASSERT_always_require(getRawPointer(dst)==NULL);
+        ASSERT_always_require(dststats.deleted);
+    }
+
+    {
+        ObjectStats dststats;
+        MonitoredObject *dstobj = new MonitoredObject(dststats);
+        SharedPointer<MonitoredObject> dst(dstobj);
+        dst = Nothing();
+        ASSERT_always_require(getRawPointer(dst)==NULL);
         ASSERT_always_require(dststats.deleted);
     }
 
@@ -178,7 +187,7 @@ static void assignment() {
         MonitoredObject *dstobj = new MonitoredObject(dststats);
         SharedPointer<MonitoredObject> dst(dstobj);
         dst = src;
-        ASSERT_always_require(get(src)==get(dst));
+        ASSERT_always_require(getRawPointer(src)==getRawPointer(dst));
         ASSERT_always_require(ownershipCount(src)==2);
         ASSERT_always_require(ownershipCount(dst)==2);
         ASSERT_always_require(dststats.deleted);
@@ -199,7 +208,7 @@ static void assignment_upcast() {
     {
         SharedPointer<MonitoredObject> dst(dstobj);
         dst = src;
-        ASSERT_always_require(get(src)==get(dst));
+        ASSERT_always_require(getRawPointer(src)==getRawPointer(dst));
         ASSERT_always_require(ownershipCount(src)==2);
     }
     ASSERT_always_require(ownershipCount(src)==1);
@@ -213,7 +222,7 @@ static void assignment_self() {
         SharedPointer<MonitoredObject> dst(obj);
         dst = dst;
         ASSERT_always_forbid(stats.deleted);
-        ASSERT_always_require(get(dst)==obj);
+        ASSERT_always_require(getRawPointer(dst)==obj);
         ASSERT_always_require(ownershipCount(dst)==1);
     }
     ASSERT_always_require(stats.deleted);
@@ -225,7 +234,7 @@ static void clear() {
     MonitoredObject *obj = new MonitoredObject(stats);
     SharedPointer<MonitoredObject> ptr(obj);
     clear(ptr);
-    ASSERT_always_require(get(ptr)==NULL);
+    ASSERT_always_require(getRawPointer(ptr)==NULL);
     ASSERT_always_require(stats.deleted);
     clear(ptr);
 }
@@ -235,7 +244,7 @@ static void dereference() {
     ObjectStats stats;
     Subclass *obj = new Subclass(stats, 123);
     SharedPointer<Subclass> ptr(obj);
-    ASSERT_always_require(get(ptr)==obj);
+    ASSERT_always_require(getRawPointer(ptr)==obj);
     ASSERT_always_require(&*ptr==obj);
     ASSERT_always_require((*ptr).dummy==123);
 }
@@ -253,7 +262,7 @@ static void arrow() {
     ObjectStats stats;
     Subclass *obj = new Subclass(stats, 123);
     SharedPointer<Subclass> ptr(obj);
-    ASSERT_always_require(get(ptr)==obj);
+    ASSERT_always_require(getRawPointer(ptr)==obj);
     ASSERT_always_require(ptr->dummy==123);
 }
 
@@ -348,7 +357,7 @@ static void compare(const SharedPointer<Subclass> &a, const SharedPointer<Subcla
     // We want to make sure that the test is comparing the two object pointers rather than some address which is part
     // of the SharedPointer itself. Therefore, we'll make sure that the shared pointers' addresses are in the opposite order as
     // the object addresses.
-    ASSERT_always_require(get(a) < get(b));
+    ASSERT_always_require(getRawPointer(a) < getRawPointer(b));
     ASSERT_always_require(&a > &b);
 
     ASSERT_always_forbid(a == b);
@@ -358,12 +367,12 @@ static void compare(const SharedPointer<Subclass> &a, const SharedPointer<Subcla
     ASSERT_always_forbid(a > b);
     ASSERT_always_forbid(a >= b);
 
-    ASSERT_always_require(a == get(a));
-    ASSERT_always_require(a != get(b));
-    ASSERT_always_require(a < get(b));
-    ASSERT_always_require(a <= get(b));
-    ASSERT_always_forbid(a > get(b));
-    ASSERT_always_forbid(a >= get(b));
+    ASSERT_always_require(a == getRawPointer(a));
+    ASSERT_always_require(a != getRawPointer(b));
+    ASSERT_always_require(a < getRawPointer(b));
+    ASSERT_always_require(a <= getRawPointer(b));
+    ASSERT_always_forbid(a > getRawPointer(b));
+    ASSERT_always_forbid(a >= getRawPointer(b));
 }
 
 static void compare() {
