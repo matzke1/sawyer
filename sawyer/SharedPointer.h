@@ -12,6 +12,8 @@ namespace Sawyer {
  *
  *  This class is a reference-counting pointer to an object that inherits from @ref SharedObject. Usage is similar to
  *  <code>boost::shared_ptr</code>.
+ *  
+ *  @sa SharedObject, @ref SharedFromThis
  *
  *  @todo Write documentation for SharedPointer. */
 template<class T>
@@ -236,7 +238,9 @@ void clear(SharedPointer<T> &ptr) {
 /** Base class for reference counted objects.
  *
  *  Any reference counted object should inherit from this class, which provides a default constructor, virtual destructor, and
- *  a private reference count data member. */
+ *  a private reference count data member.
+ *
+ *  @sa SharedPointer, @ref SharedFromThis */
 class SAWYER_EXPORT SharedObject {
     template<class U> friend class SharedPointer;
     mutable size_t nrefs_;
@@ -252,22 +256,46 @@ public:
 
 /** Creates SharedPointer from this.
  *
- *  If an object inherits from SharedObject then it has a @ref sharedFromThis method that allows creation of a
- *  reference-counting pointer from <code>this</code> object. The template parameter, @p T, is the type of object that the
- *  shared pointer will point to, and is typically the type being derived from SharedObject:
+ *  This class provides a @ref sharedFromThis method that returns a @ref SharedPointer pointing to an object of type @c T.
+ *  The template parameter @c T is usually the name of the class derived from SharedFromThis. For instance, the following
+ *  example declares @c MyBaseClass to be a shared object (able to be pointed to by a SharedPointer), and declares that it
+ *  is possible to create a SharedPointer from a raw object pointer.
  *
  * @code
- *  class MyClass: public SharedFromThis<MyClass> { ... };
+ *  class MyBaseClass: public SharedObject, public SharedFromThis<MyBaseClass> { ... };
  * @endcode
  *
- * @todo SharedFromThis should not inherit from SharedObject because SharedFromThis this can be added at any level of the class
- * hierarchy, but SharedObject should only be added to base classes. */
+ *  Some method in @c MyBaseClass might want to return such a pointer:
+ *
+ * @code
+ *  SharedPointer<MyBaseClass> update() const {
+ *      ...
+ *      return sharedFromThis();
+ *  }
+ * @endcode
+ *
+ *  Subclasses in a class hierarchy need not all have the same version of @c sharedFromThis.  If the user's base class is
+ *  the only one to directly derive from SharedFromThis, then any subclass calling @c sharedFromThis will return a pointer to
+ *  the user's base class.  On the other hand, the various subclasses can directly inherit from SharedFromThis also in order to
+ *  return pointers to objects of their type:
+ *
+ * @code
+ *  class MyDerivedA: public MyBaseClass {
+ *      // sharedFromThis() returns pointers to MyBaseClass
+ *  };
+ *
+ *  class MyDerivedB: public MyBaseClass, public SharedFromThis<MyDerivedB> {
+ *      // sharedFromThis() is overridden to return pointers to MyDerivedB
+ *  }
+ * @endcode */
 template<class T>
-class SharedFromThis: public SharedObject {
+class SharedFromThis {
 public:
+    virtual ~SharedFromThis() {}
+
     /** Create a shared pointer from <code>this</code>.
      *
-     *  Returns a shared pointer that points to this object. */
+     *  Returns a shared pointer that points to this object.  The type @c T must be derived from SharedObject. */
     SharedPointer<T> sharedFromThis() {
         T *derived = dynamic_cast<T*>(this);
         ASSERT_not_null(derived);
