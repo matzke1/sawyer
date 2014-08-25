@@ -53,6 +53,10 @@ static void interval_tests() {
     Interval e3 = Interval::hull(0, boost::integer_traits<typename Interval::Value>::const_max);
     ASSERT_always_forbid(e3.isEmpty());
     ASSERT_always_require(e1.size()==0);                       // because of overflow
+
+    Interval e4 = Interval::whole();
+    ASSERT_always_forbid(e4.isEmpty());
+    ASSERT_always_require(e4.isWhole());
 }
 
 template<class Interval, class Value>
@@ -567,8 +571,7 @@ static void basic_set_tests() {
     typedef Sawyer::Container::IntervalSet<Interval> Set;
     Set set;
 
-    Interval all = Interval::hull(boost::integer_traits<typename Interval::Value>::const_min,
-                                  boost::integer_traits<typename Interval::Value>::const_max);
+    Interval all = Interval::whole();
 
     std::cerr <<"invert() empty set\n";
     typename Interval::Value allSize = (all.greatest()-all.least()) + 1;// must cast because width(all) returns wrong type
@@ -701,6 +704,218 @@ static void set_iterators_tests() {
     std::cerr <<" }\n";
 }
 
+template<class Interval>
+static void set_find_tests() {
+    std::cerr <<"set_find\n";
+
+    typedef Sawyer::Container::IntervalSet<Interval> Set;
+    typedef boost::iterator_range<typename Set::ConstNodeIterator> Range;
+
+    Set set;
+    set.insert(1);                                      // node0
+    set.insert(Interval::hull(3, 4));                   // node1
+    set.insert(Interval::hull(6, 8));                   // node2
+    set.insert(Interval::hull(10, 13));                 // node3
+    set.insert(Interval::hull(15, 19));                 // node4
+    show(set);
+
+    ASSERT_always_require(set.nIntervals()==5);
+    typename Set::ConstNodeIterator iter = set.nodes().begin();
+    typename Set::ConstNodeIterator node0 = iter; ++iter;
+    typename Set::ConstNodeIterator node1 = iter; ++iter;
+    typename Set::ConstNodeIterator node2 = iter; ++iter;
+    typename Set::ConstNodeIterator node3 = iter; ++iter;
+    typename Set::ConstNodeIterator node4 = iter; ++iter;
+    ASSERT_always_require(iter==set.nodes().end());
+
+    std::cerr <<"  findAll([])\n";
+    Range r0 = set.findAll(Interval());
+    ASSERT_always_require(r0.begin()==set.nodes().end());
+    ASSERT_always_require(r0.end()==set.nodes().end());
+
+    std::cerr <<"  findAll([0])\n";
+    Range r1 = set.findAll(Interval(0));
+    ASSERT_always_require(r1.begin()==set.nodes().end());
+    ASSERT_always_require(r1.end()==set.nodes().end());
+
+    std::cerr <<"  findAll([20,29])\n";
+    Range r2 = set.findAll(Interval::hull(20, 29));
+    ASSERT_always_require(r2.begin()==set.nodes().end());
+    ASSERT_always_require(r2.end()==set.nodes().end());
+
+    std::cerr <<"  findAll([1])\n";
+    Range r3 = set.findAll(Interval(1));
+    ASSERT_always_require(r3.begin()==node0);
+    ASSERT_always_require(r3.end()==node1);
+
+    std::cerr <<"  findAll([1,3])\n";
+    Range r4 = set.findAll(Interval::hull(1, 3));
+    ASSERT_always_require(r4.begin()==node0);
+    ASSERT_always_require(r4.end()==node2);
+
+    std::cerr <<"  findAll([6,15])\n";
+    Range r5 = set.findAll(Interval::hull(6, 15));
+    ASSERT_always_require(r5.begin()==node2);
+    ASSERT_always_require(r5.end()==set.nodes().end());
+
+    std::cerr <<"  findAll([16,20])\n";
+    Range r6 = set.findAll(Interval::hull(16, 20));
+    ASSERT_always_require(r6.begin()==node4);
+    ASSERT_always_require(r6.end()==set.nodes().end());
+
+    std::cerr <<"  findAll([0,25])\n";
+    Range r7 = set.findAll(Interval::hull(0, 25));
+    ASSERT_always_require(r7.begin()==node0);
+    ASSERT_always_require(r7.end()==set.nodes().end());
+}
+
+template<class Interval>
+static void set_overlap_tests() {
+    std::cerr <<"set overlap\n";
+
+    typedef Sawyer::Container::IntervalSet<Interval> Set;
+    typedef typename Set::ConstNodeIterator Iter;
+    typedef std::pair<typename Set::ConstNodeIterator, typename Set::ConstNodeIterator> IterPair;
+
+    Set a;
+    a.insert(Interval::hull(3, 6));
+    a.insert(Interval::hull(9, 12));
+    a.insert(Interval::hull(15, 18));
+    show(a);
+
+    Set b;
+    b.insert(Interval::hull(4, 4));
+    b.insert(Interval::hull(6, 12));
+    b.insert(Interval::hull(14, 19));
+    show(b);
+
+    Iter ai = a.nodes().begin();
+    Iter a0 = ai; ++ai;
+    Iter a1 = ai; ++ai;
+    Iter a2 = ai; ++ai;
+    ASSERT_always_require(ai==a.nodes().end());
+    
+    Iter bi = b.nodes().begin();
+    Iter b0 = bi; ++bi;
+    Iter b1 = bi; ++bi;
+    Iter b2 = bi; ++bi;
+    ASSERT_always_require(bi==b.nodes().end());
+
+    // Finding first overlap with an interval
+
+    Iter i1 = a.findFirstOverlap(Interval());
+    ASSERT_always_require(i1==ai);
+
+    Iter i2 = a.findFirstOverlap(Interval(0));
+    ASSERT_always_require(i2==ai);
+
+    Iter i3 = a.findFirstOverlap(Interval(3));
+    ASSERT_always_require(i3==a0);
+
+    Iter i4 = a.findFirstOverlap(Interval::hull(2, 6));
+    ASSERT_always_require(i4==a0);
+
+    Iter i5 = a.findFirstOverlap(Interval::hull(3, 10));
+    ASSERT_always_require(i5==a0);
+
+    Iter i6 = a.findFirstOverlap(Interval::hull(6, 15));
+    ASSERT_always_require(i6==a0);
+
+    Iter i7 = a.findFirstOverlap(Interval::hull(19, 29));
+    ASSERT_always_require(i7==ai);
+
+    // Finding first overlap among two sets
+
+    IterPair ip1 = a.findFirstOverlap(a0, b, b0);
+    ASSERT_always_require(ip1.first==a0);
+    ASSERT_always_require(ip1.second==b0);
+
+    IterPair ip2 = a.findFirstOverlap(a1, b, b0);
+    ASSERT_always_require(ip2.first==a1);
+    ASSERT_always_require(ip2.second==b1);
+
+    IterPair ip3 = a.findFirstOverlap(a0, b, b1);
+    ASSERT_always_require(ip3.first==a0);
+    ASSERT_always_require(ip3.second==b1);
+
+    IterPair ip4 = a.findFirstOverlap(a0, b, b2);
+    ASSERT_always_require(ip4.first==a2);
+    ASSERT_always_require(ip4.second==b2);
+    
+    IterPair ip5 = a.findFirstOverlap(ai, b, bi);
+    ASSERT_always_require(ip5.first==ai);
+    ASSERT_always_require(ip5.second==bi);
+}
+
+template<class Interval>
+static void set_union_tests() {
+    std::cerr <<"set union\n";
+
+    typedef Sawyer::Container::IntervalSet<Interval> Set;
+    typedef typename Set::ConstNodeIterator Iter;
+
+    Set a;
+    a.insert(Interval::hull(3, 6));
+    a.insert(Interval::hull(9, 12));
+    a.insert(Interval::hull(15, 18));
+    show(a);
+
+    Set b;
+    b.insert(Interval::hull(4, 4));
+    b.insert(Interval::hull(6, 12));
+    b.insert(Interval::hull(14, 19));
+    show(b);
+
+    Set c = a | b;
+    show(c);
+    ASSERT_always_require(c.nIntervals()==2);
+    ASSERT_always_require(c.size()==16);
+}
+
+template<class Interval>
+static void set_intersection_tests() {
+    std::cerr <<"set intersection\n";
+    
+    typedef Sawyer::Container::IntervalSet<Interval> Set;
+    typedef typename Set::ConstNodeIterator Iter;
+
+    Set a;
+    a.insert(Interval::hull(3, 6));
+    a.insert(Interval::hull(9, 12));
+    a.insert(Interval::hull(15, 18));
+    show(a);
+
+    Set b;
+    b.insert(Interval::hull(4, 4));
+    b.insert(Interval::hull(6, 12));
+    b.insert(Interval::hull(14, 19));
+    show(b);
+
+    // Intersection depends on inverse, so test inverse first
+    Set c = ~a;
+    ASSERT_always_require(c.nIntervals()==4);
+    show(c);
+
+    Set d = ~c;
+    show(d);
+    ASSERT_always_require(d==a);
+
+    // Test intersection operator
+    Set e = a & b;
+    show(e);
+    ASSERT_always_require(e.nIntervals()==4);
+    ASSERT_always_require(e.size()==10);
+
+    a.intersect(b);
+    show(a);
+    ASSERT_always_require(a.nIntervals()==4);
+    Iter ai = a.nodes().begin();
+    ASSERT_always_require(*ai==Interval(4)); ++ai;
+    ASSERT_always_require(*ai==Interval(6)); ++ai;
+    ASSERT_always_require(*ai==Interval::hull(9, 12)); ++ai;
+    ASSERT_always_require(*ai==Interval::hull(15, 18));
+}
+
 int main() {
 
     // Basic interval tests
@@ -752,7 +967,15 @@ int main() {
     set_ctor_tests<Sawyer::Container::Interval<boost::uint8_t> >();
     set_ctor_tests<Sawyer::Container::Interval<int> >();
 
+    // IntervalSet iterators
     set_iterators_tests<Sawyer::Container::Interval<unsigned> >();
+
+    // IntervalSet searching
+    set_find_tests<Sawyer::Container::Interval<unsigned> >();
+    set_find_tests<Sawyer::Container::Interval<int> >();
+    set_overlap_tests<Sawyer::Container::Interval<unsigned> >();
+    set_union_tests<Sawyer::Container::Interval<unsigned> >();
+    set_intersection_tests<Sawyer::Container::Interval<unsigned> >();
 
     return 0;
 }
