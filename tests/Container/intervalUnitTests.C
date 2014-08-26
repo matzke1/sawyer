@@ -900,6 +900,17 @@ static void set_intersection_tests() {
     show(d);
     ASSERT_always_require(d==a);
 
+    // Intersection depends on subtraction, so test subtraction first
+    Set diff1 = a - b;
+    show(diff1);
+    ASSERT_always_require(diff1.nIntervals()==2);
+    ASSERT_always_require(diff1.size()==2);
+
+    Set diff2 = b - a;
+    show(diff2);
+    ASSERT_always_require(diff2.nIntervals()==3);
+    ASSERT_always_require(diff2.size()==4);
+
     // Test intersection operator
     Set e = a & b;
     show(e);

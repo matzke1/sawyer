@@ -581,6 +581,15 @@ public:
         tmp.intersect(other);
         return tmp;
     }
+
+    /** Subtract another set from this one.
+     *
+     *  <code>A-B</code> is equivalent to <code>A & ~B</code> but perhaps faster. */
+    IntervalSet operator-(const IntervalSet &other) const {
+        IntervalSet tmp = *this;
+        tmp.eraseMultiple(other);
+        return tmp;
+    }
 };
 
 } // namespace
