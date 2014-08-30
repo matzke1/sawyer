@@ -24,14 +24,19 @@ namespace Container {
  *  function is contiguous in memory, and whether any instructions overlap with each other:
  *
  * @code
+ *  // Input is a list of intervals for instructions in a function
  *  typedef Sawyer::Container::Interval<uint32_t> AddressInterval;
  *  std::vector<AddressInterval> instructionIntervals = ...;
+ *
+ *  // Build the functionExtent and count total instruction size
  *  Sawyer::Container::IntervalSet<AddressInterval> functionExtent;
  *  uint32_t insnTotalSize = 0;
  *  BOOST_FOREACH (const AddressInterval insnInterval, instructionIntervals) {
  *      functionExtent.insert(insnInterval);
  *      insnTotalSize += insnInterval.size();
  *  }
+ *
+ *  // Final results
  *  bool isFunctionContiguous = functionExtent.nIntervals() <= 1;
  *  bool isInsnsDisjoint = functionExtent.size() == insnTotalSize;
  * @endcode
@@ -448,7 +453,8 @@ public:
         if (!restricted.isEmpty()) {
             typename Interval::Value pending = restricted.least();
             bool insertTop = true;
-            for (typename Map::ConstKeyIterator iter=map_.lowerBound(restricted.least()); iter!=map_.keys().end(); ++iter) {
+            for (typename Map::ConstIntervalIterator iter=map_.lowerBound(restricted.least());
+                 iter!=map_.intervals().end(); ++iter) {
                 if (iter->least() > restricted.greatest())
                     break;
                 if (pending < iter->least())
@@ -486,8 +492,8 @@ public:
 
     template<class Interval2, class T, class Policy>
     void insertMultiple(const IntervalMap<Interval2, T, Policy> &other) {
-        typedef typename IntervalMap<Interval2, T, Policy>::ConstKeyIterator OtherIterator;
-        for (OtherIterator otherIter=other.keys().begin(); otherIter!=other.keys().end(); ++otherIter)
+        typedef typename IntervalMap<Interval2, T, Policy>::ConstIntervalIterator OtherIterator;
+        for (OtherIterator otherIter=other.intervals().begin(); otherIter!=other.intervals().end(); ++otherIter)
             map_.insert(*otherIter, 0);
     }
     /** @} */

@@ -50,13 +50,13 @@ public:
  *  type that follows the API and semantics of Sawyer::Container::Interval, namely a closed interval with members
  *  <code>least</code> and <code>greatest</code> demarcating the inclusive end points, and a few other methods.
  *
- *  The key/value pair nodes that are stored in this container are managed by the container, automatically joining adjacent
- *  nodes when they are inserted, if possible and permitted, and automatically spliting nodes if necessary when something is
- *  erased. For the most part, the user can think of this container as associating scalar keys with values, and almost forget
- *  that the container uses intervals as an optimization.
+ *  The interval/value pair nodes that are stored in this container are managed by the container, automatically joining
+ *  adjacent nodes when they are inserted, if possible and permitted, and automatically spliting nodes if necessary when
+ *  something is erased. For the most part, the user can think of this container as associating scalar keys with values, and
+ *  almost forget that the container uses intervals as an optimization.
  *
- *  When two neighboring keys/value nodes are inserted, the container will possibly join them into a single key/value node.
- *  Normally, the merging of two  nodes happens if the two values are equal, but this can be influenced by a policy class
+ *  When two neighboring interval/value nodes are inserted, the container will possibly join them into a single interval/value
+ *  node.  Normally, the merging of two nodes happens if the two values are equal, but this can be influenced by a policy class
  *  provided as an argument of the container's constructor. See @ref MergePolicy for details.  Similarly, when part of an
  *  interval is erased, the container might need to split the affected node into two nodes, which is also handled by the
  *  policy.
@@ -64,7 +64,7 @@ public:
  *  The following examples demonstrates some aspects of the interface:
  *
  * @code
- *  typedef Sawyer::Container::interval<unsigned> Interval; // integral types work best
+ *  typedef Sawyer::Container::Interval<unsigned> Interval; // integral types work best
  *  class Stats {...} stats1=..., stats2=...; // needs at least a copy c'tor, assignment, and equality predicate.
  *  typedef IntervalMap<Interval, Stats> Map;
  *  Map map;
@@ -84,8 +84,9 @@ public:
  *  hold three nodes: { (1, stats1), ([4,5], stats1), (6, stats2) }.
  *
  *  Iteration over the container returns references to the nodes as @ref Node object that has <code>key</code> and
- *  <code>value</code> methods to access the interval and user-defined value parts of each storage node.  For example, here's
- *  one way to print the contents of the container, assuming the interval itself doesn't already have a printing function:
+ *  <code>value</code> methods to access the interval key and user-defined value parts of each storage node.  For example,
+ *  here's one way to print the contents of the container, assuming the interval itself doesn't already have a printing
+ *  function:
  *
  * @code
  *  std::cout <<"{";
@@ -93,7 +94,7 @@ public:
  *      const Interval &interval = iter->key();
  *      const Stats &stats = iter->value();
  *      std::cout <<" (";
- *      if (singleton(interval))
+ *      if (interval.isSingleton())
  *          std::cout <<interval.least() <<", ";
  *      } else {
  *          std::cout <<"[" <<interval.least() <<"," <<interval.greatest() <<"], ";
@@ -113,8 +114,8 @@ public:
  *  }
  * @endcode
  *
- *  Besides <code>nodes()</code>, there's also <code>values()</code> and <code>keys()</code> that return bidirectional
- *  iterators over the user-defined values or the keys when dereferenced.
+ *  Besides <code>nodes()</code>, there's also <code>values()</code> and <code>intervals()</code> that return bidirectional
+ *  iterators over the user-defined values or the intervals when dereferenced.
  *
  *  This class uses CamelCase for all its methods and inner types in conformance with the naming convention for the rest of the
  *  library. This includes iterator names (we don't use <code>iterator</code>, <code>const_iterator</code>, etc). */
@@ -142,21 +143,36 @@ public:
 
     /** Storage node.
      *
-     *  An Interval/Value pair with methods <code>key</code> and <code>value</code> for accessing the interval and its
-     *  associated value. */
+     *  An interval/value pair with methods <code>key</code> and <code>value</code> for accessing the interval key and its
+     *  associated user-defined value. */
     typedef typename Map::Node Node;
 
-    /** Iterator type.
+    /** Interval iterator.
      *
-     *  This iterator visits the nodes of the container. Each node is an interval/value pair.
-     * @{ */
-    typedef typename Map::NodeIterator NodeIterator;
-    typedef typename Map::ConstNodeIterator ConstNodeIterator;
-    typedef typename Map::ConstKeyIterator ConstKeyIterator;
+     *  This iterator visits the intervals of the container.  Dereferencing the iterator returns a reference to a const
+     *  interval. */
+    typedef typename Map::ConstKeyIterator ConstIntervalIterator;
+
+    /** Value iterator.
+     *
+     *  This iterator visits the values of the container.  Dereferencing the iterator returns a reference (const or mutable,
+     *  depending on the iterator) to a user-defined value.
+     *
+     *  @{ */
     typedef typename Map::ValueIterator ValueIterator;
     typedef typename Map::ConstValueIterator ConstValueIterator;
     /** @} */
 
+    /** Node iterator.
+     *
+     *  This iterator visits the nodes of the container. Dereferencing the iterator returns a @ref Node reference (const or
+     *  mutable depending on the iterator), from which the interval key and user-define value can be obtained.
+     *
+     * @{ */
+    typedef typename Map::NodeIterator NodeIterator;
+    typedef typename Map::ConstNodeIterator ConstNodeIterator;
+    /** @} */
+    
 private:
     Map map_;
     Policy policy_;
@@ -214,7 +230,7 @@ public:
      *
      *  Returns a range of iteratores that traverse all keys (non-overlapping intervals) of this container according to the
      *  order of the intervals. */
-    boost::iterator_range<ConstKeyIterator> keys() const { return map_.keys(); }
+    boost::iterator_range<ConstIntervalIterator> intervals() const { return map_.keys(); }
 
     /** Iterators for traversing values.
      *
@@ -568,7 +584,7 @@ public:
     /** Returns the maximum scalar key. */
     typename Interval::Value greatest() const {
         ASSERT_forbid(isEmpty());
-        ConstKeyIterator last = map_.keys().end(); --last;
+        ConstIntervalIterator last = map_.keys().end(); --last;
         return last->greatest();
     }
 
