@@ -27,8 +27,8 @@ template<class Interval>
 static void show(const Sawyer::Container::IntervalSet<Interval> &iset) {
     std::cerr <<"  size = " <<(boost::uint64_t)iset.size() <<" in " <<iset.nIntervals() <<"\n";
     std::cerr <<"  nodes = {";
-    typedef typename Sawyer::Container::IntervalSet<Interval>::ConstNodeIterator Iter;
-    for (Iter iter=iset.nodes().begin(); iter!=iset.nodes().end(); ++iter) {
+    typedef typename Sawyer::Container::IntervalSet<Interval>::ConstIntervalIterator Iter;
+    for (Iter iter=iset.intervals().begin(); iter!=iset.intervals().end(); ++iter) {
         const Interval &interval = *iter;
         std::cerr <<" [" <<interval.least() <<"," <<interval.greatest() <<"]";
     }
@@ -709,7 +709,7 @@ static void set_find_tests() {
     std::cerr <<"set_find\n";
 
     typedef Sawyer::Container::IntervalSet<Interval> Set;
-    typedef boost::iterator_range<typename Set::ConstNodeIterator> Range;
+    typedef boost::iterator_range<typename Set::ConstIntervalIterator> Range;
 
     Set set;
     set.insert(1);                                      // node0
@@ -720,28 +720,28 @@ static void set_find_tests() {
     show(set);
 
     ASSERT_always_require(set.nIntervals()==5);
-    typename Set::ConstNodeIterator iter = set.nodes().begin();
-    typename Set::ConstNodeIterator node0 = iter; ++iter;
-    typename Set::ConstNodeIterator node1 = iter; ++iter;
-    typename Set::ConstNodeIterator node2 = iter; ++iter;
-    typename Set::ConstNodeIterator node3 = iter; ++iter;
-    typename Set::ConstNodeIterator node4 = iter; ++iter;
-    ASSERT_always_require(iter==set.nodes().end());
+    typename Set::ConstIntervalIterator iter = set.intervals().begin();
+    typename Set::ConstIntervalIterator node0 = iter; ++iter;
+    typename Set::ConstIntervalIterator node1 = iter; ++iter;
+    typename Set::ConstIntervalIterator node2 = iter; ++iter;
+    typename Set::ConstIntervalIterator node3 = iter; ++iter;
+    typename Set::ConstIntervalIterator node4 = iter; ++iter;
+    ASSERT_always_require(iter==set.intervals().end());
 
     std::cerr <<"  findAll([])\n";
     Range r0 = set.findAll(Interval());
-    ASSERT_always_require(r0.begin()==set.nodes().end());
-    ASSERT_always_require(r0.end()==set.nodes().end());
+    ASSERT_always_require(r0.begin()==set.intervals().end());
+    ASSERT_always_require(r0.end()==set.intervals().end());
 
     std::cerr <<"  findAll([0])\n";
     Range r1 = set.findAll(Interval(0));
-    ASSERT_always_require(r1.begin()==set.nodes().end());
-    ASSERT_always_require(r1.end()==set.nodes().end());
+    ASSERT_always_require(r1.begin()==set.intervals().end());
+    ASSERT_always_require(r1.end()==set.intervals().end());
 
     std::cerr <<"  findAll([20,29])\n";
     Range r2 = set.findAll(Interval::hull(20, 29));
-    ASSERT_always_require(r2.begin()==set.nodes().end());
-    ASSERT_always_require(r2.end()==set.nodes().end());
+    ASSERT_always_require(r2.begin()==set.intervals().end());
+    ASSERT_always_require(r2.end()==set.intervals().end());
 
     std::cerr <<"  findAll([1])\n";
     Range r3 = set.findAll(Interval(1));
@@ -756,17 +756,17 @@ static void set_find_tests() {
     std::cerr <<"  findAll([6,15])\n";
     Range r5 = set.findAll(Interval::hull(6, 15));
     ASSERT_always_require(r5.begin()==node2);
-    ASSERT_always_require(r5.end()==set.nodes().end());
+    ASSERT_always_require(r5.end()==set.intervals().end());
 
     std::cerr <<"  findAll([16,20])\n";
     Range r6 = set.findAll(Interval::hull(16, 20));
     ASSERT_always_require(r6.begin()==node4);
-    ASSERT_always_require(r6.end()==set.nodes().end());
+    ASSERT_always_require(r6.end()==set.intervals().end());
 
     std::cerr <<"  findAll([0,25])\n";
     Range r7 = set.findAll(Interval::hull(0, 25));
     ASSERT_always_require(r7.begin()==node0);
-    ASSERT_always_require(r7.end()==set.nodes().end());
+    ASSERT_always_require(r7.end()==set.intervals().end());
 }
 
 template<class Interval>
@@ -774,8 +774,8 @@ static void set_overlap_tests() {
     std::cerr <<"set overlap\n";
 
     typedef Sawyer::Container::IntervalSet<Interval> Set;
-    typedef typename Set::ConstNodeIterator Iter;
-    typedef std::pair<typename Set::ConstNodeIterator, typename Set::ConstNodeIterator> IterPair;
+    typedef typename Set::ConstIntervalIterator Iter;
+    typedef std::pair<typename Set::ConstIntervalIterator, typename Set::ConstIntervalIterator> IterPair;
 
     Set a;
     a.insert(Interval::hull(3, 6));
@@ -789,17 +789,17 @@ static void set_overlap_tests() {
     b.insert(Interval::hull(14, 19));
     show(b);
 
-    Iter ai = a.nodes().begin();
+    Iter ai = a.intervals().begin();
     Iter a0 = ai; ++ai;
     Iter a1 = ai; ++ai;
     Iter a2 = ai; ++ai;
-    ASSERT_always_require(ai==a.nodes().end());
+    ASSERT_always_require(ai==a.intervals().end());
     
-    Iter bi = b.nodes().begin();
+    Iter bi = b.intervals().begin();
     Iter b0 = bi; ++bi;
     Iter b1 = bi; ++bi;
     Iter b2 = bi; ++bi;
-    ASSERT_always_require(bi==b.nodes().end());
+    ASSERT_always_require(bi==b.intervals().end());
 
     // Finding first overlap with an interval
 
@@ -852,7 +852,7 @@ static void set_union_tests() {
     std::cerr <<"set union\n";
 
     typedef Sawyer::Container::IntervalSet<Interval> Set;
-    typedef typename Set::ConstNodeIterator Iter;
+    typedef typename Set::ConstIntervalIterator Iter;
 
     Set a;
     a.insert(Interval::hull(3, 6));
@@ -877,7 +877,7 @@ static void set_intersection_tests() {
     std::cerr <<"set intersection\n";
     
     typedef Sawyer::Container::IntervalSet<Interval> Set;
-    typedef typename Set::ConstNodeIterator Iter;
+    typedef typename Set::ConstIntervalIterator Iter;
 
     Set a;
     a.insert(Interval::hull(3, 6));
@@ -920,7 +920,7 @@ static void set_intersection_tests() {
     a.intersect(b);
     show(a);
     ASSERT_always_require(a.nIntervals()==4);
-    Iter ai = a.nodes().begin();
+    Iter ai = a.intervals().begin();
     ASSERT_always_require(*ai==Interval(4)); ++ai;
     ASSERT_always_require(*ai==Interval(6)); ++ai;
     ASSERT_always_require(*ai==Interval::hull(9, 12)); ++ai;
