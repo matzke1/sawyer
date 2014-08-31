@@ -259,6 +259,12 @@ public:
         Constraints& before(Address x) {
             return x==boost::integer_traits<Address>::const_min ? none() : atOrBefore(x-1);
         }
+    public:
+        // true if we need to iterate over segments to find the end point
+        bool hasNonAddressConstraints() const {
+            return (!never_ &&
+                    (requiredAccess_ || prohibitedAccess_ || !nameSubstring_.empty() || maxSize_!=size_t(-1) || singleSegment_));
+        }
     public: // Methods that directly call the AddressMap
         Optional<Address> next() const { return map_->next(*this); }
         Sawyer::Container::Interval<Address> available() const { return map_->available(*this); }
@@ -645,30 +651,34 @@ private:
 
         // Iterate forward until the constraints are no longer satisfied
         Address addr = minAddr;
-        ConstNodeIterator iter = begin;
-        for (/*void*/; iter!=end; ++iter) {
-            if (iter!=begin) {                          // already tested the first segment above
-                if (c.singleSegment_)
-                    break;                              // we crossed a segment boundary
-                if (addr+1 != iter->key().least())
-                    break;                              // gap between segments
-                const Segment &segment = begin->value();
-                if (!segment.isAccessible(c.requiredAccess_, c.prohibitedAccess_))
-                    break;                              // wrong segment permissions
-                if (!boost::contains(segment.name(), c.nameSubstring_))
-                    break;                              // wrong segment name
+        if (c.hasNonAddressConstraints()) {
+            ConstNodeIterator iter = begin;
+            for (/*void*/; iter!=end; ++iter) {
+                if (iter!=begin) {                          // already tested the first segment above
+                    if (c.singleSegment_)
+                        break;                              // we crossed a segment boundary
+                    if (addr+1 != iter->key().least())
+                        break;                              // gap between segments
+                    const Segment &segment = begin->value();
+                    if (!segment.isAccessible(c.requiredAccess_, c.prohibitedAccess_))
+                        break;                              // wrong segment permissions
+                    if (!boost::contains(segment.name(), c.nameSubstring_))
+                        break;                              // wrong segment name
+                }
+                if (iter->key().greatest() - minAddr >= c.maxSize_) {
+                    addr = minAddr + c.maxSize_ - 1;
+                    ++iter;
+                    break;
+                }
+                addr = iter->key().greatest();
             }
-            if (iter->key().greatest() - minAddr >= c.maxSize_) {
-                addr = minAddr + c.maxSize_ - 1;
-                ++iter;
-                break;
-            }
-            addr = iter->key().greatest();
+            end = iter;
+            maxAddr = addr;
         }
 
         // Build the result
-        retval.interval_ = Interval<Address>::hull(minAddr, addr);
-        retval.nodes_ = boost::iterator_range<ConstNodeIterator>(begin, iter);
+        retval.interval_ = Interval<Address>::hull(minAddr, maxAddr);
+        retval.nodes_ = boost::iterator_range<ConstNodeIterator>(begin, end);
         return retval;
     }
 
