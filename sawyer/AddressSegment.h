@@ -96,6 +96,14 @@ public:
     AddressSegment& accessibility(unsigned bits) { accessibility_ = bits; return *this; }
     /** @} */
 
+    /** Determines whether this segment is accessible.
+     *
+     *  Returns true if all bits that are set in @p requiredAccess are also set in this segment, and none of the bits set in @p
+     *  prohibitedAccess are set in this segment. */
+    bool isAccessible(unsigned requiredAccess, unsigned prohibitedAccess) const {
+        return requiredAccess==(accessibility_ & requiredAccess) && 0==(accessibility_ & prohibitedAccess);
+    }
+    
     /** Property: name.
      *
      *  Each segment may be given a name which can be used for debugging.

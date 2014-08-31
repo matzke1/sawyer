@@ -26,13 +26,13 @@ static void test01() {
 
     // Write something across the two buffers using mapped I/O
     static const char *data1 = "abcdefghij";
-    Addresses accessed = map.write(data1, Addresses::hull(1000, 1009));
+    Addresses accessed = map.at(Addresses::hull(1000, 1009)).write(data1);
     ASSERT_always_require(accessed.size()==10);
 
     // Read back the data
     char data2[10];
     memset(data2, 0, sizeof data2);
-    accessed = map.read(data2, Addresses::hull(1000, 1009));
+    accessed = map.at(1000).limit(10).read(data2);
     ASSERT_always_require(accessed.size()==10);
     ASSERT_always_require(0==memcmp(data1, data2, 10));
 
@@ -69,7 +69,7 @@ static void test02() {
     map.insert(Addresses::baseSize(1005,  5), Segment(buf2)); 
 
     // Write across both buffers and check that data2 occluded data1
-    Addresses accessed = map.write("bcdefghijklmn", Addresses::baseSize(1001, 13));
+    Addresses accessed = map.at(1001).limit(13).write("bcdefghijklmn");
     ASSERT_always_require(accessed.size()==13);
     ASSERT_always_require(0==memcmp(data1, "-bcde-----klmn-", 15));
     ASSERT_always_require(0==memcmp(data2,      "fghij#####", 10));
@@ -80,7 +80,7 @@ static void test02() {
     ASSERT_always_require(map.nSegments()==1);
 
     // Write some data again
-    accessed = map.write("BCDEFGHIJKLMN", Addresses::baseSize(1001, 13));
+    accessed = map.at(1001).limit(13).write("BCDEFGHIJKLMN");
     ASSERT_always_require(accessed.size()==13);
     ASSERT_always_require(0==memcmp(data1, "-BCDEFGHIJKLMN-", 15));
     ASSERT_always_require(0==memcmp(data2,      "fghij#####", 10));
@@ -102,7 +102,7 @@ static void test03() {
     map.insert(Addresses::baseSize(1000, 64), Segment(buf1));
 
     char data[64];
-    Address nread = map.read(data, 1000, 64);
+    Address nread = map.at(1000).limit(64).read(data).size();
     data[sizeof(data)-1] = '\0';
     ASSERT_always_require(nread==64);
     std::cout <<data <<"...\n";
