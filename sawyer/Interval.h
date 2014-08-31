@@ -240,7 +240,26 @@ public:
             return hull(right);
         }
     }
-    
+
+    // The following trickery is to allow things like "if (x)" to work but without having an implicit
+    // conversion to bool which would cause no end of other problems.  This is fixed in C++11
+private:
+    typedef void(Interval::*unspecified_bool)() const;
+    void this_type_does_not_support_comparisons() const {}
+public:
+    /** Type for Boolean context.
+     *
+     *  Implicit conversion to a type that can be used in a boolean context such as an <code>if</code> or <code>while</code>
+     *  statement.  For instance:
+     *
+     *  @code
+     *   if (Interval<unsigned> x = doSomething(...)) {
+     *      // this is reached only if x is non-empty
+     *   }
+     *  @endcode */
+    operator unspecified_bool() const {
+        return isEmpty() ? &Interval::this_type_does_not_support_comparisons : 0;
+    }
 };
 
 } // namespace
