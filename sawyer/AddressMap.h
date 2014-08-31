@@ -422,10 +422,10 @@ public:
 
     /** Reads data into the supplied buffer.
      *
-     *  Reads data into the buffer according to the specified constraints.  The buffer can be an array or STL vector. The
-     *  constraints are augmented by also requiring that the addresses be contiguous, and in the case of STL vectors that not
-     *  more data is read into the vector than the size of the vector.  The return value is the interval of addresses that were
-     *  read.
+     *  Reads data into an arry or STL vector according to the specified constraints.  If the array is a null pointer then no
+     *  data is read or copied and the return value indicates what addresses would have been accessed. The constraints are
+     *  augmented by also requiring that the addresses be contiguous, and in the case of STL vectors that not more data is read
+     *  into the vector than the size of the vector.  The return value is the interval of addresses that were read.
      *
      *  The constraints are usually curried before the actual read call, as in this example that reads up to 10 values starting
      *  at some address and returns the number of values read:
@@ -438,13 +438,15 @@ public:
      * @{ */
     Sawyer::Container::Interval<Address> read(Value *buf /*out*/, const Constraints &c) const {
         MatchedConstraints m = matchForward(c);
-        BOOST_FOREACH (const Node &node, m.nodes_) {
-            Sawyer::Container::Interval<Address> part = m.interval_.intersection(node.key());// part of segment to read
-            ASSERT_forbid(part.isEmpty());
-            Address bufferOffset = part.least() - node.key().least() + node.value().offset();
-            Address nBytes = node.value().buffer()->read(buf, bufferOffset, part.size());
-            ASSERT_require(nBytes==part.size());
-            buf += nBytes;
+        if (buf) {
+            BOOST_FOREACH (const Node &node, m.nodes_) {
+                Sawyer::Container::Interval<Address> part = m.interval_.intersection(node.key());// part of segment to read
+                ASSERT_forbid(part.isEmpty());
+                Address bufferOffset = part.least() - node.key().least() + node.value().offset();
+                Address nBytes = node.value().buffer()->read(buf, bufferOffset, part.size());
+                ASSERT_require(nBytes==part.size());
+                buf += nBytes;
+            }
         }
         return m.interval_;
     }
@@ -456,8 +458,9 @@ public:
 
     /** Writes data from the supplied buffer.
      *
-     *  Copies data from buffer @p buf into the underlying address map buffers corresponding to the specified constraints.  The
-     *  buffer can be an array or STL vector.  The constraints are agumented by also requiring that the addresses be contiguous
+     *  Copies data from an array or STL vector into the underlying address map buffers corresponding to the specified
+     *  constraints.  If the array is a null pointer then no data is written and the return value indicates what addresses
+     *  would have been accessed.  The constraints are agumented by also requiring that the addresses be contiguous
      *  and lack the IMMUTABLE bit, and in the case of STL vectors that not more data is written thn what is in the vector.
      *  The return value is the interval of addresses that were written.
      *
@@ -477,13 +480,15 @@ public:
     Sawyer::Container::Interval<Address> write(const Value *buf, Constraints c) const {
         c.prohibit(IMMUTABLE);                          // don't ever write to buffers that can't be modified
         MatchedConstraints m = matchForward(c);
-        BOOST_FOREACH (const Node &node, m.nodes_) {
-            Sawyer::Container::Interval<Address> part = m.interval_.intersection(node.key());// part of segment to write
-            ASSERT_forbid(part.isEmpty());
-            Address bufferOffset = part.least() - node.key().least() + node.value().offset();
-            Address nBytes = node.value().buffer()->write(buf, bufferOffset, part.size());
-            ASSERT_require(nBytes==part.size());
-            buf += nBytes;
+        if (buf) {
+            BOOST_FOREACH (const Node &node, m.nodes_) {
+                Sawyer::Container::Interval<Address> part = m.interval_.intersection(node.key());// part of segment to write
+                ASSERT_forbid(part.isEmpty());
+                Address bufferOffset = part.least() - node.key().least() + node.value().offset();
+                Address nBytes = node.value().buffer()->write(buf, bufferOffset, part.size());
+                ASSERT_require(nBytes==part.size());
+                buf += nBytes;
+            }
         }
         return m.interval_;
     }
