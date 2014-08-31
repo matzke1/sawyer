@@ -348,7 +348,15 @@ public:
      *  Constrains addresses so that none of them can match. */
     Constraints none() const { return Constraints(this).none(); }
 
-    /** Iterator range for segments.
+    /** Number of segments contained in the map.
+     *
+     *  Multiple segments may be pointing to the same underlying buffer, and the number of segments is not necessarily the same
+     *  as the net number of segments inserted and erased.  For instance, if a segment is inserted for addresses [0,99] and
+     *  then a different segment is inserted at [50,59], the map will contain three segments at addresses [0,49], [50,59], and
+     *  [60,99], although the first and third segment point into different parts of the same buffer. */
+    Address nSegments() const { return this->nIntervals(); }
+
+    /** Iterator range for all segments.
      *
      *  This is just an alias for the @ref values method defined in the super class.
      *
@@ -359,9 +367,8 @@ public:
 
     /** Segments that overlap with constraints.
      *
-     *  Returns an iterator range for the segments that satisfy the specified constraints. This is most often used in loops to
-     *  iterate over the segments that satisfy some condition.  Constraints always match contiguous addresses, and therefore
-     *  match only contiguous segments also.
+     *  Returns an iterator range for the first sequence of contiguous segments that all satisfy the specified
+     *  constraints. Constraints always match contiguous addresses, and therefore match only contiguous segments also.
      *
      *  The following example iterates over the contiguous segments starting with the segment that contains address 1000.
      *
@@ -400,15 +407,28 @@ public:
         return matchForward(c).nodes_;
     }
 
-    /** Number of segments contained in the map.
+    /** Minimum address that satisfies constraints.
      *
-     *  Multiple segments may be pointing to the same underlying buffer, and the number of segments is not necessarily the same
-     *  as the net number of segments inserted and erased.  For instance, if a segment is inserted for addresses [0,99] and
-     *  then a different segment is inserted at [50,59], the map will contain three segments at addresses [0,49], [50,59], and
-     *  [60,99], although the first and third segment point into different parts of the same buffer. */
-    Address nSegments() const { return this->nIntervals(); }
-
-    /** Next higher address that satisfies constraints. */
+     *  This method returns the minimum address that satisfies the constraints.  It is named "next" because it is often used in
+     *  loops that iterate in a forward direction over addresses.  For instance, the following loop iterates over all readable
+     *  addresses one at a time (there are more efficient ways to do this).
+     *
+     * @code
+     *  for (Address a=0; map.require(READABLE).next().assignTo(a); ++a) {
+     *      ...
+     *      if (a == map.hull().greatest())
+     *          break;
+     *  }       
+     * @endcode
+     *
+     *  The conditional break at the end of the loop is to handle the case where @c a is the largest possible address, and
+     *  incrementing it would result in an overflow back to a smaller address.  The @ref hull method returns in constant time,
+     *  but a slightly faster test (that is also more self-documenting) is:
+     *
+     * @code
+     *  if (a == boost::integer_traits<Address>::const_max)
+     *      break;
+     * @endcode */
     Optional<Address> next(Constraints c) const {
         c.limit(1);                                     // no need to test segments beyond the first match
         MatchedConstraints m = matchForward(c);
@@ -418,6 +438,19 @@ public:
     /** Adress interval that satisfies constraints. */
     Sawyer::Container::Interval<Address> available(const Constraints &c) const {
         return matchForward(c).interval_;
+    }
+
+    /** Determines if an address exists with the specified constraints.
+     *
+     *  Checking for existence is just a wrapper around next.  For instance, these two statements both check whether the
+     *  address 1000 exists and has execute permission:
+     *
+     * @code
+     *  if (map.at(1000).require(EXECUTABLE).exists()) ...
+     *  if (map.at(1000).require(EXECUTABLE).next()) ...
+     * @endcode */
+    bool exists(const Constraints &c) const {
+        return next(c);
     }
 
     /** Reads data into the supplied buffer.
@@ -433,6 +466,19 @@ public:
      * @code
      *  Value buf[10];
      *  size_t nRead = map.at(start).limit(10).read(buf).size();
+     * @endcode
+     *
+     *  The following loop reads and prints all the readable values from a memory map using a large buffer for efficiency:
+     *
+     * @code
+     *  std::vector<Value> buf(1024);
+     *  while (Interval<Address> accessed = map.atOrAfter(a).read(buf)) {
+     *      a = accessed.least();
+     *      BOOST_FOREACH (const Value &v, buf)
+     *          std::cout <<a++ <<": " <<v <<"\n";
+     *      if (accessed.greatest()==map.hull().greatest())
+     *          break; // to handle case when a++ overflowed
+     *  }
      * @endcode
      *
      * @{ */
