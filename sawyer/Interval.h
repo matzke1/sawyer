@@ -172,12 +172,18 @@ public:
 
     /** Intersection.
      *
-     *  Returns an interval which is the intersection of this interval with another. */
+     *  Returns an interval which is the intersection of this interval with another.
+     *
+     * @{ */
     Interval intersection(const Interval &other) const {
         if (isEmpty() || other.isEmpty() || greatest()<other.least() || least()>other.greatest())
             return Interval();
         return Interval::hull(std::max(least(), other.least()), std::min(greatest(), other.greatest()));
     }
+    Interval operator&(const Interval &other) const {
+        return intersection(other);
+    }
+    /** @} */
 
     /** Hull.
      *
