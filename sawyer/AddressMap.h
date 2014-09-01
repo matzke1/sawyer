@@ -5,6 +5,7 @@
 #include <sawyer/Assert.h>
 #include <sawyer/Interval.h>
 #include <sawyer/IntervalMap.h>
+#include <sawyer/IntervalSet.h>
 #include <sawyer/Sawyer.h>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/cstdint.hpp>
@@ -13,6 +14,18 @@
 
 namespace Sawyer {
 namespace Container {
+
+template<class AddressMap>
+struct AddressMapTraits {
+    typedef typename AddressMap::NodeIterator NodeIterator;
+    typedef typename AddressMap::SegmentIterator SegmentIterator;
+};
+
+template<class AddressMap>
+struct AddressMapTraits<const AddressMap> {
+    typedef typename AddressMap::ConstNodeIterator NodeIterator;
+    typedef typename AddressMap::ConstSegmentIterator SegmentIterator;
+};
 
 // Used internally to split and merge segments
 template<class A, class T>
@@ -45,6 +58,163 @@ public:
         ASSERT_require(interval.isContaining(splitPoint));
     }
 };
+
+/** Constraints are used to select addresses from a memory map.
+ *
+ *  Users don't normally see this class since it's almost always created as temporary. In fact, all of the public methods
+ *  in this class are also present in the AddressMap class, and that's where they're documented.
+ *
+ *  The purpose of this class is to curry the arguments that would otherwise need to be passed to the various map I/O
+ *  methods and which would significantly complicate the API since many of these arguments are optional. */
+template<typename AddressMap>
+class AddressMapConstraints {
+public:
+    typedef typename AddressMap::Address Address;
+public: // FIXME[Robb Matzke 2014-08-31]: "friend AddressMap" not allowed until C++11, thus public for now
+    AddressMap *map_;                                   // AddressMap<> to which these constraints are bound
+    bool never_;                                        // never match anything (e.g., when least_ > greatest_)
+    // address constraints
+    Optional<Address> least_;                           // least possible valid address
+    Optional<Address> greatest_;                        // greatest possible valid address
+    Optional<Address> anchored_;                        // anchored least or greatest address
+    // constraints requiring iteration
+    size_t maxSize_;                                    // result size is limited
+    bool singleSegment_;                                // do not cross a segment boundary
+    bool contiguous_;                                   // matched addresses must be contiguous (defaults to true)
+    unsigned requiredAccess_;                           // access bits that must be set in the segment
+    unsigned prohibitedAccess_;                         // access bits that must be clear in the segment
+    std::string nameSubstring_;                         // segment name must contain substring
+public:
+    AddressMapConstraints(AddressMap *map)
+        : map_(map), never_(false), maxSize_(-1), singleSegment_(false), contiguous_(true),
+          requiredAccess_(0), prohibitedAccess_(0) {}
+    operator AddressMapConstraints<const AddressMap>() const {
+        AddressMapConstraints<const AddressMap> cc(map_);
+        cc.never_ = never_;
+        cc.least_ = least_;
+        cc.greatest_ = greatest_;
+        cc.anchored_ = anchored_;
+        cc.maxSize_ = maxSize_;
+        cc.singleSegment_ = singleSegment_;
+        cc.contiguous_ = contiguous_;
+        cc.requiredAccess_ = requiredAccess_;
+        cc.prohibitedAccess_ = prohibitedAccess_;
+        cc.nameSubstring_ = nameSubstring_;
+        return cc;
+    }
+public:
+    AddressMapConstraints& require(unsigned bits) {
+        requiredAccess_ |= bits;
+        return *this;
+    }
+    AddressMapConstraints& prohibit(unsigned bits) {
+        prohibitedAccess_ |= bits;
+        return *this;
+    }
+    AddressMapConstraints& named(const std::string &s) {
+        ASSERT_require(nameSubstring_.empty() || nameSubstring_==s);// substring conjunction not supported
+        nameSubstring_ = s;
+        return *this;
+    }
+    AddressMapConstraints& any() {
+        return *this;
+    }
+    AddressMapConstraints& none() {
+        never_=true;
+        return *this;
+    }
+    AddressMapConstraints& at(typename AddressMap::Address x) {
+        if (anchored_ && *anchored_!=x) {
+            none();
+        } else {
+            anchored_=x;
+        }
+        return *this;
+    }
+    AddressMapConstraints& at(const Interval<typename AddressMap::Address> &x) {
+        return x.isEmpty() ? none() : at(x.least()).atOrAfter(x.least()).atOrBefore(x.greatest());
+    }
+    AddressMapConstraints& limit(size_t x) {
+        maxSize_ = std::min(maxSize_, x);
+        return *this;
+    }
+    AddressMapConstraints& atOrAfter(typename AddressMap::Address least) {
+        if (least_) {
+            least_ = std::max(*least_, least);
+        } else {
+            least_ = least;
+        }
+        return *this;
+    }
+    AddressMapConstraints& atOrBefore(typename AddressMap::Address greatest) {
+        if (greatest_) {
+            greatest_ = std::min(*greatest_, greatest);
+        } else {
+            greatest_ = greatest;
+        }
+        return *this;
+    }
+    AddressMapConstraints& within(const Interval<typename AddressMap::Address> &x) {
+        return x.isEmpty() ? none() : atOrAfter(x.least()).atOrBefore(x.greatest());
+    }
+    AddressMapConstraints& within(typename AddressMap::Address lo, typename AddressMap::Address hi) {
+        return lo<=hi ? within(Interval<typename AddressMap::Address>::hull(lo, hi)) : none();
+    }
+    AddressMapConstraints& after(typename AddressMap::Address x) {
+        return x==boost::integer_traits<typename AddressMap::Address>::const_max ? none() : atOrAfter(x+1);
+    }
+    AddressMapConstraints& before(typename AddressMap::Address x) {
+        return x==boost::integer_traits<typename AddressMap::Address>::const_min ? none() : atOrBefore(x-1);
+    }
+public:
+    // Different than the others in that contiguous(false) removes the contiguousness constraint
+    AddressMapConstraints& contiguous(bool b=true) {
+        contiguous_ = b;
+        return *this;
+    }
+    // true if we need to iterate over segments to find the end point
+    bool hasNonAddressConstraints() const {
+        return (!never_ &&
+                (requiredAccess_ || prohibitedAccess_ || !nameSubstring_.empty() || maxSize_!=size_t(-1) || singleSegment_));
+    }
+    // returns new constraints having only the address constraints
+    AddressMapConstraints addressConstraints() const {
+        AddressMapConstraints c(map_);
+        c.least_ = least_;
+        c.greatest_ = greatest_;
+        c.anchored_ = anchored_;
+        return c;
+    }
+public:
+    // Methods that directly call the AddressMap
+    boost::iterator_range<typename AddressMapTraits<AddressMap>::NodeIterator> nodes() const {
+        return map_->nodes(*this);
+    }
+    boost::iterator_range<typename AddressMapTraits<AddressMap>::SegmentIterator> segments() const {
+        return map_->segments(*this);
+    }
+    Optional<typename AddressMap::Address> next() const {
+        return map_->next(*this);
+    }
+    Sawyer::Container::Interval<typename AddressMap::Address> available() const {
+        return map_->available(*this);
+    }
+    bool exists() const { return map_->exists(*this); }
+    Sawyer::Container::Interval<typename AddressMap::Address> read(typename AddressMap::Value *buf /*out*/) const {
+        return map_->read(buf, *this);
+    }
+    Sawyer::Container::Interval<typename AddressMap::Address> write(const typename AddressMap::Value *buf) const {
+        return map_->write(buf, *this);
+    }
+    void prune() {
+        return map_->prune(*this);
+    }
+    void keep() {
+        return map_->keep(*this);
+    }
+};
+
+
 
 /** A mapping from address space to values.
  *
@@ -168,108 +338,12 @@ public:
     static const unsigned RESERVED_MASK = 0x000000ff;   /**< Accessibility bits reserved for use by the library. */
     static const unsigned USERDEF_MASK  = 0xffffff00;   /**< Accessibility bits available to users. */
 
+    template<class IM>
     class MatchedConstraints {
         friend class AddressMap;
         Interval<A> interval_;
-        boost::iterator_range<ConstNodeIterator> nodes_;
-    };
-
-    /** Constraints are used to select addresses from a memory map.
-     *
-     *  Users don't normally see this class since it's almost always created as temporary. In fact, all of the public methods
-     *  in this class are also present in the AddressMap class, and that's where they're documented.
-     *
-     *  The purpose of this class is to curry the arguments that would otherwise need to be passed to the various map I/O
-     *  methods and which would significantly complicate the API since many of these arguments are optional. */
-    class Constraints {
-        friend class AddressMap;
-        const AddressMap *map_;                         // map to which constraints apply
-        unsigned requiredAccess_;                       // access bits that must be set in the segment
-        unsigned prohibitedAccess_;                     // access bits that must be clear in the segment
-        Optional<Address> least_;                       // least possible valid address
-        Optional<Address> greatest_;                    // greatest possible valid address
-        Optional<Address> anchored_;                    // anchored least or greatest address
-        std::string nameSubstring_;                     // segment name must contain substring
-        size_t maxSize_;                                // result size is limited
-        bool singleSegment_;                            // do not cross a segment boundary
-        bool never_;                                    // never match anything (e.g., when least_ > greatest_)
-        explicit Constraints(const AddressMap *map)
-            : map_(map), requiredAccess_(0), prohibitedAccess_(0), maxSize_(-1), singleSegment_(false), never_(false) {}
-    public: // Modify constraints
-        Constraints& require(unsigned bits) {
-            requiredAccess_ |= bits;
-            return *this;
-        }
-        Constraints& prohibit(unsigned bits) {
-            prohibitedAccess_ |= bits;
-            return *this;
-        }
-        Constraints& named(const std::string &s) {
-            ASSERT_require(nameSubstring_.empty() || nameSubstring_==s);// substring conjunction not supported
-            nameSubstring_ = s;
-            return *this;
-        }
-        Constraints& any() {
-            return *this;
-        }
-        Constraints& none() {
-            never_=true;
-            return *this;
-        }
-        Constraints& at(Address x) {
-            if (anchored_ && *anchored_!=x) {
-                none();
-            } else {
-                anchored_=x;
-            }
-            return *this;
-        }
-        Constraints& at(const Interval<Address> &x) {
-            return x.isEmpty() ? none() : at(x.least()).atOrAfter(x.least()).atOrBefore(x.greatest());
-        }
-        Constraints& limit(size_t x) {
-            maxSize_ = std::min(maxSize_, x);
-            return *this;
-        }
-        Constraints& atOrAfter(Address least) {
-            if (least_) {
-                least_ = std::max(*least_, least);
-            } else {
-                least_ = least;
-            }
-            return *this;
-        }
-        Constraints& atOrBefore(Address greatest) {
-            if (greatest_) {
-                greatest_ = std::min(*greatest_, greatest);
-            } else {
-                greatest_ = greatest;
-            }
-            return *this;
-        }
-        Constraints& within(const Interval<Address> &x) {
-            return x.isEmpty() ? none() : atOrAfter(x.least()).atOrBefore(x.greatest());
-        }
-        Constraints& within(Address lo, Address hi) {
-            return lo<=hi ? within(Interval<Address>::hull(lo, hi)) : none();
-        }
-        Constraints& after(Address x) {
-            return x==boost::integer_traits<Address>::const_max ? none() : atOrAfter(x+1);
-        }
-        Constraints& before(Address x) {
-            return x==boost::integer_traits<Address>::const_min ? none() : atOrBefore(x-1);
-        }
-    public:
-        // true if we need to iterate over segments to find the end point
-        bool hasNonAddressConstraints() const {
-            return (!never_ &&
-                    (requiredAccess_ || prohibitedAccess_ || !nameSubstring_.empty() || maxSize_!=size_t(-1) || singleSegment_));
-        }
-    public: // Methods that directly call the AddressMap
-        Optional<Address> next() const { return map_->next(*this); }
-        Sawyer::Container::Interval<Address> available() const { return map_->available(*this); }
-        Sawyer::Container::Interval<Address> read(Value *buf /*out*/) const { return map_->read(buf, *this); }
-        Sawyer::Container::Interval<Address> write(const Value *buf) const { return map_->write(buf, *this); }
+        typedef typename AddressMapTraits<IM>::NodeIterator NodeIterator;
+        boost::iterator_range<NodeIterator> nodes_;
     };
 
     /** Constructs an empty address map. */
@@ -283,76 +357,188 @@ public:
 
     /** Constraint: required access bits.
      *
-     *  Constrains address to those that have all of the access bits that are set in @p x. */
-    Constraints require(unsigned x) const { return Constraints(this).require(x); }
+     *  Constrains address to those that have all of the access bits that are set in @p x.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> require(unsigned x) const {
+        return AddressMapConstraints<const AddressMap>(this).require(x);
+    }
+    AddressMapConstraints<AddressMap> require(unsigned x) {
+        return AddressMapConstraints<AddressMap>(this).require(x);
+    }
+    /** @} */
 
     /** Constraint: prohibited access bits.
      *
-     *  Constrains addresses to those that have none of the access bits that are set in @p x. */
-    Constraints prohibit(unsigned x) const { return Constraints(this).prohibit(x); }
+     *  Constrains addresses to those that have none of the access bits that are set in @p x.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> prohibit(unsigned x) const {
+        return AddressMapConstraints<const AddressMap>(this).prohibit(x);
+    }
+    AddressMapConstraints<AddressMap> prohibit(unsigned x) {
+        return AddressMapConstraints<AddressMap>(this).prohibit(x);
+    }
+    /** @} */
 
     /** Constraint: segment name substring.
      *
-     *  Constrains addresses to those that belong to a segment that contains string @p x as part of its name. */
-    Constraints named(const std::string &x) const { return Constraints(this).named(x); }
+     *  Constrains addresses to those that belong to a segment that contains string @p x as part of its name.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> named(const std::string &x) const {
+        return AddressMapConstraints<const AddressMap>(this).named(x);
+    }
+    AddressMapConstraints<AddressMap> named(const std::string &x) {
+        return AddressMapConstraints<AddressMap>(this).named(x);
+    }
+    /** @} */
 
     /** Constraint: anchor point.
      *
      *  Constrains addresses to a sequence that begins at @p x.  If address @p x is not part of the addresses matched by the
-     *  other constraints, then no address matches. */
-    Constraints at(Address x) const { return Constraints(this).at(x); }
+     *  other constraints, then no address matches.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> at(Address x) const {
+        return AddressMapConstraints<const AddressMap>(this).at(x);
+    }
+    AddressMapConstraints<AddressMap> at(Address x) {
+        return AddressMapConstraints<AddressMap>(this).at(x);
+    }
+    /** @} */
 
     /** Constraint: anchored interval.
      *
      *  Constrains addresses to those that are within the specified interval, and requires that the least address of the
-     *  interval satisfies all constraints.  If the least address does not satisfy the constraints then no address matches. */
-    Constraints at(const Interval<Address> &x) const { return Constraints(this).at(x); }
+     *  interval satisfies all constraints.  If the least address does not satisfy the constraints then no address matches.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> at(const Interval<Address> &x) const {
+        return AddressMapConstraints<const AddressMap>(this).at(x);
+    }
+    AddressMapConstraints<AddressMap> at(const Interval<Address> &x) {
+        return AddressMapConstraints<AddressMap>(this).at(x);
+    }
+    /** @} */
 
     /** Constraint: limit matched size.
      *
      *  Constrains the matched addresses so that at most @p x addresses match.  Forward matching matches the first @p x
-     *  addresses while backward matching matches the last @p x addresses. */
-    Constraints limit(size_t x) const { return Constraints(this).limit(x); }
+     *  addresses while backward matching matches the last @p x addresses.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> limit(size_t x) const {
+        return AddressMapConstraints<const AddressMap>(this).limit(x);
+    }
+    AddressMapConstraints<AddressMap> limit(size_t x) {
+        return AddressMapConstraints<AddressMap>(this).limit(x);
+    }
+    /** @} */
 
     /** Constraint: address lower bound.
      *
-     *  Constrains matched addresses so that they are all greater than or equal to @p x. */
-    Constraints atOrAfter(Address x) const { return Constraints(this).atOrAfter(x); }
+     *  Constrains matched addresses so that they are all greater than or equal to @p x.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> atOrAfter(Address x) const {
+        return AddressMapConstraints<const AddressMap>(this).atOrAfter(x);
+    }
+    AddressMapConstraints<AddressMap> atOrAfter(Address x) {
+        return AddressMapConstraints<AddressMap>(this).atOrAfter(x);
+    }
+    /** @} */
 
     /** Constraint: address upper bound.
      *
-     *  Constrains matched addresses so that they are all less than or equal to @p x. */
-    Constraints atOrBefore(Address x) const { return Constraints(this).atOrBefore(x); }
+     *  Constrains matched addresses so that they are all less than or equal to @p x.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> atOrBefore(Address x) const {
+        return AddressMapConstraints<const AddressMap>(this).atOrBefore(x);
+    }
+    AddressMapConstraints<AddressMap> atOrBefore(Address x) {
+        return AddressMapConstraints<AddressMap>(this).atOrBefore(x);
+    }
+    /** @} */
 
     /** Constraint: address lower and upper bounds.
      *
-     *  Constrains matched addresses so they are all within the specified interval. */
-    Constraints within(const Interval<Address> &x) const { return Constraints(this).within(x); }
+     *  Constrains matched addresses so they are all within the specified interval.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> within(const Interval<Address> &x) const {
+        return AddressMapConstraints<const AddressMap>(this).within(x);
+    }
+    AddressMapConstraints<AddressMap> within(const Interval<Address> &x) {
+        return AddressMapConstraints<AddressMap>(this).within(x);
+    }
+    /** @} */
 
     /** Constraint: address lower and upper bounds.
      *
-     *  Constrains matched addresses so they are all greater than or equal to @p x and less than or equal to @p y. */
-    Constraints within(Address x, Address y) const { return Constraints(this).within(x, y); }
+     *  Constrains matched addresses so they are all greater than or equal to @p x and less than or equal to @p y.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> within(Address x, Address y) const {
+        return AddressMapConstraints<const AddressMap>(this).within(x, y);
+    }
+    AddressMapConstraints<AddressMap> within(Address x, Address y) {
+        return AddressMapConstraints<AddressMap>(this).within(x, y);
+    }
+    /** @} */
 
     /** Constraint: address lower bound.
      *
-     *  Constrains matched addresses so that they are all greater than @p x. */
-    Constraints after(Address x) const { return Constraints(this).after(x); }
+     *  Constrains matched addresses so that they are all greater than @p x.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> after(Address x) const {
+        return AddressMapConstraints<const AddressMap>(this).after(x);
+    }
+    AddressMapConstraints<AddressMap> after(Address x) {
+        return AddressMapConstraints<AddressMap>(this).after(x);
+    }
+    /** @} */
 
     /** Constraint: address upper bound.
      *
-     *  Constrains matched addresses so that they are all less than @p x. */
-    Constraints before(Address x) const { return Constraints(this).before(x); }
+     *  Constrains matched addresses so that they are all less than @p x.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> before(Address x) const {
+        return AddressMapConstraints<const AddressMap>(this).before(x);
+    }
+    AddressMapConstraints<AddressMap> before(Address x) {
+        return AddressMapConstraints<AddressMap>(this).before(x);
+    }
+    /** @} */
 
     /** Constraint: matches anything.
      *
-     *  The null constraint matches any mapped address. */
-    Constraints any() const { return Constraints(this); }
+     *  The null constraint matches any mapped address.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> any() const {
+        return AddressMapConstraints<const AddressMap>(this);
+    }
+    AddressMapConstraints<AddressMap> any() {
+        return AddressMapConstraints<AddressMap>(this);
+    }
+    /** @} */
 
     /** Constraint: matches nothing.
      *
-     *  Constrains addresses so that none of them can match. */
-    Constraints none() const { return Constraints(this).none(); }
+     *  Constrains addresses so that none of them can match.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> none() const {
+        return AddressMapConstraints<const AddressMap>(this).none();
+    }
+    AddressMapConstraints<AddressMap> none() {
+        return AddressMapConstraints<AddressMap>(this).none();
+    }
+    /** @} */
 
     /** Number of segments contained in the map.
      *
@@ -373,19 +559,28 @@ public:
 
     /** Segments that overlap with constraints.
      *
-     *  Returns an iterator range for the first sequence of contiguous segments that all satisfy the specified
-     *  constraints. Constraints always match contiguous addresses, and therefore match only contiguous segments also.
+     *  Returns an iterator range for the first longest sequence of segments that all satisfy the specified
+     *  constraints. Constraints normally match contiguous addresses, and therefore match contiguous segments also, but
+     *  <code>contiguous(false)</code> can disable that constraint.
      *
-     *  The following example iterates over the contiguous segments starting with the segment that contains address 1000.
+     *  The following example removes execute access from those segments that have "IAT" as a substring in
+     *  their name.
      *
      * @code
-     *  BOOST_FOREACH (const Segment &segment, map.at(1000).segments())
-     *      std::cout <<"segment " <<segment.name() <<"\n";
-     * @endcode */
-    boost::iterator_range<ConstSegmentIterator> segments(const Constraints &c) const {
-        MatchedConstraints m = matchForward(c);
+     *  BOOST_FOREACH (Segment &segment, map.substr("IAT").segments())
+     *      segment.accessibility(segment.accessibility() & ~EXECUTABLE);
+     * @endcode
+     *
+     * @{ */
+    boost::iterator_range<ConstSegmentIterator> segments(const AddressMapConstraints<const AddressMap> &c) const {
+        MatchedConstraints<const AddressMap> m = matchForward(*this, c);
         return boost::iterator_range<ConstSegmentIterator>(m.nodes_.begin(), m.nodes_.end());
     }
+    boost::iterator_range<SegmentIterator> segments(const AddressMapConstraints<AddressMap> &c) {
+        MatchedConstraints<AddressMap> m = matchForward(*this, c);
+        return boost::iterator_range<SegmentIterator>(m.nodes_);
+    }
+    /** @} */
 
     /** Iterator range for nodes.
      *
@@ -400,18 +595,26 @@ public:
     /** Nodes that overlap with constraints.
      *
      *  Returns a iterator range for the nodes that satisfy the specified constraints.  This is most often used in loops to
-     *  iterate over the segments that satisfy some condition.  Constraints always match contiguous addresses, and therefore
-     *  match only contiguous segments also.
+     *  iterate over the segments that satisfy some condition.  Constraints normally match contiguous addresses, and therefore
+     *  match contiguous segments also, but <code>contiguous(false)</code> can disable that constraint.
      *
      *  The following example iterates over the contiguous segments starting with the segment that contains  address 1000.
      *
      * @code
      *  BOOST_FOREACH (const Node &node, map.at(1000).nodes())
      *      std::cout <<"segment at " <<node.key() <<" named " <<node.value().name() <<"\n";
-     * @endcode */
-    boost::iterator_range<ConstNodeIterator> nodes(const Constraints &c) const {
-        return matchForward(c).nodes_;
+     * @endcode
+     *
+     * @{ */
+    boost::iterator_range<ConstNodeIterator> nodes(const AddressMapConstraints<const AddressMap> &c) const {
+        MatchedConstraints<const AddressMap> m = matchForward(*this, c);
+        return m.nodes_;
     }
+    boost::iterator_range<NodeIterator> nodes(const AddressMapConstraints<AddressMap> &c) {
+        MatchedConstraints<AddressMap> m = matchForward(*this, c);
+        return m.nodes_;
+    }
+    /** @} */
 
     /** Minimum address that satisfies constraints.
      *
@@ -435,15 +638,15 @@ public:
      *  if (a == boost::integer_traits<Address>::const_max)
      *      break;
      * @endcode */
-    Optional<Address> next(Constraints c) const {
+    Optional<Address> next(AddressMapConstraints<const AddressMap> c) const {
         c.limit(1);                                     // no need to test segments beyond the first match
-        MatchedConstraints m = matchForward(c);
-        return m.interval_.isEmpty() ? Sawyer::Nothing() : m.interval_.least();
+        MatchedConstraints<const AddressMap> m = matchForward(*this, c);
+        return m.interval_.isEmpty() ? Optional<Address>() : Optional<Address>(m.interval_.least());
     }
 
     /** Adress interval that satisfies constraints. */
-    Sawyer::Container::Interval<Address> available(const Constraints &c) const {
-        return matchForward(c).interval_;
+    Sawyer::Container::Interval<Address> available(const AddressMapConstraints<const AddressMap> &c) const {
+        return matchForward(*this, c).interval_;
     }
 
     /** Determines if an address exists with the specified constraints.
@@ -455,16 +658,16 @@ public:
      *  if (map.at(1000).require(EXECUTABLE).exists()) ...
      *  if (map.at(1000).require(EXECUTABLE).next()) ...
      * @endcode */
-    bool exists(const Constraints &c) const {
+    bool exists(const AddressMapConstraints<const AddressMap> &c) const {
         return next(c);
     }
 
     /** Reads data into the supplied buffer.
      *
      *  Reads data into an arry or STL vector according to the specified constraints.  If the array is a null pointer then no
-     *  data is read or copied and the return value indicates what addresses would have been accessed. The constraints are
-     *  augmented by also requiring that the addresses be contiguous, and in the case of STL vectors that not more data is read
-     *  into the vector than the size of the vector.  The return value is the interval of addresses that were read.
+     *  data is read or copied and the return value indicates what addresses would have been accessed. When the buffer is an
+     *  STL vector the constraints are augmented by also limiting the number of items accessed; the caller must do that
+     *  explicitly for arrays. The return value is the interval of addresses that were read.
      *
      *  The constraints are usually curried before the actual read call, as in this example that reads up to 10 values starting
      *  at some address and returns the number of values read:
@@ -488,8 +691,9 @@ public:
      * @endcode
      *
      * @{ */
-    Sawyer::Container::Interval<Address> read(Value *buf /*out*/, const Constraints &c) const {
-        MatchedConstraints m = matchForward(c);
+    Sawyer::Container::Interval<Address> read(Value *buf /*out*/, const AddressMapConstraints<const AddressMap> &c) const {
+        ASSERT_require2(c.contiguous_, "only contiguous addresses can be read");
+        MatchedConstraints<const AddressMap> m = matchForward(*this, c);
         if (buf) {
             BOOST_FOREACH (const Node &node, m.nodes_) {
                 Sawyer::Container::Interval<Address> part = m.interval_.intersection(node.key());// part of segment to read
@@ -502,7 +706,7 @@ public:
         }
         return m.interval_;
     }
-    Sawyer::Container::Interval<Address> read(std::vector<Value> &buf /*out*/, Constraints c) const {
+    Sawyer::Container::Interval<Address> read(std::vector<Value> &buf /*out*/, AddressMapConstraints<const AddressMap> c) const {
         c.limit(buf.size());
         return buf.empty() ? Sawyer::Container::Interval<Address>() : read(&buf[0], c);
     }
@@ -529,9 +733,9 @@ public:
      * @endcode
      *
      * @{ */
-    Sawyer::Container::Interval<Address> write(const Value *buf, Constraints c) const {
-        c.prohibit(IMMUTABLE);                          // don't ever write to buffers that can't be modified
-        MatchedConstraints m = matchForward(c);
+    Sawyer::Container::Interval<Address> write(const Value *buf, AddressMapConstraints<const AddressMap> c) const {
+        c.contiguous(true).prohibit(IMMUTABLE);         // don't ever write to buffers that can't be modified
+        MatchedConstraints<const AddressMap> m = matchForward(*this, c);
         if (buf) {
             BOOST_FOREACH (const Node &node, m.nodes_) {
                 Sawyer::Container::Interval<Address> part = m.interval_.intersection(node.key());// part of segment to write
@@ -544,42 +748,90 @@ public:
         }
         return m.interval_;
     }
-    Sawyer::Container::Interval<Address> write(const std::vector<Value> &buf, Constraints c) const {
+    Sawyer::Container::Interval<Address> write(const std::vector<Value> &buf, AddressMapConstraints<const AddressMap> c) const {
         c.limit(buf.size());
         return buf.empty() ? Sawyer::Container::Interval<Address>() : write(&buf[0], c);
     }
     /** @} */
 
+    /** Prune away addresses that match constraints.
+     *
+     *  Removes all addresses for which the constraints match. The addresses need not be contiguous in memory, and the matching
+     *  segments need not be consecutive segments.  For instance, to remove all segments that are writable regardless of
+     *  whether other segments are interspersed:
+     *
+     * @code
+     *  map.require(WRITABLE).contiguous(false).prune();
+     * @endcode
+     *
+     * @sa keep */
+    void prune(const AddressMapConstraints<AddressMap> &c) {
+        IntervalSet<Interval<Address> > toErase;
+        MatchedConstraints<AddressMap> m = matchForward(*this, c.addressConstraints());
+        BOOST_FOREACH (const Node &node, m.nodes_) {
+            if (isSatisfied(node.value(), c))
+                toErase.insert(node.key().intersection(m.interval_));
+        }
+        BOOST_FOREACH (const Interval<Address> &interval, toErase.intervals())
+            this->erase(interval);
+    }
+
+    /** Keep only addresses that match constraints.
+     *
+     *  Keeps only those addresses that satisfy the given constraints, discarding all others.  The addresses need not be
+     *  contiguous, and the matching segments need not be consecutive segments.  For instance, to remove all segments that are
+     *  not writable regardless of whether other segments are interspersed:
+     *
+     * @code
+     *  map.require(WRITABLE).contiguous(false).keep();
+     * @endcode
+     *
+     * @sa prune */
+    void keep(const AddressMapConstraints<AddressMap> &c) {
+        IntervalSet<Interval<Address> > toKeep;
+        MatchedConstraints<AddressMap> m = matchForward(*this, c.addressConstraints());
+        BOOST_FOREACH (const Node &node, m.nodes_) {
+            if (isSatisfied(node.value(), c))
+                toKeep.insert(node.key().intersection(m.interval_));
+        }
+        toKeep.invert();
+        BOOST_FOREACH (const Interval<Address> &interval, toKeep.intervals())
+            this->erase(interval);
+    }
+    
 private:
     // Finds the minimum possible address and node iterator for the specified constraints in this map and returns that
     // iterator.  Returns the end iterator if the constraints match no address.  If a non-end iterator is returned then minAddr
     // is adjusted to be the minimum address that satisfies the constraint (it will be an address within the returned node, but
     // not necessarily the least address for the node).  If useAnchor is set and the constraints specify an anchor, then the
     // anchor address must be present in the map and satisfy any address constraints that might also be present.
-    ConstNodeIterator constraintLowerBound(const Constraints &c, bool useAnchor, Address &minAddr) const {
-        if (this->isEmpty() || c.never_)
-            return this->nodes().end();
+    template<class AddressMap>
+    static typename AddressMapTraits<AddressMap>::NodeIterator
+    constraintLowerBound(AddressMap &amap, const AddressMapConstraints<AddressMap> &c, bool useAnchor, Address &minAddr) {
+        typedef typename AddressMapTraits<AddressMap>::NodeIterator Iterator;
+        if (amap.isEmpty() || c.never_)
+            return amap.nodes().end();
 
         if (useAnchor && c.anchored_) {                 // forward matching if useAnchor is set
             if ((c.least_ && *c.least_ > *c.anchored_) || (c.greatest_ && *c.greatest_ < *c.anchored_))
-                return this->nodes().end();             // anchor is outside of allowed interval
-            ConstNodeIterator lb = this->lowerBound(*c.anchored_);
-            if (lb==this->nodes().end() || *c.anchored_ < lb->key().least())
-                return this->nodes().end();             // anchor is not present in this map
+                return amap.nodes().end();              // anchor is outside of allowed interval
+            Iterator lb = amap.lowerBound(*c.anchored_);
+            if (lb==amap.nodes().end() || *c.anchored_ < lb->key().least())
+                return amap.nodes().end();              // anchor is not present in this map
             minAddr = *c.anchored_;
             return lb;
         }
 
         if (c.least_) {
-            ConstNodeIterator lb = this->lowerBound(*c.least_);
-            if (lb==this->nodes().end())
+            Iterator lb = amap.lowerBound(*c.least_);
+            if (lb==amap.nodes().end())
                 return lb;                              // least is above all segments
             minAddr = std::max(*c.least_, lb->key().least());
             return lb;
         }
 
-        ConstNodeIterator lb = this->nodes().begin();
-        if (lb!=this->nodes().end())
+        Iterator lb = amap.nodes().begin();
+        if (lb!=amap.nodes().end())
             minAddr = lb->key().least();
         return lb;
     }
@@ -590,61 +842,72 @@ private:
     // the node immediately prior to the one pointed to by the returned iterator, but not necessarily the greatest address for
     // that node).  If useAnchor is set and the constraints specify an anchor, then the anchor address must be present in the
     // map and satisfy any address constraints that might also be present.
-    ConstNodeIterator constraintUpperBound(const Constraints &c, bool useAnchor, Address &maxAddr) const {
-        if (this->isEmpty() || c.never_)
-            return this->nodes().begin();
+    template<class AddressMap>
+    static typename AddressMapTraits<AddressMap>::NodeIterator
+    constraintUpperBound(AddressMap &amap, const AddressMapConstraints<AddressMap> &c, bool useAnchor, Address &maxAddr) {
+        typedef typename AddressMapTraits<AddressMap>::NodeIterator Iterator;
+        if (amap.isEmpty() || c.never_)
+            return amap.nodes().begin();
 
         if (useAnchor && c.anchored_) {                 // backward matching if useAnchor is set
             if ((c.least_ && *c.least_ > *c.anchored_) || (c.greatest_ && *c.greatest_ < *c.anchored_))
-                return this->nodes().begin();           // anchor is outside allowed interval
-            ConstNodeIterator ub = this->findPrior(*c.anchored_);
-            if (ub==this->nodes().end() || *c.anchored_ > ub->key().greatest())
-                return this->nodes().begin();           // anchor is not present in this map
+                return amap.nodes().begin();            // anchor is outside allowed interval
+            Iterator ub = amap.findPrior(*c.anchored_);
+            if (ub==amap.nodes().end() || *c.anchored_ > ub->key().greatest())
+                return amap.nodes().begin();            // anchor is not present in this map
             maxAddr = *c.anchored_;
             return ub;
         }
 
         if (c.greatest_) {
-            ConstNodeIterator ub = this->findPrior(*c.greatest_);
-            if (ub==this->nodes().end())
-                return this->nodes().begin();           // greatest is below all segments
+            Iterator ub = amap.findPrior(*c.greatest_);
+            if (ub==amap.nodes().end())
+                return amap.nodes().begin();            // greatest is below all segments
             maxAddr = std::min(ub->key().greatest(), *c.greatest_);
             return ++ub;                                // return node after the one containing the maximum
         }
         
-        maxAddr = this->hull().greatest();
-        return this->nodes().end();
+        maxAddr = amap.hull().greatest();
+        return amap.nodes().end();
+    }
+
+    // Returns true if the segment satisfies the non-address constraints in c.
+    template<class AddressMap>
+    static bool
+    isSatisfied(const Segment &segment, const AddressMapConstraints<AddressMap> &c) {
+        if (!segment.isAccessible(c.requiredAccess_, c.prohibitedAccess_))
+            return false;                               // wrong segment permissions
+        if (!boost::contains(segment.name(), c.nameSubstring_))
+            return false;                               // wrong segment name
+        return true;
     }
 
     // Matches constraints in a forward direction.
-    MatchedConstraints matchForward(const Constraints &c) const {
-        MatchedConstraints retval;
-        if (c.never_ || this->isEmpty())
+    template<class AddressMap>
+    static MatchedConstraints<AddressMap>
+    matchForward(AddressMap &amap, const AddressMapConstraints<AddressMap> &c) {
+        MatchedConstraints<AddressMap> retval;
+        typedef typename AddressMapTraits<AddressMap>::NodeIterator Iterator;
+        if (c.never_ || amap.isEmpty())
             return retval;
-        if (c.map_ && c.map_ != this)
+        if (c.map_ && c.map_ != &amap)
             throw std::runtime_error("AddressMap constraints are not transferable across maps");
 
         // Find a lower bound for the minimum address
         Address minAddr = 0;
-        ConstNodeIterator begin = constraintLowerBound(c, true, minAddr /*out*/);
-        if (begin == this->nodes().end())
+        Iterator begin = constraintLowerBound<AddressMap>(amap, c, true, minAddr /*out*/);
+        if (begin == amap.nodes().end())
             return retval;
 
         // Find an upper bound for the maximum address.
         Address maxAddr = 0;
-        ConstNodeIterator end = constraintUpperBound(c, false, maxAddr /*out*/);
-        if (end==this->nodes().begin())
+        Iterator end = constraintUpperBound<AddressMap>(amap, c, false, maxAddr /*out*/);
+        if (end==amap.nodes().begin())
             return retval;
 
         // Advance the lower-bound until it satisfies the other (non-address) constraints
-        for (/*void*/; begin != end; ++begin) {
-            const Segment &segment = begin->value();
-            if (!segment.isAccessible(c.requiredAccess_, c.prohibitedAccess_))
-                continue;                               // wrong segment permissions
-            if (!boost::contains(segment.name(), c.nameSubstring_))
-                continue;                               // wrong segment name
-            break;
-        }
+        while (begin!=end && !isSatisfied(begin->value(), c))
+            ++begin;
         if (begin==end)
             return retval;
         minAddr = std::max(minAddr, begin->key().least());
@@ -652,18 +915,15 @@ private:
         // Iterate forward until the constraints are no longer satisfied
         Address addr = minAddr;
         if (c.hasNonAddressConstraints()) {
-            ConstNodeIterator iter = begin;
+            Iterator iter = begin;
             for (/*void*/; iter!=end; ++iter) {
-                if (iter!=begin) {                          // already tested the first segment above
+                if (iter!=begin) {                      // already tested the first segment above
                     if (c.singleSegment_)
-                        break;                              // we crossed a segment boundary
+                        break;                          // we crossed a segment boundary
                     if (addr+1 != iter->key().least())
-                        break;                              // gap between segments
-                    const Segment &segment = begin->value();
-                    if (!segment.isAccessible(c.requiredAccess_, c.prohibitedAccess_))
-                        break;                              // wrong segment permissions
-                    if (!boost::contains(segment.name(), c.nameSubstring_))
-                        break;                              // wrong segment name
+                        break;                          // gap between segments
+                    if (!isSatisfied(iter->value(), c))
+                        break;                          // segment does not satisfy constraints
                 }
                 if (iter->key().greatest() - minAddr >= c.maxSize_) {
                     addr = minAddr + c.maxSize_ - 1;
@@ -678,15 +938,9 @@ private:
 
         // Build the result
         retval.interval_ = Interval<Address>::hull(minAddr, maxAddr);
-        retval.nodes_ = boost::iterator_range<ConstNodeIterator>(begin, end);
+        retval.nodes_ = boost::iterator_range<Iterator>(begin, end);
         return retval;
     }
-
-    /** Match constraints in a backward direction. */
-    MatchedConstraints matchBackward(const Constraints &c) const {
-        abort();                                        // FIXME[Robb Matzke 2014-08-30]: not implemented yet
-    }
-
 };
 
 } // namespace

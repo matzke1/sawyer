@@ -8,6 +8,95 @@
 
 using namespace Sawyer::Container;
 
+// Test that all operations that can be applied to constant maps compile whether the map is const or mutable
+template<class Map>
+void compile_test_const(Map &s) {
+    typedef typename Map::Address Address;
+    typedef typename Map::Value Value;
+    typedef Interval<typename Map::Address> Addresses;
+    typedef typename Map::Segment Segment;
+
+    // Test constructors
+    Map s2;
+    Map s3(s);
+
+    // Test that constraints can be generated from a map
+    s.require(Map::READABLE);
+    s.prohibit(Map::READABLE);
+    s.named("one");
+    s.at(100);
+    s.at(Addresses::hull(0, 10));
+    s.limit(5);
+    s.atOrAfter(200);
+    s.atOrBefore(300);
+    s.within(Addresses::hull(100, 200));
+    s.within(100, 200);
+    s.after(100);
+    s.before(100);
+    s.any();
+    s.none();
+
+    // Test that constraints can be augmented
+    s.any().require(Map::READABLE);
+    s.any().prohibit(Map::READABLE);
+    s.any().named("one");
+    s.any().at(100);
+    s.any().at(Addresses::hull(0, 10));
+    s.any().limit(5);
+    s.any().atOrAfter(200);
+    s.any().atOrBefore(300);
+    s.any().within(Addresses::hull(100, 200));
+    s.any().within(100, 200);
+    s.any().after(100);
+    s.any().before(100);
+    s.any().any();
+    s.any().none();
+
+    // Operations for const or non-const maps
+    s.nSegments();
+
+    s.segments();
+    s.segments(s.any());
+    s.any().segments();
+
+    s.nodes();
+    s.nodes(s.any());
+    s.any().nodes();
+
+    s.next(s.any());
+    s.any().next();
+
+    s.available(s.any());
+    s.any().available();
+
+    s.exists(s.any());
+    s.any().exists();
+
+    s.read(NULL, s.any());
+    s.any().read(NULL);
+
+    s.write(NULL, s.any());
+    s.any().write(NULL);
+}
+
+// Test that all operations that can be applied to mutable maps compile
+template<class Map>
+void compile_test_mutable(Map &s) {
+    s.prune(s.any());
+    s.any().prune();
+
+    s.keep(s.any());
+    s.any().keep();
+}
+
+void compile_tests() {
+    AddressMap<unsigned, char> s;
+    compile_test_const(s);
+    compile_test_mutable(s);
+    const AddressMap<unsigned, char> &t = s;
+    compile_test_const(t);
+}
+
 static void test01() {
     typedef unsigned Address;
     typedef Interval<Address> Addresses;
