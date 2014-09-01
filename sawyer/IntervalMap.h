@@ -10,6 +10,21 @@
 namespace Sawyer {
 namespace Container {
 
+/** Traits for IntervalMap. */
+template<class IntervalMap>
+struct IntervalMapTraits {
+    typedef typename IntervalMap::NodeIterator NodeIterator;    /**< Node iterator. */
+    typedef typename IntervalMap::ValueIterator ValueIterator;  /**< Value iterator. */
+    typedef typename IntervalMap::Value &ValueReference;        /**< Reference to value. */
+};
+
+template<class IntervalMap>
+struct IntervalMapTraits<const IntervalMap> {
+    typedef typename IntervalMap::ConstNodeIterator NodeIterator;
+    typedef typename IntervalMap::ConstValueIterator ValueIterator;
+    typedef typename IntervalMap::Value const &ValueReference;
+};
+
 /** Policy indicating how values are merged and split.
  *
  *  Adjacent nodes of an IntervalMap can be joined together provided their values can also be joined together.  This joining is
@@ -280,25 +295,23 @@ public:
      *
      * @{ */
     NodeIterator findPrior(const typename Interval::Value &scalar) {
-        typedef NodeIterator Iter;
-        if (isEmpty())
-            return nodes().end();
-        Iter lb = lowerBound(scalar);
-        if (lb!=nodes().end() && lb->key().least() <= scalar)
-            return lb;
-        if (lb==nodes().begin())
-            return nodes().end();
-        return --lb;
+        return findPriorImpl(*this, scalar);
     }
     ConstNodeIterator findPrior(const typename Interval::Value &scalar) const {
-        typedef ConstNodeIterator Iter;
-        if (isEmpty())
-            return nodes().end();
-        Iter lb = lowerBound(scalar);
-        if (lb!=nodes().end() && lb->key().least() <= scalar)
+        return findPriorImpl(*this, scalar);
+    }
+
+    template<class IMap>
+    static typename IntervalMapTraits<IMap>::NodeIterator
+    findPriorImpl(IMap &imap, const typename Interval::Value &scalar) {
+        typedef typename IntervalMapTraits<IMap>::NodeIterator Iter;
+        if (imap.isEmpty())
+            return imap.nodes().end();
+        Iter lb = imap.lowerBound(scalar);
+        if (lb!=imap.nodes().end() && lb->key().least() <= scalar)
             return lb;
-        if (lb==nodes().begin())
-            return nodes().end();
+        if (lb==imap.nodes().begin())
+            return imap.nodes().end();
         return --lb;
     }
     /** @} */
@@ -309,17 +322,19 @@ public:
      *
      *  @{ */
     NodeIterator find(const typename Interval::Value &scalar) {
-        typedef NodeIterator Iter;
-        Iter found = lowerBound(scalar);
-        if (found==nodes().end() || scalar < found->key().least())
-            return nodes().end();
-        return found;
+        return findImpl(*this, scalar);
     }
     ConstNodeIterator find(const typename Interval::Value &scalar) const {
-        typedef ConstNodeIterator Iter;
-        Iter found = lowerBound(scalar);
-        if (found==nodes().end() || scalar < found->key().least())
-            return nodes().end();
+        return findImpl(*this, scalar);
+    }
+
+    template<class IMap>
+    static typename IntervalMapTraits<IMap>::NodeIterator
+    findImpl(IMap &imap, const typename Interval::Value &scalar) {
+        typedef typename IntervalMapTraits<IMap>::NodeIterator Iter;
+        Iter found = imap.lowerBound(scalar);
+        if (found==imap.nodes().end() || scalar < found->key().least())
+            return imap.nodes().end();
         return found;
     }
     /** @} */
@@ -330,20 +345,22 @@ public:
      *
      *  @{ */
     boost::iterator_range<NodeIterator> findAll(const Interval &interval) {
-        if (interval.isEmpty())
-            return boost::iterator_range<NodeIterator>(nodes().end(), nodes().end());
-        NodeIterator begin = lowerBound(interval.least());
-        if (begin==nodes().end() || begin->key().least() > interval.greatest())
-            return boost::iterator_range<NodeIterator>(nodes().end(), nodes().end());
-        return boost::iterator_range<NodeIterator>(begin, upperBound(interval.greatest()));
+        return findAllImpl(*this, interval);
     }
     boost::iterator_range<ConstNodeIterator> findAll(const Interval &interval) const {
+        return findAllImpl(*this, interval);
+    }
+
+    template<class IMap>
+    static boost::iterator_range<typename IntervalMapTraits<IMap>::NodeIterator>
+    findAllImpl(IMap &imap, const Interval &interval) {
+        typedef typename IntervalMapTraits<IMap>::NodeIterator Iter;
         if (interval.isEmpty())
-            return boost::iterator_range<ConstNodeIterator>(nodes().end(), nodes().end());
-        ConstNodeIterator begin = lowerBound(interval.least());
-        if (begin==nodes().end() || begin->key().least() > interval.greatest())
-            return boost::iterator_range<ConstNodeIterator>(nodes().end(), nodes().end());
-        return boost::iterator_range<ConstNodeIterator>(begin, upperBound(interval.greatest()));
+            return boost::iterator_range<Iter>(imap.nodes().end(), imap.nodes().end());
+        Iter begin = imap.lowerBound(interval.least());
+        if (begin==imap.nodes().end() || begin->key().least() > interval.greatest())
+            return boost::iterator_range<Iter>(imap.nodes().end(), imap.nodes().end());
+        return boost::iterator_range<Iter>(begin, imap.upperBound(interval.greatest()));
     }
     /** @} */
     
@@ -353,16 +370,20 @@ public:
      *
      * @{ */
     NodeIterator findFirstOverlap(const Interval &interval) {
-        if (interval.isEmpty())
-            return nodes().end();
-        NodeIterator lb = lowerBound(interval.least());
-        return lb!=nodes().end() && interval.isOverlapping(lb->key()) ? lb : nodes().end();
+        return findFirstOverlapImpl(*this, interval);
     }
     ConstNodeIterator findFirstOverlap(const Interval &interval) const {
+        return findFirstOverlapImpl(*this, interval);
+    }
+
+    template<class IMap>
+    static typename IntervalMapTraits<IMap>::NodeIterator
+    findFirstOverlapImpl(IMap &imap, const Interval &interval) {
+        typedef typename IntervalMapTraits<IMap>::NodeIterator Iter;
         if (interval.isEmpty())
-            return nodes().end();
-        ConstNodeIterator lb = lowerBound(interval.least());
-        return lb!=nodes().end() && interval.isOverlapping(lb->key()) ? lb : nodes().end();
+            return imap.nodes().end();
+        Iter lb = imap.lowerBound(interval.least());
+        return lb!=imap.nodes().end() && interval.isOverlapping(lb->key()) ? lb : imap.nodes().end();
     }
     /** @} */
 
@@ -379,22 +400,23 @@ public:
     std::pair<NodeIterator, typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator>
     findFirstOverlap(typename IntervalMap::NodeIterator thisIter, const IntervalMap<Interval, T2, Policy2> &other,
                      typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator otherIter) {
-        while (thisIter!=nodes().end() && otherIter!=other.nodes().end()) {
-            if (thisIter->key().isOverlapping(otherIter->key()))
-                return std::make_pair(thisIter, otherIter);
-            if (thisIter->key().greatest() < otherIter->key().greatest()) {
-                ++thisIter;
-            } else {
-                ++otherIter;
-            }
-        }
-        return std::make_pair(nodes().end(), other.nodes().end());
+        return findFirstOverlapImpl(*this, thisIter, other, otherIter);
     }
     template<typename T2, class Policy2>
     std::pair<ConstNodeIterator, typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator>
     findFirstOverlap(typename IntervalMap::ConstNodeIterator thisIter, const IntervalMap<Interval, T2, Policy2> &other,
                      typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator otherIter) const {
-        while (thisIter!=nodes().end() && otherIter!=other.nodes().end()) {
+        return findFirstOverlapImpl(*this, thisIter, other, otherIter);
+    }
+
+    template<class IMap, typename T2, class Policy2>
+    static std::pair<typename IntervalMapTraits<IMap>::NodeIterator,
+                     typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator>
+    findFirstOverlapImpl(IMap &imap,
+                         typename IntervalMapTraits<IMap>::NodeIterator thisIter,
+                         const IntervalMap<Interval, T2, Policy2> &other,
+                         typename IntervalMap<Interval, T2, Policy2>::ConstNodeIterator otherIter) {
+        while (thisIter!=imap.nodes().end() && otherIter!=other.nodes().end()) {
             if (thisIter->key().isOverlapping(otherIter->key()))
                 return std::make_pair(thisIter, otherIter);
             if (thisIter->key().greatest() < otherIter->key().greatest()) {
@@ -403,7 +425,7 @@ public:
                 ++otherIter;
             }
         }
-        return std::make_pair(nodes().end(), other.nodes().end());
+        return std::make_pair(imap.nodes().end(), other.nodes().end());
     }
     /** @} */
 
@@ -419,21 +441,23 @@ public:
      *
      * @{ */
     NodeIterator firstFit(const typename Interval::Value &size, NodeIterator start) {
-        typedef NodeIterator Iter;
-        for (Iter iter=start; iter!=nodes().end(); ++iter) {
-            if (isLarge(iter->key(), size))
-                return iter;
-        }
-        return nodes().end();
+        return firstFitImpl(*this, size, start);
     }
     ConstNodeIterator firstFit(const typename Interval::Value &size, ConstNodeIterator start) const {
-        typedef ConstNodeIterator Iter;
-        for (Iter iter=start; iter!=nodes().end(); ++iter) {
+        return firstFitImpl(*this, size, start);
+    }
+
+    template<class IMap>
+    static typename IntervalMapTraits<IMap>::NodeIterator
+    firstFitImpl(IMap &imap, const typename Interval::Value &size, typename IntervalMapTraits<IMap>::NodeIterator start) {
+        typedef typename IntervalMapTraits<IMap>::NodeIterator Iter;
+        for (Iter iter=start; iter!=imap.nodes().end(); ++iter) {
             if (isLarge(iter->key(), size))
                 return iter;
         }
-        return nodes().end();
+        return imap.nodes().end();
     }
+        
     /** @} */
 
     /** Find the best fit node at or after a starting point.
@@ -449,23 +473,21 @@ public:
      *
      * @{ */
     NodeIterator bestFit(const typename Interval::Value &size, NodeIterator start) {
-        typedef NodeIterator Iter;
-        Iter best = nodes().end();
-        for (Iter iter=start; iter!=nodes().end(); ++iter) {
-            if (iter->key().size()==size && size!=0)
-                return iter;
-            if (iter->key().size() > size && (best==nodes().end() || iter->key().size() < best->key().size()))
-                best = iter;
-        }
-        return best;
+        return bestFitImpl(*this, size, start);
     }
     ConstNodeIterator bestFit(const typename Interval::Value &size, ConstNodeIterator start) const {
-        typedef ConstNodeIterator Iter;
-        Iter best = nodes().end();
-        for (Iter iter=start; iter!=nodes().end(); ++iter) {
+        return bestFitImpl(*this, size, start);
+    }
+
+    template<class IMap>
+    static typename IntervalMapTraits<IMap>::NodeIterator
+    bestFitImpl(IMap &imap, const typename Interval::Value &size, typename IntervalMapTraits<IMap>::NodeIterator start) {
+        typedef typename IntervalMapTraits<IMap>::NodeIterator Iter;
+        Iter best = imap.nodes().end();
+        for (Iter iter=start; iter!=imap.nodes().end(); ++iter) {
             if (iter->key().size()==size && size!=0)
                 return iter;
-            if (iter->key().size() > size && (best==nodes().end() || iter->key().size() < best->key().size()))
+            if (iter->key().size() > size && (best==imap.nodes().end() || iter->key().size() < best->key().size()))
                 best = iter;
         }
         return best;
@@ -488,18 +510,27 @@ public:
      *
      *  @{ */
     Value& operator[](const typename Interval::Value &scalar) {
-        NodeIterator found = find(scalar);
-        if (found==nodes().end())
-            throw std::domain_error("key lookup failure; key is not in map domain");
-        return found->value();
+        return getImpl(*this, scalar);
     }
     const Value& operator[](const typename Interval::Value &scalar) const {
-        ConstNodeIterator found = find(scalar);
-        if (found==nodes().end())
+        return getImpl(*this, scalar);
+    }
+
+    Value& get(const typename Interval::Value &scalar) {
+        return getImpl(*this, scalar);
+    }
+    const Value& get(const typename Interval::Value &scalar) const {
+        return getImpl(*this, scalar);
+    }
+
+    template<class IMap>
+    static typename IntervalMapTraits<IMap>::ValueReference
+    getImpl(IMap &imap, const typename Interval::Value &scalar) {
+        typename IntervalMapTraits<IMap>::NodeIterator found = imap.find(scalar);
+        if (found==imap.nodes().end())
             throw std::domain_error("key lookup failure; key is not in map domain");
         return found->value();
     }
-    // FIXME[Robb Matzke 2014-06-05]: need get() for consistency with class Map
     /** @} */
 
     /** Lookup and return a value or nothing.
