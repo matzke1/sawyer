@@ -23,7 +23,7 @@ void compile_test_const(Map &s) {
     // Test that constraints can be generated from a map
     s.require(Map::READABLE);
     s.prohibit(Map::READABLE);
-    s.named("one");
+    s.substr("one");
     s.at(100);
     s.at(Addresses::hull(0, 10));
     s.limit(5);
@@ -39,7 +39,7 @@ void compile_test_const(Map &s) {
     // Test that constraints can be augmented
     s.any().require(Map::READABLE);
     s.any().prohibit(Map::READABLE);
-    s.any().named("one");
+    s.any().substr("one");
     s.any().at(100);
     s.any().at(Addresses::hull(0, 10));
     s.any().limit(5);
@@ -87,6 +87,9 @@ void compile_test_mutable(Map &s) {
 
     s.keep(s.any());
     s.any().keep();
+
+    s.changeAccess(0, 0, s.any());
+    s.any().changeAccess(0, 0);
 }
 
 void compile_tests() {

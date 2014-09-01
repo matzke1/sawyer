@@ -111,7 +111,7 @@ public:
         prohibitedAccess_ |= bits;
         return *this;
     }
-    AddressMapConstraints& named(const std::string &s) {
+    AddressMapConstraints& substr(const std::string &s) {
         ASSERT_require(nameSubstring_.empty() || nameSubstring_==s);// substring conjunction not supported
         nameSubstring_ = s;
         return *this;
@@ -199,18 +199,23 @@ public:
     Sawyer::Container::Interval<typename AddressMap::Address> available() const {
         return map_->available(*this);
     }
-    bool exists() const { return map_->exists(*this); }
+    bool exists() const {
+        return map_->exists(*this);
+    }
     Sawyer::Container::Interval<typename AddressMap::Address> read(typename AddressMap::Value *buf /*out*/) const {
         return map_->read(buf, *this);
     }
     Sawyer::Container::Interval<typename AddressMap::Address> write(const typename AddressMap::Value *buf) const {
         return map_->write(buf, *this);
     }
-    void prune() {
+    void prune() const {
         return map_->prune(*this);
     }
-    void keep() {
+    void keep() const {
         return map_->keep(*this);
+    }
+    void changeAccess(unsigned requiredAccess, unsigned prohibitedAccess) const {
+        return map_->changeAccess(requiredAccess, prohibitedAccess, *this);
     }
 };
 
@@ -386,11 +391,11 @@ public:
      *  Constrains addresses to those that belong to a segment that contains string @p x as part of its name.
      *
      * @{ */
-    AddressMapConstraints<const AddressMap> named(const std::string &x) const {
-        return AddressMapConstraints<const AddressMap>(this).named(x);
+    AddressMapConstraints<const AddressMap> substr(const std::string &x) const {
+        return AddressMapConstraints<const AddressMap>(this).substr(x);
     }
-    AddressMapConstraints<AddressMap> named(const std::string &x) {
-        return AddressMapConstraints<AddressMap>(this).named(x);
+    AddressMapConstraints<AddressMap> substr(const std::string &x) {
+        return AddressMapConstraints<AddressMap>(this).substr(x);
     }
     /** @} */
 
@@ -797,6 +802,45 @@ public:
         toKeep.invert();
         BOOST_FOREACH (const Interval<Address> &interval, toKeep.intervals())
             this->erase(interval);
+    }
+
+    /** Change access bits for addresses that match constraints.
+     *
+     *  For all addresses that satisfy the specified constraints, add the @p requiredAccess and remove the @p prohibitedAccess
+     *  bits.  The addresses need not be contiguous, and the matching segments need not be consecutive segments.  For instance,
+     *  to add execute permission and remove write permission for all segments containing the string ".text":
+     *
+     * @code
+     *  map.substr(".text").changeAccess(EXECUTABLE, WRITABLE);
+     * @endcode
+     *
+     *  To set access bits to a specific value, supply the complement as the second argument.  The following code changes all
+     *  addresses between a specified range so that only the READABLE and WRITABLE bits are set and no others:
+     *
+     * @code
+     *  unsigned newAccess = READABLE | WRITABLE;
+     *  map.within(100,200).changeAccess(newAccess, ~newAccess);
+     * @endcode */
+    void changeAccess(unsigned requiredAccess, unsigned prohibitedAccess, const AddressMapConstraints<AddressMap> &c) {
+        typedef std::pair<Interval<Address>, Segment> ISPair;
+        std::vector<ISPair> newSegments;
+        MatchedConstraints<AddressMap> m = matchForward(*this, c.addressConstraints());
+        BOOST_FOREACH (Node &node, m.nodes_) {
+            Segment &segment = node.value();
+            if (isSatisfied(segment, c)) {
+                unsigned newAccess = (segment.accessibility() | requiredAccess) & ~prohibitedAccess;
+                Interval<Address> toChange = node.key() & m.interval_;
+                if (toChange == node.key()) {           // all addresses in segment are selected; change segment in place
+                    segment.accessibility(newAccess);
+                } else {                                // insert a new segment, replacing part of the existing one
+                    Segment newSegment(segment);
+                    newSegment.offset(segment.offset() + toChange.least() - node.key().least());
+                    newSegments.push_back(ISPair(toChange, newSegment));
+                }
+            }
+        }
+        BOOST_FOREACH (const ISPair &pair, newSegments)
+            this->insert(pair.first, pair.second);
     }
     
 private:
