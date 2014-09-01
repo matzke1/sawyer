@@ -57,41 +57,70 @@ void compile_test_const(Map &s) {
     // Operations for const or non-const maps
     s.nSegments();
 
-    s.segments();
     s.segments(s.any());
+    s.segments(s.any(), s.BACKWARD);
     s.any().segments();
+    s.any().segments(s.BACKWARD);
 
     s.nodes();
     s.nodes(s.any());
+    s.nodes(s.any(), s.BACKWARD);
     s.any().nodes();
+    s.any().nodes(s.BACKWARD);
 
     s.next(s.any());
+    s.next(s.any(), s.BACKWARD);
     s.any().next();
+    s.any().next(s.BACKWARD);
 
     s.available(s.any());
+    s.available(s.any(), s.BACKWARD);
     s.any().available();
+    s.any().available(s.BACKWARD);
 
     s.exists(s.any());
+    s.exists(s.any(), s.BACKWARD);
     s.any().exists();
+    s.any().exists(s.BACKWARD);
+
+    std::vector<typename Map::Value> v;
 
     s.read(NULL, s.any());
+    s.read(NULL, s.any(), s.BACKWARD);
     s.any().read(NULL);
+    s.any().read(NULL, s.BACKWARD);
+    s.read(v, s.any());
+    s.read(v, s.any(), s.BACKWARD);
+    s.any().read(v);
+    s.any().read(v, s.BACKWARD);
 
     s.write(NULL, s.any());
+    s.write(NULL, s.any(), s.BACKWARD);
     s.any().write(NULL);
+    s.any().write(NULL, s.BACKWARD);
+    s.write(v, s.any());
+    s.write(v, s.any(), s.BACKWARD);
+    s.any().write(v);
+    s.any().write(v, s.BACKWARD);
 }
 
 // Test that all operations that can be applied to mutable maps compile
 template<class Map>
 void compile_test_mutable(Map &s) {
     s.prune(s.any());
+    s.prune(s.any(), s.BACKWARD);
     s.any().prune();
+    s.any().prune(s.BACKWARD);
 
     s.keep(s.any());
+    s.keep(s.any(), s.BACKWARD);
     s.any().keep();
+    s.any().keep(s.BACKWARD);
 
     s.changeAccess(0, 0, s.any());
+    s.changeAccess(0, 0, s.any(), s.BACKWARD);
     s.any().changeAccess(0, 0);
+    s.any().changeAccess(0, 0, s.BACKWARD);
 }
 
 void compile_tests() {
