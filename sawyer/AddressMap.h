@@ -545,6 +545,24 @@ public:
     }
     /** @} */
 
+    /** Constraint: contiguous addresses.
+     *
+     *  If this constraint is enabled, then addresses will only match when they are contiguous. In other words, a single
+     *  contiguous interval is matched even if there are additional addresses that also satisfy the constraints.  This
+     *  constraint is slightly different than the others because it is enabled by default and can be turned off by supplying a
+     *  false argument (other constraints build on each other; for instance <code>atOrAbove(10)</code> followed by
+     *  <code>atOrAbove(5)</code> results in matching addresses greater than or equal to 10 since they would also be greater
+     *  than or equal to five).
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> contiguous(bool b=true) const {
+        return AddressMapConstraints<const AddressMap>(this).contiguous(b);
+    }
+    AddressMapConstraints<AddressMap> contiguous(bool b=true) {
+        return AddressMapConstraints<AddressMap>(this).contiguous(b);
+    }
+    /** @} */
+
     /** Number of segments contained in the map.
      *
      *  Multiple segments may be pointing to the same underlying buffer, and the number of segments is not necessarily the same
@@ -572,7 +590,7 @@ public:
      *  their name.
      *
      * @code
-     *  BOOST_FOREACH (Segment &segment, map.substr("IAT").segments())
+     *  BOOST_FOREACH (Segment &segment, map.contiguous(false).substr("IAT").segments())
      *      segment.accessibility(segment.accessibility() & ~EXECUTABLE);
      * @endcode
      *
@@ -811,7 +829,7 @@ public:
      *  to add execute permission and remove write permission for all segments containing the string ".text":
      *
      * @code
-     *  map.substr(".text").changeAccess(EXECUTABLE, WRITABLE);
+     *  map.substr(".text").contiguous(false).changeAccess(EXECUTABLE, WRITABLE);
      * @endcode
      *
      *  To set access bits to a specific value, supply the complement as the second argument.  The following code changes all
@@ -819,7 +837,7 @@ public:
      *
      * @code
      *  unsigned newAccess = READABLE | WRITABLE;
-     *  map.within(100,200).changeAccess(newAccess, ~newAccess);
+     *  map.within(100,200).contiguous(false).changeAccess(newAccess, ~newAccess);
      * @endcode */
     void changeAccess(unsigned requiredAccess, unsigned prohibitedAccess, const AddressMapConstraints<AddressMap> &c) {
         typedef std::pair<Interval<Address>, Segment> ISPair;
