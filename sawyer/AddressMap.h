@@ -315,10 +315,10 @@ public:
  *  for everything in the range [100, 200], while the first expression changes only the lowest sequence of contiguous
  *  addresses within that range.
  *
- *  Most methods also support a Direction tag that indicates whether the constraint should match the lowest or highest possible
- *  addresses. The default is to match the constraint at the lowest possible addresses. Matching at the highest addresses is
- *  useful when iterating backward.  For instance, if one wants to read up to 1024 values that end at address 1023 but is not
- *  sure how many prior addresses are readable, he could use backward matching:
+ *  Most methods also support a @ref Direction tag that indicates whether the constraint should match the lowest or highest
+ *  possible addresses. The default is to match the constraint at the lowest possible addresses. Matching at the highest
+ *  addresses is useful when iterating backward.  For instance, if one wants to read up to 1024 values that end at address 1023
+ *  but is not sure how many prior addresses are readable, he could use backward matching:
  *
  * @code
  *  Value buf[1024];
@@ -481,8 +481,21 @@ public:
 
     /** Constraint: anchored interval.
      *
-     *  Constrains addresses to those that are within the specified interval, and requires that the least address of the
-     *  interval satisfies all constraints.  If the least address does not satisfy the constraints then no address matches.
+     *  Constrains addresses so that the lowest or highest matched address is the specified anchor point.  When matching
+     *  constraints in the forward direction (the default) then the anchor must be the lowest address, and when matching in the
+     *  backward direction the anchor must be the highest address.  The direction is specified by an argument to the
+     *  operation.
+     *
+     *  For instance:
+     *
+     * @code
+     *  map.at(100).limit(10).read(buf, map.FORWARD);  // 1
+     *  map.at(100).limit(10).read(buf, map.BACKWARD); // 2
+     * @endcode
+     *
+     *  Expression 1 reads up to 10 values such that the lowest value read is at address 100, while expression 2 reads up to 10
+     *  values such that the highest value read is at address 100.  In both cases, if address 100 is not mapped (or otherwise
+     *  does not satisfy the constraints) then nothing is read.
      *
      * @{ */
     AddressMapConstraints<const AddressMap> at(const Interval<Address> &x) const {

@@ -46,24 +46,25 @@ public:
     /** Construct a segment with buffer.
      *
      *  This is the usual way that segments are created: by specifying a buffer and some access permissions. */
-    explicit AddressSegment(const typename Buffer<Address, Value>::Ptr &buffer, Address offset = 0, unsigned accessBits = 0)
-        : buffer_(buffer), offset_(offset), accessibility_(accessBits) {}
+    explicit AddressSegment(const typename Buffer<Address, Value>::Ptr &buffer, Address offset = 0, unsigned accessBits = 0,
+                            const std::string &name="")
+        : buffer_(buffer), offset_(offset), accessibility_(accessBits), name_(name) {}
 
     /** Create a segment that points to no data.
      *
      *  Creates a segment of the specified size that points to a NullBuffer. This creates a segment which returns default
      *  constructed values when read, which fails when written.  Such a segment is appropriate and efficient for mapping very
      *  large areas of an address space. */
-    static AddressSegment nullInstance(Address size, unsigned accessBits = 0) {
-        return AddressSegment(NullBuffer<A, T>::instance(size), 0, accessBits);
+    static AddressSegment nullInstance(Address size, unsigned accessBits = 0, const std::string &name="") {
+        return AddressSegment(NullBuffer<A, T>::instance(size), 0, accessBits, name);
     }
 
     /** Create a segment with no backing store.
      *
      *  Creates a segment by allocating default-constructed values. Writes to this segment will update the underlying buffer,
      *  but the buffer is only stored in memory and not attached to any type of file or permanent storage. */
-    static AddressSegment anonymousInstance(Address size, unsigned accessBits = 0) {
-        return AddressSegment(AllocatingBuffer<A, T>::instance(size), 0, accessBits);
+    static AddressSegment anonymousInstance(Address size, unsigned accessBits = 0, const std::string &name="") {
+        return AddressSegment(AllocatingBuffer<A, T>::instance(size), 0, accessBits, name);
     }
 
     /** Property: buffer.
