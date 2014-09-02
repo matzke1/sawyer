@@ -4,6 +4,7 @@
 #include <boost/cstdint.hpp>
 #include <sawyer/AllocatingBuffer.h>
 #include <sawyer/NullBuffer.h>
+#include <sawyer/StaticBuffer.h>
 #include <sawyer/Sawyer.h>
 
 namespace Sawyer {
@@ -66,6 +67,20 @@ public:
     static AddressSegment anonymousInstance(Address size, unsigned accessBits = 0, const std::string &name="") {
         return AddressSegment(AllocatingBuffer<A, T>::instance(size), 0, accessBits, name);
     }
+
+    /** Create a segment that points to a static buffer.
+     *
+     *  Ownership of the buffer is not transferred to the segment.
+     *
+     * @{ */
+    static AddressSegment staticInstance(Value *buffer, Address size, unsigned accessBits=0, const std::string &name="") {
+        return AddressSegment(StaticBuffer<A, T>::instance(buffer, size), 0, accessBits, name);
+    }
+    static AddressSegment staticInstance(const Value *buffer, Address size, unsigned accessBits=0, const std::string &name="") {
+        static const unsigned IMMUTABLE = 8;            // see MemoryMap::IMMUTABLE, which can't be included here
+        return AddressSegment(StaticBuffer<A, T>::instance(buffer, size), 0, accessBits|IMMUTABLE, name);
+    }
+    /** @} */
 
     /** Property: buffer.
      *

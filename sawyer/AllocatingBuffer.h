@@ -55,6 +55,10 @@ public:
             memcpy(&values_[address], buf, n*sizeof(values_[0]));
         return n;
     }
+
+    const Value* data() const /*override*/ {
+        return size_ > 0 ? &values_[0] : NULL;
+    }
 };
 
 } // namespace

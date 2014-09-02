@@ -170,6 +170,10 @@ public:
     AddressMapConstraints& before(typename AddressMap::Address x) {
         return x==boost::integer_traits<typename AddressMap::Address>::const_min ? none() : atOrBefore(x-1);
     }
+    AddressMapConstraints& singleSegment() {
+        singleSegment_ = true;
+        return *this;
+    }
 public:
     // Different than the others in that contiguous(false) removes the contiguousness constraint
     AddressMapConstraints& contiguous(bool b=true) {
@@ -211,8 +215,14 @@ public:
         return map_->available(*this, direction);
     }
 
-    bool exists(typename AddressMap::Direction direction=AddressMap::FORWARD) const {
+    bool
+    exists(typename AddressMap::Direction direction=AddressMap::FORWARD) const {
         return map_->exists(*this, direction);
+    }
+
+    typename AddressMapTraits<AddressMap>::NodeIterator
+    findNode(typename AddressMap::Direction direction=AddressMap::FORWARD) const {
+        return map_->findNode(*this, direction);
     }
 
     Sawyer::Container::Interval<typename AddressMap::Address>
@@ -402,6 +412,7 @@ public:
         BACKWARD                                        /**< Matches constraints starting at the highest address. */
     };
 
+    // Note: IMMUTABLE is hard coded as 8 in AddressSegment::staticInstance
     static const unsigned EXECUTABLE    = 0x00000001;   /**< Execute accessibility bit. */
     static const unsigned WRITABLE      = 0x00000002;   /**< Write accessibility bit. */
     static const unsigned READABLE      = 0x00000004;   /**< Read accessibility bit. */
@@ -595,6 +606,19 @@ public:
     }
     AddressMapConstraints<AddressMap> before(Address x) {
         return AddressMapConstraints<AddressMap>(this).before(x);
+    }
+    /** @} */
+
+    /** Constraint: single segment.
+     *
+     *  Constrains matched addresses so that they all come from the same segment.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> singleSegment() const {
+        return AddressMapConstraints<const AddressMap>(this).singleSegment();
+    }
+    AddressMapConstraints<AddressMap> singleSegment() {
+        return AddressMapConstraints<AddressMap>(this).singleSegment();
     }
     /** @} */
 
@@ -800,6 +824,91 @@ public:
         return next(c, direction);
     }
 
+    /** Find node containing address.
+     *
+     *  Finds the node that contains the first (or last, depending on direction) address that satisfies the constraints.
+     *
+     * @{ */
+    ConstNodeIterator findNode(AddressMapConstraints<const AddressMap> c, Direction direction=FORWARD) const {
+        c.limit(1);
+        return nodes(c, direction).begin();
+    }
+    NodeIterator findNode(AddressMapConstraints<AddressMap> c, Direction direction=FORWARD) {
+        c.limit(1);
+        return nodes(c, direction).begin();
+    }
+    /** @} */
+
+    /** Find unmapped interval.
+     *
+     *  Searches for the lowest (or highest if @p direction is @ref BACKWARD) interval that is not mapped and returns its
+     *  address and size.  The returned interval will not contain addresses that are less than (or greater than) than @p
+     *  boundary.  If no such unmapped intervals exist then the empty interval is returned.
+     *
+     *  This method does not use constraints since it searches for addresses that do not exist in the map. */
+    Sawyer::Container::Interval<Address>
+    unmapped(Address boundary, Direction direction=FORWARD) const {
+        return FORWARD==direction ? this->firstUnmapped(boundary) : lastUnmapped(boundary);
+    }
+
+    /** Find free space.
+     *
+     *  Finds a suitable region of unmapped address space in which @p nValues values can be mapped.  The return value is either
+     *  an address where the values can be mapped, or nothing if no such unmapped region is available.  The @p restriction can
+     *  be used to restrict which addresses are considered.  The return value will have the specified alignment and will be
+     *  either the lowest or highest possible address depending on whether @p direction is @ref FORWARD or @ref BACKWARD.
+     *
+     *  This method does not use constraints since it searches for addresses that do not exist in the map. */
+    Optional<Address>
+    findFreeSpace(size_t nValues, size_t alignment=1,
+                  Sawyer::Container::Interval<Address> restriction = Sawyer::Container::Interval<Address>::whole(),
+                  Direction direction = FORWARD) const {
+        static const Sawyer::Container::Interval<Address> whole = Sawyer::Container::Interval<Address>::whole();
+        ASSERT_forbid2(nValues == 0, "cannot determine if this is an overflow or intentional");
+
+        if (restriction.isEmpty())
+            return Nothing();
+
+        if (FORWARD == direction) {
+            Address minAddr = restriction.least();
+            while (minAddr <= restriction.greatest()) {
+                Sawyer::Container::Interval<Address> interval = unmapped(minAddr, FORWARD);
+                if (interval.isEmpty())
+                    return Nothing();
+                minAddr = alignUp(minAddr, alignment);
+                Address maxAddr = minAddr + (nValues-1);
+                if ((nValues <= interval.size() || 0==interval.size()/*overflow*/) &&
+                    minAddr >= interval.least()/*overflow*/ && maxAddr >= interval.least()/*overflow*/ &&
+                    maxAddr <= interval.greatest()) {
+                    return minAddr;
+                }
+                if (interval.greatest() == whole.greatest())
+                    return Nothing();                   // to avoid overflow in next statement
+                minAddr = interval.greatest() + 1;
+            }
+            return Nothing();
+        }
+
+        ASSERT_require(BACKWARD == direction);
+        Address maxAddr = restriction.greatest();
+        while (maxAddr >= restriction.least()) {
+            Sawyer::Container::Interval<Address> interval = unmapped(maxAddr, BACKWARD);
+            if (interval.isEmpty())
+                return Nothing();
+            Address minAddr = alignDown(maxAddr - (nValues-1), alignment);
+            maxAddr = minAddr + (nValues-1);
+            if ((nValues <= interval.size() || 0==interval.size()/*overflow*/) &&
+                minAddr >= interval.least()/*overflow*/ && maxAddr >= interval.least()/*overflow*/ &&
+                maxAddr <= interval.greatest()) {
+                return minAddr;
+            }
+            if (interval.least() == whole.least())
+                return Nothing();                       // to avoid overflow in next statement
+            maxAddr = interval.least() - 1;
+        }
+        return Nothing();
+    }
+    
     /** Reads data into the supplied buffer.
      *
      *  Reads data into an arry or STL vector according to the specified constraints.  If the array is a null pointer then no
@@ -1009,6 +1118,15 @@ public:
     }
     
 private:
+    // Increment x if necessary so it is aligned.
+    static Address alignUp(Address x, Address alignment) {
+        return alignment>0 && x%alignment!=0 ? ((x+alignment-1)/alignment)*alignment : x;
+    }
+
+    static Address alignDown(Address x, Address alignment) {
+        return alignment>0 && x%alignment!=0 ? (x/alignment)*alignment : x;
+    }
+    
     // Finds the minimum possible address and node iterator for the specified constraints in this map and returns that
     // iterator.  Returns the end iterator if the constraints match no address.  If a non-end iterator is returned then minAddr
     // is adjusted to be the minimum address that satisfies the constraint (it will be an address within the returned node, but

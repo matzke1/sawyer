@@ -49,6 +49,10 @@ public:
     Address write(const Value *buf, Address address, Address n) /*override*/ {
         return 0;
     }
+
+    const Value* data() const /*override*/ {
+        return NULL;
+    }
 };
 
 } // namespace

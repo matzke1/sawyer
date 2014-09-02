@@ -2,7 +2,6 @@
 
 #include <sawyer/AllocatingBuffer.h>
 #include <sawyer/MappedBuffer.h>
-#include <sawyer/StaticBuffer.h>
 
 #include <iostream>
 
@@ -33,6 +32,7 @@ void compile_test_const(Map &s) {
     s.within(100, 200);
     s.after(100);
     s.before(100);
+    s.singleSegment();
     s.any();
     s.none();
     s.contiguous(false);
@@ -50,11 +50,12 @@ void compile_test_const(Map &s) {
     s.any().within(100, 200);
     s.any().after(100);
     s.any().before(100);
+    s.any().singleSegment();
     s.any().any();
     s.any().none();
     s.any().contiguous(false);
 
-    // Operations for const or non-const maps
+    // Operations for const or non-const maps on maps and constraints
     s.nSegments();
 
     s.segments(s.any());
@@ -83,6 +84,11 @@ void compile_test_const(Map &s) {
     s.any().exists();
     s.any().exists(s.BACKWARD);
 
+    s.findNode(s.any());
+    s.findNode(s.any(), s.BACKWARD);
+    s.any().findNode();
+    s.any().findNode(s.BACKWARD);
+
     std::vector<typename Map::Value> v;
 
     s.read(NULL, s.any());
@@ -102,6 +108,15 @@ void compile_test_const(Map &s) {
     s.write(v, s.any(), s.BACKWARD);
     s.any().write(v);
     s.any().write(v, s.BACKWARD);
+
+    // Operations for const and non-const maps (but not on constraints)
+    s.unmapped(0);
+    s.unmapped(0, s.BACKWARD);
+
+    s.findFreeSpace(1);
+    s.findFreeSpace(1, 2);
+    s.findFreeSpace(1, 2, Addresses::whole());
+    s.findFreeSpace(1, 2, Addresses::whole(), s.BACKWARD);
 }
 
 // Test that all operations that can be applied to mutable maps compile

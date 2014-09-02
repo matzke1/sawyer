@@ -83,6 +83,11 @@ public:
      *  actually written, which might be smaller than @p n. The return value will be less than @p n if an error occurs, but
      *  note that the return value may overflow to zero if the entire address space is written. */
     virtual Address write(const Value *buf, Address address, Address n) = 0;
+
+    /** Data for the buffer.
+     *
+     *  Returns a pointer for the buffer data.  Those subclasses that don't support this method will return the null pointer. */
+    virtual const Value* data() const = 0;
 };
 
 } // namespace

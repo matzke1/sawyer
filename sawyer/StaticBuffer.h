@@ -21,9 +21,13 @@ public:
 private:
     Value *values_;
     Address size_;
+    bool rdonly_;
 
 protected:
-    StaticBuffer(Value *values, Address size): values_(values), size_(size) {
+    StaticBuffer(Value *values, Address size): values_(values), size_(size), rdonly_(false) {
+        ASSERT_require(size==0 || values!=NULL);
+    }
+    StaticBuffer(const Value *values, Address size): values_(const_cast<Value*>(values)), size_(size), rdonly_(true) {
         ASSERT_require(size==0 || values!=NULL);
     }
 
@@ -31,10 +35,16 @@ public:
     /** Construct from caller-supplied data.
      *
      *  The caller supplies a pointer to data and the size of that data.  The new buffer object does not take ownership of the
-     *  data or copy it, thus the caller-supplied data must continue to exist for as long as this buffer exists. */
+     *  data or copy it, thus the caller-supplied data must continue to exist for as long as this buffer exists.
+     *
+     * @{ */
     static typename Buffer<A, T>::Ptr instance(Value *values, Address size) {
         return typename Buffer<A, T>::Ptr(new StaticBuffer(values, size));
     }
+    static typename Buffer<A, T>::Ptr instance(const Value *values, Address size) {
+        return typename Buffer<A, T>::Ptr(new StaticBuffer(values, size));
+    }
+    /** @} */
 
     Address available(Address start) const /*override*/ {
         return start < size_ ? size_-start : 0;
@@ -53,10 +63,16 @@ public:
     }
 
     Address write(const Value *buf, Address address, Address n) /*override*/ {
+        if (rdonly_)
+            return 0;
         n = std::min(n, available(address));
         if (buf)
             memcpy(values_+address, buf, n*sizeof(values_[0]));
         return n;
+    }
+
+    const Value* data() const /*override*/ {
+        return values_;
     }
 };
 
