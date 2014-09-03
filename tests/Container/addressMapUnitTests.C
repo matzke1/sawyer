@@ -35,7 +35,6 @@ void compile_test_const(Map &s) {
     s.singleSegment();
     s.any();
     s.none();
-    s.contiguous(false);
 
     // Test that constraints can be augmented
     s.any().require(Map::READABLE);
@@ -53,7 +52,6 @@ void compile_test_const(Map &s) {
     s.any().singleSegment();
     s.any().any();
     s.any().none();
-    s.any().contiguous(false);
 
     // Operations for const or non-const maps on maps and constraints
     s.nSegments();
