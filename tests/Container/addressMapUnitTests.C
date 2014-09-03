@@ -30,6 +30,7 @@ void compile_test_const(Map &s) {
     s.atOrBefore(300);
     s.within(Addresses::hull(100, 200));
     s.within(100, 200);
+    s.baseSize(0, 1);
     s.after(100);
     s.before(100);
     s.singleSegment();
@@ -47,6 +48,7 @@ void compile_test_const(Map &s) {
     s.any().atOrBefore(300);
     s.any().within(Addresses::hull(100, 200));
     s.any().within(100, 200);
+    s.any().baseSize(100, 100);
     s.any().after(100);
     s.any().before(100);
     s.any().singleSegment();

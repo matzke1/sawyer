@@ -161,6 +161,9 @@ public:
     AddressMapConstraints& within(typename AddressMap::Address lo, typename AddressMap::Address hi) {
         return lo<=hi ? within(Interval<typename AddressMap::Address>::hull(lo, hi)) : none();
     }
+    AddressMapConstraints& baseSize(typename AddressMap::Address base, typename AddressMap::Address size) {
+        return size>0 ? atOrAfter(base).atOrBefore(base+size-1) : none();
+    }
     AddressMapConstraints& after(typename AddressMap::Address x) {
         return x==boost::integer_traits<typename AddressMap::Address>::const_max ? none() : atOrAfter(x+1);
     }
@@ -575,6 +578,19 @@ public:
     }
     AddressMapConstraints<AddressMap> within(Address x, Address y) {
         return AddressMapConstraints<AddressMap>(this).within(x, y);
+    }
+    /** @} */
+
+    /** Constraint: address lower and upper bounds.
+     *
+     *  Specifies lower and upper bounds. The upper bound is specified indirectly by a size.
+     *
+     * @{ */
+    AddressMapConstraints<const AddressMap> baseSize(Address base, Address size) const {
+        return AddressMapConstraints<const AddressMap>(this).baseSize(base, size);
+    }
+    AddressMapConstraints<AddressMap> baseSize(Address base, Address size) {
+        return AddressMapConstraints<AddressMap>(this).baseSize(base, size);
     }
     /** @} */
 
