@@ -530,6 +530,13 @@ public:
         return Interval::hull(all.least(), maxAddr);
     }
 
+    /** Returns true if element exists.
+     *
+     *  Returns true if and only if the specified key exists in the map. */
+    bool exists(const typename Interval::Value &size) {
+        return find(size)!=nodes().end();
+    }
+    
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                  Accessors
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

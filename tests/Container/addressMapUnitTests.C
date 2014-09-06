@@ -3,9 +3,75 @@
 #include <sawyer/AllocatingBuffer.h>
 #include <sawyer/MappedBuffer.h>
 
+#include <boost/lexical_cast.hpp>
 #include <iostream>
 
+using namespace Sawyer;
 using namespace Sawyer::Container;
+
+template<typename T>
+static std::string
+show(const Interval<T> &x) {
+    if (x.isEmpty()) {
+        return "[]";
+    } else if (x.isSingleton()) {
+        return "[" + boost::lexical_cast<std::string>(x.least()) + "]";
+    } else {
+        return "[" + boost::lexical_cast<std::string>(x.least()) + "," + boost::lexical_cast<std::string>(x.greatest()) + "]";
+    }
+}
+
+static std::string
+showWhere(size_t got, size_t ans) {
+    return "got=" + boost::lexical_cast<std::string>(got) + ", answer=" + boost::lexical_cast<std::string>(ans);
+}
+
+template<typename T>
+static std::string
+showWhere(size_t i, const Interval<T> &got, const Interval<T> &ans) {
+    return "i=" + boost::lexical_cast<std::string>(i) + ": got=" + show(got) + ", answer=" + show(ans);
+}
+
+template<typename T>
+static std::string
+showWhere(size_t i, size_t j, const Interval<T> &got, const Interval<T> &ans) {
+    return ("i=" + boost::lexical_cast<std::string>(i) +
+            ", j=" + boost::lexical_cast<std::string>(j) +
+            ": got=" + show(got) +
+            ", answer=" + show(ans));
+}
+
+static std::string
+showWhere(size_t i, size_t j, size_t got, size_t ans) {
+    return ("i=" + boost::lexical_cast<std::string>(i) +
+            ", j=" + boost::lexical_cast<std::string>(j) +
+            ": got=" + boost::lexical_cast<std::string>(got) +
+            ", answer=" + boost::lexical_cast<std::string>(ans));
+}
+
+template<class AMap>
+void checkNodes(AMap &m, const Interval<typename AMap::Address> &interval,
+                const boost::iterator_range<typename AMap::ConstNodeIterator> &nodes) {
+    if (interval.isEmpty()) {
+        ASSERT_always_require2(nodes.begin()==m.nodes().end(), "empty interval");
+        ASSERT_always_require2(nodes.end()==m.nodes().end(), "empty interval");
+    } else {
+        typename AMap::ConstNodeIterator first = m.find(interval.least());
+        ASSERT_always_require(first != m.nodes().end());
+        ASSERT_always_require(first == nodes.begin());
+        typename AMap::ConstNodeIterator last = m.find(interval.greatest());
+        ASSERT_always_require(last != m.nodes().end());
+        ++last;
+        ASSERT_always_require(last == nodes.end());
+    }
+}
+        
+template<typename Address, typename Value>
+struct SegPred: SegmentPredicate<Address, Value> {
+    virtual bool operator()(bool chain, const typename SegmentPredicate<Address, Value>::Args&) /*override*/ {
+        return chain;
+    }
+};
 
 // Test that all operations that can be applied to constant maps compile whether the map is const or mutable
 template<class Map>
@@ -19,9 +85,11 @@ void compile_test_const(Map &s) {
     Map s2;
     Map s3(s);
 
+    SegPred<Address, Value> segPred;
+
     // Test that constraints can be generated from a map
-    s.require(Map::READABLE);
-    s.prohibit(Map::READABLE);
+    s.require(Access::READABLE);
+    s.prohibit(Access::READABLE);
     s.substr("one");
     s.at(100);
     s.at(Addresses::hull(0, 10));
@@ -34,12 +102,13 @@ void compile_test_const(Map &s) {
     s.after(100);
     s.before(100);
     s.singleSegment();
+    s.segmentPredicate(&segPred);
     s.any();
     s.none();
 
     // Test that constraints can be augmented
-    s.any().require(Map::READABLE);
-    s.any().prohibit(Map::READABLE);
+    s.any().require(Access::READABLE);
+    s.any().prohibit(Access::READABLE);
     s.any().substr("one");
     s.any().at(100);
     s.any().at(Addresses::hull(0, 10));
@@ -52,6 +121,7 @@ void compile_test_const(Map &s) {
     s.any().after(100);
     s.any().before(100);
     s.any().singleSegment();
+    s.any().segmentPredicate(&segPred);
     s.any().any();
     s.any().none();
 
@@ -146,6 +216,1133 @@ void compile_tests() {
     compile_test_const(t);
 }
 
+    // For loops that are safe when the index overflows
+#define SAFE_FOR_UP(VAR, START, END)                                                                                           \
+    for (Address start_=(START), end_=(END), oldIdx_=(START), VAR=(START);                                                     \
+         VAR<=end_ && (VAR==start_ || oldIdx_<end_);                                                                           \
+         oldIdx_=VAR++)
+#define SAFE_FOR_DN(VAR, START, END)                                                                                           \
+    for (Address start_=(START), end_=(END), oldIdx_=(START), VAR=(START);                                                     \
+         VAR>=end_ && (VAR==start_ || oldIdx_>end_);                                                                           \
+         oldIdx_=VAR--)
+        
+
+template<class AddressMap>
+void constraint_tests(AddressMap &m) {
+    typedef typename AddressMap::Address                Address;
+    typedef typename AddressMap::Value                  Value;
+    typedef typename AddressMap::Segment                Segment;
+    typedef Interval<Address>                           AInterval;
+    typedef boost::iterator_range<typename AddressMap::ConstNodeIterator> ANodes;
+
+    // Mapping from address to segment number so we can compute expected answers
+    std::cout <<"AddressMap:\n";
+    Sawyer::Container::Map<Address, const Segment*> check;
+    size_t nSegments = 0;
+    BOOST_FOREACH (const typename AddressMap::Node &node, m.nodes()) {
+        const AInterval &interval = node.key();
+        const Segment &segment = node.value();
+        std::cout <<"    #" <<nSegments <<": " <<show(interval) <<"\t"
+                  <<(segment.accessibility() & Access::READABLE ? "r" : "-")
+                  <<(segment.accessibility() & Access::WRITABLE ? "w" : "-")
+                  <<(segment.accessibility() & Access::EXECUTABLE ? "x" : "-")
+                  <<" size=" <<interval.size()
+                  <<" {buffer=" <<segment.buffer()->name() <<"+" <<segment.offset() <<" sz=" <<segment.buffer()->size() <<"}"
+                  <<"\n";
+        SAFE_FOR_UP(i, interval.least(), interval.greatest())
+            check.insert(i, &segment);
+        ++nSegments;
+    }
+
+    // Choose an interval over which to iterate, preferably a bit larger than the map hull
+    static const Address delta = 5;
+    AInterval ispace = m.hull();
+    if (ispace.isEmpty()) {
+        ispace = AInterval::baseSize(AInterval::whole().least()+5, delta);
+    } else {
+        if (ispace.least() > AInterval::whole().least()) {
+            Address n = ispace.least() - AInterval::whole().least();
+            ispace = AInterval::hull(ispace.least()-std::min(n, delta), ispace.greatest());
+        }
+        if (AInterval::whole().greatest() > ispace.greatest()) {
+            Address n = AInterval::whole().greatest() - ispace.greatest();
+            ispace = AInterval::hull(ispace.least(), ispace.greatest() + std::min(n, delta));
+        }
+    }
+    std::cout <<"  iteration interval " <<show(ispace) <<"\n";
+
+    //----------------------------------------------------------------------------------------------------------------
+
+    std::cout <<"  check: at(i).available()\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        if (check.exists(i)) {
+            minAddr = maxAddr = i;
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                if (check.exists(j)) {
+                    maxAddr = j;
+                } else {
+                    break;
+                }
+            }
+        }
+        AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.at(i).available();
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.at(i).nodes());
+    }
+
+    std::cout <<"  check: at(i).available(NONCONTIGUOUS)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        if (check.exists(i)) {
+            minAddr = maxAddr = i;
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                if (check.exists(j))
+                    maxAddr = j;
+            }
+        }
+        AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.at(i).available(m.NONCONTIGUOUS);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.at(i).nodes(m.NONCONTIGUOUS));
+    }
+
+    std::cout <<"  check: at(i).available(BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        if (check.exists(i)) {
+            minAddr = maxAddr = i;
+            SAFE_FOR_DN(j, i, ispace.least()) {
+                if (check.exists(j)) {
+                    minAddr = j;
+                } else {
+                    break;
+                }
+            }
+        }
+        AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.at(i).available(m.BACKWARD);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.at(i).nodes(m.BACKWARD));
+    }
+
+    std::cout <<"  check: at(i).available(NONCONTIGUOUS|BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        if (check.exists(i)) {
+            minAddr = maxAddr = i;
+            SAFE_FOR_DN(j, i, ispace.least()) {
+                if (check.exists(j))
+                    minAddr = j;
+            }
+        }
+        AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.at(i).available(m.NONCONTIGUOUS|m.BACKWARD);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.at(i).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+    }
+
+    //---------------------------------------------------------------------------------------------------------------- 
+
+    std::cout <<"  check: at([i,j]).available()\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            if (check.exists(i)) {
+                minAddr = maxAddr = i;
+                SAFE_FOR_UP(k, i, j) {
+                    if (check.exists(k)) {
+                        maxAddr = k;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.at(AInterval::hull(i, j)).available();
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.at(AInterval::hull(i, j)).nodes());
+        }
+    }
+    
+    std::cout <<"  check: at([i,j]).available(NONCONTIGUOUS)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            if (check.exists(i)) {
+                minAddr = maxAddr = i;
+                SAFE_FOR_UP(k, i, j) {
+                    if (check.exists(k))
+                        maxAddr = k;
+                }
+            }
+            AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.at(AInterval::hull(i, j)).available(m.NONCONTIGUOUS);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.at(AInterval::hull(i, j)).nodes(m.NONCONTIGUOUS));
+        }
+    }
+    
+    std::cout <<"  check: at([i,j]).available(BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            if (check.exists(j)) {
+                minAddr = maxAddr = j;
+                SAFE_FOR_DN(k, j, i) {
+                    if (check.exists(k)) {
+                        minAddr = k;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.at(AInterval::hull(i, j)).available(m.BACKWARD);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.at(AInterval::hull(i, j)).nodes(m.BACKWARD));
+        }
+    }
+    
+    std::cout <<"  check: at([i,j]).available(NONCONTIGUOUS|BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            if (check.exists(j)) {
+                minAddr = maxAddr = j;
+                SAFE_FOR_DN(k, j, i) {
+                    if (check.exists(k))
+                        minAddr = k;
+                }
+            }
+            AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.at(AInterval::hull(i, j)).available(m.NONCONTIGUOUS|m.BACKWARD);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.at(AInterval::hull(i, j)).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+        }
+    }
+    
+    //---------------------------------------------------------------------------------------------------------------- 
+
+    std::cout <<"  check: at(i).limit(j).available()\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, 0, ispace.greatest()-i+1) {
+            Address minAddr=1, maxAddr=0;
+            if (j>0 && check.exists(i)) {
+                minAddr = maxAddr = i;
+                size_t nFound = 0;
+                SAFE_FOR_UP(k, i, ispace.greatest()) {
+                    if (nFound >= j)
+                        break;
+                    if (check.exists(k)) {
+                        maxAddr = k;
+                        ++nFound;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.at(i).limit(j).available();
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.at(i).limit(j).nodes());
+        }
+    }
+    
+    std::cout <<"  check: at(i).limit(j).available(NONCONTIGUOUS)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, 0, ispace.greatest()-i+1) {
+            Address minAddr=10, maxAddr=0;
+            if (j>0 && check.exists(i)) {
+                minAddr = maxAddr = i;
+                size_t nFound = 0;
+                SAFE_FOR_UP(k, i, ispace.greatest()) {
+                    if (nFound >= j)
+                        break;
+                    if (check.exists(k)) {
+                        maxAddr = k;
+                        ++nFound;
+                    }
+                }
+            }
+            AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.at(i).limit(j).available(m.NONCONTIGUOUS);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.at(i).limit(j).nodes(m.NONCONTIGUOUS));
+        }
+    }
+
+    std::cout <<"  check: at(i).limit(j).available(BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, 0, ispace.greatest()-i+1) {
+            Address minAddr=1, maxAddr=0;
+            if (j>0 && check.exists(i)) {
+                minAddr = maxAddr = i;
+                size_t nFound = 0;
+                SAFE_FOR_DN(k, i, ispace.least()) {
+                    if (nFound >= j)
+                        break;
+                    if (check.exists(k)) {
+                        minAddr = k;
+                        ++nFound;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.at(i).limit(j).available(m.BACKWARD);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.at(i).limit(j).nodes(m.BACKWARD));
+        }
+    }
+    
+    std::cout <<"  check: at(i).limit(j).available(NONCONTIGUOUS|BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, 0, ispace.greatest()-i+1) {
+            Address minAddr=1, maxAddr=0;
+            if (j>0 && check.exists(i)) {
+                minAddr = maxAddr = i;
+                size_t nFound = 0;
+                SAFE_FOR_DN(k, i, ispace.least()) {
+                    if (nFound >= j)
+                        break;
+                    if (check.exists(k)) {
+                        minAddr = k;
+                        ++nFound;
+                    }
+                }
+            }
+            AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.at(i).limit(j).available(m.NONCONTIGUOUS|m.BACKWARD);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.at(i).limit(j).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+        }
+    }
+    
+    //---------------------------------------------------------------------------------------------------------------- 
+
+    std::cout <<"  check: limit(i).available()\n";
+    SAFE_FOR_UP(i, 0, ispace.size()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        size_t nFound = 0;
+        SAFE_FOR_UP(j, ispace.least(), ispace.greatest()) {
+            if (nFound >= i)
+                break;
+            if (check.exists(j)) {
+                maxAddr = j;
+                if (!inside) {
+                    minAddr = j;
+                    inside = true;
+                }
+                ++nFound;
+            } else if (inside) {
+                break;
+            }
+        }
+        AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.limit(i).available();
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.limit(i).nodes());
+    }
+
+    std::cout <<"  check: limit(i).available(NONCONTIGUOUS)\n";
+    SAFE_FOR_UP(i, 0, ispace.size()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        size_t nFound = 0;
+        SAFE_FOR_UP(j, ispace.least(), ispace.greatest()) {
+            if (nFound >= i)
+                break;
+            if (check.exists(j)) {
+                maxAddr = j;
+                if (!inside) {
+                    minAddr = j;
+                    inside = true;
+                }
+                ++nFound;
+            }
+        }
+        AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.limit(i).available(m.NONCONTIGUOUS);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.limit(i).nodes(m.NONCONTIGUOUS));
+    }
+
+    std::cout <<"  check: limit(i).available(BACKWARD)\n";
+    SAFE_FOR_UP(i, 0, ispace.size()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        size_t nFound = 0;
+        SAFE_FOR_DN(j, ispace.greatest(), ispace.least()) {
+            if (nFound >= i)
+                break;
+            if (check.exists(j)) {
+                minAddr = j;
+                if (!inside) {
+                    maxAddr = j;
+                    inside = true;
+                }
+                ++nFound;
+            } else if (inside) {
+                break;
+            }
+        }
+        AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.limit(i).available(m.BACKWARD);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.limit(i).nodes(m.BACKWARD));
+    }
+
+    std::cout <<"  check: limit(i).available(NONCONTIGUOUS|BACKWARD)\n";
+    SAFE_FOR_UP(i, 0, ispace.size()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        size_t nFound = 0;
+        SAFE_FOR_DN(j, ispace.greatest(), ispace.least()) {
+            if (nFound >= i)
+                break;
+            if (check.exists(j)) {
+                minAddr = j;
+                if (!inside) {
+                    maxAddr = j;
+                    inside = true;
+                }
+                ++nFound;
+            }
+        }
+        AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.limit(i).available(m.NONCONTIGUOUS|m.BACKWARD);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.limit(i).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+    }
+
+    //---------------------------------------------------------------------------------------------------------------- 
+
+    std::cout <<"  check: atOrAfter(i).available()\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            if (check.exists(j)) {
+                maxAddr = j;
+                if (!inside)
+                    minAddr = j;
+                inside = true;
+            } else if (inside) {
+                break;
+            }
+        }
+        AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.atOrAfter(i).available();
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.atOrAfter(i).nodes());
+    }
+    
+    std::cout <<"  check: atOrAfter(i).available(NONCONTIGUOUS)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            if (check.exists(j)) {
+                maxAddr = j;
+                if (!inside)
+                    minAddr = j;
+                inside = true;
+            }
+        }
+        AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.atOrAfter(i).available(m.NONCONTIGUOUS);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.atOrAfter(i).nodes(m.NONCONTIGUOUS));
+    }
+
+    std::cout <<"  check: atOrAfter(i).available(BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        SAFE_FOR_DN(j, ispace.greatest(), i) {
+            if (check.exists(j)) {
+                minAddr = j;
+                if (!inside)
+                    maxAddr = j;
+                inside = true;
+            } else if (inside) {
+                break;
+            }
+        }
+        AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.atOrAfter(i).available(m.BACKWARD);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.atOrAfter(i).nodes(m.BACKWARD));
+    }
+    
+    std::cout <<"  check: atOrAfter(i).available(NONCONTIGUOUS|BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        SAFE_FOR_DN(j, ispace.greatest(), i) {
+            if (check.exists(j)) {
+                minAddr = j;
+                if (!inside)
+                    maxAddr = j;
+                inside = true;
+            }
+        }
+        AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.atOrAfter(i).available(m.NONCONTIGUOUS|m.BACKWARD);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.atOrAfter(i).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+    }
+
+    //---------------------------------------------------------------------------------------------------------------- 
+    
+    
+    std::cout <<"  check: atOrBefore(i).available()\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        SAFE_FOR_UP(j, ispace.least(), i) {
+            if (check.exists(j)) {
+                maxAddr = j;
+                if (!inside)
+                    minAddr = j;
+                inside = true;
+            } else if (inside) {
+                break;
+            }
+        }
+        AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.atOrBefore(i).available();
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.atOrBefore(i).nodes());
+    }
+
+    std::cout <<"  check: atOrBefore(i).available(NONCONTIGUOUS)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        SAFE_FOR_UP(j, ispace.least(), i) {
+            if (check.exists(j)) {
+                maxAddr = j;
+                if (!inside)
+                    minAddr = j;
+                inside = true;
+            }
+        }
+        AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.atOrBefore(i).available(m.NONCONTIGUOUS);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.atOrBefore(i).nodes(m.NONCONTIGUOUS));
+    }
+
+    std::cout <<"  check: atOrBefore(i).available(BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        SAFE_FOR_DN(j, i, ispace.least()) {
+            if (check.exists(j)) {
+                minAddr = j;
+                if (!inside)
+                    maxAddr = j;
+                inside = true;
+            } else if (inside) {
+                break;
+            }
+        }
+        AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.atOrBefore(i).available(m.BACKWARD);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.atOrBefore(i).nodes(m.BACKWARD));
+    }
+
+    std::cout <<"  check: atOrBefore(i).available(NONCONTIGUOUS|BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        Address minAddr=1, maxAddr=0;
+        bool inside = false;
+        SAFE_FOR_DN(j, i, ispace.least()) {
+            if (check.exists(j)) {
+                minAddr = j;
+                if (!inside)
+                    maxAddr = j;
+                inside = true;
+            }
+        }
+        AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+        AInterval got = m.atOrBefore(i).available(m.NONCONTIGUOUS|m.BACKWARD);
+        ASSERT_always_require2(got==answer, showWhere(i, got, answer));
+        checkNodes(m, got, m.atOrBefore(i).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+    }
+
+    //---------------------------------------------------------------------------------------------------------------- 
+
+    std::cout <<"  check: within(i,j).available()\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            bool inside = false;
+            SAFE_FOR_UP(k, i, j) {
+                if (check.exists(k)) {
+                    maxAddr = k;
+                    if (!inside) {
+                        minAddr = k;
+                        inside = true;
+                    }
+                } else if (inside) {
+                    break;
+                }
+            }
+            AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.within(i, j).available();
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.within(i, j).nodes());
+        }
+    }
+    
+    std::cout <<"  check: within(i,j).available(NONCONTIGUOUS)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            bool inside = false;
+            SAFE_FOR_UP(k, i, j) {
+                if (check.exists(k)) {
+                    maxAddr = k;
+                    if (!inside) {
+                        minAddr = k;
+                        inside = true;
+                    }
+                }
+            }
+            AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.within(i, j).available(m.NONCONTIGUOUS);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.within(i, j).nodes(m.NONCONTIGUOUS));
+        }
+    }
+    
+    std::cout <<"  check: within(i,j).available(BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            bool inside = false;
+            SAFE_FOR_DN(k, j, i) {
+                if (check.exists(k)) {
+                    minAddr = k;
+                    if (!inside) {
+                        maxAddr = k;
+                        inside = true;
+                    }
+                } else if (inside) {
+                    break;
+                }
+            }
+            AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.within(i, j).available(m.BACKWARD);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.within(i, j).nodes(m.BACKWARD));
+        }
+    }
+    
+    std::cout <<"  check: within(i,j).available(NONCONTIGUOUS|BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            bool inside = false;
+            SAFE_FOR_DN(k, j, i) {
+                if (check.exists(k)) {
+                    minAddr = k;
+                    if (!inside) {
+                        maxAddr = k;
+                        inside = true;
+                    }
+                }
+            }
+            AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.within(i, j).available(m.NONCONTIGUOUS|m.BACKWARD);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.within(i, j).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+        }
+    }
+
+    //---------------------------------------------------------------------------------------------------------------- 
+
+    std::cout <<"  check: within(i,j).singleSegment().available()\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            const Segment *firstSegment=NULL, *segment=NULL;
+            SAFE_FOR_UP(k, i, j) {
+                if (check.getOptional(k).assignTo(segment) && (!firstSegment || firstSegment==segment)) {
+                    maxAddr = k;
+                    if (!firstSegment) {
+                        minAddr = k;
+                        firstSegment = segment;
+                    }
+                } else if (firstSegment) {
+                    break;
+                }
+            }
+            AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.within(i, j).singleSegment().available();
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.within(i, j).singleSegment().nodes());
+        }
+    }
+
+    std::cout <<"  check: within(i,j).singleSegment().available(NONCONTIGUOUS)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            const Segment *firstSegment=NULL, *segment=NULL;
+            SAFE_FOR_UP(k, i, j) {
+                if (check.getOptional(k).assignTo(segment) && (!firstSegment || firstSegment==segment)) {
+                    maxAddr = k;
+                    if (!firstSegment) {
+                        minAddr = k;
+                        firstSegment = segment;
+                    }
+                } else if (firstSegment) {
+                    break;
+                }
+            }
+            AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.within(i, j).singleSegment().available(m.NONCONTIGUOUS);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.within(i, j).singleSegment().nodes(m.NONCONTIGUOUS));
+        }
+    }
+    
+    std::cout <<"  check: within(i,j).singleSegment().available(BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            const Segment *firstSegment=NULL, *segment=NULL;
+            SAFE_FOR_DN(k, j, i) {
+                if (check.getOptional(k).assignTo(segment) && (!firstSegment || firstSegment==segment)) {
+                    minAddr = k;
+                    if (!firstSegment) {
+                        maxAddr = k;
+                        firstSegment = segment;
+                    }
+                } else if (firstSegment) {
+                    break;
+                }
+            }
+            AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.within(i, j).singleSegment().available(m.BACKWARD);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.within(i, j).singleSegment().nodes(m.BACKWARD));
+        }
+    }
+    
+    std::cout <<"  check: within(i,j).singleSegment().available(NONCONTIGUOUS|BACKWARD)\n";
+    SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+        SAFE_FOR_UP(j, i, ispace.greatest()) {
+            Address minAddr=1, maxAddr=0;
+            const Segment *firstSegment=NULL, *segment=NULL;
+            SAFE_FOR_DN(k, j, i) {
+                if (check.getOptional(k).assignTo(segment) && (!firstSegment || firstSegment==segment)) {
+                    minAddr = k;
+                    if (!firstSegment) {
+                        maxAddr = k;
+                        firstSegment = segment;
+                    }
+                } else if (firstSegment) {
+                    break;
+                }
+            }
+            AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+            AInterval got = m.within(i, j).singleSegment().available(m.NONCONTIGUOUS|m.BACKWARD);
+            ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+            checkNodes(m, got, m.within(i, j).singleSegment().nodes(m.NONCONTIGUOUS|m.BACKWARD));
+        }
+    }
+
+    //---------------------------------------------------------------------------------------------------------------- 
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).require(READABLE).available()\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).require(READWRITE).available()\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_UP(k, i, j) {
+                    if (check.getOptional(k).assignTo(segment) && access == (segment->accessibility() & access)) {
+                        maxAddr = k;
+                        if (!inside) {
+                            minAddr = k;
+                            inside = true;
+                        }
+                    } else if (inside) {
+                        break;
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).require(access).available();
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).require(access).nodes());
+            }
+        }
+    }
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).require(READABLE).available(NONCONTIGUOUS)\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).require(READWRITE).available(NONCONTIGUOUS)\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_UP(k, i, j) {
+                    if (check.getOptional(k).assignTo(segment) && access == (segment->accessibility() & access)) {
+                        maxAddr = k;
+                        if (!inside) {
+                            minAddr = k;
+                            inside = true;
+                        }
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).require(access).available(m.NONCONTIGUOUS);
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).require(access).nodes(m.NONCONTIGUOUS));
+            }
+        }
+    }
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).require(READABLE).available(BACKWARD)\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).require(READWRITE).available(BACKWARD)\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_DN(k, j, i) {
+                    if (check.getOptional(k).assignTo(segment) && access == (segment->accessibility() & access)) {
+                        minAddr = k;
+                        if (!inside) {
+                            maxAddr = k;
+                            inside = true;
+                        }
+                    } else if (inside) {
+                        break;
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).require(access).available(m.BACKWARD);
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).require(access).nodes(m.BACKWARD));
+            }
+        }
+    }
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).require(READABLE).available(NONCONTIGUOUS|BACKWARD)\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).require(READWRITE).available(NONCONTIGUOUS|BACKWARD)\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_DN(k, j, i) {
+                    if (check.getOptional(k).assignTo(segment) && access == (segment->accessibility() & access)) {
+                        minAddr = k;
+                        if (!inside) {
+                            maxAddr = k;
+                            inside = true;
+                        }
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).require(access).available(m.NONCONTIGUOUS|m.BACKWARD);
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).require(access).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+            }
+        }
+    }
+
+    //---------------------------------------------------------------------------------------------------------------- 
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).prohibit(READABLE).available()\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).prohibit(READWRITE).available()\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_UP(k, i, j) {
+                    if (check.getOptional(k).assignTo(segment) && 0 == (segment->accessibility() & access)) {
+                        maxAddr = k;
+                        if (!inside) {
+                            minAddr = k;
+                            inside = true;
+                        }
+                    } else if (inside) {
+                        break;
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).prohibit(access).available();
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).prohibit(access).nodes());
+            }
+        }
+    }
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).prohibit(READABLE).available(NONCONTIGUOUS)\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).prohibit(READWRITE).available(NONCONTIGUOUS)\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_UP(k, i, j) {
+                    if (check.getOptional(k).assignTo(segment) && 0 == (segment->accessibility() & access)) {
+                        maxAddr = k;
+                        if (!inside) {
+                            minAddr = k;
+                            inside = true;
+                        }
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).prohibit(access).available(m.NONCONTIGUOUS);
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).prohibit(access).nodes(m.NONCONTIGUOUS));
+            }
+        }
+    }
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).prohibit(READABLE).available(BACKWARD)\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).prohibit(READWRITE).available(BACKWARD)\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_DN(k, j, i) {
+                    if (check.getOptional(k).assignTo(segment) && 0 == (segment->accessibility() & access)) {
+                        minAddr = k;
+                        if (!inside) {
+                            maxAddr = k;
+                            inside = true;
+                        }
+                    } else if (inside) {
+                        break;
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).prohibit(access).available(m.BACKWARD);
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).prohibit(access).nodes(m.BACKWARD));
+            }
+        }
+    }
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).prohibit(READABLE).available(NONCONTIGUOUS|BACKWARD)\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).prohibit(READWRITE).available(NONCONTIGUOUS|BACKWARD)\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_DN(k, j, i) {
+                    if (check.getOptional(k).assignTo(segment) && 0 == (segment->accessibility() & access)) {
+                        minAddr = k;
+                        if (!inside) {
+                            maxAddr = k;
+                            inside = true;
+                        }
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).prohibit(access).available(m.NONCONTIGUOUS|m.BACKWARD);
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).prohibit(access).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+            }
+        }
+    }
+}
+
+template<class MemoryMap>
+static void io_tests(MemoryMap &m) {
+    typedef typename MemoryMap::Value Value;
+    typedef typename MemoryMap::Address Address;
+    typedef Interval<Address> Interval;
+    typedef typename MemoryMap::Segment Segment;
+
+    // Write consecutive values to all addresses
+    std::cout <<"  check: at(i).limit(3).write(buf)\n";
+    Sawyer::Container::Map<Address, Value> check;
+    Value buf[3], counter=0;
+    Address addr = m.hull().least();
+    while (m.atOrAfter(addr).next().assignTo(addr)) {
+        Interval avail = m.at(addr).limit(3).available();
+        ASSERT_always_require(!avail.isEmpty());
+        ASSERT_always_require(avail.size()<=3);
+        for (size_t i=0; i<3; ++i) {
+            if (i<avail.size()) {
+                check.insert(addr+i, (buf[i] = ++counter));
+            } else {
+                buf[i] = 0;
+            }
+        }
+        Interval written = m.at(addr).limit(3).write(buf);
+        ASSERT_always_require(written==avail);
+        if (written.greatest()==m.hull().greatest())
+            break;                                      // protect next line from overflow
+        addr += written.size();
+    }
+
+    // Read values back one, two, and three at a time to compare
+    for (size_t bufsz=1; bufsz<=3; bufsz++) {
+        std::cout <<"  check: at(i).limit(" <<bufsz <<").read(buf)\n";
+        addr = m.hull().least();
+        while (m.atOrAfter(addr).next().assignTo(addr)) {
+            Interval read = m.at(addr).limit(bufsz).read(buf);
+            ASSERT_always_require(!read.isEmpty());
+            ASSERT_always_require(read.size() <= bufsz);
+            ASSERT_always_require(read.least()==addr);
+            for (size_t i=0; i<read.size(); ++i) {
+                ASSERT_always_require(check.exists(addr+i));
+                ASSERT_always_require(buf[i]==check[addr+i]);
+            }
+            if (read.greatest()==m.hull().greatest())
+                break;                                  // protect next line from overflow
+            addr += read.size();
+        }
+    }
+}
+
+static void test00() {
+    typedef uint16_t Address;
+    typedef AddressMap<Address, char> AMap;
+    typedef Interval<Address> AInterval;
+
+    
+    // basic test: {10-14, 20-24, 30-34, 40-44}
+    AMap m1;
+    for (size_t i=0; i<4; ++i) {
+        unsigned access = (i<2?Access::READABLE:0) | (i%2?Access::WRITABLE:0);
+        m1.insert(AInterval::baseSize(10*(i+1), 5), AMap::Segment::anonymousInstance(5, access));
+    }
+    ASSERT_always_require(m1.nIntervals()==4);
+    ASSERT_always_require2(m1.size()==20, showWhere(m1.size(), 20));
+    ASSERT_always_require(boost::distance(m1.nodes())==4);
+    constraint_tests(m1);
+    io_tests(m1);
+
+    // adjacent segments: {10-14, 20-24, 25-29, 30-34, 40-44}
+    AMap m2 = m1;
+    m2.insert(AInterval::hull(25, 29), AMap::Segment::anonymousInstance(5, Access::READABLE));
+    ASSERT_always_require(m2.nIntervals()==5);
+    ASSERT_always_require2(m2.size()==25, showWhere(m2.size(), 25));
+    ASSERT_always_require(boost::distance(m2.nodes())==5);
+    constraint_tests(m2);
+    io_tests(m2);
+
+    // bottom of address space: {0-4, 10-14}
+    AMap m3;
+    m3.insert(AInterval::baseSize( 0, 5), AMap::Segment::anonymousInstance(5, Access::READABLE));
+    m3.insert(AInterval::baseSize(10, 5), AMap::Segment::anonymousInstance(5, Access::READABLE));
+    ASSERT_always_require(m3.nIntervals()==2);
+    ASSERT_always_require2(m3.size()==10, showWhere(m3.size(), 10));
+    ASSERT_always_require(boost::distance(m3.nodes())==2);
+    constraint_tests(m3);
+    io_tests(m3);
+
+    // top of address space: { 65525-65529, 65531-65535 }
+    AMap m4;
+    m4.insert(AInterval::hull(65525, 65529), AMap::Segment::anonymousInstance(5, Access::READABLE));
+    m4.insert(AInterval::hull(65531, 65535), AMap::Segment::anonymousInstance(5, Access::READABLE));
+    ASSERT_always_require(m4.nIntervals()==2);
+    ASSERT_always_require2(m4.size()==10, showWhere(m4.size(), 10));
+    ASSERT_always_require(boost::distance(m4.nodes())==2);
+    constraint_tests(m4);
+    io_tests(m4);
+}
+
 static void test01() {
     typedef unsigned Address;
     typedef Interval<Address> Addresses;
@@ -208,7 +1405,7 @@ static void test02() {
 
     // Write across both buffers and check that data2 occluded data1
     Addresses accessed = map.at(1001).limit(13).write("bcdefghijklmn");
-    ASSERT_always_require(accessed.size()==13);
+    ASSERT_always_require2(accessed.size()==13, showWhere(1001, 13, accessed.size(), 13));
     ASSERT_always_require(0==memcmp(data1, "-bcde-----klmn-", 15));
     ASSERT_always_require(0==memcmp(data2,      "fghij#####", 10));
 
@@ -219,7 +1416,7 @@ static void test02() {
 
     // Write some data again
     accessed = map.at(1001).limit(13).write("BCDEFGHIJKLMN");
-    ASSERT_always_require(accessed.size()==13);
+    ASSERT_always_require2(accessed.size()==13, showWhere(1001, 13, accessed.size(), 13));
     ASSERT_always_require(0==memcmp(data1, "-BCDEFGHIJKLMN-", 15));
     ASSERT_always_require(0==memcmp(data2,      "fghij#####", 10));
 }
@@ -247,6 +1444,8 @@ static void test03() {
 }
 
 int main() {
+
+    test00();
     test01();
     test02();
     test03();

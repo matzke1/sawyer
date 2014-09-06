@@ -2,7 +2,9 @@
 #define Sawyer_AddressSegment_H
 
 #include <boost/cstdint.hpp>
+#include <sawyer/Access.h>
 #include <sawyer/AllocatingBuffer.h>
+#include <sawyer/MappedBuffer.h>
 #include <sawyer/NullBuffer.h>
 #include <sawyer/StaticBuffer.h>
 #include <sawyer/Sawyer.h>
@@ -31,6 +33,11 @@ public:
     typedef A Address;                                  /**< Address types expected to be used by the underlying buffer. */
     typedef T Value;                                    /**< Type of values stored by the underlying buffer. */
 
+    //-------------------------------------------------------------------------------------------------------------------
+    // Constructors
+    //-------------------------------------------------------------------------------------------------------------------
+public:
+
     /** Default constructor.
      *
      *  Constructs a segment that does not point to any buffer.  This is mainly to fulfill the requirement that values in an
@@ -47,16 +54,21 @@ public:
     /** Construct a segment with buffer.
      *
      *  This is the usual way that segments are created: by specifying a buffer and some access permissions. */
-    explicit AddressSegment(const typename Buffer<Address, Value>::Ptr &buffer, Address offset = 0, unsigned accessBits = 0,
+    explicit AddressSegment(const typename Buffer<Address, Value>::Ptr &buffer, Address offset=0, unsigned accessBits=0,
                             const std::string &name="")
         : buffer_(buffer), offset_(offset), accessibility_(accessBits), name_(name) {}
+
+    //-------------------------------------------------------------------------------------------------------------------
+    // The following static methods are convenience wrappers around various buffer types.
+    //-------------------------------------------------------------------------------------------------------------------
+public:
 
     /** Create a segment that points to no data.
      *
      *  Creates a segment of the specified size that points to a NullBuffer. This creates a segment which returns default
      *  constructed values when read, which fails when written.  Such a segment is appropriate and efficient for mapping very
      *  large areas of an address space. */
-    static AddressSegment nullInstance(Address size, unsigned accessBits = 0, const std::string &name="") {
+    static AddressSegment nullInstance(Address size, unsigned accessBits=0, const std::string &name="") {
         return AddressSegment(NullBuffer<A, T>::instance(size), 0, accessBits, name);
     }
 
@@ -64,7 +76,7 @@ public:
      *
      *  Creates a segment by allocating default-constructed values. Writes to this segment will update the underlying buffer,
      *  but the buffer is only stored in memory and not attached to any type of file or permanent storage. */
-    static AddressSegment anonymousInstance(Address size, unsigned accessBits = 0, const std::string &name="") {
+    static AddressSegment anonymousInstance(Address size, unsigned accessBits=0, const std::string &name="") {
         return AddressSegment(AllocatingBuffer<A, T>::instance(size), 0, accessBits, name);
     }
 
@@ -77,11 +89,23 @@ public:
         return AddressSegment(StaticBuffer<A, T>::instance(buffer, size), 0, accessBits, name);
     }
     static AddressSegment staticInstance(const Value *buffer, Address size, unsigned accessBits=0, const std::string &name="") {
-        static const unsigned IMMUTABLE = 8;            // see MemoryMap::IMMUTABLE, which can't be included here
-        return AddressSegment(StaticBuffer<A, T>::instance(buffer, size), 0, accessBits|IMMUTABLE, name);
+        return AddressSegment(StaticBuffer<A, T>::instance(buffer, size), 0, accessBits|Access::IMMUTABLE, name);
     }
     /** @} */
 
+    /** Map a file into an address space. */
+    static AddressSegment fileInstance(const std::string &fileName, unsigned accessBits=Access::READABLE,
+                                       const std::string &name="") {
+        boost::iostreams::mapped_file::mapmode mode = (accessBits & Access::WRITABLE)!=0 ?
+                                                      boost::iostreams::mapped_file::readwrite :
+                                                      boost::iostreams::mapped_file::readonly;
+        return AddressSegment(MappedBuffer<A, T>::instance(fileName, mode), 0, accessBits, name);
+    }
+
+    //-------------------------------------------------------------------------------------------------------------------
+    // Properties
+    //-------------------------------------------------------------------------------------------------------------------
+public:
     /** Property: buffer.
      *
      *  This is the @ref Buffer object that represents the values stored in this interval of the address space.  The first
@@ -112,14 +136,6 @@ public:
     AddressSegment& accessibility(unsigned bits) { accessibility_ = bits; return *this; }
     /** @} */
 
-    /** Determines whether this segment is accessible.
-     *
-     *  Returns true if all bits that are set in @p requiredAccess are also set in this segment, and none of the bits set in @p
-     *  prohibitedAccess are set in this segment. */
-    bool isAccessible(unsigned requiredAccess, unsigned prohibitedAccess) const {
-        return requiredAccess==(accessibility_ & requiredAccess) && 0==(accessibility_ & prohibitedAccess);
-    }
-    
     /** Property: name.
      *
      *  Each segment may be given a name which can be used for debugging.
@@ -128,6 +144,19 @@ public:
     const std::string &name() const { return name_; }
     AddressSegment& name(const std::string &s) { name_ = s; return *this; }
     /** @} */
+    
+    //-------------------------------------------------------------------------------------------------------------------
+    // Other methods
+    //-------------------------------------------------------------------------------------------------------------------
+public:
+    /** Determines whether this segment is accessible.
+     *
+     *  Returns true if all bits that are set in @p requiredAccess are also set in this segment, and none of the bits set in @p
+     *  prohibitedAccess are set in this segment. */
+    bool isAccessible(unsigned requiredAccess, unsigned prohibitedAccess) const {
+        return requiredAccess==(accessibility_ & requiredAccess) && 0==(accessibility_ & prohibitedAccess);
+    }
+    
 };
 
 } // namespace

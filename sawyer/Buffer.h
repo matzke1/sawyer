@@ -16,7 +16,7 @@ template<class A, class T>
 class Buffer: public SharedObject {
     std::string name_;
 protected:
-    Buffer() {}
+    Buffer(): name_(generateSequentialName()) {}
 public:
     /** Reference counting smart pointer.
      *
@@ -31,6 +31,7 @@ public:
     /** Type of values stored in the buffer. */
     typedef T Value;
 
+public:
     virtual ~Buffer() {}
 
     /** Distance to end of buffer.

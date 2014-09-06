@@ -36,10 +36,11 @@ endif()
 
 # libsawyer
 set(lib_src
+  sawyer/Assert.C
+  sawyer/Buffer.C
+  sawyer/CommandLine.C
   sawyer/Markup.C
   sawyer/MarkupPod.C
-  sawyer/Assert.C
-  sawyer/CommandLine.C
   sawyer/Message.C
   sawyer/ProgressBar.C
   sawyer/Sawyer.C
