@@ -1079,9 +1079,8 @@ public:
      *  and lack the IMMUTABLE bit, and in the case of STL vectors that not more data is written thn what is in the vector.
      *  The return value is the interval of addresses that were written.
      *
-     *  Note that the memory map object (@c this) is constant because a write operation doesn't change the mapping, it only
-     *  copies data into the existing mapped buffers.  The Access::IMMUTABLE bit is usually used to indicate that a buffer
-     *  cannot be modified (for instance, the buffer is memory allocated with read-only access by POSIX @c mmap).
+     *  The Access::IMMUTABLE bit is usually used to indicate that a buffer cannot be modified (for instance, the buffer is
+     *  memory allocated with read-only access by POSIX @c mmap).
      *
      *  The constraints are usually curried before the actual read call, as in this example that writes the vector's values
      *  into the map at the first writable address greater than or equal to 1000.
@@ -1105,18 +1104,35 @@ public:
      *
      * @{ */
     Sawyer::Container::Interval<Address>
-    write(const Value *buf, AddressMapConstraints<const AddressMap> c, MatchFlags flags=0) const {
+    write(const Value *buf, AddressMapConstraints<AddressMap> c, MatchFlags flags=0) {
         ASSERT_require2(0 == (flags & NONCONTIGUOUS), "only contiguous addresses can be written");
         if (0==(flags & (CONTIGUOUS|NONCONTIGUOUS)))
             flags |= CONTIGUOUS;
         c.prohibit(Access::IMMUTABLE);                  // don't ever write to buffers that can't be modified
-        MatchedConstraints<const AddressMap> m = matchConstraints(*this, c, flags);
+        MatchedConstraints<AddressMap> m = matchConstraints(*this, c, flags);
         if (buf) {
-            BOOST_FOREACH (const Node &node, m.nodes_) {
+            BOOST_FOREACH (Node &node, m.nodes_) {
+                Segment &segment = node.value();
                 Sawyer::Container::Interval<Address> part = m.interval_ & node.key(); // part of segment to write
                 ASSERT_forbid(part.isEmpty());
-                Address bufferOffset = part.least() - node.key().least() + node.value().offset();
-                Address nValues = node.value().buffer()->write(buf, bufferOffset, part.size());
+                typename Buffer::Ptr buffer = segment.buffer();
+                ASSERT_not_null(buffer);
+
+                if (segment.isCopyOnWrite()) {
+                    typename Buffer::Ptr newBuffer = buffer->copy();
+                    ASSERT_not_null(newBuffer);
+                    for (NodeIterator iter=lowerBound(node.key().least()); iter!=nodes().end(); ++iter) {
+                        if (iter->value().buffer() == buffer) {
+                            iter->value().buffer(newBuffer);
+                            iter->value().clearCopyOnWrite();
+                        }
+                    }
+                    buffer = newBuffer;
+                    ASSERT_forbid(segment.isCopyOnWrite());
+                }
+
+                Address bufferOffset = part.least() - node.key().least() + segment.offset();
+                Address nValues = buffer->write(buf, bufferOffset, part.size());
                 if (nValues != part.size()) {
                     checkConsistency();
                     ASSERT_not_reachable("something is wrong with the memory map");
@@ -1128,7 +1144,7 @@ public:
     }
 
     Sawyer::Container::Interval<Address>
-    write(const std::vector<Value> &buf, AddressMapConstraints<const AddressMap> c, MatchFlags flags=0) const {
+    write(const std::vector<Value> &buf, AddressMapConstraints<AddressMap> c, MatchFlags flags=0) {
         c.limit(buf.size());
         return buf.empty() ? Sawyer::Container::Interval<Address>() : write(&buf[0], c, flags);
     }

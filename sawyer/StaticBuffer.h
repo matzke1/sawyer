@@ -1,6 +1,7 @@
 #ifndef Sawyer_StaticBuffer_H
 #define Sawyer_StaticBuffer_H
 
+#include <sawyer/AllocatingBuffer.h>
 #include <sawyer/Assert.h>
 #include <sawyer/Buffer.h>
 #include <sawyer/Sawyer.h>
@@ -46,6 +47,20 @@ public:
     }
     /** @} */
 
+    // It doesn't make sense to exactly copy a static buffer because the point is to create a new buffer that points to data
+    // that is independent of the source buffer.  Therefore we create an allocating buffer instead.
+    typename Buffer<A, T>::Ptr copy() const /*override*/ {
+        typename Buffer<A, T>::Ptr newBuffer = AllocatingBuffer<A, T>::instance(size_);
+        Address nWritten = newBuffer->write(values_, 0, size_);
+        if (nWritten != size_) {
+            throw std::runtime_error("StaticBuffer::copy() failed after copying " +
+                                     boost::lexical_cast<std::string>(nWritten) + " of " +
+                                     boost::lexical_cast<std::string>(size_) +
+                                     (1==size_?" value":" values"));
+        }
+        return newBuffer;
+    }
+    
     Address available(Address start) const /*override*/ {
         return start < size_ ? size_-start : 0;
     }

@@ -3,6 +3,9 @@
 
 #include <sawyer/Buffer.h>
 #include <sawyer/Sawyer.h>
+
+#include <boost/lexical_cast.hpp>
+#include <string>
 #include <vector>
 
 namespace Sawyer {
@@ -34,6 +37,18 @@ public:
         return typename Buffer<A, T>::Ptr(new AllocatingBuffer(size));
     }
 
+    typename Buffer<A, T>::Ptr copy() const /*override*/ {
+        typename Buffer<A, T>::Ptr newBuffer = instance(this->size());
+        Address nWritten = newBuffer->write(&values_[0], 0, this->size());
+        if (nWritten != this->size()) {
+            throw std::runtime_error("AllocatingBuffer::copy() failed after copying " +
+                                     boost::lexical_cast<std::string>(nWritten) + " of " +
+                                     boost::lexical_cast<std::string>(this->size()) +
+                                     (1==this->size()?" value":" values"));
+        }
+        return newBuffer;
+    }
+    
     Address available(Address start) const /*override*/ {
         return start < size_ ? size_-start : 0;
     }

@@ -29,6 +29,10 @@ public:
         return typename Buffer<A, T>::Ptr(new NullBuffer(size));
     }
 
+    typename Buffer<A, T>::Ptr copy() const /*override*/ {
+        return instance(size_);
+    }
+    
     Address available(Address start) const /*override*/ {
         return start < size_ ? size_ - start : 0;
     }

@@ -1,9 +1,13 @@
 #ifndef Sawyer_MappedBuffer_H
 #define Sawyer_MappedBuffer_H
 
+#include <sawyer/AllocatingBuffer.h>
 #include <sawyer/Buffer.h>
 #include <sawyer/Sawyer.h>
+
 #include <boost/iostreams/device/mapped_file.hpp>
+#include <boost/lexical_cast.hpp>
+#include <string>
 
 namespace Sawyer {
 namespace Container {
@@ -54,6 +58,22 @@ public:
         return typename Buffer<A, T>::Ptr(new MappedBuffer(params));
     }
 
+    // It doesn't make sense to copy a memory-mapped buffer since the point of copying is to result in two independent buffers
+    // pointing to non-shared data. If a shared, writable, memory-mapped buffer is backed by a file and we make a new copy also
+    // backed by the file, then changing one buffer would change the other.  Therefore, we allocate new memory that will hold a
+    // snapshot of the source buffer.
+    typename Buffer<A, T>::Ptr copy() const /*override*/ {
+        typename Buffer<A, T>::Ptr newBuffer = AllocatingBuffer<A, T>::instance(this->size());
+        Address nWritten = newBuffer->write((const Value*)device_.data(), 0, this->size());
+        if (nWritten != this->size()) {
+            throw std::runtime_error("MappedBuffer::copy() failed after copying " +
+                                     boost::lexical_cast<std::string>(nWritten) + " of " +
+                                     boost::lexical_cast<std::string>(this->size()) +
+                                     (1==this->size()?" value":" values"));
+        }
+        return newBuffer;
+    }
+    
     Address available(Address address) const /*override*/ {
         return address >= device_.size() ? Address(0) : (Address(device_.size()) - address) / sizeof(Value);
     }

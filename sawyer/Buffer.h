@@ -34,6 +34,13 @@ public:
 public:
     virtual ~Buffer() {}
 
+    /** Create a new copy of buffer data.
+     *
+     *  Returns a new buffer containing the same data as the old buffer.  Some buffer types cannot make an exact copy, in which
+     *  case they should return an AllocatingBuffer that holds a snapshot of the source buffer's data as it existed at the time
+     *  of this operation. */
+    virtual Buffer::Ptr copy() const = 0;
+
     /** Distance to end of buffer.
      *
      *  The distance in units of the Value type from the specified address (inclusive) to the last element of the buffer

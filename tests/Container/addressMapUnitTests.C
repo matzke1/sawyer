@@ -170,15 +170,6 @@ void compile_test_const(Map &s) {
     s.any().read(v);
     s.any().read(v, s.BACKWARD);
 
-    s.write(NULL, s.any());
-    s.write(NULL, s.any(), s.BACKWARD);
-    s.any().write(NULL);
-    s.any().write(NULL, s.BACKWARD);
-    s.write(v, s.any());
-    s.write(v, s.any(), s.BACKWARD);
-    s.any().write(v);
-    s.any().write(v, s.BACKWARD);
-
     // Operations for const and non-const maps (but not on constraints)
     s.unmapped(0);
     s.unmapped(0, s.BACKWARD);
@@ -192,6 +183,17 @@ void compile_test_const(Map &s) {
 // Test that all operations that can be applied to mutable maps compile
 template<class Map>
 void compile_test_mutable(Map &s) {
+    std::vector<typename Map::Value> v;
+
+    s.write(NULL, s.any());
+    s.write(NULL, s.any(), s.BACKWARD);
+    s.any().write(NULL);
+    s.any().write(NULL, s.BACKWARD);
+    s.write(v, s.any());
+    s.write(v, s.any(), s.BACKWARD);
+    s.any().write(v);
+    s.any().write(v, s.BACKWARD);
+
     s.prune(s.any());
     s.prune(s.any(), s.BACKWARD);
     s.any().prune();
