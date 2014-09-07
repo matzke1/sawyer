@@ -217,32 +217,32 @@ void test9(const DestinationPtr &sink)
 //    log[DEBUG] <<"level 1\n";
 //}
 
+// A stupid little sink that surrounds each message with "--->" and "<---"
+class MySink: public StreamSink {
+protected:
+    explicit MySink(std::ostream &o): StreamSink(o) {}
+public:
+    typedef Sawyer::SharedPointer<MySink> Ptr;
+    static Ptr instance(std::ostream &o) {
+        return Ptr(new MySink(o));
+    }
+    virtual std::string maybePrefix(const Mesg &mesg, const MesgProps &props) /*override*/ {
+        std::string retval = UnformattedSink::maybePrefix(mesg, props);
+        if (!retval.empty())
+            retval += " --->";
+        return retval;
+    }
+    virtual std::string maybeBody(const Mesg &mesg, const MesgProps &props) /*override*/ {
+        std::string retval = UnformattedSink::maybeBody(mesg, props);
+        if (mesg.isComplete())
+            retval += "<---";
+        return retval;
+    }
+};
+
 // alternative sink
 void test12(const DestinationPtr &sink) 
 {
-    // A stupid little sink that surrounds each message with "--->" and "<---"
-    typedef Sawyer::SharedPointer<class MySink> MySinkPtr;
-    class MySink: public StreamSink {
-    protected:
-        explicit MySink(std::ostream &o): StreamSink(o) {}
-    public:
-        static MySinkPtr instance(std::ostream &o) {
-            return MySinkPtr(new MySink(o));
-        }
-        virtual std::string maybePrefix(const Mesg &mesg, const MesgProps &props) /*override*/ {
-            std::string retval = UnformattedSink::maybePrefix(mesg, props);
-            if (!retval.empty())
-                retval += " --->";
-            return retval;
-        }
-        virtual std::string maybeBody(const Mesg &mesg, const MesgProps &props) /*override*/ {
-            std::string retval = UnformattedSink::maybeBody(mesg, props);
-            if (mesg.isComplete())
-                retval += "<---";
-            return retval;
-        }
-    };
-
     banner("test12 - user-defined sink");
     Facility log("test12", MySink::instance(std::cerr));
     log[INFO] <<"message 1\nmessage 2\n";
@@ -406,6 +406,17 @@ void test17(const DestinationPtr &sink) {
     log[FATAL] <<"fatal error message\n";
 }
 
+class MyPrefix: public Prefix {
+protected:
+    MyPrefix() {}
+public:
+    typedef Sawyer::SharedPointer<MyPrefix> Ptr;
+    static Ptr instance() { return Ptr(new MyPrefix); }
+    virtual std::string toString(const Mesg&, const MesgProps &props) const /*override*/ {
+        return "MY PREFIX {" + stringifyImportance(props.importance.orElse(INFO)) + "} ";
+    }
+};
+
 // Test custom prefix
 void test18(const DestinationPtr &sink) {
     banner("test18 - custom prefix");
@@ -432,16 +443,6 @@ void test18(const DestinationPtr &sink) {
     
     // Prefix that starts each message with "MY PREFIX {<importance>} "
     std::cerr <<"use our own prefix generator:\n";
-    typedef Sawyer::SharedPointer<class MyPrefix> MyPrefixPtr;
-    class MyPrefix: public Prefix {
-    protected:
-        MyPrefix() {}
-    public:
-        static MyPrefixPtr instance() { return MyPrefixPtr(new MyPrefix); }
-        virtual std::string toString(const Mesg&, const MesgProps &props) const /*override*/ {
-            return "MY PREFIX {" + stringifyImportance(props.importance.orElse(INFO)) + "} ";
-        }
-    };
     unf->prefix(MyPrefix::instance());
     log[DEBUG] <<"debugging message\n";
     log[TRACE] <<"tracing message\n";

@@ -20,6 +20,19 @@ void showRawMarkup(const ParserResult &parserResult) {
     exit(0);
 }
 
+class MyParser: public ValueParser {
+public:
+    typedef Sawyer::SharedPointer<MyParser> Ptr;
+    static Ptr instance() { return Ptr(new MyParser); } // or use a global myParser() factory function
+    boost::any operator()(const char *s, const char **rest) {
+        if (0==strncmp(s, ":module:", 8) && isalnum(s[8])) {
+            *rest = s + strlen(s);
+            return std::string(s);
+        }
+        return boost::any();                        // nothing to parse
+    }
+};
+
 int main(int argc, char *argv[]) {
 
     // The command-line parsing library API enables a message chaining paradigm because each property-setting method returns a
@@ -280,18 +293,6 @@ int main(int argc, char *argv[]) {
     // course, this silly example can probably be delayed until after parsing, but when the syntax is for an optional switch
     // argument you sometimes need to do it during parsing.  The interface shown has an API like strtod() et al. There's also
     // an interface for parsing values that span multiple program arguments.
-    typedef Sawyer::SharedPointer<class MyParser> MyParserPtr;
-    class MyParser: public ValueParser {
-    public:
-        static MyParserPtr instance() { return MyParserPtr(new MyParser); } // or use a global myParser() factory function
-        boost::any operator()(const char *s, const char **rest) {
-            if (0==strncmp(s, ":module:", 8) && isalnum(s[8])) {
-                *rest = s + strlen(s);
-                return std::string(s);
-            }
-            return boost::any();                        // nothing to parse
-        }
-    };
     ss.insert(Switch("module", 'M')
               .argument("module-name", MyParser::instance()));
 

@@ -951,7 +951,7 @@ SAWYER_EXPORT Stream&
 Facility::get(Importance imp) {
     if (imp<0 || imp>=N_IMPORTANCE)
         throw std::runtime_error("invalid importance level");
-    if ((size_t)imp>=streams_.size() || NULL==streams_[imp]) {
+    if ((size_t)imp>=streams_.size() || NULL==streams_[imp].get()) {
         // If you're looking at this line in a debugger it's probably because you're trying to use a Stream from a
         // default-constructed Facility.  Facilities that are allocated statically and/or at global scope should probably
         // either be constructed with Facility(const std::string&) or initialized by assigning some other facility to them.

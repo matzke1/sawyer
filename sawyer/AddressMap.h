@@ -943,7 +943,7 @@ public:
      *  This method does not use constraints since it searches for addresses that do not exist in the map. */
     Sawyer::Container::Interval<Address>
     unmapped(Address boundary, MatchFlags flags=0) const {
-        return (flags & BACKWARD) != 0 ? lastUnmapped(boundary) : this->firstUnmapped(boundary);
+        return (flags & BACKWARD) != 0 ? this->lastUnmapped(boundary) : this->firstUnmapped(boundary);
     }
 
     /** Find free space.
@@ -1121,7 +1121,7 @@ public:
                 if (segment.isCopyOnWrite()) {
                     typename Buffer::Ptr newBuffer = buffer->copy();
                     ASSERT_not_null(newBuffer);
-                    for (NodeIterator iter=lowerBound(node.key().least()); iter!=nodes().end(); ++iter) {
+                    for (NodeIterator iter=this->lowerBound(node.key().least()); iter!=nodes().end(); ++iter) {
                         if (iter->value().buffer() == buffer) {
                             iter->value().buffer(newBuffer);
                             iter->value().clearCopyOnWrite();
