@@ -37,7 +37,6 @@ endif()
 # libsawyer
 set(lib_src
   sawyer/Assert.C
-  sawyer/Buffer.C
   sawyer/CommandLine.C
   sawyer/Markup.C
   sawyer/MarkupPod.C
