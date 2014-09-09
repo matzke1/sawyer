@@ -963,6 +963,10 @@ Facility::get(Importance imp) {
         // either be constructed with Facility(const std::string&) or initialized by assigning some other facility to them.
         // Another possibility is that you provided Sawyer::Message::merr as the destination before libsawyer had a chance to
         // initialize that global variable. You can work around that problem by calling Sawyer::initializeLibrary() first.
+        //
+        // ROSE users: librose does not currently (2014-09-09) initialize libsawyer until the ROSE frontend() is called. If
+        // you're calling into librose before calling "frontend" then you probably want to explicitly initialize ROSE by
+        // invoking rose::Diagnostics::initialize() early in "main".
         throw std::runtime_error("stream " + stringifyImportance(imp) +
                                  (name_.empty() ? std::string() : " in facility \"" + name_ + "\"") +
                                  " is not initialized yet");
