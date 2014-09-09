@@ -432,14 +432,20 @@ void HighWater::emitted(const Mesg &mesg, const MesgProps &props) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Gang::GangMap Gang::gangs_;
+// This is a pointer so that it doesn't depend on order of global variable initialization. We'll allocate it the first time we
+// need it.
+Gang::GangMap *Gang::gangs_ = NULL;
 
 GangPtr Gang::instanceForId(int id) {
-    return gangs_.insertMaybe(id, Gang::instance());
+    if (!gangs_)
+        gangs_ = new GangMap;
+    return gangs_->insertMaybe(id, Gang::instance());
 }
 
 void Gang::removeInstance(int id) {
-    gangs_.erase(id);
+    if (!gangs_)
+        gangs_ = new GangMap;
+    gangs_->erase(id);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1387,11 +1393,11 @@ Facilities::print(std::ostream &log) const {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-SAWYER_EXPORT DestinationPtr merr;
-SAWYER_EXPORT Facility mlog("sawyer");
-SAWYER_EXPORT Facilities mfacilities;
+SAWYER_EXPORT DestinationPtr merr SAWYER_STATIC_INIT;
+SAWYER_EXPORT Facility mlog SAWYER_STATIC_INIT ("sawyer");
+SAWYER_EXPORT Facilities mfacilities SAWYER_STATIC_INIT;
 SAWYER_EXPORT bool isInitialized;
-SAWYER_EXPORT SProxy assertionStream;
+SAWYER_EXPORT SProxy assertionStream SAWYER_STATIC_INIT;
 
 SAWYER_EXPORT bool
 initializeLibrary() {
