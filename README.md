@@ -21,7 +21,7 @@ Documentation
 
 The Saywer user manual and API reference manual are combined in a
 single document.  A version of the documentation can be found
-[here](http://hoosierfocus.com/sawyer), or users can run
+[here](http://www.whosyourfocus.com/~matzke/sawyer), or users can run
 
     $ doxygen docs/doxygen.conf
 
