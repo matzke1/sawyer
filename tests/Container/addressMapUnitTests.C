@@ -129,55 +129,55 @@ void compile_test_const(Map &s) {
     s.nSegments();
 
     s.segments(s.any());
-    s.segments(s.any(), s.BACKWARD);
+    s.segments(s.any(), MATCH_BACKWARD);
     s.any().segments();
-    s.any().segments(s.BACKWARD);
+    s.any().segments(MATCH_BACKWARD);
 
     s.nodes();
     s.nodes(s.any());
-    s.nodes(s.any(), s.BACKWARD);
+    s.nodes(s.any(), MATCH_BACKWARD);
     s.any().nodes();
-    s.any().nodes(s.BACKWARD);
+    s.any().nodes(MATCH_BACKWARD);
 
     s.next(s.any());
-    s.next(s.any(), s.BACKWARD);
+    s.next(s.any(), MATCH_BACKWARD);
     s.any().next();
-    s.any().next(s.BACKWARD);
+    s.any().next(MATCH_BACKWARD);
 
     s.available(s.any());
-    s.available(s.any(), s.BACKWARD);
+    s.available(s.any(), MATCH_BACKWARD);
     s.any().available();
-    s.any().available(s.BACKWARD);
+    s.any().available(MATCH_BACKWARD);
 
     s.exists(s.any());
-    s.exists(s.any(), s.BACKWARD);
+    s.exists(s.any(), MATCH_BACKWARD);
     s.any().exists();
-    s.any().exists(s.BACKWARD);
+    s.any().exists(MATCH_BACKWARD);
 
     s.findNode(s.any());
-    s.findNode(s.any(), s.BACKWARD);
+    s.findNode(s.any(), MATCH_BACKWARD);
     s.any().findNode();
-    s.any().findNode(s.BACKWARD);
+    s.any().findNode(MATCH_BACKWARD);
 
     std::vector<typename Map::Value> v;
 
     s.read(NULL, s.any());
-    s.read(NULL, s.any(), s.BACKWARD);
+    s.read(NULL, s.any(), MATCH_BACKWARD);
     s.any().read(NULL);
-    s.any().read(NULL, s.BACKWARD);
+    s.any().read(NULL, MATCH_BACKWARD);
     s.read(v, s.any());
-    s.read(v, s.any(), s.BACKWARD);
+    s.read(v, s.any(), MATCH_BACKWARD);
     s.any().read(v);
-    s.any().read(v, s.BACKWARD);
+    s.any().read(v, MATCH_BACKWARD);
 
     // Operations for const and non-const maps (but not on constraints)
     s.unmapped(0);
-    s.unmapped(0, s.BACKWARD);
+    s.unmapped(0, MATCH_BACKWARD);
 
     s.findFreeSpace(1);
     s.findFreeSpace(1, 2);
     s.findFreeSpace(1, 2, Addresses::whole());
-    s.findFreeSpace(1, 2, Addresses::whole(), s.BACKWARD);
+    s.findFreeSpace(1, 2, Addresses::whole(), MATCH_BACKWARD);
 }
 
 // Test that all operations that can be applied to mutable maps compile
@@ -186,28 +186,28 @@ void compile_test_mutable(Map &s) {
     std::vector<typename Map::Value> v;
 
     s.write(NULL, s.any());
-    s.write(NULL, s.any(), s.BACKWARD);
+    s.write(NULL, s.any(), MATCH_BACKWARD);
     s.any().write(NULL);
-    s.any().write(NULL, s.BACKWARD);
+    s.any().write(NULL, MATCH_BACKWARD);
     s.write(v, s.any());
-    s.write(v, s.any(), s.BACKWARD);
+    s.write(v, s.any(), MATCH_BACKWARD);
     s.any().write(v);
-    s.any().write(v, s.BACKWARD);
+    s.any().write(v, MATCH_BACKWARD);
 
     s.prune(s.any());
-    s.prune(s.any(), s.BACKWARD);
+    s.prune(s.any(), MATCH_BACKWARD);
     s.any().prune();
-    s.any().prune(s.BACKWARD);
+    s.any().prune(MATCH_BACKWARD);
 
     s.keep(s.any());
-    s.keep(s.any(), s.BACKWARD);
+    s.keep(s.any(), MATCH_BACKWARD);
     s.any().keep();
-    s.any().keep(s.BACKWARD);
+    s.any().keep(MATCH_BACKWARD);
 
     s.changeAccess(0, 0, s.any());
-    s.changeAccess(0, 0, s.any(), s.BACKWARD);
+    s.changeAccess(0, 0, s.any(), MATCH_BACKWARD);
     s.any().changeAccess(0, 0);
-    s.any().changeAccess(0, 0, s.BACKWARD);
+    s.any().changeAccess(0, 0, MATCH_BACKWARD);
 }
 
 void compile_tests() {
@@ -305,12 +305,12 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.at(i).available(m.NONCONTIGUOUS);
+        AInterval got = m.at(i).available(MATCH_NONCONTIGUOUS);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.at(i).nodes(m.NONCONTIGUOUS));
+        checkNodes(m, got, m.at(i).nodes(MATCH_NONCONTIGUOUS));
     }
 
-    std::cout <<"  check: at(i).available(BACKWARD)\n";
+    std::cout <<"  check: at(i).available(MATCH_BACKWARD)\n";
     SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
         Address minAddr=1, maxAddr=0;
         if (check.exists(i)) {
@@ -324,9 +324,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.at(i).available(m.BACKWARD);
+        AInterval got = m.at(i).available(MATCH_BACKWARD);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.at(i).nodes(m.BACKWARD));
+        checkNodes(m, got, m.at(i).nodes(MATCH_BACKWARD));
     }
 
     std::cout <<"  check: at(i).available(NONCONTIGUOUS|BACKWARD)\n";
@@ -340,9 +340,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.at(i).available(m.NONCONTIGUOUS|m.BACKWARD);
+        AInterval got = m.at(i).available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.at(i).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+        checkNodes(m, got, m.at(i).nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
     }
 
     //---------------------------------------------------------------------------------------------------------------- 
@@ -380,9 +380,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.at(AInterval::hull(i, j)).available(m.NONCONTIGUOUS);
+            AInterval got = m.at(AInterval::hull(i, j)).available(MATCH_NONCONTIGUOUS);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.at(AInterval::hull(i, j)).nodes(m.NONCONTIGUOUS));
+            checkNodes(m, got, m.at(AInterval::hull(i, j)).nodes(MATCH_NONCONTIGUOUS));
         }
     }
     
@@ -401,9 +401,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.at(AInterval::hull(i, j)).available(m.BACKWARD);
+            AInterval got = m.at(AInterval::hull(i, j)).available(MATCH_BACKWARD);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.at(AInterval::hull(i, j)).nodes(m.BACKWARD));
+            checkNodes(m, got, m.at(AInterval::hull(i, j)).nodes(MATCH_BACKWARD));
         }
     }
     
@@ -419,9 +419,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.at(AInterval::hull(i, j)).available(m.NONCONTIGUOUS|m.BACKWARD);
+            AInterval got = m.at(AInterval::hull(i, j)).available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.at(AInterval::hull(i, j)).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+            checkNodes(m, got, m.at(AInterval::hull(i, j)).nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
         }
     }
     
@@ -469,9 +469,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.at(i).limit(j).available(m.NONCONTIGUOUS);
+            AInterval got = m.at(i).limit(j).available(MATCH_NONCONTIGUOUS);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.at(i).limit(j).nodes(m.NONCONTIGUOUS));
+            checkNodes(m, got, m.at(i).limit(j).nodes(MATCH_NONCONTIGUOUS));
         }
     }
 
@@ -494,9 +494,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.at(i).limit(j).available(m.BACKWARD);
+            AInterval got = m.at(i).limit(j).available(MATCH_BACKWARD);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.at(i).limit(j).nodes(m.BACKWARD));
+            checkNodes(m, got, m.at(i).limit(j).nodes(MATCH_BACKWARD));
         }
     }
     
@@ -517,9 +517,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.at(i).limit(j).available(m.NONCONTIGUOUS|m.BACKWARD);
+            AInterval got = m.at(i).limit(j).available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.at(i).limit(j).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+            checkNodes(m, got, m.at(i).limit(j).nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
         }
     }
     
@@ -568,9 +568,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.limit(i).available(m.NONCONTIGUOUS);
+        AInterval got = m.limit(i).available(MATCH_NONCONTIGUOUS);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.limit(i).nodes(m.NONCONTIGUOUS));
+        checkNodes(m, got, m.limit(i).nodes(MATCH_NONCONTIGUOUS));
     }
 
     std::cout <<"  check: limit(i).available(BACKWARD)\n";
@@ -593,9 +593,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.limit(i).available(m.BACKWARD);
+        AInterval got = m.limit(i).available(MATCH_BACKWARD);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.limit(i).nodes(m.BACKWARD));
+        checkNodes(m, got, m.limit(i).nodes(MATCH_BACKWARD));
     }
 
     std::cout <<"  check: limit(i).available(NONCONTIGUOUS|BACKWARD)\n";
@@ -616,9 +616,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr<=maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.limit(i).available(m.NONCONTIGUOUS|m.BACKWARD);
+        AInterval got = m.limit(i).available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.limit(i).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+        checkNodes(m, got, m.limit(i).nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
     }
 
     //---------------------------------------------------------------------------------------------------------------- 
@@ -656,9 +656,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.atOrAfter(i).available(m.NONCONTIGUOUS);
+        AInterval got = m.atOrAfter(i).available(MATCH_NONCONTIGUOUS);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.atOrAfter(i).nodes(m.NONCONTIGUOUS));
+        checkNodes(m, got, m.atOrAfter(i).nodes(MATCH_NONCONTIGUOUS));
     }
 
     std::cout <<"  check: atOrAfter(i).available(BACKWARD)\n";
@@ -676,9 +676,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.atOrAfter(i).available(m.BACKWARD);
+        AInterval got = m.atOrAfter(i).available(MATCH_BACKWARD);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.atOrAfter(i).nodes(m.BACKWARD));
+        checkNodes(m, got, m.atOrAfter(i).nodes(MATCH_BACKWARD));
     }
     
     std::cout <<"  check: atOrAfter(i).available(NONCONTIGUOUS|BACKWARD)\n";
@@ -694,9 +694,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.atOrAfter(i).available(m.NONCONTIGUOUS|m.BACKWARD);
+        AInterval got = m.atOrAfter(i).available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.atOrAfter(i).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+        checkNodes(m, got, m.atOrAfter(i).nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
     }
 
     //---------------------------------------------------------------------------------------------------------------- 
@@ -735,9 +735,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.atOrBefore(i).available(m.NONCONTIGUOUS);
+        AInterval got = m.atOrBefore(i).available(MATCH_NONCONTIGUOUS);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.atOrBefore(i).nodes(m.NONCONTIGUOUS));
+        checkNodes(m, got, m.atOrBefore(i).nodes(MATCH_NONCONTIGUOUS));
     }
 
     std::cout <<"  check: atOrBefore(i).available(BACKWARD)\n";
@@ -755,9 +755,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.atOrBefore(i).available(m.BACKWARD);
+        AInterval got = m.atOrBefore(i).available(MATCH_BACKWARD);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.atOrBefore(i).nodes(m.BACKWARD));
+        checkNodes(m, got, m.atOrBefore(i).nodes(MATCH_BACKWARD));
     }
 
     std::cout <<"  check: atOrBefore(i).available(NONCONTIGUOUS|BACKWARD)\n";
@@ -773,9 +773,9 @@ void constraint_tests(AddressMap &m) {
             }
         }
         AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-        AInterval got = m.atOrBefore(i).available(m.NONCONTIGUOUS|m.BACKWARD);
+        AInterval got = m.atOrBefore(i).available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
         ASSERT_always_require2(got==answer, showWhere(i, got, answer));
-        checkNodes(m, got, m.atOrBefore(i).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+        checkNodes(m, got, m.atOrBefore(i).nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
     }
 
     //---------------------------------------------------------------------------------------------------------------- 
@@ -818,9 +818,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.within(i, j).available(m.NONCONTIGUOUS);
+            AInterval got = m.within(i, j).available(MATCH_NONCONTIGUOUS);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.within(i, j).nodes(m.NONCONTIGUOUS));
+            checkNodes(m, got, m.within(i, j).nodes(MATCH_NONCONTIGUOUS));
         }
     }
     
@@ -841,9 +841,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.within(i, j).available(m.BACKWARD);
+            AInterval got = m.within(i, j).available(MATCH_BACKWARD);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.within(i, j).nodes(m.BACKWARD));
+            checkNodes(m, got, m.within(i, j).nodes(MATCH_BACKWARD));
         }
     }
     
@@ -862,9 +862,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.within(i, j).available(m.NONCONTIGUOUS|m.BACKWARD);
+            AInterval got = m.within(i, j).available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.within(i, j).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+            checkNodes(m, got, m.within(i, j).nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
         }
     }
 
@@ -910,9 +910,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.within(i, j).singleSegment().available(m.NONCONTIGUOUS);
+            AInterval got = m.within(i, j).singleSegment().available(MATCH_NONCONTIGUOUS);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.within(i, j).singleSegment().nodes(m.NONCONTIGUOUS));
+            checkNodes(m, got, m.within(i, j).singleSegment().nodes(MATCH_NONCONTIGUOUS));
         }
     }
     
@@ -933,9 +933,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.within(i, j).singleSegment().available(m.BACKWARD);
+            AInterval got = m.within(i, j).singleSegment().available(MATCH_BACKWARD);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.within(i, j).singleSegment().nodes(m.BACKWARD));
+            checkNodes(m, got, m.within(i, j).singleSegment().nodes(MATCH_BACKWARD));
         }
     }
     
@@ -956,9 +956,9 @@ void constraint_tests(AddressMap &m) {
                 }
             }
             AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-            AInterval got = m.within(i, j).singleSegment().available(m.NONCONTIGUOUS|m.BACKWARD);
+            AInterval got = m.within(i, j).singleSegment().available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
             ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-            checkNodes(m, got, m.within(i, j).singleSegment().nodes(m.NONCONTIGUOUS|m.BACKWARD));
+            checkNodes(m, got, m.within(i, j).singleSegment().nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
         }
     }
 
@@ -1027,9 +1027,9 @@ void constraint_tests(AddressMap &m) {
                     }
                 }
                 AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-                AInterval got = m.within(i, j).require(access).available(m.NONCONTIGUOUS);
+                AInterval got = m.within(i, j).require(access).available(MATCH_NONCONTIGUOUS);
                 ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-                checkNodes(m, got, m.within(i, j).require(access).nodes(m.NONCONTIGUOUS));
+                checkNodes(m, got, m.within(i, j).require(access).nodes(MATCH_NONCONTIGUOUS));
             }
         }
     }
@@ -1063,9 +1063,9 @@ void constraint_tests(AddressMap &m) {
                     }
                 }
                 AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-                AInterval got = m.within(i, j).require(access).available(m.BACKWARD);
+                AInterval got = m.within(i, j).require(access).available(MATCH_BACKWARD);
                 ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-                checkNodes(m, got, m.within(i, j).require(access).nodes(m.BACKWARD));
+                checkNodes(m, got, m.within(i, j).require(access).nodes(MATCH_BACKWARD));
             }
         }
     }
@@ -1097,9 +1097,9 @@ void constraint_tests(AddressMap &m) {
                     }
                 }
                 AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-                AInterval got = m.within(i, j).require(access).available(m.NONCONTIGUOUS|m.BACKWARD);
+                AInterval got = m.within(i, j).require(access).available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
                 ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-                checkNodes(m, got, m.within(i, j).require(access).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+                checkNodes(m, got, m.within(i, j).require(access).nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
             }
         }
     }
@@ -1169,9 +1169,9 @@ void constraint_tests(AddressMap &m) {
                     }
                 }
                 AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-                AInterval got = m.within(i, j).prohibit(access).available(m.NONCONTIGUOUS);
+                AInterval got = m.within(i, j).prohibit(access).available(MATCH_NONCONTIGUOUS);
                 ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-                checkNodes(m, got, m.within(i, j).prohibit(access).nodes(m.NONCONTIGUOUS));
+                checkNodes(m, got, m.within(i, j).prohibit(access).nodes(MATCH_NONCONTIGUOUS));
             }
         }
     }
@@ -1205,9 +1205,9 @@ void constraint_tests(AddressMap &m) {
                     }
                 }
                 AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-                AInterval got = m.within(i, j).prohibit(access).available(m.BACKWARD);
+                AInterval got = m.within(i, j).prohibit(access).available(MATCH_BACKWARD);
                 ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-                checkNodes(m, got, m.within(i, j).prohibit(access).nodes(m.BACKWARD));
+                checkNodes(m, got, m.within(i, j).prohibit(access).nodes(MATCH_BACKWARD));
             }
         }
     }
@@ -1239,9 +1239,9 @@ void constraint_tests(AddressMap &m) {
                     }
                 }
                 AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
-                AInterval got = m.within(i, j).prohibit(access).available(m.NONCONTIGUOUS|m.BACKWARD);
+                AInterval got = m.within(i, j).prohibit(access).available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
                 ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
-                checkNodes(m, got, m.within(i, j).prohibit(access).nodes(m.NONCONTIGUOUS|m.BACKWARD));
+                checkNodes(m, got, m.within(i, j).prohibit(access).nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
             }
         }
     }
