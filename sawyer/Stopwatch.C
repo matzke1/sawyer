@@ -1,10 +1,39 @@
-#include <sawyer/Stopwatch.h>
 #include <sawyer/Sawyer.h>
+#include <sawyer/Stopwatch.h>
+#include <iostream>
+
+#if defined(SAWYER_HAVE_BOOST_CHRONO)
+#   include <boost/chrono/duration.hpp>
+#   include <boost/chrono/system_clocks.hpp>
+#elif defined(BOOST_WINDOWS)
+#   include <time.h>
+#   include <windows.h>
+#   undef ERROR                                         // not sure where this pollution comes from
+#   undef max                                           // more pollution
+#else // POSIX
+#   include <sys/time.h>                                // gettimeofday() and struct timeval
+#endif
 
 namespace Sawyer {
 
 static Stopwatch::TimePoint getCurrentTime() {
+#if defined(SAWYER_HAVE_BOOST_CHRONO)
     return boost::chrono::high_resolution_clock::now();
+#elif defined(BOOST_WINDOWS)
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    unsigned __int64 t = ft.dwHighDateTime;
+    t <<= 32;
+    t |= ft.dwLowDateTime;
+    t /= 10;                                            // convert into microseconds
+    //t -= 11644473600000000Ui64;                       // convert file time to microseconds since Unix epoch
+    return t / 1e6;
+#else // POSIX
+    struct timeval t;
+    if (-1==gettimeofday(&t, NULL))
+        return 0.0;
+    return t.tv_sec + 1e-6 * t.tv_usec;
+#endif
 }
 
 SAWYER_EXPORT double
@@ -14,7 +43,11 @@ Stopwatch::report(bool clear) const {
         elapsed_ += now - begin_;
         begin_ = now;
     }
+#ifdef SAWYER_HAVE_BOOST_CHRONO
     double retval = elapsed_.count();
+#else
+    double retval = elapsed_;
+#endif
     if (clear)
         elapsed_ = Duration();
     return retval;
@@ -42,6 +75,12 @@ Stopwatch::clear(double value) {
     double retval = stop();
     elapsed_ = Duration(value);
     return retval;
+}
+
+SAWYER_EXPORT std::ostream&
+operator<<(std::ostream &out, const Stopwatch &x) {
+    out <<x.report();
+    return out;
 }
 
 } // namespace

@@ -1,9 +1,12 @@
 #ifndef Sawyer_Stopwatch_H
 #define Sawyer_Stopwatch_H
 
-#include <boost/chrono/duration.hpp>
-#include <boost/chrono/system_clocks.hpp>
 #include <sawyer/Sawyer.h>
+
+#ifdef SAWYER_HAVE_BOOST_CHRONO
+# include <boost/chrono/duration.hpp>
+# include <boost/chrono/system_clocks.hpp>
+#endif
 
 namespace Sawyer {
 
@@ -30,8 +33,13 @@ namespace Sawyer {
  *  synchronization occurs above the method calls. */
 class SAWYER_EXPORT Stopwatch {
 public:
+#ifdef SAWYER_HAVE_BOOST_CHRONO
     typedef boost::chrono::high_resolution_clock::time_point TimePoint;
     typedef boost::chrono::duration<double> Duration;
+#else
+    typedef double TimePoint;
+    typedef double Duration;
+#endif
 
 private:
 #include <sawyer/WarningsOff.h>
@@ -77,6 +85,9 @@ public:
      *  Returns true if and only if the stopwatch is running. */
     bool isRunning() const { return running_; }
 };
+
+
+SAWYER_EXPORT std::ostream& operator<<(std::ostream&, const Stopwatch&);
 
 } // namespace
 #endif
