@@ -90,6 +90,7 @@ void compile_test_const(Map &s) {
     // Test that constraints can be generated from a map
     s.require(Access::READABLE);
     s.prohibit(Access::READABLE);
+    s.access(Access::READABLE);
     s.substr("one");
     s.at(100);
     s.at(Addresses::hull(0, 10));
@@ -109,6 +110,7 @@ void compile_test_const(Map &s) {
     // Test that constraints can be augmented
     s.any().require(Access::READABLE);
     s.any().prohibit(Access::READABLE);
+    s.any().access(Access::READABLE);
     s.any().substr("one");
     s.any().at(100);
     s.any().at(Addresses::hull(0, 10));
@@ -1018,11 +1020,15 @@ void constraint_tests(AddressMap &m) {
                 bool inside = false;
                 const Segment *segment;
                 SAFE_FOR_UP(k, i, j) {
-                    if (check.getOptional(k).assignTo(segment) && access == (segment->accessibility() & access)) {
-                        maxAddr = k;
-                        if (!inside) {
-                            minAddr = k;
-                            inside = true;
+                    if (check.getOptional(k).assignTo(segment)) {
+                        if (access == (segment->accessibility() & access)) {
+                            maxAddr = k;
+                            if (!inside) {
+                                minAddr = k;
+                                inside = true;
+                            }
+                        } else if (inside) {
+                            break;
                         }
                     }
                 }
@@ -1088,11 +1094,15 @@ void constraint_tests(AddressMap &m) {
                 bool inside = false;
                 const Segment *segment;
                 SAFE_FOR_DN(k, j, i) {
-                    if (check.getOptional(k).assignTo(segment) && access == (segment->accessibility() & access)) {
-                        minAddr = k;
-                        if (!inside) {
-                            maxAddr = k;
-                            inside = true;
+                    if (check.getOptional(k).assignTo(segment)) {
+                        if (access == (segment->accessibility() & access)) {
+                            minAddr = k;
+                            if (!inside) {
+                                maxAddr = k;
+                                inside = true;
+                            }
+                        } else if (inside) {
+                            break;
                         }
                     }
                 }
@@ -1160,11 +1170,15 @@ void constraint_tests(AddressMap &m) {
                 bool inside = false;
                 const Segment *segment;
                 SAFE_FOR_UP(k, i, j) {
-                    if (check.getOptional(k).assignTo(segment) && 0 == (segment->accessibility() & access)) {
-                        maxAddr = k;
-                        if (!inside) {
-                            minAddr = k;
-                            inside = true;
+                    if (check.getOptional(k).assignTo(segment)) {
+                        if (0 == (segment->accessibility() & access)) {
+                            maxAddr = k;
+                            if (!inside) {
+                                minAddr = k;
+                                inside = true;
+                            }
+                        } else if (inside) {
+                            break;
                         }
                     }
                 }
@@ -1230,11 +1244,15 @@ void constraint_tests(AddressMap &m) {
                 bool inside = false;
                 const Segment *segment;
                 SAFE_FOR_DN(k, j, i) {
-                    if (check.getOptional(k).assignTo(segment) && 0 == (segment->accessibility() & access)) {
-                        minAddr = k;
-                        if (!inside) {
-                            maxAddr = k;
-                            inside = true;
+                    if (check.getOptional(k).assignTo(segment)) {
+                        if (0 == (segment->accessibility() & access)) {
+                            minAddr = k;
+                            if (!inside) {
+                                maxAddr = k;
+                                inside = true;
+                            }
+                        } else if (inside) {
+                            break;
                         }
                     }
                 }
@@ -1245,6 +1263,157 @@ void constraint_tests(AddressMap &m) {
             }
         }
     }
+
+    //---------------------------------------------------------------------------------------------------------------- 
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).access(READABLE).available()\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).access(READWRITE).available()\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_UP(k, i, j) {
+                    if (check.getOptional(k).assignTo(segment) && access == segment->accessibility()) {
+                        maxAddr = k;
+                        if (!inside) {
+                            minAddr = k;
+                            inside = true;
+                        }
+                    } else if (inside) {
+                        break;
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).access(access).available();
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).access(access).nodes());
+            }
+        }
+    }
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).access(READABLE).access(NONCONTIGUOUS)\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).access(READWRITE).access(NONCONTIGUOUS)\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_UP(k, i, j) {
+                    if (check.getOptional(k).assignTo(segment)) {
+                        if (access == segment->accessibility()) {
+                            maxAddr = k;
+                            if (!inside) {
+                                minAddr = k;
+                                inside = true;
+                            }
+                        } else if (inside) {
+                            break;
+                        }
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).access(access).available(MATCH_NONCONTIGUOUS);
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).access(access).nodes(MATCH_NONCONTIGUOUS));
+            }
+        }
+    }
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).access(READABLE).available(BACKWARD)\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).access(READWRITE).available(BACKWARD)\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_DN(k, j, i) {
+                    if (check.getOptional(k).assignTo(segment) && access == segment->accessibility()) {
+                        minAddr = k;
+                        if (!inside) {
+                            maxAddr = k;
+                            inside = true;
+                        }
+                    } else if (inside) {
+                        break;
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).access(access).available(MATCH_BACKWARD);
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).access(access).nodes(MATCH_BACKWARD));
+            }
+        }
+    }
+
+    for (int a=0; a<2; a++) {
+        unsigned access = 0;
+        switch (a) {
+            case 0:
+                std::cout <<"  check: within(i,j).access(READABLE).available(NONCONTIGUOUS|BACKWARD)\n";
+                access = Access::READABLE;
+                break;
+            case 1:
+                std::cout <<"  check: within(i,j).access(READWRITE).available(NONCONTIGUOUS|BACKWARD)\n";
+                access = Access::READABLE | Access::WRITABLE;
+                break;
+        }
+        SAFE_FOR_UP(i, ispace.least(), ispace.greatest()) {
+            SAFE_FOR_UP(j, i, ispace.greatest()) {
+                Address minAddr=1, maxAddr=0;
+                bool inside = false;
+                const Segment *segment;
+                SAFE_FOR_DN(k, j, i) {
+                    if (check.getOptional(k).assignTo(segment)) {
+                        if (access == segment->accessibility()) {
+                            minAddr = k;
+                            if (!inside) {
+                                maxAddr = k;
+                                inside = true;
+                            }
+                        } else if (inside) {
+                            break;
+                        }
+                    }
+                }
+                AInterval answer = minAddr <= maxAddr ? AInterval::hull(minAddr, maxAddr) : AInterval();
+                AInterval got = m.within(i, j).access(access).available(MATCH_NONCONTIGUOUS|MATCH_BACKWARD);
+                ASSERT_always_require2(got==answer, showWhere(i, j, got, answer));
+                checkNodes(m, got, m.within(i, j).access(access).nodes(MATCH_NONCONTIGUOUS|MATCH_BACKWARD));
+            }
+        }
+    }
+
 }
 
 template<class MemoryMap>
