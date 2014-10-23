@@ -4,6 +4,7 @@
 #include <sawyer/Assert.h>
 #include <sawyer/DefaultAllocator.h>
 #include <sawyer/IndexedList.h>
+#include <sawyer/Optional.h>                            // for Sawyer::Nothing
 #include <sawyer/Sawyer.h>
 #include <boost/range/iterator_range.hpp>
 #include <ostream>
@@ -56,6 +57,9 @@ struct GraphTraits<const G> {
  *  value for the vertex, but also an ID number and connectivity information. Within this documentation, the term "vertex" is
  *  always used as the name of a graph component (i.e., a graph has vertices and edges), and the term "node" always refers to a
  *  unit of storage.
+ *
+ *  A graph doesn't necessarily need to store data at each vertex or edge. The vertex and node types default to @ref Nothing,
+ *  which is similar to @c void.
  *
  * @section iterators Iterators
  *
@@ -219,7 +223,7 @@ struct GraphTraits<const G> {
  *  @li %Graph copy: O(|V|+|E|)
  *
  *  Insertion is amortized constant time due to a vector-based ID map that may require reallocation. */
-template<class V, class E, class Alloc = DefaultAllocator>
+template<class V = Nothing, class E = Nothing, class Alloc = DefaultAllocator>
 class Graph {
 public:
     typedef V VertexValue;                              /**< User-level data associated with vertices. */

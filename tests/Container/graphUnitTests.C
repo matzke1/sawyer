@@ -593,6 +593,23 @@ void depth_first_visit() {
     graph.depthFirstVisit(visitor, graph.findVertex(0));
 }
 
+static void dfltGraph() {
+    // Default is to store nothing (an instance of Sawyer::Nothing) at each vertex and edge.
+    typedef Sawyer::Container::Graph<> Graph;
+    Graph graph;
+
+    Graph::VertexNodeIterator v1 = graph.insertVertex();
+    Graph::VertexNodeIterator v2 = graph.insertVertex();
+    Graph::EdgeNodeIterator e1 = graph.insertEdge(v1, v2);
+
+    ASSERT_always_require(v1->value() == Sawyer::Nothing());
+    ASSERT_always_require(e1->value() == Sawyer::Nothing());
+    
+    BOOST_FOREACH (const Sawyer::Nothing &v, graph.vertexValues()) {
+        ASSERT_always_require(v == Sawyer::Nothing());
+    }
+}
+
 int main() {
     typedef Sawyer::Container::Graph<std::string, std::string> G1;
     default_ctor<G1>();
@@ -609,4 +626,5 @@ int main() {
     conversion<G1>();
     assignment_conversion<G1>();
     depth_first_visit<G1>();
+    dfltGraph();
 }
