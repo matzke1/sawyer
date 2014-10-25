@@ -1,4 +1,6 @@
 #include <sawyer/CommandLine.h>
+
+#include <sawyer/Optional.h>
 #include <boost/algorithm/string/predicate.hpp>
 #include <iostream>
 
@@ -417,6 +419,7 @@ static void test11() {
     short ss;
     unsigned int ui;
     unsigned short us;
+    Sawyer::Optional<int> oss;
     Parser p;
     p.with(Switch("si", 'a')
            .argument("arg", nonNegativeIntegerParser(si)));
@@ -426,6 +429,8 @@ static void test11() {
            .argument("arg", nonNegativeIntegerParser(ss)));
     p.with(Switch("us", 'd')
            .argument("arg", nonNegativeIntegerParser(us)));
+    p.with(Switch("oss", 'e')
+           .argument("arg", nonNegativeIntegerParser(oss)));
 
     // signed int
     mustParse(1, p, "--si=123", "0");
@@ -442,6 +447,11 @@ static void test11() {
     
     mustParse(2, p, "-a", "456", "0");
     ASSERT_require(si==456);
+
+    oss = Sawyer::Nothing();
+    mustParse(1, p, "--oss=123", "0");
+    ASSERT_always_require(oss);
+    ASSERT_always_require(*oss == 123);
 
     mustNotParse("unsigned integer expected", p, "-a-123", "0");
     mustNotParse("unsigned integer expected", p, "-a", "-456", "0");
@@ -522,9 +532,11 @@ static void test11() {
 static void test12() {
     std::cerr <<"test12: Boolean parser\n";
     bool b1=false, b2=false;
+    Sawyer::Optional<bool> b3;
     Parser p;
     p.with(Switch("first", 'f').argument("boolean", booleanParser(b1)));
     p.with(Switch("second", 'r').argument("boolean", booleanParser(b2)));
+    p.with(Switch("third").argument("boolean", booleanParser(b3)));
 
     mustParse(1, p, "--first=yes", "no");
     ASSERT_require(b1==true);
@@ -550,6 +562,16 @@ static void test12() {
     ASSERT_require(b1==true);
     mustParse(1, p, "--first=0", "1");
     ASSERT_require(b1==false);
+
+    b3 = Sawyer::Nothing();
+    mustParse(1, p, "--third=false", "1");
+    ASSERT_always_require(b3);
+    ASSERT_always_require(!*b3);
+
+    b3 = Sawyer::Nothing();
+    mustParse(1, p, "--third=true", "1");
+    ASSERT_always_require(b3);
+    ASSERT_always_require(*b3);
 
     mustParse(1, p, "-ftrt");
     ASSERT_require(b1==true);
@@ -789,10 +811,12 @@ static void test20() {
     std::string s;
     int i = 0;
     std::vector<std::string> v;
+    Sawyer::Optional<std::string> os;
     Parser p;
     p.with(Switch("str", 's').argument("username", anyParser(s)));
     p.with(Switch("int", 'i').argument("width", integerParser(i)));
     p.with(Switch("vec", 'v').argument("vector", listParser(anyParser(v))));
+    p.with(Switch("opt").argument("name", anyParser(os)));
 
     mustParse(0, p, "");
 
@@ -817,6 +841,11 @@ static void test20() {
     ASSERT_require(v[0]=="a");
     ASSERT_require(v[1]=="");
     ASSERT_require(v[2]=="b");
+
+    os = Sawyer::Nothing();
+    mustParse(1, p, "--opt=", "aaa");
+    ASSERT_always_require(os);
+    ASSERT_always_require(*os == "");
 
     mustNotParse("required argument for --int is missing; for width: integer expected", p, "--int", "", "123");
     mustNotParse("required argument for --int is missing; for width: integer expected", p, "--int=", "123");
