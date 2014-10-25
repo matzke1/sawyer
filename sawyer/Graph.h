@@ -22,6 +22,10 @@ struct GraphTraits {
     typedef typename G::EdgeValueIterator EdgeValueIterator;
     typedef typename G::VertexNodeIterator VertexNodeIterator;
     typedef typename G::VertexValueIterator VertexValueIterator;
+    typedef typename G::VertexNode VertexNode;
+    typedef typename G::EdgeNode EdgeNode;
+    typedef typename G::VertexValue VertexValue;
+    typedef typename G::EdgeValue EdgeValue;
 };
 
 template<class G>
@@ -30,6 +34,10 @@ struct GraphTraits<const G> {
     typedef typename G::ConstEdgeValueIterator EdgeValueIterator;
     typedef typename G::ConstVertexNodeIterator VertexNodeIterator;
     typedef typename G::ConstVertexValueIterator VertexValueIterator;
+    typedef const typename G::VertexNode VertexNode;
+    typedef const typename G::EdgeNode EdgeNode;
+    typedef const typename G::VertexValue VertexValue;
+    typedef const typename G::EdgeValue EdgeValue;
 };
 
 /** %Graph containing user-defined vertices and edges.
@@ -495,6 +503,8 @@ public:
         typedef                    EdgeBaseIterator<EdgeNodeIterator, EdgeNode, EdgeNode, typename EdgeList::NodeIterator,
                                                     VirtualList<EdgeNode> > Super;
     public:
+        typedef EdgeNode& Reference;
+        typedef EdgeNode* Pointer;
         EdgeNodeIterator() {}
         EdgeNodeIterator(const EdgeNodeIterator &other): Super(other) {}
         EdgeNode& operator*() const { return this->dereference(); }
@@ -518,6 +528,8 @@ public:
                                                          typename EdgeList::ConstNodeIterator,
                                                          const VirtualList<EdgeNode> > Super;
     public:
+        typedef const EdgeNode& Reference;
+        typedef const EdgeNode* Pointer;
         ConstEdgeNodeIterator() {}
         ConstEdgeNodeIterator(const ConstEdgeNodeIterator &other): Super(other) {}
         ConstEdgeNodeIterator(const EdgeNodeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
@@ -541,6 +553,8 @@ public:
         typedef                     EdgeBaseIterator<EdgeValueIterator, EdgeValue, EdgeNode, typename EdgeList::NodeIterator,
                                                      VirtualList<EdgeNode> > Super;
     public:
+        typedef EdgeValue& Reference;
+        typedef EdgeValue* Pointer;
         EdgeValueIterator() {}
         EdgeValueIterator(const EdgeValueIterator &other): Super(other) {}
         EdgeValueIterator(const EdgeNodeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
@@ -564,6 +578,8 @@ public:
                                                           typename EdgeList::ConstNodeIterator,
                                                           const VirtualList<EdgeNode> > Super;
     public:
+        typedef const EdgeValue& Reference;
+        typedef const EdgeValue* Pointer;
         ConstEdgeValueIterator() {}
         ConstEdgeValueIterator(const ConstEdgeValueIterator &other): Super(other) {}
         ConstEdgeValueIterator(const EdgeValueIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
@@ -588,6 +604,8 @@ public:
         typedef                      VertexBaseIterator<VertexNodeIterator, VertexNode, VertexNode,
                                                         typename VertexList::NodeIterator> Super;
     public:
+        typedef VertexNode& Reference;
+        typedef VertexNode* Pointer;
         VertexNodeIterator() {}
         VertexNodeIterator(const VertexNodeIterator &other): Super(other) {}
         VertexNode& operator*() const { return this->dereference(); }
@@ -607,6 +625,8 @@ public:
         typedef                           VertexBaseIterator<ConstVertexNodeIterator, const VertexNode, const VertexNode,
                                                              typename VertexList::ConstNodeIterator> Super;
     public:
+        typedef const VertexNode& Reference;
+        typedef const VertexNode* Pointer;
         ConstVertexNodeIterator() {}
         ConstVertexNodeIterator(const ConstVertexNodeIterator &other): Super(other) {}
         ConstVertexNodeIterator(const VertexNodeIterator &other): Super(other.base_) {}
@@ -628,6 +648,8 @@ public:
         typedef                       VertexBaseIterator<VertexValueIterator, VertexValue, VertexNode,
                                                          typename VertexList::NodeIterator> Super;
     public:
+        typedef VertexValue& Reference;
+        typedef VertexValue* Pointer;
         VertexValueIterator() {}
         VertexValueIterator(const VertexValueIterator &other): Super(other) {}
         VertexValueIterator(const VertexNodeIterator &other): Super(other.base_) {}
@@ -648,6 +670,8 @@ public:
         typedef                            VertexBaseIterator<ConstVertexValueIterator, const VertexValue, const VertexNode,
                                                               typename VertexList::ConstNodeIterator> Super;
     public:
+        typedef const VertexValue& Reference;
+        typedef const VertexValue* Pointer;
         ConstVertexValueIterator() {}
         ConstVertexValueIterator(const ConstVertexValueIterator &other): Super(other) {}
         ConstVertexValueIterator(const VertexValueIterator &other): Super(other.base_) {}
@@ -1264,6 +1288,7 @@ private:
         ConstEdgeNodeIterator edge;
         DfsWorkItem(const ConstVertexNodeIterator &vertex, const ConstEdgeNodeIterator &edge): vertex(vertex), edge(edge) {}
     };
+
 
 public:
     /** Visits vertices and edges in a depth-first order.
