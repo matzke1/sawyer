@@ -116,6 +116,9 @@ struct GraphTraits<const G> {
  *      std::cout <<"  " <<name <<"\n";
  * @endcode
  *
+ *  %Sawyer also defines numerous graph traversals that can traverse vertices or edges in certain orders by following the graph
+ *  connectivity. See @ref Sawyer::Container::Algorithm::GraphTraversal.
+ *
  * @section ids Identification Numbers
  *
  *  Vertices and edges are also given small, consecutive ID numbers beginning at zero--one set for vertices and another set for
