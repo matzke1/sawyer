@@ -125,6 +125,10 @@ static void clearbit_tests() {
     showBin(v1, "cleared [20+9]");
     check(v1.toHex()=="9860043210");
 
+    v1.clear(0);
+    showBin(v1, "clear bit zero");
+    check(v1.toHex()=="9860043210");
+
     v1.clear();
     showBin(v1, "cleared all");
     check(v1.toHex()=="0000000000");
@@ -140,11 +144,15 @@ static void setbit_tests() {
     showBin(v1, "set [20+9]");
     check(v1.toHex()=="987ff43210");
 
+    v1.set(1);
+    showBin(v1, "set bit 1");
+    check(v1.toHex()=="987ff43212");
+
     v1.set();
     showBin(v1, "set all");
     check(v1.toHex()=="ffffffffff");
 
-    v1.set(BitRange::baseSize(20, 9), false);
+    v1.setValue(BitRange::baseSize(20, 9), false);
     showBin(v1, "set [20+9] false");
     check(v1.toHex()=="ffe00fffff");
 }
