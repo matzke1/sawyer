@@ -1,4 +1,5 @@
 #include <sawyer/Graph.h>
+#include <sawyer/GraphTraversal.h>
 #include <sawyer/Assert.h>
 #include <boost/foreach.hpp>
 #include <iostream>
@@ -545,54 +546,6 @@ struct DfsVisitor {
     }
 };
 
-template<class Graph>
-void depth_first_visit() {
-    std::cout <<"depth first visit:\n";
-    typedef typename Graph::VertexNodeIterator Vertex;
-    typedef typename Graph::EdgeNodeIterator Edge;
-    
-    Graph graph;
-
-    Vertex v0 = graph.insertVertex("v0");
-    Vertex v1 = graph.insertVertex("v1");
-    Vertex v2 = graph.insertVertex("v2");
-    Vertex v3 = graph.insertVertex("v3");
-    Vertex v4 = graph.insertVertex("v4");
-    Vertex v5 = graph.insertVertex("v5");
-    Vertex v6 = graph.insertVertex("v6");
-
-    Edge ea = graph.insertEdge(v0, v1, "A");            // large cycle
-    Edge eb = graph.insertEdge(v1, v2, "B");
-    Edge ec = graph.insertEdge(v2, v3, "C");
-    Edge ed = graph.insertEdge(v3, v4, "D");
-    Edge ee = graph.insertEdge(v4, v5, "E");
-    Edge ef = graph.insertEdge(v5, v0, "F");
-
-    Edge eg = graph.insertEdge(v4, v6, "G");            // edge to leaf
-    Edge eh = graph.insertEdge(v2, v2, "H");            // self edge
-    Edge ei = graph.insertEdge(v5, v4, "I");            // back edge
-    Edge ej = graph.insertEdge(v1, v3, "J");            // extra forward edge
-    Edge ek = graph.insertEdge(v3, v4, "K");            // parallel edge
-
-    std::cout <<"  initial graph:\n" <<graph;
-
-    std::vector<DfsExpected> expect;
-    expect.push_back(DfsExpected(0, false, 1, false, "A"));
-    expect.push_back(DfsExpected(1, true,  2, false, "B"));
-    expect.push_back(DfsExpected(2, true,  3, false, "C"));
-    expect.push_back(DfsExpected(3, true,  4, false, "D"));
-    expect.push_back(DfsExpected(4, true,  5, false, "E"));
-    expect.push_back(DfsExpected(5, true,  0, true,  "F"));
-    expect.push_back(DfsExpected(5, true,  4, true,  "I"));
-    expect.push_back(DfsExpected(4, true,  6, false, "G"));
-    expect.push_back(DfsExpected(3, true,  4, true,  "K"));
-    expect.push_back(DfsExpected(2, true,  2, true,  "H"));
-    expect.push_back(DfsExpected(1, true,  3, true,  "J"));
-
-    DfsVisitor<Graph> visitor(expect);
-    graph.depthFirstVisit(visitor, graph.findVertex(0));
-}
-
 static void dfltGraph() {
     // Default is to store nothing (an instance of Sawyer::Nothing) at each vertex and edge.
     typedef Sawyer::Container::Graph<> Graph;
@@ -610,6 +563,373 @@ static void dfltGraph() {
     }
 }
 
+static void compileTraversals() {
+    using namespace Sawyer::Container::Algorithm;
+    typedef Sawyer::Container::Graph<> Graph;
+    typedef Graph::VertexNodeIterator Vertex;
+    typedef Graph::EdgeNodeIterator Edge;
+    Graph g;
+    Vertex v = g.insertVertex();
+    Edge e = g.insertEdge(v, v);
+
+    DepthFirstForwardGraphTraversal<Graph> dffg1(g, v);
+    DepthFirstForwardGraphTraversal<Graph> dffg2(g, e);
+    DepthFirstReverseGraphTraversal<Graph> dfrg1(g, v);
+    DepthFirstReverseGraphTraversal<Graph> dfrg2(g, e);
+
+    BreadthFirstForwardGraphTraversal<Graph> bffg1(g, v);
+    BreadthFirstForwardGraphTraversal<Graph> bffg2(g, e);
+    BreadthFirstReverseGraphTraversal<Graph> bfrg1(g, v);
+    BreadthFirstReverseGraphTraversal<Graph> bfrg2(g, e);
+
+    DepthFirstForwardVertexTraversal<Graph> dffv1(g, v);
+    DepthFirstForwardVertexTraversal<Graph> dffv2(g, e);
+    DepthFirstReverseVertexTraversal<Graph> dfrv1(g, v);
+    DepthFirstReverseVertexTraversal<Graph> dfrv2(g, e);
+
+    DepthFirstForwardEdgeTraversal<Graph> dffe1(g, v);
+    DepthFirstForwardEdgeTraversal<Graph> dffe2(g, e);
+    DepthFirstReverseEdgeTraversal<Graph> dfre1(g, v);
+    DepthFirstReverseEdgeTraversal<Graph> dfre2(g, e);
+
+    BreadthFirstForwardVertexTraversal<Graph> bffv1(g, v);
+    BreadthFirstForwardVertexTraversal<Graph> bffv2(g, e);
+    BreadthFirstReverseVertexTraversal<Graph> bfrv1(g, v);
+    BreadthFirstReverseVertexTraversal<Graph> bfrv2(g, e);
+
+    BreadthFirstForwardEdgeTraversal<Graph> bffe1(g, v);
+    BreadthFirstForwardEdgeTraversal<Graph> bffe2(g, e);
+    BreadthFirstReverseEdgeTraversal<Graph> bfre1(g, v);
+    BreadthFirstReverseEdgeTraversal<Graph> bfre2(g, e);
+}
+
+template<class Graph>
+class TraversalAnswer {
+    struct Ans {
+        Sawyer::Container::Algorithm::TraversalEvent event;
+        typename Sawyer::Container::GraphTraits<Graph>::VertexNodeIterator vertex;
+        typename Sawyer::Container::GraphTraits<Graph>::EdgeNodeIterator edge;
+        Ans(Sawyer::Container::Algorithm::TraversalEvent event,
+            typename Sawyer::Container::GraphTraits<Graph>::VertexNodeIterator vertex,
+            typename Sawyer::Container::GraphTraits<Graph>::EdgeNodeIterator edge)
+            : event(event), vertex(vertex), edge(edge) {}
+        bool operator==(const Ans &other) const {
+            return event==other.event && vertex==other.vertex && edge==other.edge;
+        }
+        bool operator!=(const Ans &other) const {
+            return !(*this==other);
+        }
+    };
+    std::vector<Ans> ans_;
+    size_t current_;
+    Graph &graph_;
+    bool isGood_;
+public:
+    TraversalAnswer(Graph &graph): current_(0), graph_(graph), isGood_(true) {}
+
+    void clear() {
+        ans_.clear();
+        current_ = 0;
+        isGood_ = true;
+    }
+    
+    void operator()(Sawyer::Container::Algorithm::TraversalEvent event,
+                    typename Sawyer::Container::GraphTraits<Graph>::VertexNodeIterator vertex,
+                    typename Sawyer::Container::GraphTraits<Graph>::EdgeNodeIterator edge) {
+        ans_.push_back(Ans(event, vertex, edge));
+    }
+
+    std::string toString(const Ans &ans) {
+        std::ostringstream ss;
+        ss <<std::setw(20) <<Sawyer::Container::Algorithm::traversalEventName(ans.event);
+        if (ans.vertex==graph_.vertices().end()) {
+            ss <<"\tvertex=end";
+        } else {
+            ss <<"\tvertex=" <<ans.vertex->value();
+        }
+        if (ans.edge==graph_.edges().end()) {
+            ss <<"\tedge=end";
+        } else {
+            ss <<"\tedge=" <<ans.edge->value();
+        }
+        return ss.str();
+    }
+    
+    template<class Traversal>
+    void check(Traversal &t) {
+        Ans got(t.event(), t.vertex(), t.edge());
+        if (!isGood_ || current_>=ans_.size() || got!=ans_[current_]) {
+            if (isGood_) {
+                for (size_t i=0; i<current_; ++i) {
+                    std::cout <<"    correct: " <<std::setw(3) <<i <<toString(ans_[i]) <<"\n";
+                }
+            }
+            if (current_ >= ans_.size()) {
+                std::cout <<"    FAILED: past end of answer\n";
+                std::cout <<"       got:     " <<toString(got) <<"\n";
+            } else if (got!=ans_[current_]) {
+                std::cout <<"    FAILED:  " <<std::setw(3) <<current_ <<toString(ans_[current_]) <<"\n";
+                std::cout <<"       got:     " <<toString(got) <<"\n";
+            } else {
+                std::cout <<"    correct: " <<std::setw(3) <<current_ <<toString(ans_[current_]) <<"\n";
+            }
+            isGood_ = false;
+        }
+        ++current_;
+    }
+
+    bool isGood() const {
+        return isGood_ && current_==ans_.size();
+    }
+};
+
+static void traversals() {
+    using namespace Sawyer::Container::Algorithm;
+    typedef Sawyer::Container::Graph<std::string, std::string> Graph;
+    typedef Graph::VertexNodeIterator Vertex;
+    typedef Graph::EdgeNodeIterator Edge;
+
+    Graph g;                                            //      A  <--.     //
+    Vertex va = g.insertVertex("A");                    //    /   \    \    //
+    Vertex vb = g.insertVertex("B");                    //  0/    1\    :   //
+    Vertex vc = g.insertVertex("C");                    //  v       v   |   //
+    Vertex vd = g.insertVertex("D");                    //  B       C   |   //
+    Edge e0 = g.insertEdge(va, vb, "E0");               //   \     /    |   //
+    Edge e1 = g.insertEdge(va, vc, "E1");               //   2\  3/     :   //
+    Edge e2 = g.insertEdge(vb, vd, "E2");               //     v v     /    //
+    Edge e3 = g.insertEdge(vc, vd, "E3");               //      D    4/     //
+    Edge e4 = g.insertEdge(vd, va, "E4");               //       \___/      //
+    Edge no_edge = g.edges().end();
+    Vertex no_vert = g.vertices().end();
+    TraversalAnswer<Graph> ans(g);
+
+    std::cout <<"Depth-first forward traversal starting at vertex A\n";
+    ans.clear();
+    ans(DISCOVER_VERTEX,        va,     no_edge);
+    ans(ENTER_VERTEX,           va,     no_edge);
+    ans(ENTER_EDGE,             va,     e0);
+    ans(DISCOVER_VERTEX,        vb,     e0);
+    ans(ENTER_VERTEX,           vb,     e0);
+    ans(ENTER_EDGE,             vb,     e2);
+    ans(DISCOVER_VERTEX,        vd,     e2);
+    ans(ENTER_VERTEX,           vd,     e2);
+    ans(ENTER_EDGE,             vd,     e4);
+    ans(LEAVE_EDGE,             vd,     e4);
+    ans(LEAVE_VERTEX,           vd,     e2);
+    ans(LEAVE_EDGE,             vb,     e2);
+    ans(LEAVE_VERTEX,           vb,     e0);
+    ans(LEAVE_EDGE,             va,     e0);
+    ans(ENTER_EDGE,             va,     e1);
+    ans(DISCOVER_VERTEX,        vc,     e1);
+    ans(ENTER_VERTEX,           vc,     e1);
+    ans(ENTER_EDGE,             vc,     e3);
+    ans(LEAVE_EDGE,             vc,     e3);
+    ans(LEAVE_VERTEX,           vc,     e1);
+    ans(LEAVE_EDGE,             va,     e1);
+    ans(LEAVE_VERTEX,           va,     no_edge);
+    for (DepthFirstForwardGraphTraversal<Graph> t(g, va); t; ++t)
+        ans.check(t);
+    ASSERT_always_require(ans.isGood());
+
+    std::cout <<"Depth-first forward traversal starting at edge E0\n";
+    ans.clear();
+    ans(ENTER_EDGE,             no_vert,e0);
+    ans(DISCOVER_VERTEX,        vb,     e0);
+    ans(ENTER_VERTEX,           vb,     e0);
+    ans(ENTER_EDGE,             vb,     e2);
+    ans(DISCOVER_VERTEX,        vd,     e2);
+    ans(ENTER_VERTEX,           vd,     e2);
+    ans(ENTER_EDGE,             vd,     e4);
+    ans(DISCOVER_VERTEX,        va,     e4);
+    ans(ENTER_VERTEX,           va,     e4);
+    ans(ENTER_EDGE,             va,     e1);
+    ans(DISCOVER_VERTEX,        vc,     e1);
+    ans(ENTER_VERTEX,           vc,     e1);
+    ans(ENTER_EDGE,             vc,     e3);
+    ans(LEAVE_EDGE,             vc,     e3);
+    ans(LEAVE_VERTEX,           vc,     e1);
+    ans(LEAVE_EDGE,             va,     e1);
+    ans(LEAVE_VERTEX,           va,     e4);
+    ans(LEAVE_EDGE,             vd,     e4);
+    ans(LEAVE_VERTEX,           vd,     e2);
+    ans(LEAVE_EDGE,             vb,     e2);
+    ans(LEAVE_VERTEX,           vb,     e0);
+    ans(LEAVE_EDGE,             no_vert,e0);
+    for (DepthFirstForwardGraphTraversal<Graph> t(g, e0); t; ++t)
+        ans.check(t);
+    ASSERT_always_require(ans.isGood());
+
+    std::cout <<"Depth-first reverse traversal starting at vertex A\n";
+    ans.clear();
+    ans(DISCOVER_VERTEX,        va,     no_edge);
+    ans(ENTER_VERTEX,           va,     no_edge);
+    ans(ENTER_EDGE,             va,     e4);
+    ans(DISCOVER_VERTEX,        vd,     e4);
+    ans(ENTER_VERTEX,           vd,     e4);
+    ans(ENTER_EDGE,             vd,     e2);
+    ans(DISCOVER_VERTEX,        vb,     e2);
+    ans(ENTER_VERTEX,           vb,     e2);
+    ans(ENTER_EDGE,             vb,     e0);
+    ans(LEAVE_EDGE,             vb,     e0);
+    ans(LEAVE_VERTEX,           vb,     e2);
+    ans(LEAVE_EDGE,             vd,     e2);
+    ans(ENTER_EDGE,             vd,     e3);
+    ans(DISCOVER_VERTEX,        vc,     e3);
+    ans(ENTER_VERTEX,           vc,     e3);
+    ans(ENTER_EDGE,             vc,     e1);
+    ans(LEAVE_EDGE,             vc,     e1);
+    ans(LEAVE_VERTEX,           vc,     e3);
+    ans(LEAVE_EDGE,             vd,     e3);
+    ans(LEAVE_VERTEX,           vd,     e4);
+    ans(LEAVE_EDGE,             va,     e4);
+    ans(LEAVE_VERTEX,           va,     no_edge);
+    for (DepthFirstReverseGraphTraversal<Graph> t(g, va); t; ++t)
+        ans.check(t);
+    ASSERT_always_require(ans.isGood());
+
+    std::cout <<"Depth-first reverse traversal starting at edge E0\n";
+    ans.clear();
+    ans(ENTER_EDGE,             no_vert,e0);
+    ans(DISCOVER_VERTEX,        va,     e0);
+    ans(ENTER_VERTEX,           va,     e0);
+    ans(ENTER_EDGE,             va,     e4);
+    ans(DISCOVER_VERTEX,        vd,     e4);
+    ans(ENTER_VERTEX,           vd,     e4);
+    ans(ENTER_EDGE,             vd,     e2);
+    ans(DISCOVER_VERTEX,        vb,     e2);
+    ans(ENTER_VERTEX,           vb,     e2);
+    ans(LEAVE_VERTEX,           vb,     e2);
+    ans(LEAVE_EDGE,             vd,     e2);
+    ans(ENTER_EDGE,             vd,     e3);
+    ans(DISCOVER_VERTEX,        vc,     e3);
+    ans(ENTER_VERTEX,           vc,     e3);
+    ans(ENTER_EDGE,             vc,     e1);
+    ans(LEAVE_EDGE,             vc,     e1);
+    ans(LEAVE_VERTEX,           vc,     e3);
+    ans(LEAVE_EDGE,             vd,     e3);
+    ans(LEAVE_VERTEX,           vd,     e4);
+    ans(LEAVE_EDGE,             va,     e4);
+    ans(LEAVE_VERTEX,           va,     e0);
+    ans(LEAVE_EDGE,             no_vert,e0);
+    for (DepthFirstReverseGraphTraversal<Graph> t(g, e0); t; ++t)
+        ans.check(t);
+    ASSERT_always_require(ans.isGood());
+
+    std::cout <<"Breadth-first forward traversal starting at vertex A\n";
+    ans.clear();
+    ans(DISCOVER_VERTEX,        va,     no_edge);
+    ans(ENTER_VERTEX,           va,     no_edge);
+    ans(ENTER_EDGE,             va,     e0);
+    ans(DISCOVER_VERTEX,        vb,     e0);
+    ans(LEAVE_EDGE,             va,     e0);
+    ans(ENTER_EDGE,             va,     e1);
+    ans(DISCOVER_VERTEX,        vc,     e1);
+    ans(LEAVE_EDGE,             va,     e1);
+    ans(LEAVE_VERTEX,           va,     no_edge);
+    ans(ENTER_VERTEX,           vb,     e0);
+    ans(ENTER_EDGE,             vb,     e2);
+    ans(DISCOVER_VERTEX,        vd,     e2);
+    ans(LEAVE_EDGE,             vb,     e2);
+    ans(LEAVE_VERTEX,           vb,     e0);
+    ans(ENTER_VERTEX,           vc,     e1);
+    ans(ENTER_EDGE,             vc,     e3);
+    ans(LEAVE_EDGE,             vc,     e3);
+    ans(LEAVE_VERTEX,           vc,     e1);
+    ans(ENTER_VERTEX,           vd,     e2);
+    ans(ENTER_EDGE,             vd,     e4);
+    ans(LEAVE_EDGE,             vd,     e4);
+    ans(LEAVE_VERTEX,           vd,     e2);
+    for (BreadthFirstForwardGraphTraversal<Graph> t(g, va); t; ++t)
+        ans.check(t);
+    ASSERT_always_require(ans.isGood());
+
+    std::cout <<"Breadth-first forward traversal starting at edge E0\n";
+    ans.clear();
+    ans(ENTER_EDGE,             no_vert,e0);
+    ans(DISCOVER_VERTEX,        vb,     e0);
+    ans(LEAVE_EDGE,             no_vert,e0);
+    ans(ENTER_VERTEX,           vb,     e0);
+    ans(ENTER_EDGE,             vb,     e2);
+    ans(DISCOVER_VERTEX,        vd,     e2);
+    ans(LEAVE_EDGE,             vb,     e2);
+    ans(LEAVE_VERTEX,           vb,     e0);
+    ans(ENTER_VERTEX,           vd,     e2);
+    ans(ENTER_EDGE,             vd,     e4);
+    ans(DISCOVER_VERTEX,        va,     e4);
+    ans(LEAVE_EDGE,             vd,     e4);
+    ans(LEAVE_VERTEX,           vd,     e2);
+    ans(ENTER_VERTEX,           va,     e4);
+    ans(ENTER_EDGE,             va,     e1);
+    ans(DISCOVER_VERTEX,        vc,     e1);
+    ans(LEAVE_EDGE,             va,     e1);
+    ans(LEAVE_VERTEX,           va,     e4);
+    ans(ENTER_VERTEX,           vc,     e1);
+    ans(ENTER_EDGE,             vc,     e3);
+    ans(LEAVE_EDGE,             vc,     e3);
+    ans(LEAVE_VERTEX,           vc,     e1);
+    for (BreadthFirstForwardGraphTraversal<Graph> t(g, e0); t; ++t)
+        ans.check(t);
+    ASSERT_always_require(ans.isGood());
+
+    std::cout <<"Breadth-first reverse traversal starting at vertex A\n";
+    ans.clear();
+    ans(DISCOVER_VERTEX,        va,     no_edge);
+    ans(ENTER_VERTEX,           va,     no_edge);
+    ans(ENTER_EDGE,             va,     e4);
+    ans(DISCOVER_VERTEX,        vd,     e4);
+    ans(LEAVE_EDGE,             va,     e4);
+    ans(LEAVE_VERTEX,           va,     no_edge);
+    ans(ENTER_VERTEX,           vd,     e4);
+    ans(ENTER_EDGE,             vd,     e2);
+    ans(DISCOVER_VERTEX,        vb,     e2);
+    ans(LEAVE_EDGE,             vd,     e2);
+    ans(ENTER_EDGE,             vd,     e3);
+    ans(DISCOVER_VERTEX,        vc,     e3);
+    ans(LEAVE_EDGE,             vd,     e3);
+    ans(LEAVE_VERTEX,           vd,     e4);
+    ans(ENTER_VERTEX,           vb,     e2);
+    ans(ENTER_EDGE,             vb,     e0);
+    ans(LEAVE_EDGE,             vb,     e0);
+    ans(LEAVE_VERTEX,           vb,     e2);
+    ans(ENTER_VERTEX,           vc,     e3);
+    ans(ENTER_EDGE,             vc,     e1);
+    ans(LEAVE_EDGE,             vc,     e1);
+    ans(LEAVE_VERTEX,           vc,     e3);
+    for (BreadthFirstReverseGraphTraversal<Graph> t(g, va); t; ++t)
+        ans.check(t);
+    ASSERT_always_require(ans.isGood());
+    
+    std::cout <<"Breadth-first reverse traversal starting at edge E0\n";
+    ans.clear();
+    ans(ENTER_EDGE,             no_vert,e0);
+    ans(DISCOVER_VERTEX,        va,     e0);
+    ans(LEAVE_EDGE,             no_vert,e0);
+    ans(ENTER_VERTEX,           va,     e0);
+    ans(ENTER_EDGE,             va,     e4);
+    ans(DISCOVER_VERTEX,        vd,     e4);
+    ans(LEAVE_EDGE,             va,     e4);
+    ans(LEAVE_VERTEX,           va,     e0);
+    ans(ENTER_VERTEX,           vd,     e4);
+    ans(ENTER_EDGE,             vd,     e2);
+    ans(DISCOVER_VERTEX,        vb,     e2);
+    ans(LEAVE_EDGE,             vd,     e2);
+    ans(ENTER_EDGE,             vd,     e3);
+    ans(DISCOVER_VERTEX,        vc,     e3);
+    ans(LEAVE_EDGE,             vd,     e3);
+    ans(LEAVE_VERTEX,           vd,     e4);
+    ans(ENTER_VERTEX,           vb,     e2);
+    ans(LEAVE_VERTEX,           vb,     e2);
+    ans(ENTER_VERTEX,           vc,     e3);
+    ans(ENTER_EDGE,             vc,     e1);
+    ans(LEAVE_EDGE,             vc,     e1);
+    ans(LEAVE_VERTEX,           vc,     e3);
+    for (BreadthFirstReverseGraphTraversal<Graph> t(g, e0); t; ++t)
+        ans.check(t);
+    ASSERT_always_require(ans.isGood());
+}
+
+
+
 int main() {
     typedef Sawyer::Container::Graph<std::string, std::string> G1;
     default_ctor<G1>();
@@ -625,6 +945,7 @@ int main() {
     assignment<G1>();
     conversion<G1>();
     assignment_conversion<G1>();
-    depth_first_visit<G1>();
     dfltGraph();
+    compileTraversals();
+    traversals();
 }

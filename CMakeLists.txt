@@ -38,6 +38,7 @@ endif()
 set(lib_src
   sawyer/Assert.C
   sawyer/CommandLine.C
+  sawyer/GraphTraversal.C
   sawyer/Markup.C
   sawyer/MarkupPod.C
   sawyer/Message.C
