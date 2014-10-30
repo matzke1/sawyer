@@ -68,7 +68,7 @@ static const unsigned ENTER_LEAVE_EVENTS = ENTER_EVENTS | LEAVE_EVENTS;
 static const unsigned ALL_EVENTS = VERTEX_EVENTS | EDGE_EVENTS;
 
 /** Event name from constant. */
-std::string traversalEventName(TraversalEvent);
+SAWYER_EXPORT std::string traversalEventName(TraversalEvent);
 
 /** Direction tag for forward traversals. */
 class ForwardTraversalTag {};

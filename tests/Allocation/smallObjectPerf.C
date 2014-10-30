@@ -1,5 +1,6 @@
 #include <sawyer/SmallObject.h>
 
+#include <iostream>
 #include <sawyer/Assert.h>
 #include <sawyer/Stopwatch.h>
 

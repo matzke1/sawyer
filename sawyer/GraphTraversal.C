@@ -6,7 +6,7 @@ namespace Sawyer {
 namespace Container {
 namespace Algorithm {
 
-std::string
+SAWYER_EXPORT std::string
 traversalEventName(TraversalEvent event) {
     switch (event) {
         case NO_EVENT:        return "NO_EVENT";

@@ -1,5 +1,6 @@
 #include <sawyer/PoolAllocator.h>
 
+#include <iostream>
 #include <sawyer/Assert.h>
 #include <sawyer/Message.h>
 #include <sawyer/ProgressBar.h>
