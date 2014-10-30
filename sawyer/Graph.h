@@ -94,7 +94,7 @@ struct GraphTraits<const G> {
  *
  * @code
  *  std::cout <<"Vertex names:\n";
- *  for (MyGraph::ConstVertexNodeIterator vertex=graph.vertices.begin(); vertex!=graph.vertices.end(); ++vertex)
+ *  for (MyGraph::ConstVertexNodeIterator vertex=graph.vertices().begin(); vertex!=graph.vertices().end(); ++vertex)
  *      std::cout <<"  " << vertex->value() <<"\n";
  * @endcode
  *
