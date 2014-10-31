@@ -1,7 +1,9 @@
 #include <sawyer/Message.h>
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/find.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/config.hpp>
 #include <boost/foreach.hpp>
 #include <cerrno>
@@ -953,6 +955,13 @@ Facility::initStreams(const DestinationPtr &destination) {
     return *this;
 }
 
+SAWYER_EXPORT Facility&
+Facility::renameStreams(const std::string &name) {
+    for (size_t i=0; i<streams_.size(); ++i)
+        streams_[i]->facilityName(name.empty() ? name_ : name);
+    return *this;
+}
+
 SAWYER_EXPORT Stream&
 Facility::get(Importance imp) {
     if (imp<0 || imp>=N_IMPORTANCE)
@@ -1018,14 +1027,12 @@ Facilities::insert(Facility &facility, std::string name) {
 
 SAWYER_EXPORT Facilities&
 Facilities::insertAndAdjust(Facility &facility, std::string name) {
-    ImportanceSet imps = impset_;
     insert(facility, name); // throws
 
     // Now that the facility has been successfully inserted...
-    impset_ = imps;
     for (int i=0; i<N_IMPORTANCE; ++i) {
         Importance mi = (Importance)i;
-        facility[mi].enable(imps.find(mi)!=imps.end());
+        facility[mi].enable(impset_.find(mi)!=impset_.end());
     }
     return *this;
 }
@@ -1179,15 +1186,14 @@ Facilities::parseRelation(const char *&str) {
 // On failure, returns "" and str is unchanged
 SAWYER_EXPORT std::string
 Facilities::parseImportanceName(const char *&str) {
-    static const char *words[] = {"all", "none", "debug", "trace", "where", "info", "warn", "error", "fatal",
-                                  "ALL", "NONE", "DEBUG", "TRACE", "WHERE", "INFO", "WARN", "ERROR", "FATAL"};
+    static const char *words[] = {"all", "none", "debug", "trace", "where", "info", "warn", "error", "fatal"};
     static const size_t nwords = sizeof(words)/sizeof(words[0]);
 
     const char *s = str;
     while (isspace(*s)) ++s;
     for (size_t i=0; i<nwords; ++i) {
         size_t n = strlen(words[i]);
-        if (0==strncmp(s, words[i], n) && !isalnum(s[n]) && '_'!=s[n]) {
+        if (0==strncasecmp(s, words[i], n) && !isalnum(s[n]) && '_'!=s[n]) {
             str += (s-str) + n;
             return words[i];
         }
@@ -1197,26 +1203,21 @@ Facilities::parseImportanceName(const char *&str) {
 
 SAWYER_EXPORT Importance
 Facilities::importanceFromString(const std::string &str) {
-    if (0==str.compare("debug") || 0==str.compare("DEBUG"))
+    if (boost::iequals(str, "debug"))
         return DEBUG;
-    if (0==str.compare("trace") || 0==str.compare("TRACE"))
+    if (boost::iequals(str, "trace"))
         return TRACE;
-    if (0==str.compare("where") || 0==str.compare("WHERE"))
+    if (boost::iequals(str, "where"))
         return WHERE;
-    if (0==str.compare("info")  || 0==str.compare("INFO"))
+    if (boost::iequals(str, "info"))
         return INFO;
-    if (0==str.compare("warn")  || 0==str.compare("WARN"))
+    if (boost::iequals(str, "warn"))
         return WARN;
-    if (0==str.compare("error") || 0==str.compare("ERROR"))
+    if (boost::iequals(str, "error"))
         return ERROR;
-    if (0==str.compare("fatal") || 0==str.compare("FATAL"))
+    if (boost::iequals(str, "fatal"))
         return FATAL;
-    abort();
-#ifdef _MSC_VER
-    // Microsoft's C++ compiler thinks that abort() can return; this extraneous return shuts up the warning and is
-    // protected from other compilers that may complain that this statement is unreachable.
-    return FATAL;
-#endif
+    return N_IMPORTANCE;                                // error
 }
 
 // parses a StreamControlList. On success, returns a non-empty vector and adjust 'str' to point to the next character after the
@@ -1251,25 +1252,27 @@ Facilities::parseImportanceList(const std::string &facilityName, const char *&st
         const char *importanceStart = s;
         std::string importance = parseImportanceName(s);
         if (importance.empty()) {
-            if (!enablement.empty() || !relation.empty())
+            if (!enablement.empty() || !relation.empty() || (isalpha(s[0]) && !retval.empty()))
                 throw ControlError("message importance level expected", importanceStart);
             s = elmtStart;
             break;
         }
 
         ControlTerm term(facilityName, enablement.compare("!")!=0);
-        if (0==importance.compare("all") || 0==importance.compare("none")) {
+        if (boost::iequals(importance, "all") || boost::iequals(importance, "none")) {
             if (!enablement.empty())
                 throw ControlError("'"+importance+"' cannot be preceded by '"+enablement+"'", enablementStart);
             if (!relation.empty())
                 throw ControlError("'"+importance+"' cannot be preceded by '"+relation+"'", relationStart);
             term.lo = DEBUG;
             term.hi = FATAL;
-            term.enable = 0!=importance.compare("none");
+            term.enable = !boost::iequals(importance, "none");
         } else {
             Importance imp = importanceFromString(importance);
+            if (N_IMPORTANCE==imp)
+                throw ControlError("'"+importance+"' is not a valid importance", relationStart);
             if (relation.empty()) {
-                term.lo = term.hi = importanceFromString(importance);
+                term.lo = term.hi = imp;
             } else if (relation[0]=='<') {
                 term.lo = DEBUG;
                 term.hi = imp;
@@ -1368,6 +1371,14 @@ Facilities::control(const std::string &ss) {
     }
 
     return ""; // no errors
+}
+
+SAWYER_EXPORT std::vector<std::string>
+Facilities::facilityNames() const {
+    std::vector<std::string> allNames;
+    BOOST_FOREACH (const std::string &name, facilities_.keys())
+        allNames.push_back(name);
+    return allNames;
 }
 
 SAWYER_EXPORT void

@@ -1384,6 +1384,12 @@ public:
     /** Return the name of the facility. This is a read-only field initialized at construction time. */
     const std::string name() const { return name_; }
 
+    /** Renames all the facility streams.
+     *
+     *  Invokes Stream::facilityName for each stream. If a name is given then that name is used, otherwise this facility's name
+     *  is used. */
+    Facility& renameStreams(const std::string &name = "");
+
     /** Cause all streams to use the specified destination.  This can be called for facilities that already have streams and
      *  destinations, but it can also be called to initialize the streams for a default-constructed facility. */
     Facility& initStreams(const DestinationPtr&);
@@ -1458,6 +1464,17 @@ public:
     /** Remove all occurrences of the facility. */
     Facilities& erase(Facility &facility);
 
+    /** Return an existing facility by name.
+     *
+     *  Returns a reference to the specified facility. Throws an <code>std::domain_error</code> if no facility exists with the
+     *  specified name. */
+    Facility& facility(const std::string &name) const {
+        return *facilities_[name];
+    }
+
+    /** Return names for all known facilities. */
+    std::vector<std::string> facilityNames() const;
+    
     /** Parse a single command-line switch and enable/disable the indicated streams.  Returns an empty string on success, or an
      *  error message on failure.  No configuration changes are made if a failure occurs.
      *
