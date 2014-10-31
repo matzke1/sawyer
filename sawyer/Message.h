@@ -849,7 +849,14 @@ public:
 /** Information printed at the beginning of each free-format message. */
 class SAWYER_EXPORT Prefix: public SharedObject, public SharedFromThis<Prefix> {
 #include <sawyer/WarningsOff.h>
-    enum When { NEVER=0, SOMETIMES=1, ALWAYS=2 };
+public:
+    /** When to show something. */
+    enum When {
+        NEVER=0,                                        /**< Never show this item. */
+        SOMETIMES=1,                                    /**< Show this item only sometimes (depends on the item). */
+        ALWAYS=2                                        /**< Always show this item. */
+    };
+private:
     ColorSet colorSet_;                                 /**< Colors to use if <code>props.useColor</code> is true. */
     Optional<std::string> programName_;                 /**< Name of program as it will be displayed (e.g., "a.out[12345]"). */
     bool showProgramName_;
