@@ -34,7 +34,7 @@ namespace Sawyer {
  *
  *  The @c mlog is a message Facility that holds a number of streams, each of which can be enabled or disabled. Inserting to a
  *  disabled message stream causes the message to be thrown away.  The @c INFO is a message Importance, of which the library
- *  defines seven levels ranging from debug through fatal.  The expression <code>mlog[INFO]</code> selects one of the message
+ *  defines eight levels ranging from debug through fatal.  The expression <code>mlog[INFO]</code> selects one of the message
  *  Stream objects from the facility. The linefeed marks the end of a message; messages are "partial" until the linefeed is
  *  inserted, but depending on the sink (final destination) even partial messages might be shown. Since a message stream is a
  *  subclass of std::ostream, all the usual output insertion operators just work.
@@ -272,15 +272,17 @@ SAWYER_EXPORT bool initializeLibrary();
 SAWYER_EXPORT extern bool isInitialized;
 
 // Any header that #defines words that are this common is just plain stupid!
-#if defined(DEBUG) || defined(TRACE) || defined(WHERE) || defined(INFO) || defined(WARN) || defined(ERROR) || defined(FATAL)
+#if defined(DEBUG) || defined(TRACE) || defined(WHERE) || defined(MARCH) || \
+    defined(INFO) || defined(WARN) || defined(ERROR) || defined(FATAL)
 # ifdef _MSC_VER
-#  pragma message("Undefining common words from the global namespace: DEBUG, TRACE, WHERE, INFO, WARN, ERROR, FATAL")
+#  pragma message("Undefining common words from the global namespace: DEBUG, TRACE, WHERE, MARCH, INFO, WARN, ERROR, FATAL")
 # else
-#  warning "Undefining common words from the global namespace: DEBUG, TRACE, WHERE, INFO, WARN, ERROR, FATAL"
+#  warning "Undefining common words from the global namespace: DEBUG, TRACE, WHERE, MARCH, INFO, WARN, ERROR, FATAL"
 # endif
 # undef DEBUG
 # undef TRACE
 # undef WHERE
+# undef MARCH
 # undef INFO
 # undef WARN
 # undef ERROR
@@ -307,6 +309,7 @@ enum Importance {
     WHERE,             /**< Granular tracing information useful to end-users that are trying to understand program internals.
                          *   These can also be thought of as debug messages that are useful to end users.  Tracing occurs in
                          *   two levels, where @c WHERE provides a more granular overview of the trace. */
+    MARCH,              /**< Progress reports and other similar rapidly updating partial messages. */
     INFO,               /**< Informative messages. These messages confer information that might be important but do not
                          *   indicate situations that are abnormal. */
     WARN,               /**< Warning messages that indicate an unusual situation from which the program was able to fully

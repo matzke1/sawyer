@@ -13,7 +13,7 @@
 
 using namespace Sawyer::Message;
 
-static const Importance impLevels[] = {DEBUG,   TRACE,   WHERE,   INFO,   ERROR,   FATAL};
+static const Importance impLevels[] = {DEBUG, TRACE, WHERE, MARCH, INFO, ERROR, FATAL};
 static const size_t nImpLevels = sizeof(impLevels) / sizeof(impLevels[0]);
 static bool isLineFeed(char ch) { return '\n'==ch; }
 
@@ -54,8 +54,8 @@ controlImportanceCase() {
     Facility f1("f1");
     facilities.insert(f1);
 
-    static const char *impNames[] = {"none", "debug", "trace", "where", "info", "error", "fatal", "all" };
-    static const unsigned bits[]  = {0x00,   0x01,    0x02,    0x04,    0x08,   0x10,    0x20,    0x3f  };
+    static const char *impNames[] = {"none", "debug", "trace", "where", "march", "info", "error", "fatal", "all" };
+    static const unsigned bits[]  = {0x00,   0x01,    0x02,    0x04,    0x08,    0x10,   0x20,    0x40,    0x7f  };
 
     size_t nErrors = 0;
     for (size_t pass=0; pass<2; ++pass) {

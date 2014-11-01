@@ -109,13 +109,13 @@ int main()
     ProgressBarSettings::initialDelay(1.0);
     size_t niter = 40000;
 
-    test1(niter, Message::mlog[INFO]);
-    test2(niter, Message::mlog[INFO]);
-    test3(niter, Message::mlog[INFO]);
-    test4(niter, Message::mlog[INFO]);
-    test5(niter, Message::mlog[INFO]);
-    test6(niter, Message::mlog[INFO]);
-    test7(niter, Message::mlog[INFO]);
+    test1(niter, Message::mlog[MARCH]);
+    test2(niter, Message::mlog[MARCH]);
+    test3(niter, Message::mlog[MARCH]);
+    test4(niter, Message::mlog[MARCH]);
+    test5(niter, Message::mlog[MARCH]);
+    test6(niter, Message::mlog[MARCH]);
+    test7(niter, Message::mlog[MARCH]);
 
     return 0;
 }

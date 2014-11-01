@@ -48,6 +48,7 @@ stringifyImportance(Importance importance) {
         case DEBUG: return "DEBUG";
         case TRACE: return "TRACE";
         case WHERE: return "WHERE";
+        case MARCH: return "MARCH";
         case INFO:  return "INFO";
         case WARN:  return "WARN";
         case ERROR: return "ERROR";
@@ -143,6 +144,7 @@ ColorSet::fullColor() {
     cs[DEBUG] = ColorSpec(COLOR_DEFAULT, COLOR_DEFAULT, false);
     cs[TRACE] = ColorSpec(COLOR_CYAN,    COLOR_DEFAULT, false);
     cs[WHERE] = ColorSpec(COLOR_CYAN,    COLOR_DEFAULT, false);
+    cs[MARCH] = ColorSpec(COLOR_GREEN,   COLOR_DEFAULT, false);
     cs[INFO]  = ColorSpec(COLOR_GREEN,   COLOR_DEFAULT, false);
     cs[WARN]  = ColorSpec(COLOR_YELLOW,  COLOR_DEFAULT, false);
     cs[ERROR] = ColorSpec(COLOR_RED,     COLOR_DEFAULT, false);
@@ -748,6 +750,7 @@ SyslogSink::post(const Mesg &mesg, const MesgProps &props) {
             case DEBUG: priority = LOG_DEBUG;   break;
             case TRACE: priority = LOG_DEBUG;   break;
             case WHERE: priority = LOG_DEBUG;   break;
+            case MARCH: priority = LOG_DEBUG;   break;
             case INFO:  priority = LOG_INFO;    break;
             case WARN:  priority = LOG_WARNING; break;
             case ERROR: priority = LOG_ERR;     break;
@@ -1186,7 +1189,7 @@ Facilities::parseRelation(const char *&str) {
 // On failure, returns "" and str is unchanged
 SAWYER_EXPORT std::string
 Facilities::parseImportanceName(const char *&str) {
-    static const char *words[] = {"all", "none", "debug", "trace", "where", "info", "warn", "error", "fatal"};
+    static const char *words[] = {"all", "none", "debug", "trace", "where", "march", "info", "warn", "error", "fatal"};
     static const size_t nwords = sizeof(words)/sizeof(words[0]);
 
     const char *s = str;
@@ -1209,6 +1212,8 @@ Facilities::importanceFromString(const std::string &str) {
         return TRACE;
     if (boost::iequals(str, "where"))
         return WHERE;
+    if (boost::iequals(str, "march"))
+        return MARCH;
     if (boost::iequals(str, "info"))
         return INFO;
     if (boost::iequals(str, "warn"))

@@ -22,6 +22,7 @@ void test1(const DestinationPtr &sink)
     log[DEBUG] <<"debugging message\n";
     log[TRACE] <<"tracing message\n";
     log[WHERE] <<"major execution point\n";
+    log[MARCH] <<"march message\n";
     log[INFO]  <<"informational message\n";
     log[WARN]  <<"warning message\n";
     log[ERROR] <<"error message\n";
@@ -322,6 +323,7 @@ void test15b(const DestinationPtr &sink1) {
         log[DEBUG] <<"i=" <<i <<"\tdebugging message\n";
         log[TRACE] <<"i=" <<i <<"\ttracing message\n";
         log[WHERE] <<"i=" <<i <<"\tmajor execution point\n";
+        log[MARCH] <<"i=" <<i <<"\tprogress report\n";
         log[INFO]  <<"i=" <<i <<"\tinformational message\n";
         log[WARN]  <<"i=" <<i <<"\twarning message\n";
         log[ERROR] <<"i=" <<i <<"\terror message\n";
@@ -358,6 +360,7 @@ void test17(const DestinationPtr &sink) {
     log[DEBUG] <<"debugging message\n";
     log[TRACE] <<"tracing message\n";
     log[WHERE] <<"major execution point\n";
+    log[MARCH] <<"progress report\n";
     log[INFO]  <<"informational message\n";
     log[WARN]  <<"warning message\n";
     log[ERROR] <<"error message\n";
@@ -368,6 +371,7 @@ void test17(const DestinationPtr &sink) {
     log[DEBUG] <<"debugging message\n";
     log[TRACE] <<"tracing message\n";
     log[WHERE] <<"major execution point\n";
+    log[MARCH] <<"progress report\n";
     log[INFO]  <<"informational message\n";
     log[WARN]  <<"warning message\n";
     log[ERROR] <<"error message\n";
@@ -378,6 +382,7 @@ void test17(const DestinationPtr &sink) {
     log[DEBUG] <<"debugging message\n";
     log[TRACE] <<"tracing message\n";
     log[WHERE] <<"major execution point\n";
+    log[MARCH] <<"progress report\n";
     log[INFO]  <<"informational message\n";
     log[WARN]  <<"warning message\n";
     log[ERROR] <<"error message\n";
@@ -400,6 +405,7 @@ void test17(const DestinationPtr &sink) {
     log[DEBUG] <<"debugging message\n";
     log[TRACE] <<"tracing message\n";
     log[WHERE] <<"major execution point\n";
+    log[MARCH] <<"progress report\n";
     log[INFO]  <<"informational message\n";
     log[WARN]  <<"warning message\n";
     log[ERROR] <<"error message\n";
@@ -436,6 +442,7 @@ void test18(const DestinationPtr &sink) {
     log[DEBUG] <<"debugging message\n";
     log[TRACE] <<"tracing message\n";
     log[WHERE] <<"major execution point\n";
+    log[MARCH] <<"progress report\n";
     log[INFO]  <<"informational message\n";
     log[WARN]  <<"warning message\n";
     log[ERROR] <<"error message\n";
@@ -447,6 +454,7 @@ void test18(const DestinationPtr &sink) {
     log[DEBUG] <<"debugging message\n";
     log[TRACE] <<"tracing message\n";
     log[WHERE] <<"major execution point\n";
+    log[MARCH] <<"progress report\n";
     log[INFO]  <<"informational message\n";
     log[WARN]  <<"warning message\n";
     log[ERROR] <<"error message\n";
@@ -458,6 +466,7 @@ void test18(const DestinationPtr &sink) {
     log[DEBUG] <<"debugging message\n";
     log[TRACE] <<"tracing message\n";
     log[WHERE] <<"major execution point\n";
+    log[MARCH] <<"progress report\n";
     log[INFO]  <<"informational message\n";
     log[WARN]  <<"warning message\n";
     log[ERROR] <<"error message\n";
