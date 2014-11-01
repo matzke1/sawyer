@@ -990,6 +990,18 @@ Facility::get(Importance imp) {
 
 SAWYER_EXPORT Facilities&
 Facilities::impset(Importance imp, bool enabled) {
+    if (!impsetInitialized_) {
+#if 0 // these are typically too verbose for end users
+        impset_.insert(DEBUG);
+        impset_.insert(TRACE);
+        impset_.insert(WHERE);
+#endif
+        impset_.insert(MARCH);
+        impset_.insert(INFO);
+        impset_.insert(WARN);
+        impset_.insert(ERROR);
+        impset_.insert(FATAL);
+    }
     if (enabled) {
         impset_.insert(imp);
     } else {
@@ -1427,6 +1439,11 @@ initializeLibrary() {
         isInitialized = true;
         merr = FdSink::instance(2);
         mlog = Facility("", merr);
+        mlog[DEBUG].disable();
+        mlog[TRACE].disable();
+        mlog[WHERE].disable();
+        mlog[MARCH].disable();
+        mlog[INFO ].disable();
         mfacilities.insert(mlog, "sawyer");
     }
     return true;
