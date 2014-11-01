@@ -1619,6 +1619,7 @@ namespace Common {
 using Message::DEBUG;
 using Message::TRACE;
 using Message::WHERE;
+using Message::MARCH;
 using Message::INFO;
 using Message::WARN;
 using Message::ERROR;
