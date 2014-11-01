@@ -1435,8 +1435,12 @@ public:
     const ImportanceSet& impset();
 
     /** Add or remove a default importance level. The specified level is inserted or removed from the set of default enabled
-     *  importance levels without affecting any member facility objects.  Calling this function also prevents the first @ref
-     *  insert from initializing the set of default importance levels. See Facilities class documentation for details. */
+     *  importance levels without affecting any member facility objects.  If this %Facilities doesn't have a default importance
+     *  set then it is initialized to {WARN, ERROR, FATAL} prior to adding or removing the specified level. Calling this
+     *  function also prevents the first @ref insert from initializing the set of default importance levels. See Facilities
+     *  class documentation for details.
+     *
+     * @sa insert, @ref insertAndAdjust, @ref reenable. */
     Facilities& impset(Importance, bool enabled);
 
     /** Register a facility so it can be controlled as part of a collection of facilities.  The optional @p name is the @e

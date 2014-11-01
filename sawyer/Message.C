@@ -1388,11 +1388,13 @@ Facilities::facilityNames() const {
 
 SAWYER_EXPORT void
 Facilities::print(std::ostream &log) const {
-    for (int i=0; i<N_IMPORTANCE; ++i) {
-        Importance mi = (Importance)i;
-        log <<(impset_.find(mi)==impset_.end() ? '-' : (mi==WHERE?'H':stringifyImportance(mi)[0]));
+    if (impsetInitialized_) {
+        for (int i=0; i<N_IMPORTANCE; ++i) {
+            Importance mi = (Importance)i;
+            log <<(impset_.find(mi)==impset_.end() ? '-' : (mi==WHERE?'H':stringifyImportance(mi)[0]));
+        }
+        log <<" default enabled levels\n";
     }
-    log <<" default enabled levels\n";
 
     if (facilities_.isEmpty()) {
         log <<"no message facilities registered\n";
