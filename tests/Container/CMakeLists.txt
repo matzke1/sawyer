@@ -21,3 +21,6 @@ target_link_libraries(addressMapUnitTests libsawyer)
 
 add_executable(bitvecTests bitvecTests.C)
 target_link_libraries(bitvecTests libsawyer)
+
+add_executable(distinctListUnitTests distinctListUnitTests.C)
+target_link_libraries(distinctListUnitTests libsawyer)
