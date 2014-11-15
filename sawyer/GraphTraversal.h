@@ -118,7 +118,7 @@ class BreadthFirstTraversalTag {};
  *  to get information about why and where the traversal stopped.  The @ref isAtEnd method will indicate whether the traversal
  *  is completed.
  *
- *  The following subclasses are implemented. There names follow the pattern @em Order, @em
+ *  The following subclasses are implemented. Their names follow the pattern @em Order, @em
  *  Direction, @em Visiter. For instance "DepthFirstForwardEdgeTraversal" visits nodes in a "DepthFirst" order, follows edges
  *  in their natural forward direction (from source to target), stops only at @ref ENTER_EDGE events, and returns edges
  *  when dereferenced.  The orders are "DepthFirst" or "BreadthFirst".  The directions are "Forward" and "Reverse". The
