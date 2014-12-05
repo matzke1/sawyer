@@ -63,7 +63,7 @@ public:
     /** Number of items in list.
      *
      *  Returns the total number of items in the list in constant time. */
-    bool size() const {
+    size_t size() const {
         return position_.size();
     }
 

@@ -5,7 +5,7 @@ using namespace Sawyer::Container;
 // Test that things compile
 template<typename T, typename U>
 static void
-testCompile() {
+testCompileHelper() {
     typedef DistinctList<T> TList;
     typedef DistinctList<U> UList;
 
@@ -65,8 +65,99 @@ testCompile() {
     }
 }
 
+void
+testCompile() {
+    testCompileHelper<int, int>();
+    testCompileHelper<double, int>();
+}
+
+static void
+testMap() {
+    typedef int Item;
+    typedef std::list<Item> Items;
+    typedef Sawyer::Container::Map<Item, Items::iterator> Map;
+
+    Items items;
+    Map map;
+
+    items.push_front(5);
+    map.insert(5, items.begin());
+    ASSERT_always_require(map.size()==1);
+
+    Map::NodeIterator mi = map.find(4);
+    ASSERT_always_require(mi == map.nodes().end());
+    items.push_front(4);
+    map.insert(4, items.begin());
+    ASSERT_always_require(map.size()==2);
+}
+
+
+static void
+test() {
+    typedef DistinctList<int> List;
+    int item;
+
+    List dl;
+    ASSERT_always_require(dl.isEmpty());
+    ASSERT_always_require(dl.size()==0);
+    ASSERT_always_forbid(dl.exists(0));
+
+    dl.pushFront(5);                                    // ( 5 )
+    ASSERT_always_forbid(dl.isEmpty());
+    ASSERT_always_require(dl.size()==1);
+    ASSERT_always_require(dl.exists(5));
+    ASSERT_always_require(dl.front()==5);
+    ASSERT_always_require(dl.back()==5);
+
+    dl.pushFront(4);                                    // ( 4 5 )
+    ASSERT_always_require(dl.size()==2);
+    ASSERT_always_require(dl.exists(4));
+    ASSERT_always_require(dl.front()==4);
+    ASSERT_always_require(dl.back()==5);
+
+    dl.pushFront(5);                                    // ( 4 5 )  no change
+    ASSERT_always_require(dl.size()==2);
+    ASSERT_always_require(dl.front()==4);
+    ASSERT_always_require(dl.back()==5);
+
+    dl.pushBack(5);                                     // ( 4 5 )  no change
+    ASSERT_always_require(dl.size()==2);
+    ASSERT_always_require(dl.front()==4);
+    ASSERT_always_require(dl.back()==5);
+
+    dl.pushFront(4);                                    // ( 4 5 )  no change
+    ASSERT_always_require(dl.size()==2);
+    ASSERT_always_require(dl.front()==4);
+    ASSERT_always_require(dl.back()==5);
+
+    dl.pushBack(4);                                     // ( 4 5 )  no change
+    ASSERT_always_require(dl.size()==2);
+    ASSERT_always_require(dl.front()==4);
+    ASSERT_always_require(dl.back()==5);
+
+    dl.pushFront(3);                                    // ( 3 4 5 )
+    ASSERT_always_require(dl.size()==3);
+    ASSERT_always_require(dl.front()==3);
+    ASSERT_always_require(dl.exists(4));
+    ASSERT_always_require(dl.back()==5);
+
+    item = dl.popBack();                                // ( 3 4 )
+    ASSERT_always_require(item==5);
+    ASSERT_always_require(dl.size()==2);
+    ASSERT_always_require(dl.front()==3);
+    ASSERT_always_require(dl.back()==4);
+    ASSERT_always_forbid(dl.exists(5));
+
+    item = dl.popFront();                               // ( 4 )
+    ASSERT_always_require(item==3);
+    ASSERT_always_require(dl.size()==1);
+    ASSERT_always_require(dl.front()==4);
+    ASSERT_always_require(dl.back()==4);
+    ASSERT_always_forbid(dl.exists(3));
+}
+
 int
 main() {
-    testCompile<int, int>();
-    testCompile<double, int>();
+    testMap();
+    test();
 }
