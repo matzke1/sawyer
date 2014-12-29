@@ -74,6 +74,21 @@ public:
         return position_.exists(item);
     }
     
+    /** Determine the position of an item.
+     *
+     *  Returns the position of an item from the beginning of the list.  This is an O(n) operation. */
+    size_t position(const Item &item) const {
+        if (!position_.exists(item))
+            return size();
+        size_t retval = 0;
+        BOOST_FOREACH (const Item &x, items_) {
+            if (x == item)
+                return retval;
+            ++retval;
+        }
+        return retval;
+    }
+    
     /** Reference to item at front of list.
      *
      *  Returns a const reference to the item at the front of the list, or throws an <code>std::runtime_error</code> if the
