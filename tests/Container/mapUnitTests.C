@@ -348,6 +348,17 @@ void hull() {
     map2.insert(3, "ghi");
 }
 
+void lowerBound() {
+    std::cout <<"lower bound\n";
+    typedef Sawyer::Container::Map<int, std::string> Map;
+    Map map1;
+    map1.insert(5, "s1");
+
+    ASSERT_always_require(map1.lowerBound(4)==map1.nodes().begin());
+    ASSERT_always_require(map1.lowerBound(5)==map1.nodes().begin());
+    ASSERT_always_require(map1.lowerBound(6)==map1.nodes().end());
+}
+
 int main() {
     typedef std::string Key;
     typedef int Value;
@@ -364,4 +375,5 @@ int main() {
     erase_other<Map>();
     iterators<Map>();
     erase_iterator<Map>();
+    lowerBound();
 }
