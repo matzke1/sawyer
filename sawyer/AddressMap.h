@@ -196,6 +196,7 @@ public:
         c.least_ = least_;
         c.greatest_ = greatest_;
         c.anchored_ = anchored_;
+        c.maxSize_ = maxSize_;
         return c;
     }
 public:
@@ -1518,6 +1519,7 @@ public:
                     segment.accessibility(newAccess);
                 } else {                                // insert a new segment, replacing part of the existing one
                     Segment newSegment(segment);
+                    newSegment.accessibility(newAccess);
                     newSegment.offset(segment.offset() + toChange.least() - node.key().least());
                     newSegments.push_back(ISPair(toChange, newSegment));
                 }

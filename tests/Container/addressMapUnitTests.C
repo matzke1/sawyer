@@ -1614,10 +1614,87 @@ static void test03() {
     std::cout <<data <<"...\n";
 }
 
+static void test04() {
+    typedef unsigned Address;
+    typedef Interval<Address> Addresses;
+    typedef uint8_t Value;
+    typedef Buffer<Address, Value>::Ptr BufferPtr;
+    typedef AddressSegment<Address, Value> Segment;
+    typedef AddressMap<Address, Value> MemoryMap;
+
+    BufferPtr buf1 = Sawyer::Container::AllocatingBuffer<Address, Value>::instance(50);
+    Segment seg1 = Segment(buf1, 0, Access::READABLE);
+
+    std::cout <<"Test that changing accessibility for the middle of a segment works\n";
+    MemoryMap map;
+    map.insert(Addresses::hull(50, 99), seg1);
+    map.at(75).limit(5).changeAccess(Access::WRITABLE, 0);// add write permission
+    int i=0;
+    BOOST_FOREACH (const MemoryMap::Node &node, map.nodes()) {
+        std::cout <<"  [" <<node.key().least() <<", " <<node.key().greatest() <<"]\n";
+        switch (i) {
+            case 0:
+                ASSERT_always_require(node.key().least() == 50);
+                ASSERT_always_require(node.key().greatest() == 74);
+                ASSERT_always_require(node.value().accessibility() == Access::READABLE);
+                break;
+            case 1:
+                ASSERT_always_require(node.key().least() == 75);
+                ASSERT_always_require(node.key().greatest() == 79);
+                ASSERT_always_require(node.value().accessibility() == (Access::READABLE | Access::WRITABLE));
+                break;
+            case 2:
+                ASSERT_always_require(node.key().least() == 80);
+                ASSERT_always_require(node.key().greatest() == 99);
+                ASSERT_always_require(node.value().accessibility() == Access::READABLE);
+                break;
+            default:
+                ASSERT_not_reachable("should have only three nodes");
+        }
+        ++i;
+    }
+
+    std::cout <<"Test that changing accessibility across a gap works\n";
+    map.clear();
+    map.insert(Addresses::hull(10, 19), seg1);
+    map.insert(Addresses::hull(30, 39), seg1);
+    map.at(15).before(35).changeAccess(Access::WRITABLE, 0);// add write permission
+    i = 0;
+    BOOST_FOREACH (const MemoryMap::Node &node, map.nodes()) {
+        std::cout <<"  [" <<node.key().least() <<", " <<node.key().greatest() <<"]\n";
+        switch (i) {
+            case 0:
+                ASSERT_always_require(node.key().least() == 10);
+                ASSERT_always_require(node.key().greatest() == 14);
+                ASSERT_always_require(node.value().accessibility() == Access::READABLE);
+                break;
+            case 1:
+                ASSERT_always_require(node.key().least() == 15);
+                ASSERT_always_require(node.key().greatest() == 19);
+                ASSERT_always_require(node.value().accessibility() == (Access::READABLE | Access::WRITABLE));
+                break;
+            case 2:
+                ASSERT_always_require(node.key().least() == 30);
+                ASSERT_always_require(node.key().greatest() == 34);
+                ASSERT_always_require(node.value().accessibility() == (Access::READABLE | Access::WRITABLE));
+                break;
+            case 3:
+                ASSERT_always_require(node.key().least() == 35);
+                ASSERT_always_require(node.key().greatest() == 39);
+                ASSERT_always_require(node.value().accessibility() == Access::READABLE);
+                break;
+            default:
+                ASSERT_not_reachable("should have only four nodes");
+        }
+        ++i;
+    }
+}
+
 int main() {
 
     test00();
     test01();
     test02();
     test03();
+    test04();
 }
