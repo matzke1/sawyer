@@ -1246,7 +1246,7 @@ public:
                 Sawyer::Container::Interval<Address> interval = unmapped(minAddr, 0 /*forward*/);
                 if (interval.isEmpty())
                     return Nothing();
-                minAddr = alignUp(minAddr, alignment);
+                minAddr = alignUp(interval.least(), alignment);
                 Address maxAddr = minAddr + (nValues-1);
                 if ((nValues <= interval.size() || 0==interval.size()/*overflow*/) &&
                     minAddr >= interval.least()/*overflow*/ && maxAddr >= interval.least()/*overflow*/ &&
@@ -1266,7 +1266,7 @@ public:
             Sawyer::Container::Interval<Address> interval = unmapped(maxAddr, MATCH_BACKWARD);
             if (interval.isEmpty())
                 return Nothing();
-            Address minAddr = alignDown(maxAddr - (nValues-1), alignment);
+            Address minAddr = alignDown(interval.greatest() - (nValues-1), alignment);
             maxAddr = minAddr + (nValues-1);
             if ((nValues <= interval.size() || 0==interval.size()/*overflow*/) &&
                 minAddr >= interval.least()/*overflow*/ && maxAddr >= interval.least()/*overflow*/ &&
