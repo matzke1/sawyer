@@ -83,6 +83,7 @@ public: // FIXME[Robb Matzke 2014-08-31]: "friend AddressMap" not allowed until 
 public:
     AddressMapConstraints(AddressMap *map)
         : map_(map), never_(false), maxSize_(-1), singleSegment_(false), requiredAccess_(0), prohibitedAccess_(0) {}
+
     operator AddressMapConstraints<const AddressMap>() const {
         AddressMapConstraints<const AddressMap> cc(map_);
         cc.never_ = never_;
@@ -98,90 +99,96 @@ public:
         return cc;
     }
 public:
-    AddressMapConstraints& require(unsigned bits) {
-        requiredAccess_ |= bits;
-        return *this;
+    AddressMapConstraints require(unsigned bits) const {
+        AddressMapConstraints retval = *this;
+        retval.requiredAccess_ |= bits;
+        return retval;
     }
-    AddressMapConstraints& prohibit(unsigned bits) {
-        prohibitedAccess_ |= bits;
-        return *this;
+    AddressMapConstraints prohibit(unsigned bits) const {
+        AddressMapConstraints retval = *this;
+        retval.prohibitedAccess_ |= bits;
+        return retval;
     }
-    AddressMapConstraints& access(unsigned bits) {
+    AddressMapConstraints access(unsigned bits) const {
         return require(bits).prohibit(~bits);
     }
-    AddressMapConstraints& substr(const std::string &s) {
+    AddressMapConstraints substr(const std::string &s) const {
         ASSERT_require(nameSubstring_.empty() || nameSubstring_==s);// substring conjunction not supported
-        nameSubstring_ = s;
+        AddressMapConstraints retval = *this;
+        retval.nameSubstring_ = s;
+        return retval;
+    }
+    AddressMapConstraints any() const {
         return *this;
     }
-    AddressMapConstraints& any() {
-        return *this;
+    AddressMapConstraints none() const {
+        AddressMapConstraints retval = *this;
+        retval.never_ = true;
+        return retval;
     }
-    AddressMapConstraints& none() {
-        never_=true;
-        return *this;
+    AddressMapConstraints at(Address x) const {
+        AddressMapConstraints retval = *this;
+        retval.anchored_ = anchored_ ? *anchored_ & AddressInterval(x) : AddressInterval(x);
+        return retval.anchored_->isEmpty() ? retval.none() : retval;
     }
-    AddressMapConstraints& at(Address x) {
-        anchored_ = anchored_ ? *anchored_ & AddressInterval(x) : AddressInterval(x);
-        if (anchored_->isEmpty())
-            none();
-        return *this;
+    AddressMapConstraints at(const Sawyer::Container::Interval<Address> &x) const {
+        AddressMapConstraints retval = *this;
+        retval.anchored_ = anchored_ ? *anchored_ & x : x;
+        return retval.anchored_->isEmpty() ? retval.none() : retval.atOrAfter(x.least()).atOrBefore(x.greatest());
     }
-    AddressMapConstraints& at(const Sawyer::Container::Interval<Address> &x) {
-        anchored_ = anchored_ ? *anchored_ & x : x;
-        return anchored_->isEmpty() ? none() : atOrAfter(x.least()).atOrBefore(x.greatest());
+    AddressMapConstraints limit(size_t x) const {
+        AddressMapConstraints retval = *this;
+        retval.maxSize_ = std::min(maxSize_, x);
+        return 0 == retval.maxSize_ ? retval.none() : retval;
     }
-    AddressMapConstraints& limit(size_t x) {
-        if (0 == (maxSize_ = std::min(maxSize_, x)))
-            none();
-        return *this;
-    }
-    AddressMapConstraints& atOrAfter(Address least) {
+    AddressMapConstraints atOrAfter(Address least) const {
+        AddressMapConstraints retval = *this;
         if (least_) {
-            least_ = std::max(*least_, least);
+            retval.least_ = std::max(*least_, least);
         } else {
-            least_ = least;
+            retval.least_ = least;
         }
-        if (greatest_ && *greatest_ < *least_)
-            none();
-        return *this;
+        if (greatest_ && *greatest_ < *retval.least_)
+            retval.none();
+        return retval;
     }
-    AddressMapConstraints& atOrBefore(Address greatest) {
+    AddressMapConstraints atOrBefore(Address greatest) const {
+        AddressMapConstraints retval = *this;
         if (greatest_) {
-            greatest_ = std::min(*greatest_, greatest);
+            retval.greatest_ = std::min(*greatest_, greatest);
         } else {
-            greatest_ = greatest;
+            retval.greatest_ = greatest;
         }
-        if (least_ && *least_ > *greatest_)
-            none();
-        return *this;
+        if (least_ && *least_ > *retval.greatest_)
+            retval.none();
+        return retval;
     }
-    AddressMapConstraints& within(const Sawyer::Container::Interval<Address> &x) {
+    AddressMapConstraints within(const Sawyer::Container::Interval<Address> &x) const {
         return x.isEmpty() ? none() : atOrAfter(x.least()).atOrBefore(x.greatest());
     }
-    AddressMapConstraints& within(Address lo, Address hi) {
+    AddressMapConstraints within(Address lo, Address hi) const {
         return lo<=hi ? within(Sawyer::Container::Interval<Address>::hull(lo, hi)) : none();
     }
-    AddressMapConstraints& baseSize(Address base, Address size) {
+    AddressMapConstraints baseSize(Address base, Address size) const {
         return size>0 ? atOrAfter(base).atOrBefore(base+size-1) : none();
     }
-    AddressMapConstraints& after(Address x) {
+    AddressMapConstraints after(Address x) const {
         return x==boost::integer_traits<Address>::const_max ? none() : atOrAfter(x+1);
     }
-    AddressMapConstraints& before(Address x) {
+    AddressMapConstraints before(Address x) const {
         return x==boost::integer_traits<Address>::const_min ? none() : atOrBefore(x-1);
     }
-    AddressMapConstraints& singleSegment() {
-        singleSegment_ = true;
-        return *this;
+    AddressMapConstraints singleSegment() const {
+        AddressMapConstraints retval = *this;
+        retval.singleSegment_ = true;
+        return retval;
     }
-    AddressMapConstraints& segmentPredicate(SegmentPredicate<Address, Value> *p) {
-        if (p) {
-            segmentPredicates_.append(p);
-        } else {
-            none();
-        }
-        return *this;
+    AddressMapConstraints segmentPredicate(SegmentPredicate<Address, Value> *p) const {
+        if (!p)
+            return none();
+        AddressMapConstraints retval = *this;
+        retval.segmentPredicates_.append(p);
+        return retval;
     }
 public:
     // true if we need to iterate over segments to find the end point
