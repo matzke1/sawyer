@@ -238,6 +238,16 @@ public:
         return map_->findNode(*this, flags);
     }
 
+    template<typename Functor>
+    void
+    traverse(Functor &functor, MatchFlags flags=0) const {
+        return map_->traverse(functor, *this, flags);
+    }
+    void
+    traverse(typename AddressMap::Visitor &visitor, MatchFlags flags=0) const {
+        return map_->traverse<typename AddressMap::Visitor>(visitor, *this, flags);
+    }
+    
     Sawyer::Container::Interval<Address>
     read(typename AddressMap::Value *buf /*out*/, MatchFlags flags=0) const {
         return map_->read(buf, *this, flags);
@@ -1287,7 +1297,67 @@ public:
         }
         return Nothing();
     }
-    
+
+    /** Base class for traversals. */
+    class Visitor {
+    public:
+        virtual ~Visitor() {}
+        virtual bool operator()(const AddressMap&, const Sawyer::Container::Interval<Address>&) = 0;
+    };
+
+    /** Invoke a function on each address interval.
+     *
+     *  The functor is invoked with the following arguments: the memory map and an interval.  If the functor returns false then
+     *  the traversal is terminated.  To facilitate the use of function-local types for the functor without requiring the use
+     *  of explicit template parameters, one may pass a subclass of @ref Visitor as the functor.
+     *
+     *  This example shows one way to print the names of segments that overlap with a given interval:
+     *
+     * @code
+     *  typedef AddressMap<unsigned, char> Map;
+     *  struct: Visitor {
+     *      bool operator()(const Map &map, const Interval<unsigned> &interval) {
+     *          const Map::Segment &segment = map.at(interval.least()).findNode()->value();
+     *          std::cerr <<"segment \"" <<segment.name() <<"\"\n";
+     *          return true;
+     *      }
+     *  } visitor;
+     *  Map map = ...;
+     *  Interval<unsigned> where = ...;
+     *  map.within(where).traverse(visitor);
+     * @endcode
+     *
+     * @{ */
+    template<typename Functor>
+    void traverse(Functor &functor, const AddressMapConstraints<const AddressMap> &c, MatchFlags flags=0) const {
+        using namespace AddressMapImpl;
+        MatchedConstraints<const AddressMap> m = matchConstraints(*this, c, flags);
+        BOOST_FOREACH (const Node &node, m.nodes_) {
+            Sawyer::Container::Interval<Address> part = m.interval_ & node.key();
+            if (!functor(*this, part))
+                return;
+        }
+        return;
+    }
+    template<typename Functor>
+    void traverse(Functor &functor, const AddressMapConstraints<AddressMap> &c, MatchFlags flags=0) {
+        using namespace AddressMapImpl;
+        MatchedConstraints<AddressMap> m = matchConstraints(*this, c, flags);
+        BOOST_FOREACH (const Node &node, m.nodes_) {
+            Sawyer::Container::Interval<Address> part = m.interval_ & node.key();
+            if (!functor(*this, part))
+                return;
+        }
+        return;
+    }
+    void traverse(Visitor &visitor, const AddressMapConstraints<const AddressMap> &c, MatchFlags flags=0) const {
+        traverse<Visitor>(visitor, c, flags);
+    }
+    void traverse(Visitor &visitor, const AddressMapConstraints<AddressMap> &c, MatchFlags flags=0) {
+        traverse<Visitor>(visitor, c, flags);
+    }
+    /** @} */
+
     /** Reads data into the supplied buffer.
      *
      *  Reads data into an array or STL vector according to the specified constraints.  If the array is a null pointer then no

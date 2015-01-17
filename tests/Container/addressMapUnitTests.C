@@ -1690,6 +1690,108 @@ static void test04() {
     }
 }
 
+struct Traversal {
+    std::vector<Interval<unsigned> > expected;
+    size_t index;
+
+    Traversal(): index(0) {}
+
+    void insert(const Interval<unsigned> &interval) { expected.push_back(interval); }
+
+    bool operator()(const AddressMap<unsigned, int> &map, const Interval<unsigned> &interval) {
+        std::cout <<"    processing interval #" <<index <<": [" <<interval.least() <<", " <<interval.greatest() <<"]\n";
+        ASSERT_always_require2(index < expected.size(),
+                               "expected only " + boost::lexical_cast<std::string>(expected.size()) +
+                               (1==expected.size() ? " interval" : " intervals"));
+        ASSERT_always_require2(interval == expected[index],
+                               "expected interval [" + boost::lexical_cast<std::string>(expected[index].least()) +
+                               ", " + boost::lexical_cast<std::string>(expected[index].greatest()) + "]");
+        ++index;
+        return true;
+    }
+
+    void check() const {
+        ASSERT_always_require2(index >= expected.size(),
+                               "expected " + boost::lexical_cast<std::string>(expected.size()) +
+                               (1==expected.size()?" interval":" intervals") + " but got " +
+                               boost::lexical_cast<std::string>(index));
+    }
+};
+
+static void test05() {
+    typedef unsigned Address;
+    typedef Interval<Address> Addresses;
+    typedef int Value;
+    typedef Buffer<Address, Value>::Ptr BufferPtr;
+    typedef AddressSegment<Address, Value> Segment;
+    typedef AddressMap<Address, Value> MemoryMap;
+
+    Value values[50];
+    for (size_t i=0; i<50; ++i)
+        values[i] = i;
+    BufferPtr buf1 = Sawyer::Container::StaticBuffer<Address, Value>::instance(values, 50);
+    Segment seg1 = Segment(buf1, 0, Access::READABLE);
+
+    std::cout <<"Test traversal\n";
+    MemoryMap map;
+    map.insert(Addresses::baseSize(100, 50), Segment(buf1, 0, 0, "first"));
+    map.insert(Addresses::baseSize(150, 50), Segment(buf1, 0, 0, "second"));
+    map.insert(Addresses::baseSize(200, 50), Segment(buf1, 0, 0, "third"));
+    map.insert(Addresses::baseSize(10000, 50), Segment(buf1, 0, 0, "fourth"));
+    map.checkConsistency();
+
+    std::cerr <<"  traverse everything\n";
+    {
+        Traversal t1;
+        t1.insert(Addresses::baseSize(100, 50));
+        t1.insert(Addresses::baseSize(150, 50));
+        t1.insert(Addresses::baseSize(200, 50));
+        t1.insert(Addresses::baseSize(10000, 50));
+        map.any().traverse(t1);
+        t1.check();
+    }
+
+    std::cerr <<"  traverse contiguous\n";
+    {
+        Traversal t1;
+        t1.insert(Addresses::baseSize(100, 50));
+        t1.insert(Addresses::baseSize(150, 50));
+        t1.insert(Addresses::baseSize(200, 50));
+        map.any().traverse(t1, MATCH_CONTIGUOUS);
+        t1.check();
+    }
+
+    std::cerr <<"  traverse subset\n";
+    {
+        Traversal t1;
+        t1.insert(Addresses::baseSize(125, 25));
+        t1.insert(Addresses::baseSize(150, 25));
+        map.atOrAfter(125).limit(50).traverse(t1);
+        t1.check();
+    }
+
+    std::cerr <<"  traverse backward\n";
+    {
+        Traversal t1;
+        t1.insert(Addresses::hull(100, 149));
+        t1.insert(Addresses::hull(150, 175));
+        map.atOrBefore(175).traverse(t1, MATCH_BACKWARD);
+        t1.check();
+    }
+
+    std::cerr <<"  local traversal\n";
+    struct T2: MemoryMap::Visitor {
+        bool operator()(const MemoryMap &m, const Addresses &interval) {
+            std::cout <<"    interval [" <<interval.least() <<", " <<interval.greatest() <<"]\n";
+            const MemoryMap::Segment &segment = m.at(interval.least()).findNode()->value();
+            std::cout <<"      segment name = \"" <<segment.name() <<"\"\n";
+            return true;
+        }
+    } t2;
+    map.any().traverse(t2);
+    
+}
+
 int main() {
 
     test00();
@@ -1697,4 +1799,5 @@ int main() {
     test02();
     test03();
     test04();
+    test05();
 }
