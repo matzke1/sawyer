@@ -1178,12 +1178,11 @@ public:
      *  }
      * @endcode */
     Optional<Address>
-    next(AddressMapConstraints<const AddressMap> c, MatchFlags flags=0) const {
+    next(const AddressMapConstraints<const AddressMap> &c, MatchFlags flags=0) const {
         using namespace AddressMapImpl;
         if (0==(flags & (MATCH_CONTIGUOUS|MATCH_NONCONTIGUOUS)))
             flags |= MATCH_CONTIGUOUS;
-        c.limit(1);                                     // no need to test segments beyond the first match
-        MatchedConstraints<const AddressMap> m = matchConstraints(*this, c, flags);
+        MatchedConstraints<const AddressMap> m = matchConstraints(*this, c.limit(1), flags);
         return m.interval_.isEmpty() ? Optional<Address>() : Optional<Address>(m.interval_.least());
     }
 
@@ -1218,13 +1217,11 @@ public:
      *  Finds the node that contains the first (or last, depending on direction) address that satisfies the constraints.
      *
      * @{ */
-    ConstNodeIterator findNode(AddressMapConstraints<const AddressMap> c, MatchFlags flags=0) const {
-        c.limit(1);
-        return nodes(c, flags).begin();
+    ConstNodeIterator findNode(const AddressMapConstraints<const AddressMap> &c, MatchFlags flags=0) const {
+        return nodes(c.limit(1), flags).begin();
     }
-    NodeIterator findNode(AddressMapConstraints<AddressMap> c, MatchFlags flags=0) {
-        c.limit(1);
-        return nodes(c, flags).begin();
+    NodeIterator findNode(const AddressMapConstraints<AddressMap> &c, MatchFlags flags=0) {
+        return nodes(c.limit(1), flags).begin();
     }
     /** @} */
 
@@ -1420,9 +1417,8 @@ public:
     }
 
     Sawyer::Container::Interval<Address>
-    read(std::vector<Value> &buf /*out*/, AddressMapConstraints<const AddressMap> c, MatchFlags flags=0) const {
-        c.limit(buf.size());
-        return buf.empty() ? Sawyer::Container::Interval<Address>() : read(&buf[0], c, flags);
+    read(std::vector<Value> &buf /*out*/, const AddressMapConstraints<const AddressMap> &c, MatchFlags flags=0) const {
+        return buf.empty() ? Sawyer::Container::Interval<Address>() : read(&buf[0], c.limit(buf.size()), flags);
     }
     /** @} */
     
@@ -1459,13 +1455,12 @@ public:
      *
      * @{ */
     Sawyer::Container::Interval<Address>
-    write(const Value *buf, AddressMapConstraints<AddressMap> c, MatchFlags flags=0) {
+    write(const Value *buf, const AddressMapConstraints<AddressMap> &c, MatchFlags flags=0) {
         using namespace AddressMapImpl;
         ASSERT_require2(0 == (flags & MATCH_NONCONTIGUOUS), "only contiguous addresses can be written");
         if (0==(flags & (MATCH_CONTIGUOUS|MATCH_NONCONTIGUOUS)))
             flags |= MATCH_CONTIGUOUS;
-        c.prohibit(Access::IMMUTABLE);                  // don't ever write to buffers that can't be modified
-        MatchedConstraints<AddressMap> m = matchConstraints(*this, c, flags);
+        MatchedConstraints<AddressMap> m = matchConstraints(*this, c.prohibit(Access::IMMUTABLE), flags);
         if (buf) {
             BOOST_FOREACH (Node &node, m.nodes_) {
                 Segment &segment = node.value();
@@ -1500,9 +1495,8 @@ public:
     }
 
     Sawyer::Container::Interval<Address>
-    write(const std::vector<Value> &buf, AddressMapConstraints<AddressMap> c, MatchFlags flags=0) {
-        c.limit(buf.size());
-        return buf.empty() ? Sawyer::Container::Interval<Address>() : write(&buf[0], c, flags);
+    write(const std::vector<Value> &buf, const AddressMapConstraints<AddressMap> &c, MatchFlags flags=0) {
+        return buf.empty() ? Sawyer::Container::Interval<Address>() : write(&buf[0], c.limit(buf.size()), flags);
     }
     /** @} */
 
