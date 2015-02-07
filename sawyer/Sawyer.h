@@ -262,8 +262,9 @@ SAWYER_EXPORT std::string generateSequentialName(size_t length=3);
 # define SAWYER_PRETTY_FUNCTION __PRETTY_FUNCTION__
 # define SAWYER_MAY_ALIAS __attribute__((may_alias))
 
-// Sawyer globals need to be initialized after the C++ standard runtime
-# define SAWYER_STATIC_INIT __attribute__((init_priority(65534)))
+// Sawyer globals need to be initialized after the C++ standard runtime, but before other user-level stuff. The constant 101
+// causes the initialization to happen as early as possible after the C++ runtime.
+# define SAWYER_STATIC_INIT __attribute__((init_priority(101)))
 
 # define SAWYER_VARIABLE_LENGTH_ARRAY(TYPE, NAME, SIZE) \
     TYPE NAME[SIZE];

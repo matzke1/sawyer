@@ -1344,7 +1344,9 @@ public:
  * @code
  *  mlog[ERROR] <<"I got an error\n";
  * @endcode  */
- class SAWYER_EXPORT Facility {
+class SAWYER_EXPORT Facility {
+    static const unsigned INITIALIZATION_MAGIC = 0x73617779;
+    unsigned initialized_;
 #include <sawyer/WarningsOff.h>
     std::string name_;
     std::vector<SProxy> streams_;
@@ -1354,21 +1356,32 @@ public:
      *  emit anything to a facility in the default state will cause an <code>std::runtime_error</code> to be thrown with a
      *  message similar to "stream INFO is not initialized yet".  This facility can be initialized by assigning it a value from
      *  another initialized facility. */
-    Facility() {}
+    Facility(): initialized_(INITIALIZATION_MAGIC) {}
 
     /** Create a named facility with default destinations.  All streams are enabled and all output goes to file descriptor
      *  2 (standard error) via unbuffered system calls.  Facilities initialized to this state can typically be used before the
      *  C++ runtime is fully initialized and before @ref Sawyer::initializeLibrary is called. */
-    explicit Facility(const std::string &name): name_(name) {
+    explicit Facility(const std::string &name): initialized_(INITIALIZATION_MAGIC), name_(name) {
         //initializeLibrary() //delay until later
         initStreams(FdSink::instance(2));
     }
 
     /** Creates streams of all importance levels. */
-    Facility(const std::string &name, const DestinationPtr &destination): name_(name) {
+    Facility(const std::string &name, const DestinationPtr &destination): initialized_(INITIALIZATION_MAGIC), name_(name) {
         initializeLibrary();
         initStreams(destination);
     }
+
+    ~Facility() {
+        initialized_ = 0;
+    }
+
+    /** Returns true if called on an object that has been constructed.
+     *
+     *  Returns true if this is constructed, false if it's allocated but not constructed. For instance, this method may return
+     *  false if the object is declared at namespace scope and this method is called before the C++ runtime has had a chance to
+     *  initialize it. */
+    bool isInitialized() const { return initialized_ == INITIALIZATION_MAGIC; }
 
     /** Returns a stream for the specified importance level.  Returns a copy so that we can do things like this:
      * @code

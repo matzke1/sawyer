@@ -969,19 +969,29 @@ SAWYER_EXPORT Stream&
 Facility::get(Importance imp) {
     if (imp<0 || imp>=N_IMPORTANCE)
         throw std::runtime_error("invalid importance level");
-    if ((size_t)imp>=streams_.size() || NULL==streams_[imp].get()) {
+    if (!isInitialized()) {
         // If you're looking at this line in a debugger it's probably because you're trying to use a Stream from a
-        // default-constructed Facility.  Facilities that are allocated statically and/or at global scope should probably
-        // either be constructed with Facility(const std::string&) or initialized by assigning some other facility to them.
-        // Another possibility is that you provided Sawyer::Message::merr as the destination before libsawyer had a chance to
-        // initialize that global variable. You can work around that problem by calling Sawyer::initializeLibrary() first.
+        // global or static Facility that has not been constructed yet.  Perhaps you're trying to print a message to Sawyer's
+        // "mlog" facility but Sawyer has not been initialized yet -- in that case, be sure to call Sawyer::initializeLibrary
+        // first.
         //
+        // The typical way to initialize a global Facility is to declare it with a default constructor then then before it's
+        // used for the first time, assign a new Facility object to the global variable.  E.g.,
+        //
+        // |// file example.C
+        // |#include <Sawyer/Message.h>
+        // |Sawyer::Message::Facility mlog;
+        // |
+        // |int main() {
+        // |    mlog = Sawyer::Message::Facility("tool");
+        // 
         // ROSE users: librose does not currently (2014-09-09) initialize libsawyer until the ROSE frontend() is called. If
         // you're calling into librose before calling "frontend" then you probably want to explicitly initialize ROSE by
-        // invoking rose::Diagnostics::initialize() early in "main".
-        throw std::runtime_error("stream " + stringifyImportance(imp) +
-                                 (name_.empty() ? std::string() : " in facility \"" + name_ + "\"") +
-                                 " is not initialized yet");
+        // invoking rose::Diagnostics::initialize() early in "main". This will cause all of ROSE's Facility objects to be
+        // constructed.
+        std::ostringstream ss;
+        ss <<"stream " <<stringifyImportance(imp) <<" in facility " <<this <<" is not initialized yet";
+        throw std::runtime_error(ss.str());
     }
     return *streams_[imp];
 }
