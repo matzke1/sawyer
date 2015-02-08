@@ -31,8 +31,10 @@ int main() {
 
     std::vector<Object> objects(nObjects);
 
-#if 1 // [Robb Matzke 2014-05-24]
-    typedef Sawyer::PoolAllocator Allocator;
+#if 0 // [Robb Matzke 2014-05-24]
+    typedef Sawyer::SynchronizedPoolAllocator Allocator;
+#elif 1
+    typedef Sawyer::UnsynchronizedPoolAllocator Allocator;
 #else
     typedef SystemAllocator Allocator;
 #endif

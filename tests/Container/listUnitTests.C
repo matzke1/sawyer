@@ -405,8 +405,8 @@ Sawyer::Container::IndexedList<Elmt2> index_list_self_referent_test;
 
 // Tests user-specified allocator
 void user_allocator() {
-    Sawyer::PoolAllocator pools;
-    typedef Sawyer::ProxyAllocator<Sawyer::PoolAllocator> PoolProxy;
+    Sawyer::UnsynchronizedPoolAllocator pools;
+    typedef Sawyer::ProxyAllocator<Sawyer::UnsynchronizedPoolAllocator> PoolProxy;
 
     Sawyer::Container::IndexedList<int, PoolProxy> list(pools);
     list.pushBack(123);
