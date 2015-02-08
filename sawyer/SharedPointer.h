@@ -1,6 +1,9 @@
 #ifndef Sawyer_SharedPtr_H
 #define Sawyer_SharedPtr_H
 
+#include <boost/thread.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/mutex.hpp>
 #include <cstddef>
 #include <ostream>
 #include <sawyer/Assert.h>
@@ -24,7 +27,7 @@ public:
 private:
     Pointee *pointee_;
 
-    static void aquireOwnership(Pointee *rawPtr);
+    static void acquireOwnership(Pointee *rawPtr);
 
     // Returns number of owners remaining
     static size_t releaseOwnership(Pointee *rawPtr);
@@ -37,11 +40,11 @@ public:
      *  object will only be deleted after both pointers are deleted.
      * @{ */
     SharedPointer(const SharedPointer &other): pointee_(other.pointee_) {
-        aquireOwnership(pointee_);
+        acquireOwnership(pointee_);
     }
     template<class Y>
     SharedPointer(const SharedPointer<Y> &other): pointee_(getRawPointer(other)) {
-        aquireOwnership(pointee_);
+        acquireOwnership(pointee_);
     }
     /** @} */
     
@@ -53,7 +56,7 @@ public:
     template<class Y>
     explicit SharedPointer(Y *rawPtr): pointee_(rawPtr) {
         if (pointee_!=NULL)
-            aquireOwnership(pointee_);
+            acquireOwnership(pointee_);
     }
 
     /** Conditionally deletes the pointed-to object.  The object is deleted when its reference count reaches zero. */
@@ -74,7 +77,7 @@ public:
             if (pointee_!=NULL && 0==releaseOwnership(pointee_))
                 delete pointee_;
             pointee_ = getRawPointer(other);
-            aquireOwnership(pointee_);
+            acquireOwnership(pointee_);
         }
         return *this;
     }
@@ -252,6 +255,7 @@ void clear(SharedPointer<T> &ptr) {
  *  @sa SharedPointer, @ref SharedFromThis */
 class SAWYER_EXPORT SharedObject {
     template<class U> friend class SharedPointer;
+    mutable boost::mutex mutex_;
     mutable size_t nrefs_;
 public:
     /** Default constructor.  Initializes the reference count to zero. */
@@ -326,19 +330,26 @@ public:
 
 template<class T>
 inline size_t SharedPointer<T>::ownershipCount(T *rawPtr) {
-    return rawPtr==NULL ? 0 : rawPtr->SharedObject::nrefs_;
+    if (rawPtr) {
+        boost::lock_guard<boost::mutex> lock(rawPtr->SharedObject::mutex_);
+        return rawPtr->SharedObject::nrefs_;
+    }
+    return 0;
 }
 
 template<class T>
-inline void SharedPointer<T>::aquireOwnership(Pointee *rawPtr) {
-    if (rawPtr!=NULL)
+inline void SharedPointer<T>::acquireOwnership(Pointee *rawPtr) {
+    if (rawPtr!=NULL) {
+        boost::lock_guard<boost::mutex> lock(rawPtr->SharedObject::mutex_);
         ++rawPtr->SharedObject::nrefs_;
+    }
 }
 
 template<class T>
 inline size_t SharedPointer<T>::releaseOwnership(Pointee *rawPtr) {
     if (rawPtr!=NULL) {
-        ASSERT_require2(rawPtr->SharedObject::nrefs_>0, "pointee must be owned");
+        boost::lock_guard<boost::mutex> lock(rawPtr->SharedObject::mutex_);
+        assert(rawPtr->SharedObject::nrefs_ > 0);
         return --rawPtr->SharedObject::nrefs_;
     } else {
         return 0;
