@@ -1,15 +1,28 @@
 #include <sawyer/Sawyer.h>
 #include <sawyer/Message.h>
+#include <boost/thread.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 
 namespace Sawyer {
 
-SAWYER_EXPORT bool isInitialized;
+static boost::recursive_mutex bigMutex;
+static bool isInitialized_;
 
+// thread-safe
+SAWYER_EXPORT bool
+isInitialized() {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return isInitialized_;
+}
+
+// thread-safe
 SAWYER_EXPORT bool
 initializeLibrary() {
-    if (!isInitialized) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    if (!isInitialized_) {
         Message::initializeLibrary();
-        isInitialized = true;
+        isInitialized_ = true;
     }
     return true;
 }

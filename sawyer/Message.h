@@ -263,13 +263,19 @@ namespace Sawyer {
  */
 namespace Message {
 
-/** Explicitly initialize the library. This initializes any global objects provided by the library to users.  This happens
- *  automatically for many API calls, but sometimes needs to be called explicitly. Calling this after the library has already
- *  been initialized does nothing. The function always returns true. */
+/** Explicitly initialize the library.
+ *
+ *  This initializes any global objects provided by the library to users.  This happens automatically for many API calls, but
+ *  sometimes needs to be called explicitly. Calling this after the library has already been initialized does nothing. The
+ *  function always returns true.
+ *
+ *  Thread safety: This function is thread-safe. */
 SAWYER_EXPORT bool initializeLibrary();
 
-/** True if the library has been initialized. @sa initializeLibrary(). */
-SAWYER_EXPORT extern bool isInitialized;
+/** True if the library has been initialized. @sa initializeLibrary().
+ *
+ *  Thread safety: This function is thread-safe. */
+SAWYER_EXPORT bool isInitialized();
 
 // Any header that #defines words that are this common is just plain stupid!
 #if defined(DEBUG) || defined(TRACE) || defined(WHERE) || defined(MARCH) || \
@@ -356,7 +362,9 @@ SAWYER_EXPORT std::string escape(const std::string&);      /**< Convert a string
 //                                      Colors
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** ANSI Color specification for text written to a terminal. */
+/** ANSI Color specification for text written to a terminal.
+ *
+ *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
 struct SAWYER_EXPORT ColorSpec {
     AnsiColor foreground;                               /**< Foreground color, or @ref COLOR_DEFAULT. */
     AnsiColor background;                               /**< Background color, or @ref COLOR_DEFAULT. */
@@ -377,7 +385,9 @@ struct SAWYER_EXPORT ColorSpec {
     bool isDefault() const { return COLOR_DEFAULT==foreground && COLOR_DEFAULT==background && !bold; }
 };
 
-/** Colors to use for each message importance. */
+/** Colors to use for each message importance.
+ *
+ *  Thread safety: This object uses no global state but is otherwise not thread safe. */
 class SAWYER_EXPORT ColorSet {
     ColorSpec spec_[N_IMPORTANCE];
 public:
@@ -401,8 +411,12 @@ public:
 //                                      Message Properties
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Properties for messages.  Each message property is optional.  When a message is sent through the plumbing, each node of the
- *  plumbing lattice may provide default values for properties that are not set, or may override properties that are set. */
+/** Properties for messages.
+ *
+ *  Each message property is optional.  When a message is sent through the plumbing, each node of the plumbing lattice may
+ *  provide default values for properties that are not set, or may override properties that are set.
+ *
+ *  Thread safety:  This object uses no global state, but is otherwise not thread-safe except where noted. */
 struct SAWYER_EXPORT MesgProps {
 #include <sawyer/WarningsOff.h>
     Optional<std::string> facilityName;                 /**< The name of the logging facility that produced this message. */
@@ -422,7 +436,7 @@ struct SAWYER_EXPORT MesgProps {
      *  argument is used (which may also be missing). */
     MesgProps merge(const MesgProps&) const;
 
-    /** Print the values for all properties.  This is used mainly for debugging. */
+    /** Print the values for all properties.  This is used mainly for debugging. This method is thread-safe. */
     void print(std::ostream&) const;
 };
 
@@ -482,10 +496,14 @@ typedef std::vector<BakedDestination> BakedDestinations;
 //                                      Messages
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** A single message.  A message consists of a string and can be in a partial, completed, or canceled state.  More text can be
- *  added to a message while it is in the partial state, but once the message is marked as completed or canceled the text
- *  becomes immutable.  Messages also have properties, which are fed into the plumbing lattice and adjusted as they traverse to
- *  the final destinations during a process called "baking". */
+/** A single message.
+ *
+ *  A message consists of a string and can be in a partial, completed, or canceled state.  More text can be added to a message
+ *  while it is in the partial state, but once the message is marked as completed or canceled the text becomes immutable.
+ *  Messages also have properties, which are fed into the plumbing lattice and adjusted as they traverse to the final
+ *  destinations during a process called "baking".
+ *
+ *  Thread safety: This object uses global state, but is otherwise not thread-safe except where noted. */
 class SAWYER_EXPORT Mesg {
     static unsigned nextId_;                            // class-wide unique ID numbers
     unsigned id_;                                       // unique message ID
@@ -579,7 +597,11 @@ public:
 //                                      Plumbing lattice nodes
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Base class for all types of message destinations. This is the base class for all nodes in the plumbing lattice. */
+/** Base class for all types of message destinations.
+ *
+ *  This is the base class for all nodes in the plumbing lattice.
+ *
+ *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
 class SAWYER_EXPORT Destination: public SharedObject, public SharedFromThis<Destination> {
 protected:
     MesgProps dflts_;                                   /**< Default properties merged into each incoming message. */
@@ -620,8 +642,11 @@ public:
     MesgProps mergeProperties(const MesgProps &props);
 };
 
-/** Sends incoming messages to multiple destinations.  This is the base class for all internal nodes of the plumbing
- *  lattice. */
+/** Sends incoming messages to multiple destinations.
+ *
+ *  This is the base class for all internal nodes of the plumbing lattice.
+ *
+ *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
 class SAWYER_EXPORT Multiplexer: public Destination {
     typedef std::list<DestinationPtr> Destinations;
 #include <sawyer/WarningsOff.h>
@@ -658,8 +683,12 @@ public:
 //                                      Filters
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Base class for internal nodes that filter messages.  Filtering is applied when properties are baked, which should happen
- *  exactly once for each message, usually just before the message is posted for the first time. */
+/** Base class for internal nodes that filter messages.
+ *
+ *  Filtering is applied when properties are baked, which should happen exactly once for each message, usually just before the
+ *  message is posted for the first time.
+ *
+ *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
 class SAWYER_EXPORT Filter: public Multiplexer {
 protected:
     /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
@@ -678,8 +707,12 @@ public:
     virtual void forwarded(const MesgProps&) = 0;       // message was forwarded to children
 };
 
-/** Filters messages based on how many messages have been seen.  The first @e n messages are skipped (not forwarded to
- *  children), the first one of every @e m messages thereafter is forwarded, for a total of @e t messages forwarded. */
+/** Filters messages based on how many messages have been seen.
+ *
+ *  The first @e n messages are skipped (not forwarded to children), the first one of every @e m messages thereafter is
+ *  forwarded, for a total of @e t messages forwarded.
+ *
+ *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
 class SAWYER_EXPORT SequenceFilter: public Filter {
     size_t nSkip_;                                      // skip initial messages posted to this sequencer
     size_t rate_;                                       // emit only 1/Nth of the messages (0 and 1 both mean every message)
@@ -725,8 +758,12 @@ public:
     virtual void forwarded(const MesgProps&) /*override*/ {}
 };
 
-/** Filters messages based on time.  Any message posted within some specified time of a previously forwarded message will
- *  not be forwarded to children nodes in the plumbing lattice. */
+/** Filters messages based on time.
+ *
+ *  Any message posted within some specified time of a previously forwarded message will not be forwarded to children nodes in
+ *  the plumbing lattice.
+ *
+ *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
 class SAWYER_EXPORT TimeFilter: public Filter {
     double initialDelay_;                               // amount to delay before emitting the first message
     double minInterval_;                                // minimum time between messages
@@ -765,12 +802,15 @@ public:
     virtual void forwarded(const MesgProps&) /*override*/;
 };
 
-/** Filters messages based on importance level. For instance, to disable all messages except fatal and error messages:
+/** Filters messages based on importance level.
+ *
+ *  For instance, to disable all messages except fatal and error messages:
  *
  * @code
  *  DestinationPtr d = ImportanceFilter::instance(false)->enable(FATAL)->enable(ERROR);
  * @endcode
- */
+ *
+ * Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
 class SAWYER_EXPORT ImportanceFilter: public Filter {
     bool enabled_[N_IMPORTANCE];
 protected:
@@ -810,7 +850,9 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** @internal
- *  Keeps track of how much of a partial message was already emitted. */
+ *  Keeps track of how much of a partial message was already emitted.
+ *
+ *  Thread safety: All methods in this class are thread safe. */
 class HighWater {
     Optional<unsigned> id_;                             /**< ID number of last message to be emitted, if any. */
     MesgProps props_;                                   /**< Properties used for the last emission. */
@@ -819,11 +861,11 @@ public:
     HighWater(): ntext_(0) {}
     explicit HighWater(const Mesg &m, const MesgProps &p) { emitted(m, p); }
     void emitted(const Mesg&, const MesgProps&);        /**< Make specified message the high water mark. */
-    void clear() { *this = HighWater(); }               /**< Reset to initial state. */
+    void clear();                                       /**< Reset to initial state. */
     bool isValid() const;                               /**< Returns true if high water is defined. */
-    unsigned id() const { return *id_; }                /**< Exception unless <code>isValid()</code>. */
-    const MesgProps& properties() const { return props_; }
-    size_t ntext() const { return ntext_; }             /**< Zero if <code>!isValid()</code>. */
+    unsigned id() const;                                /**< Exception unless <code>isValid()</code>. */
+    MesgProps properties() const;
+    size_t ntext() const;                               /**< Zero if <code>!isValid()</code>. */
 };
 
 /** @internal
@@ -831,7 +873,9 @@ public:
  *
  *  A Gang is used to coordinate output from two or more sinks.  This is normally used by sinks writing the tty, such as a sink
  *  writing to stdout and another writing to stderr--they need to coordinate with each other if they're both going to the
- *  terminal.  A gang just keeps track of what message was most recently emitted. */
+ *  terminal.  A gang just keeps track of what message was most recently emitted.
+ *
+ *  Thread safety: All methods in this class are thread safe. */
 class Gang: public HighWater, public SharedObject {
     typedef Sawyer::Container::Map<int, GangPtr> GangMap;
     static GangMap *gangs_;                             /**< Gangs indexed by file descriptor or other ID. */
@@ -849,7 +893,10 @@ public:
 //                                      Messages prefixes
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Information printed at the beginning of each free-format message. */
+/** Information printed at the beginning of each free-format message.
+ *
+ *  Thread safety:  This object is not thread-safe except where noted. However, all access to global data is protected, so one
+ *  can treat these objects as if they had only local-data. */
 class SAWYER_EXPORT Prefix: public SharedObject, public SharedFromThis<Prefix> {
 #include <sawyer/WarningsOff.h>
 public:
@@ -956,7 +1003,11 @@ public:
 //                                      Final destinations (sinks)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Base class for final destinations that are free-format. These are destinations that emit messages as strings. */
+/** Base class for final destinations that are free-format.
+ *
+ *  These are destinations that emit messages as strings.
+ *
+ *  Thread safety: This object is not thread safe. */
 class SAWYER_EXPORT UnformattedSink: public Destination {
 #include <sawyer/WarningsOff.h>
     GangPtr gang_;
@@ -970,12 +1021,14 @@ protected:
         init();
     }
 public:
-    /** Property: sink gang. Message sinks use a gang to coordinate their output. For instance, two sinks that both write to
-     *  the same file should share the same gang.  A shared gang can also be used for sinks that write to two different
-     *  locations that both happen to be visible collectively, such as when writing to standard error and standard output when
-     *  both are writing to the terminal or when both have been redirected to the same file.  Not all sinks support
-     *  automatically choosing the correct gang (e.g., C++ std::ofstream doesn't have the necessary capabilities), so it must
-     *  be chosen manually sometimes for the output to be coordinated.  See Gang::instanceForId() and Gang::instanceForTty().
+    /** Property: sink gang.
+     *
+     *  Message sinks use a gang to coordinate their output. For instance, two sinks that both write to the same file should
+     *  share the same gang.  A shared gang can also be used for sinks that write to two different locations that both happen
+     *  to be visible collectively, such as when writing to standard error and standard output when both are writing to the
+     *  terminal or when both have been redirected to the same file.  Not all sinks support automatically choosing the correct
+     *  gang (e.g., C++ std::ofstream doesn't have the necessary capabilities), so it must be chosen manually sometimes for the
+     *  output to be coordinated.  See Gang::instanceForId() and Gang::instanceForTty().
      * @{ */
     const GangPtr& gang() const { return gang_; }
     UnformattedSinkPtr gang(const GangPtr &g) {
@@ -1024,7 +1077,9 @@ private:
     void init();
 };
 
-/** Send free-format messages to a Unix file descriptor. */
+/** Send free-format messages to a Unix file descriptor.
+ *
+ *  Thread safety: This object is not thread-safe. */
 class SAWYER_EXPORT FdSink: public UnformattedSink {
     int fd_;                                            // file descriptor or -1
 protected:
@@ -1041,7 +1096,9 @@ private:
     void init();
 };
 
-/** Send free-format messages to a C @c FILE pointer. */
+/** Send free-format messages to a C @c FILE pointer.
+ *
+ *  Thread safety: This object is not thread-safe. */
 class SAWYER_EXPORT FileSink: public UnformattedSink {
     FILE *file_;
 protected:
@@ -1058,7 +1115,9 @@ private:
     void init();
 };
 
-/** Send free-format messages to a C++ I/O stream. */
+/** Send free-format messages to a C++ I/O stream.
+ *
+ *  Thread safety: This object is not thread-safe. */
 class SAWYER_EXPORT StreamSink: public UnformattedSink {
     std::ostream &stream_;
 protected:
@@ -1074,7 +1133,9 @@ public:
 };
 
 #ifndef BOOST_WINDOWS
-/** Sends messages to the syslog daemon. */
+/** Sends messages to the syslog daemon.
+ *
+ *  Thread safety: This object is not thread-safe. */
 class SAWYER_EXPORT SyslogSink: public Destination {
 protected:
     /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
@@ -1099,7 +1160,9 @@ private:
 class Stream;
 
 /** @internal
- *  Only used internally; most of the API is in MessageStream. */
+ *  Only used internally; most of the API is in MessageStream.
+ *
+ *  Thread safety: This object is not thread-safe. */
 class SAWYER_EXPORT StreamBuf: public std::streambuf {
     friend class Stream;
 #include <sawyer/WarningsOff.h>
@@ -1126,7 +1189,10 @@ private:
 };
 
 /** @internal
- *  Adjusts reference counts for a stream and deletes the stream when the reference count hits zero. */
+ *  Adjusts reference counts for a stream and deletes the stream when the reference count hits zero.
+ *
+ *  Thread safety: This object is almost thread-safe.  The <code>SProxy(const SProxy&)</code> method is not thread-safe but
+ *  this is not an issue if the argument is owned by a Facility. */
 class SAWYER_EXPORT SProxy {
     Stream *stream_;
 public:
@@ -1163,7 +1229,7 @@ public:
         assert(destination!=NULL);
         streambuf_->dflt_props_.facilityName = facilityName;
         streambuf_->dflt_props_.importance = imp;
-        streambuf_->destination_ = destination;
+        streambuf_->destination_ = destination;         // FIXME[Robb Matzke 2015-02-07]: thread-safety: ref-counted
         streambuf_->message_.properties() = streambuf_->dflt_props_;
     }
 
@@ -1174,30 +1240,40 @@ public:
         assert(streambuf_!=NULL);
         assert(destination!=NULL);
         streambuf_->dflt_props_ = props;
-        streambuf_->destination_ = destination;
+        streambuf_->destination_ = destination;         // FIXME[Robb Matzke 2015-02-07]: thread-safety: ref-count
         streambuf_->message_.properties() = streambuf_->dflt_props_;
     }
 
-    /** Construct a new stream from an existing stream.  If @p other has a pending message then ownership of that message
-     *  is moved to this new stream. */
+    /** Construct a new stream from an existing stream.
+     *
+     *  If @p other has a pending message then ownership of that message is moved to this new stream.
+     *
+     *  Thread safety: This method is thread-safe. */
     Stream(const Stream &other)
         : std::ostream(new StreamBuf), nrefs_(0), streambuf_(NULL) {
         initFrom(other);
     }
 
-    /** Initialize this stream from another stream.  If @p other has a pending message then ownership of that message
-     *  is moved to this stream. */
+    /** Initialize this stream from another stream.
+     *
+     *  If @p other has a pending message then ownership of that message is moved to this stream.
+     *
+     *  Thread safety: This method is thread-safe. */
     Stream& operator=(const Stream &other) {
         initFrom(other);
         return *this;
     }
 
     /** Copy constructor with dynamic cast.
-     * Same as <code>Stream(const Stream&)</code> but declared so we can do things like this:
+     *  
+     *  Same as <code>Stream(const Stream&)</code> but declared so we can do things like this:
+     *
      * @code
      *  Stream m1(mlog[INFO] <<"first part of the message");
      *  m1 <<"; finalize message\n";
-     * @endcode */
+     * @endcode
+     *
+     *  Thread safety: This method is thread-safe. */
     Stream(const std::ostream &other_)
         : std::ostream(rdbuf()), nrefs_(0), streambuf_(NULL) {
         const Stream *other = dynamic_cast<const Stream*>(&other_);
@@ -1207,11 +1283,15 @@ public:
     }
 
     /** Assignment with dynamic cast.
+     *
      *  Same as <code>operator=(const Stream&)</code> but declared so we can do things like this:
+     *
      *  @code
      *  Stream m1 = mlog[INFO] <<"first part of the message");
      *  m1 <<"; finalize message\n";
-     *  @endcode */
+     *  @endcode
+     *
+     *  Thread safety:  This method is thread-safe. */
     Stream& operator=(const std::ostream &other_) {
         const Stream *other = dynamic_cast<const Stream*>(&other_);
         if (!other)
@@ -1225,87 +1305,67 @@ public:
         delete streambuf_;
     }
 
-    /** Used for partial messages when std::move is missing. */
-    SProxy dup() const {
-        return SProxy(new Stream(*this));
-    }
+    /** Used for partial messages when std::move is missing.
+     *
+     *  Thread safety: This method is thread-safe. */
+    SProxy dup() const;
 
 protected:
-    /** Initiaize this stream from @p other.  This stream will get its own StreamBuf (if it doesn't have one already), and
-     *  any pending message from @p other will be moved (not copied) to this stream. */
-    void initFrom(const Stream &other) {
-        assert(other.streambuf_!=NULL);
-        streambuf_ = dynamic_cast<StreamBuf*>(rdbuf());
-        if (!streambuf_) {
-            streambuf_ = new StreamBuf;
-            rdbuf(streambuf_);
-        }
-
-        // If this stream has a partial message then it needs to be canceled.  This also resets things associated with
-        // the message, such as the baked properties.
-        streambuf_->cancelMessage();
-
-        // Copy some stuff from other.
-        streambuf_->enabled_ = other.streambuf_->enabled_;
-        streambuf_->dflt_props_ = other.streambuf_->dflt_props_;
-        streambuf_->destination_ = other.streambuf_->destination_;
-
-        // Swap message-related stuff in order to move ownership of the message to this.
-        streambuf_->message_.properties() = streambuf_->dflt_props_;
-        std::swap(streambuf_->message_, other.streambuf_->message_);
-        std::swap(streambuf_->baked_, other.streambuf_->baked_);
-        std::swap(streambuf_->isBaked_, other.streambuf_->isBaked_);
-        std::swap(streambuf_->anyUnbuffered_, other.streambuf_->anyUnbuffered_);
-    }
+    /** Initiaize this stream from @p other.
+     *
+     *  This stream will get its own StreamBuf (if it doesn't have one already), and any pending message from @p other will be
+     *  moved (not copied) to this stream.
+     *
+     *  Thread safety: This method is thread-safe. */
+    void initFrom(const Stream &other);
 
 public:
-    /** Returns true if a stream is enabled. */
-    bool enabled() const { return streambuf_->enabled_; }
+    /** Returns true if a stream is enabled.
+     *
+     *  Thread safety: This method is thread-safe. */
+    bool enabled() const;
 
-    /** Returns true if this stream is enabled.  This implicit conversion to bool can be used to conveniently avoid expensive
-     *  insertion operations when a stream is disabled.  For example, if printing <code>MemoryMap</code> is an expensive
-     *  operation then the logging can be written any of these ways to avoid formatting memorymap when logging is disabled:
+    /** Returns true if this stream is enabled.
+     *
+     *  This implicit conversion to bool can be used to conveniently avoid expensive insertion operations when a stream is
+     *  disabled.  For example, if printing <code>MemoryMap</code> is an expensive operation then the logging can be written
+     *  any of these ways to avoid formatting memorymap when logging is disabled:
+     *
      * @code
      *  if (mlog[DEBUG])
      *      mlog[DEBUG] <<"the memory map is: " <<memoryMap <<"\n";
      *
-     *  mlog[DEBUG] and mlog[DEBUG] <<"the memory map is: " <<memoryMap <<"\n";
+     *  mlog[DEBUG] && mlog[DEBUG] <<"the memory map is: " <<memoryMap <<"\n";
      *  
      *  SAWYER_MESG(mlog[DEBUG]) <<"the memory map is: " <<memoryMap <<"\n";
      * @endcode
      *
-     *  Note: Although "and" looks slightly better than "&&" in the above examples, it is not portable across Microsoft
-     *  compilers. */
-    operator bool() { return enabled(); }
+     * Thread safety: This method is thread-safe. */
+    operator bool();
 
     // See Stream::bool()
     #define SAWYER_MESG(message_stream) message_stream && message_stream
 
-    /** Enable or disable a stream.  A disabled stream buffers the latest partial message and enabling the stream will cause
-     * the entire accumulated message to be emitted--whether the partial message immediately appears on the output is up to
-     * the message sinks.
+    /** Enable or disable a stream.
+     *
+     *  A disabled stream buffers the latest partial message and enabling the stream will cause the entire accumulated message
+     *  to be emitted--whether the partial message immediately appears on the output is up to the message sinks.
+     *
+     *  Thread safety: This method is thread-safe.
+     * 
      * @{ */
     void enable(bool b=true);
     void disable() { enable(false); }
     /** @} */
 
-//    /** Indentation level.  A stream that is indented inserts additional white space between the message prefix and the message
-//     *  text.  Although indentation is adjusted on a per-stream basis and the stream is where the indentation is applied, the
-//     *  actual indentation level is a property of the MessageSink. Therefore, all messages streams using the same sink are
-//     *  affected.
-//     *
-//     *  Users seldom use this method to change the indentation since it requires careful programming to restore the old
-//     *  indentation in the presence of non-local exits from scopes where the indentation was indented to be in effect (e.g.,
-//     *  exceptions). A more useful interface is the MessageIndenter class.
-//     * @{ */
-//    size_t indentation() const { return streambuf_.sink_->indentation(); }
-//    void indentation(size_t level) { streambuf_.sink_->indentation(level); }
-//    /** @} */
-
-    /** Set message or stream property. If @p asDefault is false then the property is set only in the current message and
-     *  the message must be empty (e.g., just after the previous message was completed).  When @p asDefault is true the new
-     *  value becomes the default for all future messages. The default also affects the current message if the current message
-     *  is empty.
+    /** Set message or stream property.
+     *
+     *  If @p asDefault is false then the property is set only in the current message and the message must be empty (e.g., just
+     *  after the previous message was completed).  When @p asDefault is true the new value becomes the default for all future
+     *  messages. The default also affects the current message if the current message is empty.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      *  @{ */
     void completionString(const std::string &s, bool asDefault=true);
     void interruptionString(const std::string &s, bool asDefault=true);
@@ -1313,37 +1373,43 @@ public:
     void facilityName(const std::string &s, bool asDefault=true);
      /** @} */
 
-    /** Property: message destination. This is the pointer to the top of the plumbing lattice.
+    /** Property: message destination.
+     *
+     *  This is the pointer to the top of the plumbing lattice.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      *  @{ */
-    const DestinationPtr& destination() const {
-        return streambuf_->destination_;
-    }
-    Stream& destination(const DestinationPtr &d) {
-        assert(d!=NULL);
-        streambuf_->destination_ = d;
-        return *this;
-    }
+    const DestinationPtr& destination() const;
+    Stream& destination(const DestinationPtr &d);
     /** @} */
 
-    /** Return the default properties for this stream. These are the properties of the stream itself before they are adjusted
-     *  by the destination lattice. The default properties are used each time the stream creates a message. */
-    MesgProps properties() const {
-        return streambuf_->dflt_props_;
-    }
+    /** Return the default properties for this stream.
+     *
+     *  These are the properties of the stream itself before they are adjusted by the destination lattice. The default
+     *  properties are used each time the stream creates a message.
+     *
+     *  Thread safety: This method is thread-safe. */
+    MesgProps properties() const;
 };
 
-/** Collection of streams. This forms a collection of message streams for a software component and contains one stream per
- *  message importance level.  A facility is intended to be used by a software component at whatever granularity is desired by
- *  the author (program, name space, class, method, etc.) and is usually given a string name that is related to the software
- *  component which it serves.  The string name becomes part of messages and is also the default name used by
- *  Facilities::control.  All message streams created for the facility are given the same name, message prefix generator, and
- *  message sink, but they can be adjusted later on a per-stream basis.
+/** Collection of streams.
+ *
+ *  This forms a collection of message streams for a software component and contains one stream per message importance level.
+ *  A facility is intended to be used by a software component at whatever granularity is desired by the author (program, name
+ *  space, class, method, etc.) and is usually given a string name that is related to the software component which it serves.
+ *  The string name becomes part of messages and is also the default name used by Facilities::control.  All message streams
+ *  created for the facility are given the same name, message prefix generator, and message sink, but they can be adjusted
+ *  later on a per-stream basis.
  *
  *  The C++ name for the facility is often just "mlog" or "logger" (appropriately scoped) so that code to emit messages is self
  *  documenting. The name "log" is sometimes used, but can be ambiguous with the <code>\::log</code> function in math.h.
+ *
  * @code
  *  mlog[ERROR] <<"I got an error\n";
- * @endcode  */
+ * @endcode
+ *
+ *  Thread safety: This object is thread-safe except where noted. */
 class SAWYER_EXPORT Facility {
     static const unsigned INITIALIZATION_MAGIC = 0x73617779;
     unsigned initialized_;
@@ -1380,16 +1446,24 @@ public:
      *
      *  Returns true if this is constructed, false if it's allocated but not constructed. For instance, this method may return
      *  false if the object is declared at namespace scope and this method is called before the C++ runtime has had a chance to
-     *  initialize it. */
+     *  initialize it.
+     *
+     *  Thread safety: This method is not thread-safe. */
     bool isInitialized() const { return initialized_ == INITIALIZATION_MAGIC; }
 
-    /** Returns a stream for the specified importance level.  Returns a copy so that we can do things like this:
+    /** Returns a stream for the specified importance level.
+     *
+     *  It is permissible to do the following:
+     *
      * @code
      *     Stream m1 = (mlog[INFO] <<"message 1 part 1");
      *     Stream m2 = (mlog[INFO] <<"message 2 part 1");
      *     m1 <<" part 2\n";
      *     m2 <<" part 2\n";
      * @endcode
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      * @{ */
     Stream& get(Importance imp);
     Stream& operator[](Importance imp) {
@@ -1397,17 +1471,27 @@ public:
     }
     /** @} */
 
-    /** Return the name of the facility. This is a read-only field initialized at construction time. */
-    const std::string name() const { return name_; }
+    /** Return the name of the facility.
+     *
+     *  This is a read-only field initialized at construction time.
+     *
+     *  Thread safety: This method is thread-safe. */
+    std::string name() const;
 
     /** Renames all the facility streams.
      *
      *  Invokes Stream::facilityName for each stream. If a name is given then that name is used, otherwise this facility's name
-     *  is used. */
+     *  is used.
+     *
+     *  Thread safety: This method is thread-safe. */
     Facility& renameStreams(const std::string &name = "");
 
-    /** Cause all streams to use the specified destination.  This can be called for facilities that already have streams and
-     *  destinations, but it can also be called to initialize the streams for a default-constructed facility. */
+    /** Cause all streams to use the specified destination.
+     *
+     *  This can be called for facilities that already have streams and destinations, but it can also be called to initialize
+     *  the streams for a default-constructed facility.
+     *
+     *  Thread safety: This method is thread-safe. */
     Facility& initStreams(const DestinationPtr&);
 };
 
@@ -1420,7 +1504,9 @@ public:
  *  Whenever a member facility is enabled as a whole, the current set of enabled importance levels is used.  This set is
  *  maintained automatically: when the first facility is inserted, its enabled importance levels initialize the default set.
  *  Whenever a message importance level is enabled or diabled via the version of @ref enable or @ref disable that takes an
- *  importance argument, the set is adjusted. */
+ *  importance argument, the set is adjusted.
+ *
+ *  Thread safety: This object is thread safe except where noted. */
 class SAWYER_EXPORT Facilities {
 public:
     typedef std::set<Importance> ImportanceSet;         /**< A set of importance levels. */
@@ -1444,14 +1530,20 @@ public:
         impsetInitialized_ = false;
     }
 
-    /** Return the set of default-enabled message importances. See Facilities class documentation for details. */
-    const ImportanceSet& impset();
+    /** Return the set of default-enabled message importances.
+     *
+     *  See Facilities class documentation for details.
+     *
+     *  Thread safety: This method is thread-safe. */
+    ImportanceSet impset() const;
 
     /** Add or remove a default importance level. The specified level is inserted or removed from the set of default enabled
      *  importance levels without affecting any member facility objects.  If this %Facilities doesn't have a default importance
      *  set then it is initialized to {WARN, ERROR, FATAL} prior to adding or removing the specified level. Calling this
      *  function also prevents the first @ref insert from initializing the set of default importance levels. See Facilities
      *  class documentation for details.
+     *
+     *  Thread safety: This method is thread-safe.
      *
      * @sa insert, @ref insertAndAdjust, @ref reenable. */
     Facilities& impset(Importance, bool enabled);
@@ -1470,29 +1562,36 @@ public:
      *
      *  The @p facility is incorporated by reference and should not be destroyed until after this facility group is
      *  destroyed.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      * @{ */
     Facilities& insert(Facility &facility, std::string name="");
     Facilities& insertAndAdjust(Facility &facility, std::string name="");
     /** @} */
 
-    /** Remove a facility by name. */
-    Facilities& erase(const std::string &name) {
-        facilities_.erase(name);
-        return *this;
-    }
+    /** Remove a facility by name.
+     *
+     *  Thread safety: This method is thread-safe. */
+    Facilities& erase(const std::string &name);
 
-    /** Remove all occurrences of the facility. */
+    /** Remove all occurrences of the facility.
+     *
+     *  Thread safety: This method is thread-safe. */
     Facilities& erase(Facility &facility);
 
     /** Return an existing facility by name.
      *
      *  Returns a reference to the specified facility. Throws an <code>std::domain_error</code> if no facility exists with the
-     *  specified name. */
-    Facility& facility(const std::string &name) const {
-        return *facilities_[name];
-    }
+     *  specified name.
+     *
+     *  Thread safety: This method is not thread-safe since it returns a reference to a facility that might be deleted or moved
+     *  before it can be used by the caller. */
+    Facility& facility(const std::string &name) const;
 
-    /** Return names for all known facilities. */
+    /** Return names for all known facilities.
+     *
+     *  Thread safety: This method is thread-safe. */
     std::vector<std::string> facilityNames() const;
     
     /** Parse a single command-line switch and enable/disable the indicated streams.  Returns an empty string on success, or an
@@ -1529,41 +1628,68 @@ public:
      * @endcode
      *
      *  The global list, @e AllFacilitiesControl, also affects the list of default-enabled importance levels.
+     *
+     *  Thread safety: This method is thread-safe.
      */
     std::string control(const std::string &s);
 
-    /** Readjust all member facilities.  All members are readjusted to enable only those importance levels that are part of
-     *  this facility group's default importance levels.  It is as if we called @ref disable then @ref enable for each
-     *  message facility by name. See Facilities class documentation for details. @sa impset
+    /** Readjust all member facilities.
+     *
+     *  All members are readjusted to enable only those importance levels that are part of this facility group's default
+     *  importance levels.  It is as if we called @ref disable then @ref enable for each message facility by name. See
+     *  Facilities class documentation for details.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
+     *  @sa impset
+     *
      * @{ */
     Facilities& reenable();
     Facilities& reenableFrom(const Facilities &other);
     /** @} */
 
-    /** Enable/disable specific importance level across all facilities.  This method also affects the set of "current
-     *  importance levels" used when enabling an entire facility. @sa impset
+    /** Enable/disable specific importance level across all facilities.
+     *
+     *  This method also affects the set of "current importance levels" used when enabling an entire facility.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
+     * @sa impset
+     *  
      * @{ */
     Facilities& enable(Importance, bool b=true);
     Facilities& disable(Importance imp) { return enable(imp, false); }
     /** @} */
 
-    /** Enable/disable a facility by name. When disabling, all importance levels of the specified facility are disabled. When
-     *  enabling, only the current importance levels are enabled for the facility.  If the facility is not found then nothing
-     *  happens.
+    /** Enable/disable a facility by name.
+     *
+     *  When disabling, all importance levels of the specified facility are disabled. When enabling, only the current
+     *  importance levels are enabled for the facility.  If the facility is not found then nothing happens.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      * @{ */
     Facilities& disable(const std::string &switch_name) { return enable(switch_name, false); }
     Facilities& enable(const std::string &switch_name, bool b=true);
     /** @} */
 
-    /** Enable/disable all facilities.  When disabling, all importance levels of all facilities are disabled.  When enabling,
-     *  only the current importance levels are enabled for each facility.
+    /** Enable/disable all facilities.
+     *
+     *  When disabling, all importance levels of all facilities are disabled.  When enabling, only the current importance
+     *  levels are enabled for each facility.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      * @{ */
     Facilities& enable(bool b=true);
     Facilities& disable() { return enable(false); }
     /** @} */
 
-    /** Print the list of facilities and their states. This is mostly for debugging purposes. The output may have internal
-     *  line feeds and will end with a line feed. */
+    /** Print the list of facilities and their states.
+     *
+     *  This is mostly for debugging purposes. The output may have internal line feeds and will end with a line feed.
+     *
+     *  Thread safety: This method is thread-safe. */
     void print(std::ostream&) const;
 
 private:

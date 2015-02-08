@@ -195,7 +195,7 @@ namespace Sawyer {
 SAWYER_EXPORT bool initializeLibrary();
 
 /** True if the library has been initialized. */
-SAWYER_EXPORT extern bool isInitialized;
+SAWYER_EXPORT bool isInitialized();
 
 /** Portable replacement for ::strtoll
  *

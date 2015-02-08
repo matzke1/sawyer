@@ -6,6 +6,9 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/config.hpp>
 #include <boost/foreach.hpp>
+#include <boost/thread.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -40,8 +43,14 @@
 namespace Sawyer {
 namespace Message {
 
+// Sawyer::Message uses one big mutex which is acquired by all API functions. This should work fine for most multithreaded
+// applications since we don't expect diagnostics to have high contention -- if you're spitting out that many diagnostic
+// messages then there's probably more serious problems. ;-)
+static boost::recursive_mutex bigMutex;
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// thread-safe
 SAWYER_EXPORT std::string
 stringifyImportance(Importance importance) {
     switch (importance) {
@@ -60,6 +69,7 @@ stringifyImportance(Importance importance) {
     throw std::runtime_error("invalid message importance");
 }
 
+// thread-safe
 SAWYER_EXPORT std::string
 stringifyColor(AnsiColor color) {
     switch (color) {
@@ -76,6 +86,7 @@ stringifyColor(AnsiColor color) {
     throw std::runtime_error("invalid color");
 }
 
+// thread-safe
 SAWYER_EXPORT std::string
 escape(const std::string &s) {
     std::string retval;
@@ -105,14 +116,17 @@ escape(const std::string &s) {
     return retval;
 }
 
+// thread-safe
 SAWYER_EXPORT double
 now() {
 #if defined(SAWYER_HAVE_BOOST_CHRONO)
+    // Boost::chrono is thread-safe since we're using only stack allocated objects
     boost::chrono::system_clock::time_point curtime = boost::chrono::system_clock::now();
     boost::chrono::system_clock::time_point epoch;
     boost::chrono::duration<double> diff = curtime - epoch;
     return diff.count();
 #elif defined(BOOST_WINDOWS)
+    boost::thread::lock_guard lock(bigMutex);           // not sure if this is needed here
     FILETIME ft;
     GetSystemTimeAsFileTime(&ft);
     unsigned __int64 t = ft.dwHighDateTime;
@@ -131,6 +145,7 @@ now() {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// no global state
 SAWYER_EXPORT ColorSet
 ColorSet::blackAndWhite() {
     ColorSet cs;
@@ -138,6 +153,7 @@ ColorSet::blackAndWhite() {
     return cs;
 }
 
+// no global state
 SAWYER_EXPORT ColorSet
 ColorSet::fullColor() {
     ColorSet cs;
@@ -154,6 +170,7 @@ ColorSet::fullColor() {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// no global state
 SAWYER_EXPORT MesgProps
 MesgProps::merge(const MesgProps &other) const {
     MesgProps retval = *this;
@@ -176,8 +193,11 @@ MesgProps::merge(const MesgProps &other) const {
     return retval;
 }
 
+// thread-safe
 SAWYER_EXPORT void
 MesgProps::print(std::ostream &o) const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+
     o <<"{facilityName=";
     if (facilityName) {
         o <<"\"" <<*facilityName <<"\"";
@@ -237,6 +257,7 @@ MesgProps::print(std::ostream &o) const {
     o <<"}";
 }
 
+// thread-safety: safe to the extent that std::ostream is safe. props.print is safe.
 SAWYER_EXPORT std::ostream&
 operator<<(std::ostream &o, const MesgProps &props) {
     props.print(o);
@@ -419,11 +440,24 @@ ImportanceFilter::disable(Importance imp) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool HighWater::isValid() const {
+// thread-safe
+void
+HighWater::clear() {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    *this = HighWater();
+}
+
+// thread-safe
+bool
+HighWater::isValid() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     return bool(id_);
 }
 
-void HighWater::emitted(const Mesg &mesg, const MesgProps &props) {
+// thread-safe
+void
+HighWater::emitted(const Mesg &mesg, const MesgProps &props) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (mesg.isComplete()) {
         *this = HighWater();
     } else {
@@ -433,6 +467,26 @@ void HighWater::emitted(const Mesg &mesg, const MesgProps &props) {
     }
 }
 
+// thread-safe
+unsigned
+HighWater::id() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return *id_;
+}
+
+// thread-safe
+MesgProps
+HighWater::properties() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return props_;
+}
+
+// thread-safe
+size_t
+HighWater::ntext() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return ntext_;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -440,13 +494,19 @@ void HighWater::emitted(const Mesg &mesg, const MesgProps &props) {
 // need it.
 Gang::GangMap *Gang::gangs_ = NULL;
 
-GangPtr Gang::instanceForId(int id) {
+// thread-safe
+GangPtr
+Gang::instanceForId(int id) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (!gangs_)
         gangs_ = new GangMap;
     return gangs_->insertMaybe(id, Gang::instance());
 }
 
-void Gang::removeInstance(int id) {
+// thread-safe
+void
+Gang::removeInstance(int id) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (!gangs_)
         gangs_ = new GangMap;
     gangs_->erase(id);
@@ -458,6 +518,7 @@ SAWYER_EXPORT void
 Prefix::setProgramName() {
 #ifdef BOOST_WINDOWS
 # if 0 // [Robb Matzke 2014-06-13] temporarily disable for ROSE linking error (needs psapi.lib in Windows)
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);           // not sure if this is needed
     if (HANDLE handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, GetCurrentProcessId())) {
         TCHAR buffer[MAX_PATH];
         if (GetModuleFileNameEx(handle, 0, buffer, MAX_PATH)) { // requires linking with MinGW's psapi.a
@@ -475,6 +536,7 @@ Prefix::setProgramName() {
     programName_ = "FIXME(Sawyer::Message::Prefix::setProgramName)";
 # endif
 #else
+    // no synchronization necessary for this global state
     if (FILE *f = fopen("/proc/self/cmdline", "r")) {
         std::string name;
         int c;
@@ -496,6 +558,7 @@ Prefix::setProgramName() {
 SAWYER_EXPORT void
 Prefix::setStartTime() {
 #if 0 /* FIXME[Robb Matzke 2014-01-19]: st_ctime_usec is not defined. */
+    // synchronization not necessary
     struct stat sb;
     if (-1 == stat("/proc/self", &sb))
         throw std::runtime_error("cannot stat /proc/self");
@@ -585,6 +648,7 @@ Prefix::toString(const Mesg &mesg, const MesgProps &props) const {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// thread-safe since it is called only from the c'tor
 SAWYER_EXPORT void
 UnformattedSink::init() {
     defaultProperties().importance = INFO;
@@ -839,8 +903,60 @@ StreamBuf::overflow(int_type c) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// thread-safe
+void
+Stream::initFrom(const Stream &other) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+
+    assert(other.streambuf_!=NULL);
+    streambuf_ = dynamic_cast<StreamBuf*>(rdbuf());
+    if (!streambuf_) {
+        streambuf_ = new StreamBuf;
+        rdbuf(streambuf_);
+    }
+
+    // If this stream has a partial message then it needs to be canceled.  This also resets things associated with
+    // the message, such as the baked properties.
+    streambuf_->cancelMessage();
+
+    // Copy some stuff from other.
+    streambuf_->enabled_ = other.streambuf_->enabled_;
+    streambuf_->dflt_props_ = other.streambuf_->dflt_props_;
+    streambuf_->destination_ = other.streambuf_->destination_;
+
+    // Swap message-related stuff in order to move ownership of the message to this.
+    streambuf_->message_.properties() = streambuf_->dflt_props_;
+    std::swap(streambuf_->message_, other.streambuf_->message_);
+    std::swap(streambuf_->baked_, other.streambuf_->baked_);
+    std::swap(streambuf_->isBaked_, other.streambuf_->isBaked_);
+    std::swap(streambuf_->anyUnbuffered_, other.streambuf_->anyUnbuffered_);
+}
+
+// thread-safe
+SAWYER_EXPORT SProxy
+Stream::dup() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return SProxy(new Stream(*this));
+}
+
+// thread-safe
+SAWYER_EXPORT bool
+Stream::enabled() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return streambuf_->enabled_;
+}
+
+// thread-safe
+SAWYER_EXPORT
+Stream::operator bool() {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return enabled();
+}
+
+// thread-safe
 SAWYER_EXPORT void
 Stream::enable(bool b) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (!b) {
         streambuf_->enabled_ = false;
     } else if (!streambuf_->enabled_) {
@@ -849,8 +965,10 @@ Stream::enable(bool b) {
     }
 }
 
+// thread-safe
 SAWYER_EXPORT void
 Stream::completionString(const std::string &s, bool asDefault) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     streambuf_->message_.properties().completionStr = s;
     if (asDefault) {
         streambuf_->dflt_props_.completionStr = s;
@@ -859,8 +977,10 @@ Stream::completionString(const std::string &s, bool asDefault) {
     }
 }
 
+// thread-safe
 SAWYER_EXPORT void
 Stream::interruptionString(const std::string &s, bool asDefault) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     streambuf_->message_.properties().interruptionStr = s;
     if (asDefault) {
         streambuf_->dflt_props_.interruptionStr = s;
@@ -869,8 +989,10 @@ Stream::interruptionString(const std::string &s, bool asDefault) {
     }
 }
 
+// thread-safe
 SAWYER_EXPORT void
 Stream::cancelationString(const std::string &s, bool asDefault) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     streambuf_->message_.properties().cancelationStr = s;
     if (asDefault) {
         streambuf_->dflt_props_.cancelationStr = s;
@@ -879,8 +1001,10 @@ Stream::cancelationString(const std::string &s, bool asDefault) {
     }
 }
 
+// thread-safe
 SAWYER_EXPORT void
 Stream::facilityName(const std::string &s, bool asDefault) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     streambuf_->message_.properties().facilityName = s;
     if (asDefault) {
         streambuf_->dflt_props_.facilityName = s;
@@ -889,10 +1013,35 @@ Stream::facilityName(const std::string &s, bool asDefault) {
     }
 }
 
+// thread-safe
+const DestinationPtr&
+Stream::destination() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return streambuf_->destination_;
+}
+
+// thread-safe
+Stream&
+Stream::destination(const DestinationPtr &d) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    assert(d!=NULL);
+    streambuf_->destination_ = d;
+    return *this;
+}
+
+// thread-safe
+MesgProps
+Stream::properties() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return streambuf_->dflt_props_;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// thread-safe
 SAWYER_EXPORT
 SProxy::SProxy(std::ostream *o): stream_(NULL) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     Stream *s = dynamic_cast<Stream*>(o);
     assert(s!=NULL);
     ++s->nrefs_;
@@ -900,8 +1049,10 @@ SProxy::SProxy(std::ostream *o): stream_(NULL) {
     stream_ = s;
 }
 
+// thread-safe
 SAWYER_EXPORT
 SProxy::SProxy(std::ostream &o): stream_(NULL) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     Stream *s = dynamic_cast<Stream*>(&o);
     assert(s!=NULL);
     ++s->nrefs_;
@@ -909,14 +1060,21 @@ SProxy::SProxy(std::ostream &o): stream_(NULL) {
     stream_ = s;
 }
 
+// FIXME[Robb Matzke 2015-02-07]: not thread safe: stream_->nrefs might transition from one to zero between the stream_
+// initialization and when we (re)lock the bigMutex, due to some SProxy being destroyed. If this happens the other.stream_ will
+// be deleted. Hopefully we can just get rid of SProxy soon.  It's probably not much of an issue because all streams will
+// normally belong to a Facility which will be holding the nrefs_ > 1.
 SAWYER_EXPORT
 SProxy::SProxy(const SProxy &other): stream_(other.stream_) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (stream_)
         ++stream_->nrefs_;
 }
 
+// thread-safe
 SAWYER_EXPORT SProxy&
 SProxy::operator=(const SProxy &other) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (this != &other) {
         if (other.stream_) {
             ++other.stream_->nrefs_;
@@ -929,8 +1087,10 @@ SProxy::operator=(const SProxy &other) {
     return *this;
 }
 
+// thread-safe
 SAWYER_EXPORT void
 SProxy::reset() {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (stream_!=NULL) {
         assert(stream_->nrefs_ > 0);
         if (0 == --stream_->nrefs_)
@@ -939,15 +1099,19 @@ SProxy::reset() {
     }
 }
 
+// thread-safe
 SAWYER_EXPORT
 SProxy::operator bool() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     return stream_!=NULL;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// thread-safe
 SAWYER_EXPORT Facility&
 Facility::initStreams(const DestinationPtr &destination) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (streams_.empty()) {
         for (int i=0; i<N_IMPORTANCE; ++i)
             streams_.push_back(new Stream(name_, (Importance)i, destination));
@@ -958,15 +1122,19 @@ Facility::initStreams(const DestinationPtr &destination) {
     return *this;
 }
 
+// thread-safe
 SAWYER_EXPORT Facility&
 Facility::renameStreams(const std::string &name) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     for (size_t i=0; i<streams_.size(); ++i)
         streams_[i]->facilityName(name.empty() ? name_ : name);
     return *this;
 }
 
+// thread-safe
 SAWYER_EXPORT Stream&
 Facility::get(Importance imp) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (imp<0 || imp>=N_IMPORTANCE)
         throw std::runtime_error("invalid importance level");
     if (!isInitialized()) {
@@ -996,10 +1164,26 @@ Facility::get(Importance imp) {
     return *streams_[imp];
 }
 
+// thread-safe
+SAWYER_EXPORT std::string
+Facility::name() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return name_;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// thread-safe
+SAWYER_EXPORT Facilities::ImportanceSet
+Facilities::impset() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return impset_;
+}
+
+// thread-safe
 SAWYER_EXPORT Facilities&
 Facilities::impset(Importance imp, bool enabled) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (!impsetInitialized_) {
 #if 0 // these are typically too verbose for end users
         impset_.insert(DEBUG);
@@ -1021,8 +1205,10 @@ Facilities::impset(Importance imp, bool enabled) {
     return *this;
 }
 
+// thread-safe
 SAWYER_EXPORT Facilities&
 Facilities::insert(Facility &facility, std::string name) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (name.empty())
         name = facility.name();
     if (name.empty())
@@ -1050,8 +1236,10 @@ Facilities::insert(Facility &facility, std::string name) {
     return *this;
 }
 
+// thread-safe
 SAWYER_EXPORT Facilities&
 Facilities::insertAndAdjust(Facility &facility, std::string name) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     insert(facility, name); // throws
 
     // Now that the facility has been successfully inserted...
@@ -1062,8 +1250,18 @@ Facilities::insertAndAdjust(Facility &facility, std::string name) {
     return *this;
 }
 
+// thread-safe
+SAWYER_EXPORT Facilities&
+Facilities::erase(const std::string &name) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    facilities_.erase(name);
+    return *this;
+}
+
+// thread-safe
 SAWYER_EXPORT Facilities&
 Facilities::erase(Facility &facility) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     FacilityMap map = facilities_;;
     BOOST_FOREACH (const FacilityMap::Node &node, map.nodes()) {
         if (node.value() == &facility)
@@ -1072,8 +1270,17 @@ Facilities::erase(Facility &facility) {
     return *this;
 }
 
+// not thread-safe since it returns a reference to something that could be deleted or moved at any time.
+SAWYER_EXPORT Facility&
+Facilities::facility(const std::string &name) const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return *facilities_[name];
+}
+
+// thread-safe
 SAWYER_EXPORT Facilities&
 Facilities::reenable() {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     BOOST_FOREACH (const FacilityMap::Node &node, facilities_.nodes()) {
         for (int i=0; i<N_IMPORTANCE; ++i) {
             Importance imp = (Importance)i;
@@ -1083,8 +1290,10 @@ Facilities::reenable() {
     return *this;
 }
 
+// thread-safe
 SAWYER_EXPORT Facilities&
 Facilities::reenableFrom(const Facilities &other) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     BOOST_FOREACH (const FacilityMap::Node &src, other.facilities_.nodes()) {
         FacilityMap::NodeIterator fi_dst = facilities_.find(src.key());
         if (fi_dst!=facilities_.nodes().end()) {
@@ -1097,8 +1306,10 @@ Facilities::reenableFrom(const Facilities &other) {
     return *this;
 }
 
+// thread-safe
 SAWYER_EXPORT Facilities&
 Facilities::enable(const std::string &switch_name, bool b) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     FacilityMap::NodeIterator found = facilities_.find(switch_name);
     if (found != facilities_.nodes().end()) {
         if (b) {
@@ -1113,9 +1324,11 @@ Facilities::enable(const std::string &switch_name, bool b) {
     }
     return *this;
 }
-    
+
+// thread-safe
 SAWYER_EXPORT Facilities&
 Facilities::enable(Importance imp, bool b) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (b) {
         impset_.insert(imp);
     } else {
@@ -1126,8 +1339,10 @@ Facilities::enable(Importance imp, bool b) {
     return *this;
 }
 
+// thread-safe
 SAWYER_EXPORT Facilities&
 Facilities::enable(bool b) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     BOOST_FOREACH (Facility *facility, facilities_.values()) {
         if (b) {
             for (int i=0; i<N_IMPORTANCE; ++i) {
@@ -1154,6 +1369,7 @@ Facilities::ControlTerm::toString() const {
     return s;
 }
 
+// class method; thread-safe
 // Matches the Perl regular expression /^\s*([a-zA-Z]\w*((\.|::)[a-zA-Z]\w*)*/
 // On match, returns $1 and str points to the next character after the regular expression
 // When not matched, returns "" and str is unchanged
@@ -1177,6 +1393,7 @@ Facilities::parseFacilityName(const char *&str) {
     return name;
 }
 
+// class method; thread-safe
 // Matches the Perl regular expression /^\s*([+!]?)/ and returns $1 on success with str pointing to the character after the
 // match.  Returns the empty string on failure with str not adjusted.
 SAWYER_EXPORT std::string
@@ -1190,6 +1407,7 @@ Facilities::parseEnablement(const char *&str) {
     return "";
 }
 
+// class method; thread-safe
 // Matches the Perl regular expression /^\s*(<=?|>=?)/ and returns $1 on success with str pointing to the character after
 // the match. Returns the empty string on failure with str not adjusted.
 SAWYER_EXPORT std::string
@@ -1206,6 +1424,7 @@ Facilities::parseRelation(const char *&str) {
     return "";
 }
 
+// class method; thread-safe
 // Matches the Perl regular expression /^\s*(all|none|debug|trace|where|info|warn|error|fatal)\b/
 // On match, returns $1 and str points to the next character after the match
 // On failure, returns "" and str is unchanged
@@ -1226,6 +1445,7 @@ Facilities::parseImportanceName(const char *&str) {
     return "";
 }
 
+// class method; thread-safe
 SAWYER_EXPORT Importance
 Facilities::importanceFromString(const std::string &str) {
     if (boost::iequals(str, "debug"))
@@ -1247,7 +1467,9 @@ Facilities::importanceFromString(const std::string &str) {
     return N_IMPORTANCE;                                // error
 }
 
-// parses a StreamControlList. On success, returns a non-empty vector and adjust 'str' to point to the next character after the
+// class method
+// no global state
+// Parses a StreamControlList. On success, returns a non-empty vector and adjust 'str' to point to the next character after the
 // list.  On failure, throw a ControlError.
 SAWYER_EXPORT std::list<Facilities::ControlTerm>
 Facilities::parseImportanceList(const std::string &facilityName, const char *&str) {
@@ -1326,8 +1548,10 @@ Facilities::parseImportanceList(const std::string &facilityName, const char *&st
     return retval;
 }
 
+// thread-safe
 SAWYER_EXPORT std::string
 Facilities::control(const std::string &ss) {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     const char *start = ss.c_str();
     const char *s = start;
     std::list<ControlTerm> terms;
@@ -1400,16 +1624,20 @@ Facilities::control(const std::string &ss) {
     return ""; // no errors
 }
 
+// thread-safe
 SAWYER_EXPORT std::vector<std::string>
 Facilities::facilityNames() const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     std::vector<std::string> allNames;
     BOOST_FOREACH (const std::string &name, facilities_.keys())
         allNames.push_back(name);
     return allNames;
 }
 
+// thread-safe
 SAWYER_EXPORT void
 Facilities::print(std::ostream &log) const {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
     if (impsetInitialized_) {
         for (int i=0; i<N_IMPORTANCE; ++i) {
             Importance mi = (Importance)i;
@@ -1440,13 +1668,23 @@ Facilities::print(std::ostream &log) const {
 SAWYER_EXPORT DestinationPtr merr SAWYER_STATIC_INIT;
 SAWYER_EXPORT Facility mlog SAWYER_STATIC_INIT ("sawyer");
 SAWYER_EXPORT Facilities mfacilities SAWYER_STATIC_INIT;
-SAWYER_EXPORT bool isInitialized;
 SAWYER_EXPORT SProxy assertionStream SAWYER_STATIC_INIT;
 
+static bool isInitialized_;
+
+// thread-safe
+SAWYER_EXPORT bool
+isInitialized() {
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    return isInitialized_;
+}
+
+// thread-safe
 SAWYER_EXPORT bool
 initializeLibrary() {
-    if (!isInitialized) {
-        isInitialized = true;
+    boost::lock_guard<boost::recursive_mutex> lock(bigMutex);
+    if (!isInitialized_) {
+        isInitialized_ = true;
         merr = FdSink::instance(2);
         mlog = Facility("", merr);
         mlog[DEBUG].disable();
