@@ -47,23 +47,29 @@ void insert_vertex() {
     Graph graph;
     ASSERT_always_require(graph.nVertices()==0);
 
-    typename Graph::VertexNodeIterator iter = graph.insertVertex("banana");
-    std::cout <<"  inserted [" <<iter->id() <<"] = " <<iter->value() <<"\n";
+    typename Graph::VertexNodeIterator v0 = graph.insertVertex("banana");
+    std::cout <<"  inserted [" <<v0->id() <<"] = " <<v0->value() <<"\n";
     ASSERT_always_require(graph.nVertices()==1);
-    ASSERT_always_require(iter->id()==0);
-    ASSERT_always_require(iter->value()=="banana");
+    ASSERT_always_require(v0->id()==0);
+    ASSERT_always_require(v0->value()=="banana");
+    ASSERT_always_require(v0 == v0);
+    ASSERT_always_forbid(v0 < v0);
 
-    iter = graph.insertVertex("orange");
-    std::cout <<"  inserted [" <<iter->id() <<"] = " <<iter->value() <<"\n";
+    typename Graph::VertexNodeIterator v1 = graph.insertVertex("orange");
+    std::cout <<"  inserted [" <<v1->id() <<"] = " <<v1->value() <<"\n";
     ASSERT_always_require(graph.nVertices()==2);
-    ASSERT_always_require(iter->id()==1);
-    ASSERT_always_require(iter->value()=="orange");
+    ASSERT_always_require(v1->id()==1);
+    ASSERT_always_require(v1->value()=="orange");
+    ASSERT_always_require(v1 != v0);
+    ASSERT_always_require(v1 < v0 || v0 < v1);
 
-    iter = graph.insertVertex("pineapple");
-    std::cout <<"  inserted [" <<iter->id() <<"] = " <<iter->value() <<"\n";
+    typename Graph::VertexNodeIterator v2 = graph.insertVertex("pineapple");
+    std::cout <<"  inserted [" <<v2->id() <<"] = " <<v2->value() <<"\n";
     ASSERT_always_require(graph.nVertices()==3);
-    ASSERT_always_require(iter->id()==2);
-    ASSERT_always_require(iter->value()=="pineapple");
+    ASSERT_always_require(v2->id()==2);
+    ASSERT_always_require(v2->value()=="pineapple");
+    ASSERT_always_require(v2 != v1);
+    ASSERT_always_require(v2 < v1 || v1 < v2);
 
     std::cout <<graph;
 }
@@ -162,22 +168,33 @@ void insert_edge() {
     ASSERT_always_require(e0->value() == "vine-vinegar");
     ASSERT_always_require(e0->source() == v0);
     ASSERT_always_require(e0->target() == v1);
+    ASSERT_always_require(e0 == e0);
+    ASSERT_always_forbid(e0 != e0);
+    ASSERT_always_forbid(e0 < e0);
 
     ASSERT_always_require(e1->value() == "violin-vinegar");
     ASSERT_always_require(e1->source() == v2);
     ASSERT_always_require(e1->target() == v1);
+    ASSERT_always_require(e1 != e0);
+    ASSERT_always_require(e1 < e0 || e0 < e1);
     
     ASSERT_always_require(e2->value() == "vine-visa");
     ASSERT_always_require(e2->source() == v0);
     ASSERT_always_require(e2->target() == v3);
+    ASSERT_always_require(e2 != e1);
+    ASSERT_always_require(e2 < e1 || e1 < e2);
     
     ASSERT_always_require(e3->value() == "visa-vine");
     ASSERT_always_require(e3->source() == v3);
     ASSERT_always_require(e3->target() == v0);
+    ASSERT_always_require(e3 != e2);
+    ASSERT_always_require(e3 < e2 || e2 < e3);
     
     ASSERT_always_require(e4->value() == "visa-visa");
     ASSERT_always_require(e4->source() == v3);
     ASSERT_always_require(e4->target() == v3);
+    ASSERT_always_require(e4 != e3);
+    ASSERT_always_require(e4 < e3 || e3 < e4);
 
     ASSERT_always_require(v0->nInEdges() == 1);
     ASSERT_always_require(v0->nOutEdges() == 2);
