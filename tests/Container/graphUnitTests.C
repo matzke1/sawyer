@@ -943,6 +943,42 @@ static void traversals() {
     for (BreadthFirstReverseGraphTraversal<Graph> t(g, e0); t; ++t)
         ans.check(t);
     ASSERT_always_require(ans.isGood());
+
+    std::cout <<"Depth-first forward traversal starting at vertex A and revisiting vertices\n";
+    ans.clear();
+    ans(DISCOVER_VERTEX,        va,     no_edge);
+    ans(ENTER_VERTEX,           va,     no_edge);
+    ans(ENTER_EDGE,             va,     e0);
+    ans(DISCOVER_VERTEX,        vb,     e0);
+    ans(ENTER_VERTEX,           vb,     e0);
+    ans(ENTER_EDGE,             vb,     e2);
+    ans(DISCOVER_VERTEX,        vd,     e2);
+    ans(ENTER_VERTEX,           vd,     e2);
+    ans(ENTER_EDGE,             vd,     e4);
+    ans(LEAVE_EDGE,             vd,     e4);
+    ans(LEAVE_VERTEX,           vd,     e2);
+    ans(LEAVE_EDGE,             vb,     e2);
+    ans(LEAVE_VERTEX,           vb,     e0);
+    ans(LEAVE_EDGE,             va,     e0);
+    ans(ENTER_EDGE,             va,     e1);
+    ans(DISCOVER_VERTEX,        vc,     e1);
+    ans(ENTER_VERTEX,           vc,     e1);
+    ans(ENTER_EDGE,             vc,     e3);
+    ans(DISCOVER_VERTEX,        vd,     e3);
+    ans(ENTER_VERTEX,           vd,     e3);
+    ans(ENTER_EDGE,             vd,     e4);
+    ans(LEAVE_EDGE,             vd,     e4);
+    ans(LEAVE_VERTEX,           vd,     e3);
+    ans(LEAVE_EDGE,             vc,     e3);
+    ans(LEAVE_VERTEX,           vc,     e1);
+    ans(LEAVE_EDGE,             va,     e1);
+    ans(LEAVE_VERTEX,           va,     no_edge);
+    for (DepthFirstForwardGraphTraversal<Graph> t(g, va); t; ++t) {
+        ans.check(t);
+        if (t.event() == LEAVE_VERTEX)
+            t.allowRediscovery(t.vertex());
+    }
+    ASSERT_always_require(ans.isGood());
 }
 
 
