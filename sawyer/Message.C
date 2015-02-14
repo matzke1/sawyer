@@ -792,6 +792,21 @@ UnformattedSink::init() {
 }
 
 // thread-safe
+SAWYER_EXPORT bool
+UnformattedSink::partialMessagesAllowed() const {
+    boost::lock_guard<boost::recursive_mutex> lock(mutex_);
+    return partialMessagesAllowed_;
+}
+
+// thread-safe
+SAWYER_EXPORT UnformattedSinkPtr
+UnformattedSink::partialMessagesAllowed(bool b) {
+    boost::lock_guard<boost::recursive_mutex> lock(mutex_);
+    partialMessagesAllowed_ = b;
+    return sharedFromThis().dynamicCast<UnformattedSink>();
+}
+
+// thread-safe
 SAWYER_EXPORT GangPtr
 UnformattedSink::gang() const {
     boost::lock_guard<boost::recursive_mutex> lock(mutex_);
@@ -915,14 +930,12 @@ FdSink::init() {
 // thread-safe
 SAWYER_EXPORT void
 FdSink::post(const Mesg &mesg, const MesgProps &props) {
+    if (!partialMessagesAllowed_ && !mesg.isComplete())
+        return;
 #ifdef BOOST_WINDOWS
     // FIXME[Robb Matzke 2014-06-10]: what is the most basic file level on Windows; one which doesn't need construction?
     std::cout <<render(mesg, props);
 #else
-#if 1 // DEBUGGING [Robb Matzke 2015-02-12]
-    if (!mesg.isComplete())
-        return;
-#endif
     std::string s = render(mesg, props);
     const char *buf = s.c_str();
     size_t nbytes = s.size();
@@ -965,6 +978,8 @@ FileSink::init() {
 // thread-safe
 SAWYER_EXPORT void
 FileSink::post(const Mesg &mesg, const MesgProps &props) {
+    if (!partialMessagesAllowed_ && !mesg.isComplete())
+        return;
     fputs(render(mesg, props).c_str(), file_);
 }
 
@@ -973,6 +988,8 @@ FileSink::post(const Mesg &mesg, const MesgProps &props) {
 // thread-safe
 SAWYER_EXPORT void
 StreamSink::post(const Mesg &mesg, const MesgProps &props) {
+    if (!partialMessagesAllowed_ && !mesg.isComplete())
+        return;
     stream_ <<render(mesg, props);
 }
 

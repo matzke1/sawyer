@@ -1143,9 +1143,13 @@ class SAWYER_EXPORT UnformattedSink: public Destination {
     GangPtr gang_;
     PrefixPtr prefix_;
 #include <sawyer/WarningsRestore.h>
+
+protected:
+    bool partialMessagesAllowed_;
+
 protected:
     /** Constructor for derived classes. Non-subclass users should use <code>instance</code> factory methods instead. */
-    UnformattedSink() {
+    UnformattedSink(): partialMessagesAllowed_(true) {
         gang_ = Gang::instance();
         prefix_ = Prefix::instance();
         init();
@@ -1165,6 +1169,36 @@ public:
      * @{ */
     GangPtr gang() const;
     UnformattedSinkPtr gang(const GangPtr &g);
+    /** @} */
+
+    /** Property: allow partial message output.
+     *
+     *  If partial messages are not allowed, then a message is emitted only when its terminating linefeed is encountered.
+     *  The default for unformatted sinks is to allow partial message output. Disabling partial message output is sometimes
+     *  useful in multi-threaded applications to prevent two threads from competing with each other when they both try to
+     *  output a complete message at the same time: one thread might interrupt the other midway through the other's message, in
+     *  which case the other thread would have emitted a partial message.  I.e., disabling partial messages works like this:
+     *
+     * @code
+     *  concurrently {
+     *     mlog0[INFO] <<"message from first thread\n";
+     *     mlog1[INFO] <<"message from second thread\n";
+     *  }
+     * @endcode
+     *
+     *  If @c mlog0 and @c mlog1 are both emitting to standard error then the output might look like this (sans prefixes):
+     *
+     * @code
+     *  mlog0[INFO]: message from fir...
+     *  mlog1[INFO]: message from second thread
+     *  mlog0[INFO]: message from first thread
+     * @endcode
+     *
+     *  Disabling partial message output would have prevented the first partial message.
+     *
+     * @{ */
+    bool partialMessagesAllowed() const;
+    UnformattedSinkPtr partialMessagesAllowed(bool);
     /** @} */
 
     /** Property: how to generate message prefixes.

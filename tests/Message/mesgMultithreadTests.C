@@ -3,15 +3,18 @@
 #include <boost/thread.hpp>
 
 static const size_t MAX_THREADS = 10;
+static const size_t NMESSAGES = 1000;
+static const size_t MIN_MESSAGES_PER_THREAD = 10;
 
 using namespace Sawyer::Message::Common;
 Facility mlog;
 
 template<class Functor>
 void
-runTests(Functor &f) {
+runTests(Functor f) {
     boost::thread threads[MAX_THREADS];
     for (size_t nthreads=1; nthreads<=MAX_THREADS; ++nthreads) {
+        f.nthreads = nthreads;
         std::cout <<"  nthreads=" <<nthreads <<"\n";
         for (size_t i=0; i<nthreads; ++i)
             threads[i] = boost::thread(f);
@@ -24,8 +27,10 @@ runTests(Functor &f) {
 // Test that threads can create message streams.
 
 struct StreamCreationTester {
+    size_t nthreads;
     void operator()() {
-        for (size_t i=0; i<1000; ++i)
+        const size_t n = std::max(NMESSAGES/nthreads, MIN_MESSAGES_PER_THREAD);
+        for (size_t i=0; i<n; ++i)
             Stream info = mlog[INFO];
     }
 };
@@ -42,18 +47,19 @@ testStreamCreation() {
 // output might contain parts of messages from multiple threads), but each line will still have its own prefix area and the
 // prefix areas are not mixed up.
 
-struct StreamOutputTester {
+struct StreamOutputTester1 {
+    size_t nthreads;
     void operator()() {
-        for (size_t i=0; i<1000; ++i) {
-            mlog[INFO] <<"test long line of output ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz\n";
-        }
+        const size_t n = std::max(NMESSAGES/nthreads, MIN_MESSAGES_PER_THREAD);
+        for (size_t i=0; i<n; ++i)
+            mlog[INFO] <<"StreamOutputTester1: long line of output ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz\n";
     }
 };
 
 static void
-testStreamOutput() {
-    std::cout <<"testing multi-threaded stream output\n";
-    StreamOutputTester tester;
+testStreamOutput1() {
+    std::cout <<"testing multi-threaded stream output, no copy\n";
+    StreamOutputTester1 tester;
     runTests(tester);
 }
 
@@ -64,20 +70,24 @@ testStreamOutput() {
 // partial messages.
 
 struct StreamOutputTester2 {
+    size_t nthreads;
     Stream stream;
     StreamOutputTester2(const Stream &stream): stream(stream) {}
 
     void operator()() {
-        for (size_t i=0; i<1000; ++i) {
-            stream <<"test long line of output ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz\n";
-        }
+        const size_t n = std::max(NMESSAGES/nthreads, MIN_MESSAGES_PER_THREAD);
+        for (size_t i=0; i<n; ++i)
+            stream <<"StreamOutputTester2: long line of output ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz\n";
     }
 };
 
 static void
 testStreamOutput2() {
     std::cout <<"testing multi-threaded stream output to copied streams\n";
-    StreamOutputTester2 tester(mlog[INFO]);
+    Stream myStream = mlog[INFO];
+    myStream.destination(Sawyer::Message::StreamSink::instance(std::cerr)->partialMessagesAllowed(false));
+
+    StreamOutputTester2 tester(myStream);
     runTests(tester);
 }
 
@@ -87,8 +97,9 @@ testStreamOutput2() {
 int
 main() {
     mlog = Facility("test");
+    
     testStreamCreation();
-    //testStreamOutput();
+    testStreamOutput1();
     testStreamOutput2();
 }
 
