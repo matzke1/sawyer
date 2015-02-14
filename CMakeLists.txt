@@ -18,7 +18,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 
-find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono)
+find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono thread)
 
 # Microsoft Visual Studio needs to be told where the boost libraries are located or else you'll get
 # errors like "fatal error LNK1104: cannot open file 'libboost_system-vc90-mt-gd-1_44.lib'" even though cmake was
