@@ -29,6 +29,21 @@ public:
     NullLockGuard(NullMutex) {}
 };
 
+/** Locks multiple mutexes. */
+template<typename Mutex>
+class LockGuard2 {
+    Mutex &m1_, &m2_;
+public:
+    LockGuard2(Mutex &m1, Mutex &m2): m1_(m1), m2_(m2) {
+        boost::lock(m1, m2);
+    }
+    ~LockGuard2() {
+        m1_.unlock();
+        m2_.unlock();
+    }
+};
+
+
 /** Traits for thread synchronization. */
 template<typename SyncTag>
 struct SynchronizationTraits {};
