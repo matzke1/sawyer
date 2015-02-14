@@ -18,3 +18,6 @@ target_link_libraries(mesg_test8 libsawyer)
 
 add_executable(mesgUnitTests mesgUnitTests.C)
 target_link_libraries(mesgUnitTests libsawyer)
+
+add_executable(mesgMultithreadTests mesgMultithreadTests.C)
+target_link_libraries(mesgMultithreadTests libsawyer)
