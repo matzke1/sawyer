@@ -323,14 +323,15 @@ public:
      *
      *  @sa DefaultAllocator::deallocate */
     void deallocate(void *addr, size_t size) {          // hot
-        ASSERT_not_null(addr);
-        ASSERT_require(size>0);
-        size_t pn = poolNumber(size);
-        if (pn < nPools) {
-            typename SynchronizationTraits<Sync>::LockGuard lock(mutex_);
-            pools_[pn].release(addr);
-        } else {
-            ::operator delete(addr);
+        if (addr) {
+            ASSERT_require(size>0);
+            size_t pn = poolNumber(size);
+            if (pn < nPools) {
+                typename SynchronizationTraits<Sync>::LockGuard lock(mutex_);
+                pools_[pn].release(addr);
+            } else {
+                ::operator delete(addr);
+            }
         }
     }
 
