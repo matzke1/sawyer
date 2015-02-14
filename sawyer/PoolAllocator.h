@@ -41,7 +41,7 @@ namespace Sawyer {
  *      calls to the allocator, but a multi-threaded pool performs the synchronization internally. Single-threaded pools are
  *      somewhat faster.
  *
- *  The @ref PoolAllocator typedef provides reasonable template arguments.
+ *  The @ref SynchronizedPoolAllocator and @ref UnsynchronizedPoolAllocator typedefs provide reasonable template arguments.
  *
  *  When a pool allocator is copied, only its settings are copied, not the pools.  Since containers typically copy their
  *  constructor-provided allocators, each container will have its own pools even if one provides the same pool to all the

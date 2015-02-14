@@ -195,7 +195,8 @@ struct GraphTraits<const G> {
  *  often benefit by using a memory pool allocation scheme.  The third template argument provides the type for the allocator,
  *  and the graph constructors take an allocator argument which is copied into the graph.  The allocator must implement the
  *  @ref Sawyer::DefaultAllocator API (essentially an allocate and a deallocate method), which happens to use the normal C++
- *  global <code>new</code> and <code>delete</code> allocators.  Another possibility is @ref Sawyer::PoolAllocator.
+ *  global <code>new</code> and <code>delete</code> allocators.  A couple possibilities are @ref
+ *  Sawyer::SynchronizedPoolAllocator and @ref Sawyer::UnsynchronizedPoolAllocator.
  *
  * @code
  *  typedef Sawyer::Container::Graph<std::string, double, Sawyer::PoolAllocator> MyGraphFast;

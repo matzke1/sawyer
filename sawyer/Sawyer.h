@@ -37,10 +37,10 @@
  *      Sawyer::Container::BitVector "BitVector" bit vectors with operations defined across index intervals.  These can be
  *      found in the Sawyer::Container namespace.
  *
- *   @li Miscellaneous: @ref Sawyer::PoolAllocator "PoolAllocator" to allocate memory from large pools rather than one
- *       object at a time; and @ref Sawyer::SmallObject "SmallObject", a base class for objects that are only a few bytes;
- *       @ref Sawyer::Stopwatch "Stopwatch" for high-resolution elapsed time; @ref Sawyer::Optional "Optional" for optional
- *       values.
+ *   @li Miscellaneous: @ref Sawyer::SynchronizedPoolAllocator "PoolAllocator" (synchronized and unsynchronized variants) to
+ *       allocate memory from large pools rather than one object at a time; and @ref Sawyer::SmallObject "SmallObject", a base
+ *       class for objects that are only a few bytes; @ref Sawyer::Stopwatch "Stopwatch" for high-resolution elapsed time; @ref
+ *       Sawyer::Optional "Optional" for optional values.
  *
  *  Design goals for this library can be found in the [Design goals](group__design__goals.html) page.
  *
