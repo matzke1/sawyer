@@ -8,6 +8,7 @@
 
 #include <boost/config.hpp>
 #include <boost/logic/tribool.hpp>
+#include <boost/thread/mutex.hpp>
 #include <cassert>
 #include <cstring>
 #include <list>
@@ -436,7 +437,7 @@ struct SAWYER_EXPORT MesgProps {
      *  argument is used (which may also be missing). */
     MesgProps merge(const MesgProps&) const;
 
-    /** Print the values for all properties.  This is used mainly for debugging. This method is thread-safe. */
+    /** Print the values for all properties.  This is used mainly for debugging. */
     void print(std::ostream&) const;
 };
 
@@ -599,11 +600,10 @@ public:
 
 /** Base class for all types of message destinations.
  *
- *  This is the base class for all nodes in the plumbing lattice.
- *
- *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
+ *  This is the base class for all nodes in the plumbing lattice. */
 class SAWYER_EXPORT Destination: public SharedObject, public SharedFromThis<Destination> {
 protected:
+    mutable boost::recursive_mutex mutex_;              /**< Mutex protecting data members here and in subclasses. */
     MesgProps dflts_;                                   /**< Default properties merged into each incoming message. */
     MesgProps overrides_;                               /**< Override properties applied to incoming message. */
 protected:
@@ -611,42 +611,56 @@ protected:
 public:
     virtual ~Destination() {}
 
-    /** Default values for message properties. Any message property that has no value coming from a higher layer in the
-     * plumbing lattice will be set to the default value if one is defined.
+    /** Default values for message properties.
+     *
+     *  Any message property that has no value coming from a higher layer in the plumbing lattice will be set to the default
+     *  value if one is defined.
+     *
+     *  Thread safety: Not thread safe.
      *  
      *  @{ */
-    const MesgProps& defaultProperties() const { return dflts_; }
-    MesgProps& defaultProperties() { return dflts_; }
+    const MesgProps& defaultPropertiesNS() const { return dflts_; }
+    MesgProps& defaultPropertiesNS() { return dflts_; }
     /** @} */
 
-    /** Overrides message properties.  Any overriding property value that is defined will override the value coming from a
-     *  higher layer in the plumbing lattice.
+    /** Overrides message properties.
+     *
+     *  Any overriding property value that is defined will override the value coming from a higher layer in the plumbing
+     *  lattice.
+     *
+     *  Thread safety: Not thread safe.
+     *  
      *  @{ */
-    const MesgProps& overrideProperties() const { return overrides_; }
-    MesgProps& overrideProperties() { return overrides_; }
+    const MesgProps& overridePropertiesNS() const { return overrides_; }
+    MesgProps& overridePropertiesNS() { return overrides_; }
     /** @} */
 
-    /** Bakes message properties according to the plumbing lattice.  The given message properties are applied to the plumbing
-     *  lattice rooted at this Destination, adjusted according to the default and override properties at this node of the
-     *  lattice and all lower nodes.  The property values at the bottom nodes of the lattice are appended to the
-     *  @p baked argument. */
+    /** Bakes message properties according to the plumbing lattice.
+     *
+     *  The given message properties are applied to the plumbing lattice rooted at this Destination, adjusted according to the
+     *  default and override properties at this node of the lattice and all lower nodes.  The property values at the bottom
+     *  nodes of the lattice are appended to the @p baked argument.
+     *
+     *  Thread safety: All implementations must be thread-safe. */
     virtual void bakeDestinations(const MesgProps&, BakedDestinations &baked);
 
     /** Causes a message to be emitted. The @p bakedProperties argument is one of the values returned by the @ref
      *  bakeDestinations method. */
     virtual void post(const Mesg&, const MesgProps &bakedProperties) = 0;
 
-    /** Merge properties of this lattice node into the specified properties.  Any property in @p props that is not set will be
-     *  set to this node's default value for the property (if any).  Any override property defined for this node will override
-     *  the value (or lack of value) in @p props.  The merged result is returned. */
-    MesgProps mergeProperties(const MesgProps &props);
+    /** Merge properties of this lattice node into the specified properties.
+     *
+     *  Any property in @p props that is not set will be set to this node's default value for the property (if any).  Any
+     *  override property defined for this node will override the value (or lack of value) in @p props.  The merged result is
+     *  returned.
+     *
+     *  Thread safety: Not thread safe. */
+    MesgProps mergePropertiesNS(const MesgProps &props);
 };
 
 /** Sends incoming messages to multiple destinations.
  *
- *  This is the base class for all internal nodes of the plumbing lattice.
- *
- *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
+ *  This is the base class for all internal nodes of the plumbing lattice. */
 class SAWYER_EXPORT Multiplexer: public Destination {
     typedef std::list<DestinationPtr> Destinations;
 #include <sawyer/WarningsOff.h>
@@ -662,15 +676,29 @@ public:
     virtual void bakeDestinations(const MesgProps&, BakedDestinations&) /*override*/;
     virtual void post(const Mesg&, const MesgProps&) /*override*/;
 
-    /** Adds a child node to this node of the lattice.  An <code>std::runtime_error</code> is thrown if the addition of this
-     *  child would cause the lattice to become malformed by having a cycle. @sa to */
+    /** Adds a child node to this node of the lattice.
+     *
+     *  An <code>std::runtime_error</code> is thrown if the addition of this child would cause the lattice to become malformed
+     *  by having a cycle.
+     *
+     *  Thread safety: This method is not thread-safe.
+     *
+     *  @sa to */
     MultiplexerPtr addDestination(const DestinationPtr&);
 
-    /** Removes the specified child from this node of the lattice. @sa to */
+    /** Removes the specified child from this node of the lattice.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
+     *  @sa to */
     MultiplexerPtr removeDestination(const DestinationPtr&);
 
-    /** Add a child nodes to this node of the lattice and returns this node.  It is often more convenient to call this
-     *  method instead of @ref addDestination.
+    /** Add a child nodes to this node of the lattice and returns this node.
+     *
+     *  It is often more convenient to call this method instead of @ref addDestination.
+     *
+     *  Thread safety: This method is not thread-safe.
+     *
      *  @{ */
     MultiplexerPtr to(const DestinationPtr&);           // more convenient form of addDestination()
     MultiplexerPtr to(const DestinationPtr&, const DestinationPtr&);
@@ -686,9 +714,7 @@ public:
 /** Base class for internal nodes that filter messages.
  *
  *  Filtering is applied when properties are baked, which should happen exactly once for each message, usually just before the
- *  message is posted for the first time.
- *
- *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
+ *  message is posted for the first time. */
 class SAWYER_EXPORT Filter: public Multiplexer {
 protected:
     /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
@@ -696,23 +722,26 @@ protected:
 public:
     virtual void bakeDestinations(const MesgProps&, BakedDestinations&) /*override*/;
 
-    /** Predicate determines when a message should be forwarded onward.  This method is called once from bakeDestinations(),
-     *  and if it returns true then the baking is forwarded on to the child nodes in the plumbing lattice. If this method
-     *  returns false then none of the descendents will see the properties (unless they can be reached by some other path),
-     *  and the unreached leaf nodes will not be returned by bakeDestinations(). */
+    /** Predicate determines when a message should be forwarded onward.
+     *
+     *  This method is called once from bakeDestinations(), and if it returns true then the baking is forwarded on to the child
+     *  nodes in the plumbing lattice. If this method returns false then none of the descendents will see the properties
+     *  (unless they can be reached by some other path), and the unreached leaf nodes will not be returned by
+     *  bakeDestinations().
+     *
+     *  Thread safety: all implementations must be thread-safe. */
     virtual bool shouldForward(const MesgProps&) = 0;   // return true if message should be forwarded to children when baking
 
-    /** Called once by bakeDestinations if shouldForward() returned true.  This method is called after the properties
-     *  have been forwarded to the child nodes. */
+    /** Called once by bakeDestinations if shouldForward() returned true.
+     *
+     *  This method is called after the properties have been forwarded to the child nodes. */
     virtual void forwarded(const MesgProps&) = 0;       // message was forwarded to children
 };
 
 /** Filters messages based on how many messages have been seen.
  *
  *  The first @e n messages are skipped (not forwarded to children), the first one of every @e m messages thereafter is
- *  forwarded, for a total of @e t messages forwarded.
- *
- *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
+ *  forwarded, for a total of @e t messages forwarded. */
 class SAWYER_EXPORT SequenceFilter: public Filter {
     size_t nSkip_;                                      // skip initial messages posted to this sequencer
     size_t rate_;                                       // emit only 1/Nth of the messages (0 and 1 both mean every message)
@@ -723,36 +752,56 @@ protected:
     SequenceFilter(size_t nskip, size_t rate, size_t limit)
         : nSkip_(nskip), rate_(rate), limit_(limit), nPosted_(0) {}
 public:
-    /** Construct an instance. The node will skip the first @p nskip messages, then forward the first of every @p rate
-     *  following messages, for a grand total of @p limit messages forwarded.  If @p rate is zero or one then every message
-     *  after the first @p nskip is forwarded (up to the @p limit).  If @p limit is zero then there is no limit. */
+    /** Construct an instance.
+     *
+     *  The node will skip the first @p nskip messages, then forward the first of every @p rate following messages, for a grand
+     *  total of @p limit messages forwarded.  If @p rate is zero or one then every message after the first @p nskip is
+     *  forwarded (up to the @p limit).  If @p limit is zero then there is no limit. */
     static SequenceFilterPtr instance(size_t nskip, size_t rate, size_t limit) {
         return SequenceFilterPtr(new SequenceFilter(nskip, rate, limit));
     }
 
-    /** Property: number of initial messages to skip. The first @p n messages sent through this filter are discarded.
+    /** Property: number of initial messages to skip.
+     *
+     *  The first @p n messages sent through this filter are discarded.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      *  @{ */
-    size_t nSkip() const { return nSkip_; }
-    SequenceFilterPtr nSkip(size_t n) { nSkip_ = n; return sharedFromThis().dynamicCast<SequenceFilter>(); }
+    size_t nSkip() const;
+    SequenceFilterPtr nSkip(size_t n);
     /** @} */
 
-    /** Property: rate of messages to emit after initial messages are skipped.  A rate of @e n means the first message of
-     *  every group of @e n messages is forwarded to children nodes in the plumbing lattice.  A rate of zero means the
-     *  same thing as a rate of one--every message is forwarded.
+    /** Property: rate of messages to emit after initial messages are skipped.
+     *
+     *  A rate of @e n means the first message of every group of @e n messages is forwarded to children nodes in the plumbing
+     *  lattice.  A rate of zero means the same thing as a rate of one--every message is forwarded.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      * @{ */
-    size_t rate() const { return rate_; }
-    SequenceFilterPtr rate(size_t n) { rate_ = n; return sharedFromThis().dynamicCast<SequenceFilter>(); }
+    size_t rate() const;
+    SequenceFilterPtr rate(size_t n);
     /** @} */
 
-    /** Property: total number of messages forwarded.  At most @e n messages are forwarded to children in the lattice, after
-     *  which messages are discarded. A value of zero means no limit is in effect.
+    /** Property: total number of messages forwarded.
+     *
+     *  At most @e n messages are forwarded to children in the lattice, after which messages are discarded. A value of zero
+     *  means no limit is in effect.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      *  @{ */
-    size_t limit() const { return limit_; }
-    SequenceFilterPtr limit(size_t n) { limit_ = n; return sharedFromThis().dynamicCast<SequenceFilter>(); }
+    size_t limit() const;
+    SequenceFilterPtr limit(size_t n);
     /** @} */
 
-    /** Number of messages processed.  This includes messages forwarded and messages not forwarded. */
-    size_t nPosted() const { return nPosted_; }
+    /** Number of messages processed.
+     *
+     *  This includes messages forwarded and messages not forwarded.
+     *
+     *  Thread safety: This method is thread-safe. */
+    size_t nPosted() const;
 
     virtual bool shouldForward(const MesgProps&) /*override*/;
     virtual void forwarded(const MesgProps&) /*override*/ {}
@@ -761,9 +810,7 @@ public:
 /** Filters messages based on time.
  *
  *  Any message posted within some specified time of a previously forwarded message will not be forwarded to children nodes in
- *  the plumbing lattice.
- *
- *  Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
+ *  the plumbing lattice. */
 class SAWYER_EXPORT TimeFilter: public Filter {
     double initialDelay_;                               // amount to delay before emitting the first message
     double minInterval_;                                // minimum time between messages
@@ -771,32 +818,48 @@ class SAWYER_EXPORT TimeFilter: public Filter {
     double lastBakeTime_;                               // time cached by shouldForward, used by forwarded
     size_t nPosted_;                                    // number of messages posted (including those suppressed)
 protected:
-    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
+    /** Constructor for derived classes.
+     *
+     *  Non-subclass users should use @ref instance instead. */
     explicit TimeFilter(double minInterval)
         : initialDelay_(0.0), minInterval_(minInterval), prevMessageTime_(0.0), lastBakeTime_(0.0) {}
 public:
-    /** Allocating constructor. Creates an instance that limits forwarding of messages to at most one message every
-     *  @p minInterval seconds. */
+    /** Allocating constructor.
+     *
+     *  Creates an instance that limits forwarding of messages to at most one message every @p minInterval seconds. */
     static TimeFilterPtr instance(double minInterval) {
         return TimeFilterPtr(new TimeFilter(minInterval));
     }
 
-    /** Property: minimum time between messages.  Any message arriving within the specified interval from a previous message
-     *  that was forwarded to children in the lattice will be discarded.
+    /** Property: minimum time between messages.
+     *
+     *  Any message arriving within the specified interval from a previous message that was forwarded to children in the
+     *  lattice will be discarded.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      *  @{ */
-    double minInterval() const { return minInterval_; }
+    double minInterval() const;
     TimeFilterPtr minInterval(double d);
     /** @} */
 
-    /** Property: delay before the next message. Any message arriving within the specified number of seconds from this call
-     *  will be discarded.
+    /** Property: delay before the next message.
+     *
+     *  Any message arriving within the specified number of seconds from this call will be discarded.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      *  @{ */
-    double initialDelay() const { return initialDelay_; }
+    double initialDelay() const;
     TimeFilterPtr initialDelay(double d);
     /** @} */
 
-    /** Number of messages processed.  This includes messages forwarded and messages not forwarded. */
-    size_t nPosted() const { return nPosted_; }
+    /** Number of messages processed.
+     *
+     *  This includes messages forwarded and messages not forwarded.
+     *
+     *  Thread safety: This method is thread-safe. */
+    size_t nPosted() const;
 
     virtual bool shouldForward(const MesgProps&) /*override*/;
     virtual void forwarded(const MesgProps&) /*override*/;
@@ -808,37 +871,44 @@ public:
  *
  * @code
  *  DestinationPtr d = ImportanceFilter::instance(false)->enable(FATAL)->enable(ERROR);
- * @endcode
- *
- * Thread safety: This object uses no global state, but is otherwise not thread-safe except where noted. */
+ * @endcode */
 class SAWYER_EXPORT ImportanceFilter: public Filter {
     bool enabled_[N_IMPORTANCE];
 protected:
-    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
+    /** Constructor for derived classes.
+     *
+     *  Non-subclass users should use @ref instance instead. */
     explicit ImportanceFilter(bool dflt) {
         memset(enabled_, dflt?0xff:0, sizeof enabled_);
     }
 public:
-    /** Allocating constructor.  Creates an instance that either allows or disallows all importance levels depending on
-     *  whether @p dflt is true or false, respectively. */
+    /** Allocating constructor.
+     *
+     *  Creates an instance that either allows or disallows all importance levels depending on whether @p dflt is true or
+     *  false, respectively. */
     static ImportanceFilterPtr instance(bool dflt) {
         return ImportanceFilterPtr(new ImportanceFilter(dflt));
     }
 
-    /** Property: the enabled/disabled state for a message importance level.  Importance levels that are enabled are forwarded
-     *  to children in the lattice, and those that are disable are discarded.
+    /** Property: the enabled/disabled state for a message importance level.
+     *
+     *  Importance levels that are enabled are forwarded to children in the lattice, and those that are disable are discarded.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      *  @{ */
-    bool enabled(Importance imp) const { return enabled_[imp]; }
-    ImportanceFilterPtr enabled(Importance imp, bool b) {
-        enabled_[imp] = b;
-        return sharedFromThis().dynamicCast<ImportanceFilter>();
-    }
+    bool enabled(Importance imp) const;
+    ImportanceFilterPtr enabled(Importance imp, bool b);
     /** @} */
 
-    /** Enable an importance level.  Returns this node so that the method can be chained. */
+    /** Enable an importance level.
+     *
+     *  Returns this node so that the method can be chained. */
     ImportanceFilterPtr enable(Importance);
 
-    /** Disable an importance level. Returns this node so that the method can be chained. */
+    /** Disable an importance level.
+     *
+     *  Returns this node so that the method can be chained. */
     ImportanceFilterPtr disable(Importance);
 
     virtual bool shouldForward(const MesgProps&) /*override*/;
@@ -857,9 +927,14 @@ class HighWater {
     Optional<unsigned> id_;                             /**< ID number of last message to be emitted, if any. */
     MesgProps props_;                                   /**< Properties used for the last emission. */
     size_t ntext_;                                      /**< Number of characters of the message we've seen already. */
+protected:
+    mutable boost::recursive_mutex mutex_;
+    HighWater(const HighWater&) { abort(); }          // not copyable
+    HighWater& operator=(const HighWater&) { abort(); } // not copyable
 public:
     HighWater(): ntext_(0) {}
     explicit HighWater(const Mesg &m, const MesgProps &p) { emitted(m, p); }
+    boost::recursive_mutex& mutex() const { return mutex_; }
     void emitted(const Mesg&, const MesgProps&);        /**< Make specified message the high water mark. */
     void clear();                                       /**< Reset to initial state. */
     bool isValid() const;                               /**< Returns true if high water is defined. */
@@ -880,12 +955,13 @@ class Gang: public HighWater, public SharedObject {
     typedef Sawyer::Container::Map<int, GangPtr> GangMap;
     static GangMap *gangs_;                             /**< Gangs indexed by file descriptor or other ID. */
     static const int TTY_GANG = -1;                     /**< The ID for streams that are emitting to a terminal device. */
+    static boost::mutex classMutex_;                    /**< Mutex for class data. */
 protected:
     Gang() {}
 public:
     static GangPtr instance() { return GangPtr(new Gang); }
     static GangPtr instanceForId(int id);               /**< The gang for the specified ID, creating a new one if necessary. */
-    static GangPtr instanceForTty() { return instanceForId(TTY_GANG); }
+    static GangPtr instanceForTty();                    /**< Returns the gang for streams that are emitting to a tty. */
     static void removeInstance(int id);                 /**< Remove specified gang from global list. */
 };
 
@@ -893,10 +969,7 @@ public:
 //                                      Messages prefixes
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Information printed at the beginning of each free-format message.
- *
- *  Thread safety:  This object is not thread-safe except where noted. However, all access to global data is protected, so one
- *  can treat these objects as if they had only local-data. */
+/** Information printed at the beginning of each free-format message. */
 class SAWYER_EXPORT Prefix: public SharedObject, public SharedFromThis<Prefix> {
 #include <sawyer/WarningsOff.h>
 public:
@@ -907,6 +980,7 @@ public:
         ALWAYS=2                                        /**< Always show this item. */
     };
 private:
+    mutable boost::recursive_mutex mutex_;              /**< Mutex for data members here and in subclasses. */
     ColorSet colorSet_;                                 /**< Colors to use if <code>props.useColor</code> is true. */
     Optional<std::string> programName_;                 /**< Name of program as it will be displayed (e.g., "a.out[12345]"). */
     bool showProgramName_;
@@ -918,7 +992,9 @@ private:
     void initFromSystem();                              /**< Initialize data from the operating system. */
 #include <sawyer/WarningsRestore.h>
 protected:
-    /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
+    /** Constructor for derived classes.
+     *
+     *  Non-subclass users should use @ref instance instead. */
     Prefix()
         : showProgramName_(true), showThreadId_(true), showElapsedTime_(true), showFacilityName_(SOMETIMES),
           showImportance_(true) {
@@ -928,74 +1004,130 @@ protected:
 public:
     virtual ~Prefix() {}
 
-    /** Allocating constructor. Creates a new prefix instance and returns a pointer to it. The new object is initialized
-     *  with information about the thread that created it, such as program name, thread ID, time of creation, etc. */
+    /** Allocating constructor.
+     *
+     *  Creates a new prefix instance and returns a pointer to it. The new object is initialized with information about the
+     *  thread that created it, such as program name, thread ID, time of creation, etc. */
     static PrefixPtr instance() { return PrefixPtr(new Prefix); }
 
-    /** Property: colors to use for the prefix if coloring is enabled. Colors can be specified even for sinks that don't
-     *  support them--they just won't be used.
+    /** Property: colors to use for the prefix if coloring is enabled.
+     *
+     *  Colors can be specified even for sinks that don't support them--they just won't be used.
+     *
+     *  Thread safety: Not thread-safe.
+     *
      * @{ */
     const ColorSet& colorSet() const { return colorSet_; }
     ColorSet& colorSet() { return colorSet_; }
     /** @} */
 
-    /** Property: program name. The default is the base name of the file that was executed.  An "lt-" prefix is removed from
-     *  the base name since this is typically added by libtool and doesn't correspond to the name that the user executed.
-     *  @sa setProgramName showProgramName
+    /** Property: program name.
+     *
+     *  The default is the base name of the file that was executed.  An "lt-" prefix is removed from the base name since this
+     *  is typically added by libtool and doesn't correspond to the name that the user executed.
+     *
+     *  Thread safety: Not thread safe.
+     *
+     *  @sa setProgramName @ref showProgramName
+     *
      * @{ */
     const Optional<std::string>& programName() const { return programName_; }
     PrefixPtr programName(const std::string &s) { programName_ = s; return sharedFromThis(); }
     /** @} */
 
-    /** Reset the program name from operating system information. @sa programName showProgramName */
+    /** Reset the program name from operating system information.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
+     *  @sa programName showProgramName */
     void setProgramName();
 
-    /** Property: whether to show the program name in the message prefix area.  The default is true. @sa programName
+    /** Property: whether to show the program name in the message prefix area.
+     *
+     *  The default is true.
+     *
+     *  Thread safety: This method is not thread-safe.
+     *
+     *  @sa programName
      * @{ */
     bool showProgramName() const { return showProgramName_; }
     PrefixPtr showProgramName(bool b) { showProgramName_ = b; return sharedFromThis(); }
     /** @} */
 
-    /** Property: whether to show the thread ID in the message prefix area.  The default is true.
+    /** Property: whether to show the thread ID in the message prefix area.
+     *
+     *  The default is true.
+     *
+     *  Thread safety: This method is not thread-safe.
+     *
      * @{ */
     bool showThreadId() const { return showThreadId_; }
     PrefixPtr showThreadId(bool b) { showThreadId_ = b; return sharedFromThis(); }
     /** @} */
 
-    /** Property: start time when emitting time deltas.  On some systems the start time will be the time at which this object
-     *  was created. @sa setStartTime showElapsedTime
+    /** Property: start time when emitting time deltas.
+     *
+     *  On some systems the start time will be the time at which this object was created.
+     *
+     *  Thread safety: This method is not thread-safe.
+     *
+     *  @sa setStartTime @ref showElapsedTime
+     *
      * @{ */
-    const Optional<double> startTime() const { return startTime_; }
-    PrefixPtr startTime(double t) { startTime_ = t; return sharedFromThis(); }
+    const Optional<double> startTime() const;
+    PrefixPtr startTime(double t);
     /** @} */
 
-    /** Reset the start time from operating system information.  On some systems this will be the time at which the first
-     *  prefix object was created rather than the time the operating system created the main process. @sa startTime
-     *  showElapsedTime */
+    /** Reset the start time from operating system information.
+     *
+     *  On some systems this will be the time at which the first prefix object was created rather than the time the operating
+     *  system created the main process.
+     *
+     *  Thread safety: This method is not thread-safe.
+     *
+     *  @sa startTime showElapsedTime */
     void setStartTime();
 
-    /** Property: whether to show time deltas.  Time deltas are displayed as fractional seconds since some starting time.
+    /** Property: whether to show time deltas.
+     *
+     *  Time deltas are displayed as fractional seconds since some starting time.
+     *
+     *  Thread safety: This method is not thread-safe.
+     *
      *  @sa startTime setStartTime
      * @{ */
     bool showElapsedTime() const { return showElapsedTime_; }
     PrefixPtr showElapsedTime(bool b) { showElapsedTime_ = b; return sharedFromThis(); }
     /** @} */
 
-    /** Property: whether to show the facilityName property. When set to SOMETIMES, the facility name is shown when it differs
-     *  from the program name and the program name has been shown. In any case, the facility name is not shown if it has no
-     *  value.
+    /** Property: whether to show the facilityName property.
+     *
+     *  When set to SOMETIMES, the facility name is shown when it differs from the program name and the program name has been
+     *  shown. In any case, the facility name is not shown if it has no value.
+     *
+     *  Thread safety: This method is not thread-safe.
+     *
      * @{ */
     When showFacilityName() const { return showFacilityName_; }
     PrefixPtr showFacilityName(When w) { showFacilityName_ = w; return sharedFromThis(); }
     /** @} */
 
-    /** Property: whether to show the importance property. In any case, the importance level is not shown if it has no value.
+    /** Property: whether to show the importance property.
+     *
+     *  In any case, the importance level is not shown if it has no value.
+     *
+     *  Thread safety: This method is not thread-safe.
+     *
      * @{ */
     bool showImportance() const { return showImportance_; }
     PrefixPtr showImportance(bool b) { showImportance_ = b; return sharedFromThis(); }
     /** @} */
 
-    /** Return a prefix string. Generates a string from this prefix object. */
+    /** Return a prefix string.
+     *
+     *  Generates a string from this prefix object.
+     *
+     *  Thread safety: This method is not thread-safe. */
     virtual std::string toString(const Mesg&, const MesgProps&) const;
 };
 
@@ -1005,9 +1137,7 @@ public:
 
 /** Base class for final destinations that are free-format.
  *
- *  These are destinations that emit messages as strings.
- *
- *  Thread safety: This object is not thread safe. */
+ *  These are destinations that emit messages as strings. */
 class SAWYER_EXPORT UnformattedSink: public Destination {
 #include <sawyer/WarningsOff.h>
     GangPtr gang_;
@@ -1029,57 +1159,82 @@ public:
      *  terminal or when both have been redirected to the same file.  Not all sinks support automatically choosing the correct
      *  gang (e.g., C++ std::ofstream doesn't have the necessary capabilities), so it must be chosen manually sometimes for the
      *  output to be coordinated.  See Gang::instanceForId() and Gang::instanceForTty().
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      * @{ */
-    const GangPtr& gang() const { return gang_; }
-    UnformattedSinkPtr gang(const GangPtr &g) {
-        gangInternal(g);
-        return sharedFromThis().dynamicCast<UnformattedSink>();
-    }
+    GangPtr gang() const;
+    UnformattedSinkPtr gang(const GangPtr &g);
     /** @} */
 
-    /** Property: how to generate message prefixes. This is a pointer to the object that is responsible for generating the
-     *  string that appears at the beginning of each line and usually contains such things as the program and importance level.
+    /** Property: how to generate message prefixes.
+     *
+     *  This is a pointer to the object that is responsible for generating the string that appears at the beginning of each
+     *  line and usually contains such things as the program and importance level.
+     *
+     *  Thread safety: This method is thread-safe.
+     *
      * @{ */
-    const PrefixPtr& prefix() const { return prefix_; }
-    UnformattedSinkPtr prefix(const PrefixPtr &p) {
-        prefix_ = p;
-        return sharedFromThis().dynamicCast<UnformattedSink>();
-    }
+    PrefixPtr prefix() const;
+    UnformattedSinkPtr prefix(const PrefixPtr &p);
     /** @} */
 
-    /** Support function for emitting a message.  This string terminates the previous partial message from the same gang. This
-     *  method must be called exactly once during @ref render for its possible side effects, although the return value doesn't
-     *  have to be used. */
+    /** Support function for emitting a message.
+     *
+     *  This string terminates the previous partial message from the same gang. This method must be called exactly once during
+     *  @ref render for its possible side effects, although the return value doesn't have to be used.
+     *
+     *  Thread safety: not thread-safe. However, it is usually only called from inside @ref render after locks for this object
+     *  and the gang have been obtained. */
     virtual std::string maybeTerminatePrior(const Mesg&, const MesgProps&);
 
-    /** Support function for emitting a message. This string is the prefix generated by calling Prefix::toString if a prefix
-     *  is necessary.  This method must be called exactly once during @ref render for its possible side effects, although the
-     *  return value doesn't have to be used. */
+    /** Support function for emitting a message.
+     *
+     *  This string is the prefix generated by calling Prefix::toString if a prefix is necessary.  This method must be called
+     *  exactly once during @ref render for its possible side effects, although the return value doesn't have to be used.
+     *
+     *  Thread safety: not thread-safe. However, it is usually only called from inside @ref render after locks for this object
+     *  and the gang have been obtained. */
     virtual std::string maybePrefix(const Mesg&, const MesgProps&);
 
-    /** Support function for emitting a message. This string is the message body, or at least the part of the body that hasn't
-     *  been emitted yet.  This method must be called exactly once during @ref render for its possible side effects, although
-     *  the return value doesn't have to be used. */
+    /** Support function for emitting a message.
+     *
+     *  This string is the message body, or at least the part of the body that hasn't been emitted yet.  This method must be
+     *  called exactly once during @ref render for its possible side effects, although the return value doesn't have to be
+     *  used.
+     *
+     *  Thread safety: not thread-safe. However, it is usually only called from inside @ref render after locks for this object
+     *  and the gang have been obtained. */
     virtual std::string maybeBody(const Mesg&, const MesgProps&);
 
-    /** Support function for emitting a message.  This string is the message termination, interruption, or cancelation and the
-     *  following line termination as necessary. This method must be called exactly once during @ref render for its possible
-     *  side effects, although the return value doesn't have to be used. */
+    /** Support function for emitting a message.
+     *
+     *  This string is the message termination, interruption, or cancelation and the following line termination as
+     *  necessary. This method must be called exactly once during @ref render for its possible side effects, although the
+     *  return value doesn't have to be used.
+     *
+     *  Thread safety: not thread-safe. However, it is usually only called from inside @ref render after locks for this object
+     *  and the gang have been obtained. */
     virtual std::string maybeFinal(const Mesg&, const MesgProps&);
 
-    /** Support function for emitting a message.  The return string is constructed by calling @ref maybeTerminatePrior,
-     *  @ref maybePrefix, @ref maybeBody, and @ref maybeFinal one time each (because some of them have side effects). */
+    /** Support function for emitting a message.
+     *
+     *  The return string is constructed by calling @ref maybeTerminatePrior, @ref maybePrefix, @ref maybeBody, and @ref
+     *  maybeFinal one time each (because some of them have side effects).
+     *
+     *  Thread safety: This method is thread safe. It obtains and holds locks for this object and the gang across all the calls
+     *  to @ref maybeTerminatePrior, @ref maybePrefix, @ref maybeBody, and @ref maybeFinal. */
     virtual std::string render(const Mesg&, const MesgProps&);
 protected:
-    /** Cause this sink to be coordinated with others. */
-    void gangInternal(const GangPtr &g) { gang_ = g; }
+    /** Cause this sink to be coordinated with others.
+     *
+     *  Thread safety: This method is thread-safe. */
+    void gangInternal(const GangPtr &g);
 private:
     void init();
 };
 
-/** Send free-format messages to a Unix file descriptor.
- *
- *  Thread safety: This object is not thread-safe. */
+/** Send free-format messages to a Unix file descriptor. */
 class SAWYER_EXPORT FdSink: public UnformattedSink {
     int fd_;                                            // file descriptor or -1
 protected:
@@ -1096,9 +1251,7 @@ private:
     void init();
 };
 
-/** Send free-format messages to a C @c FILE pointer.
- *
- *  Thread safety: This object is not thread-safe. */
+/** Send free-format messages to a C @c FILE pointer. */
 class SAWYER_EXPORT FileSink: public UnformattedSink {
     FILE *file_;
 protected:
@@ -1115,9 +1268,7 @@ private:
     void init();
 };
 
-/** Send free-format messages to a C++ I/O stream.
- *
- *  Thread safety: This object is not thread-safe. */
+/** Send free-format messages to a C++ I/O stream. */
 class SAWYER_EXPORT StreamSink: public UnformattedSink {
     std::ostream &stream_;
 protected:
@@ -1135,7 +1286,7 @@ public:
 #ifndef BOOST_WINDOWS
 /** Sends messages to the syslog daemon.
  *
- *  Thread safety: This object is not thread-safe. */
+ *  Thread safety: Unknown (depends on whether syslog is thread-safe). */
 class SAWYER_EXPORT SyslogSink: public Destination {
 protected:
     /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
@@ -1158,41 +1309,16 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class Stream;
-
-/** @internal
- *  Only used internally; most of the API is in MessageStream.
- *
- *  Thread safety: This object is not thread-safe. */
-class SAWYER_EXPORT StreamBuf: public std::streambuf {
-    friend class Stream;
-#include <sawyer/WarningsOff.h>
-    bool enabled_;                                      /**< Whether this stream is enabled. */
-    MesgProps dflt_props_;                              /**< Default properties for new messages. */
-    Mesg message_;                                      /**< Current message, never in an @ref isComplete state. */
-    DestinationPtr destination_;                        /**< Where messages should be sent. */
-    BakedDestinations baked_;                           /**< Destinations baked at the start of each message. */
-    bool isBaked_;                                      /**< True if @c baked_ is initialized. */
-    bool anyUnbuffered_;                                /**< True if any baked destinations are unbuffered. */
-#include <sawyer/WarningsRestore.h>
-
-protected:
-    StreamBuf(): enabled_(true), isBaked_(false), anyUnbuffered_(false) {}
-    ~StreamBuf() { cancelMessage(); }
-    virtual std::streamsize xsputn(const char *s, std::streamsize &n) /*override*/;
-    virtual int_type overflow(int_type c = traits_type::eof()) /*override*/;
-
-private:
-    void completeMessage();                             /**< Complete and post message, then start a new one. */
-    void cancelMessage();                               /**< Cancel message if necessary. */
-    void bake();                                        /**< Bake the destinations. */
-    void post();                                        /**< Post message if necessary. */
-};
+class StreamBuf;
 
 /** @internal
  *  Adjusts reference counts for a stream and deletes the stream when the reference count hits zero.
  *
- *  Thread safety: This object is almost thread-safe.  The <code>SProxy(const SProxy&)</code> method is not thread-safe but
- *  this is not an issue if the argument is owned by a Facility. */
+ *  This object acts like a POD pointer type except it adjusts the reference count for the stream to which it
+ *  points in a manner similar to SharedPointer.  The reason we don't use SharedPointer is that SProxy needs special
+ *  constructors to handle std::ostream operands with runtime type of Stream.
+ *
+ *  Thread safety: Adjustments to reference counts are synchronized. */
 class SAWYER_EXPORT SProxy {
     Stream *stream_;
 public:
@@ -1216,53 +1342,31 @@ public:
  *  defined for the stream and sending the results to a specified destination. Streams typically impart a facility name and
  *  importance level to each message via the stream's properties. */
 class SAWYER_EXPORT Stream: public std::ostream {
-    friend class SProxy;
+    friend class StreamBuf;
+    mutable boost::mutex mutex_;
     size_t nrefs_;                                      // used when we don't have std::move semantics
-    StreamBuf *streambuf_;                              // each stream has its own
+    StreamBuf *streambuf_;                              // each stream has its own, protected by our mutex
 public:
 
     /** Construct a stream and initialize its name and importance properties. */
-    Stream(const std::string facilityName, Importance imp, const DestinationPtr &destination)
-        : std::ostream(new StreamBuf), nrefs_(0), streambuf_(NULL) {
-        streambuf_ = dynamic_cast<StreamBuf*>(rdbuf());
-        assert(streambuf_!=NULL);
-        assert(destination!=NULL);
-        streambuf_->dflt_props_.facilityName = facilityName;
-        streambuf_->dflt_props_.importance = imp;
-        streambuf_->destination_ = destination;         // FIXME[Robb Matzke 2015-02-07]: thread-safety: ref-counted
-        streambuf_->message_.properties() = streambuf_->dflt_props_;
-    }
+    Stream(const std::string facilityName, Importance imp, const DestinationPtr &destination);
 
     /** Construct a stream and initialize its properties as specified. */
-    Stream(const MesgProps &props, const DestinationPtr &destination)
-        : std::ostream(new StreamBuf), nrefs_(0), streambuf_(NULL) {
-        streambuf_ = dynamic_cast<StreamBuf*>(rdbuf());
-        assert(streambuf_!=NULL);
-        assert(destination!=NULL);
-        streambuf_->dflt_props_ = props;
-        streambuf_->destination_ = destination;         // FIXME[Robb Matzke 2015-02-07]: thread-safety: ref-count
-        streambuf_->message_.properties() = streambuf_->dflt_props_;
-    }
+    Stream(const MesgProps &props, const DestinationPtr &destination);
 
     /** Construct a new stream from an existing stream.
      *
      *  If @p other has a pending message then ownership of that message is moved to this new stream.
      *
      *  Thread safety: This method is thread-safe. */
-    Stream(const Stream &other)
-        : std::ostream(new StreamBuf), nrefs_(0), streambuf_(NULL) {
-        initFrom(other);
-    }
+    Stream(const Stream &other);
 
     /** Initialize this stream from another stream.
      *
      *  If @p other has a pending message then ownership of that message is moved to this stream.
      *
      *  Thread safety: This method is thread-safe. */
-    Stream& operator=(const Stream &other) {
-        initFrom(other);
-        return *this;
-    }
+    Stream& operator=(const Stream &other);
 
     /** Copy constructor with dynamic cast.
      *  
@@ -1274,13 +1378,7 @@ public:
      * @endcode
      *
      *  Thread safety: This method is thread-safe. */
-    Stream(const std::ostream &other_)
-        : std::ostream(rdbuf()), nrefs_(0), streambuf_(NULL) {
-        const Stream *other = dynamic_cast<const Stream*>(&other_);
-        if (!other)
-            throw "Sawyer::Message::Stream initializer is not a Sawyer::Message::Stream (only a std::ostream)";
-        initFrom(*other);
-    }
+    Stream(const std::ostream &other_);
 
     /** Assignment with dynamic cast.
      *
@@ -1292,18 +1390,13 @@ public:
      *  @endcode
      *
      *  Thread safety:  This method is thread-safe. */
-    Stream& operator=(const std::ostream &other_) {
-        const Stream *other = dynamic_cast<const Stream*>(&other_);
-        if (!other)
-            throw "Sawyer::Message::Stream initializer is not a Sawyer::Message::Stream (only a std::ostream)";
-        initFrom(*other);
-        return *this;
-    }
+    Stream& operator=(const std::ostream &other_);
     
-    ~Stream() {
-        assert(0==nrefs_);
-        delete streambuf_;
-    }
+    ~Stream();
+
+    // used internally by SProxy; thread-safe
+    void incrementRefCount();
+    size_t decrementRefCount();                         // returns new ref count
 
     /** Used for partial messages when std::move is missing.
      *
@@ -1316,8 +1409,8 @@ protected:
      *  This stream will get its own StreamBuf (if it doesn't have one already), and any pending message from @p other will be
      *  moved (not copied) to this stream.
      *
-     *  Thread safety: This method is thread-safe. */
-    void initFrom(const Stream &other);
+     *  Thread safety: This method is not thread-safe--the caller is expected to obtain the necessary locks. */
+    void initFromNS(const Stream &other);
 
 public:
     /** Returns true if a stream is enabled.
@@ -1380,7 +1473,7 @@ public:
      *  Thread safety: This method is thread-safe.
      *
      *  @{ */
-    const DestinationPtr& destination() const;
+    DestinationPtr destination() const;
     Stream& destination(const DestinationPtr &d);
     /** @} */
 
@@ -1411,35 +1504,48 @@ public:
  *
  *  Thread safety: This object is thread-safe except where noted. */
 class SAWYER_EXPORT Facility {
-    static const unsigned INITIALIZATION_MAGIC = 0x73617779;
-    unsigned initialized_;
+    static const unsigned CONSTRUCTED_MAGIC = 0x73617779;
+    unsigned constructed_;
+    mutable boost::mutex mutex_;
 #include <sawyer/WarningsOff.h>
     std::string name_;
     std::vector<SProxy> streams_;
 #include <sawyer/WarningsRestore.h>
+
 public:
-    /** Construct an empty facility.  The facility will have no name and all streams will be uninitialized.  Any attempt to
-     *  emit anything to a facility in the default state will cause an <code>std::runtime_error</code> to be thrown with a
-     *  message similar to "stream INFO is not initialized yet".  This facility can be initialized by assigning it a value from
-     *  another initialized facility. */
-    Facility(): initialized_(INITIALIZATION_MAGIC) {}
+    /** Construct an empty facility.
+     *
+     *  The facility will have no name and all streams will be uninitialized.  Any attempt to emit anything to a facility in
+     *  the default state will cause an <code>std::runtime_error</code> to be thrown with a message similar to "stream INFO is
+     *  not initialized yet".  This facility can be initialized by assigning it a value from another initialized facility. */
+    Facility(): constructed_(CONSTRUCTED_MAGIC) {}
+
+    /** Construct a new facility from an existing facility.
+     *
+     *  The new facility will point to the same streams as the existing facility. */
+    Facility(const Facility &other);
+
+    /** Assignment operator.
+     *
+     *  The destination facility will point to the same streams as the source facility. */
+    Facility& operator=(const Facility &src);
 
     /** Create a named facility with default destinations.  All streams are enabled and all output goes to file descriptor
      *  2 (standard error) via unbuffered system calls.  Facilities initialized to this state can typically be used before the
      *  C++ runtime is fully initialized and before @ref Sawyer::initializeLibrary is called. */
-    explicit Facility(const std::string &name): initialized_(INITIALIZATION_MAGIC), name_(name) {
+    explicit Facility(const std::string &name): constructed_(CONSTRUCTED_MAGIC), name_(name) {
         //initializeLibrary() //delay until later
         initStreams(FdSink::instance(2));
     }
 
     /** Creates streams of all importance levels. */
-    Facility(const std::string &name, const DestinationPtr &destination): initialized_(INITIALIZATION_MAGIC), name_(name) {
+    Facility(const std::string &name, const DestinationPtr &destination): constructed_(CONSTRUCTED_MAGIC), name_(name) {
         initializeLibrary();
         initStreams(destination);
     }
 
     ~Facility() {
-        initialized_ = 0;
+        constructed_ = 0;
     }
 
     /** Returns true if called on an object that has been constructed.
@@ -1449,7 +1555,7 @@ public:
      *  initialize it.
      *
      *  Thread safety: This method is not thread-safe. */
-    bool isInitialized() const { return initialized_ == INITIALIZATION_MAGIC; }
+    bool isConstructed() const { return constructed_ == CONSTRUCTED_MAGIC; }
 
     /** Returns a stream for the specified importance level.
      *
@@ -1506,12 +1612,13 @@ public:
  *  Whenever a message importance level is enabled or diabled via the version of @ref enable or @ref disable that takes an
  *  importance argument, the set is adjusted.
  *
- *  Thread safety: This object is thread safe except where noted. */
+ *  Thread safety: This object is thread safe. */
 class SAWYER_EXPORT Facilities {
 public:
     typedef std::set<Importance> ImportanceSet;         /**< A set of importance levels. */
 private:
     typedef Container::Map<std::string, Facility*> FacilityMap;
+    mutable boost::mutex mutex_;
 #include <sawyer/WarningsOff.h>
     FacilityMap facilities_;
     ImportanceSet impset_;
@@ -1529,6 +1636,12 @@ public:
         impset_.insert(FATAL);
         impsetInitialized_ = false;
     }
+
+    /** Copy constructor. */
+    Facilities(const Facilities&);
+
+    /** Assignment operator. */
+    Facilities& operator=(const Facilities&);
 
     /** Return the set of default-enabled message importances.
      *
@@ -1566,7 +1679,7 @@ public:
      *  Thread safety: This method is thread-safe.
      *
      * @{ */
-    Facilities& insert(Facility &facility, std::string name="");
+    Facilities& insert(Facility &facility, const std::string &name="");
     Facilities& insertAndAdjust(Facility &facility, std::string name="");
     /** @} */
 
@@ -1585,8 +1698,9 @@ public:
      *  Returns a reference to the specified facility. Throws an <code>std::domain_error</code> if no facility exists with the
      *  specified name.
      *
-     *  Thread safety: This method is not thread-safe since it returns a reference to a facility that might be deleted or moved
-     *  before it can be used by the caller. */
+     *  Thread safety: This method is thread safe, but it returns a reference to a facility that could be deleted before it can
+     *  be used.  The caller must ensure that no other thread is invoking the @ref erase method concurrently on this same
+     *  Facilities object. */
     Facility& facility(const std::string &name) const;
 
     /** Return names for all known facilities.
@@ -1702,6 +1816,9 @@ private:
         Importance lo, hi;                              /**< Inclusive range of importances. */
         bool enable;                                    /**< New state. */
     };
+
+    Facilities& insertNS(Facility&, std::string);       // non-synchronized version
+    Facilities& enableNS(Importance, bool);             // non-synchronized version
 
     // Error information thrown internally.
     struct ControlError {
