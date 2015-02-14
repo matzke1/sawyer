@@ -2,6 +2,7 @@
 #define Sawyer_H
 
 #include <boost/cstdint.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 #include <cstdio>
 #include <string>
 
@@ -222,6 +223,9 @@ SAWYER_EXPORT int pclose(FILE*);
  *
  *  A new string is generated each time this is called. */
 SAWYER_EXPORT std::string generateSequentialName(size_t length=3);
+
+// used internally.
+SAWYER_EXPORT boost::recursive_mutex& bigMutex();
 
 } // namespace
 
