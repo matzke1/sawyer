@@ -1792,6 +1792,72 @@ static void test05() {
     
 }
 
+static void testCopyOnWrite() {
+    typedef unsigned Address;
+    typedef char Value;
+    typedef AddressMap<Address, Value> Map;
+    typedef Interval<Address> Addresses;
+
+    std::cout <<"Test copy-on-write\n";
+
+    char s1[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'};
+    Map::Buffer::Ptr buf1 = AllocatingBuffer<Address, Value>::instance(10);
+
+    Map map1;
+    map1.insert(Addresses::baseSize(100, 10), Map::Segment(buf1));
+    map1.at(100).limit(10).write(s1);
+
+    // Copy map1 to create map2
+    Map map2(map1);
+    char s2[10];
+    map2.at(100).limit(10).read(s2);
+    for (size_t i=0; i<10; ++i)
+        ASSERT_always_require(s2[i]==s1[i]);
+
+    // map1 and map2 share buffers, so changing one will change the other
+    s2[0] = 'A';
+    map2.at(100).limit(1).write(s2);
+    map1.at(100).limit(1).read(s1);
+    ASSERT_always_require(s2[0]==s1[0]);
+
+    // Copy map1 to map3, but set copy-on-write.
+    Map map3(map1, true);
+    char s3[10];
+    map3.at(100).limit(10).read(s3);
+    for (size_t i=0; i<10; ++i)
+        ASSERT_always_require(s3[i]==s1[i]);
+
+    // Writing to any map will now cause the buffer to be copied first.
+    s3[0] = '3';
+    map3.at(100).limit(1).write(s3);
+    s3[0] = '\0';
+    map3.at(100).limit(1).read(s3);
+    ASSERT_always_require(s3[0] == '3');
+    map1.at(100).limit(1).read(s1);
+    ASSERT_always_require(s1[0] == 'A');                // unchanged
+    map2.at(100).limit(1).read(s2);
+    ASSERT_always_require(s2[0] == 'A');                // unchanged
+
+    // Now that copy-on-write is set for the buffer, writing to either map1 or map2 will break their sharing.
+    s1[0] = '1';
+    map1.at(100).limit(1).write(s1);
+    s1[0] = '\0';
+    map1.at(100).limit(1).read(s1);
+    ASSERT_always_require(s1[0] == '1');
+    s2[0] = '\0';
+    map2.at(100).limit(1).read(s2);
+    ASSERT_always_require(s2[0] == 'A');                // still not changed
+    s3[0] = '\0';
+    map3.at(100).limit(1).read(s3);
+    ASSERT_always_require(s3[0] == '3');                // unchanged
+
+    // We've written to map1 and map3, therefore their copy-on-write bits should be cleared now but map2's
+    // copy-on-write is still set (even though map2 is the only thing using that buffer).
+    ASSERT_always_require(map1.find(100)->value().buffer()->copyOnWrite() == false);
+    ASSERT_always_require(map2.find(100)->value().buffer()->copyOnWrite() == true);
+    ASSERT_always_require(map3.find(100)->value().buffer()->copyOnWrite() == false);
+}
+
 int main() {
 
     test00();
@@ -1800,4 +1866,5 @@ int main() {
     test03();
     test04();
     test05();
+    testCopyOnWrite();
 }
