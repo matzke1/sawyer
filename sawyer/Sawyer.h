@@ -248,19 +248,45 @@ SAWYER_EXPORT boost::recursive_mutex& bigMutex();
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef _MSC_VER
-# define SAWYER_ATTR_UNUSED /*unused*/
-# define SAWYER_ATTR_NORETURN /*noreturn*/
+//--------------------------
+// Microsoft Windows
+//--------------------------
+
+# define SAWYER_ATTR_UNUSED /*void*/
+# define SAWYER_ATTR_NORETURN /*void*/
 # define SAWYER_PRETTY_FUNCTION __FUNCSIG__
 # define SAWYER_MAY_ALIAS /*void*/
 # define SAWYER_STATIC_INIT /*void*/
 
-// MVC doesn't support stack arrays whose size is not known at compile time.  We fudge by using an STL vector, which will be
-// cleaned up propertly at end of scope or exceptions.
+// Microsoft compiler doesn't support stack arrays whose size is not known at compile time.  We fudge by using an STL vector,
+// which will be cleaned up propertly at end of scope or exceptions.
 # define SAWYER_VARIABLE_LENGTH_ARRAY(TYPE, NAME, SIZE) \
     std::vector<TYPE> NAME##Vec_(SIZE);                 \
     TYPE *NAME = &(NAME##Vec_[0]);
 
+#elif defined(__APPLE__) && defined(__MACH__)
+//--------------------------
+// Apple OSX, iOS, Darwin
+//--------------------------
+
+# define SAWYER_ATTR_UNUSED /*void*/
+# define SAWYER_ATTR_NORETURN /*void*/
+# define SAWYER_PRETTY_FUNCTION __PRETTY_FUNCTION__
+# define SAWYER_MAY_ALIAS /*void*/
+# define SAWYER_STATIC_INIT /*void*/
+
+// Apple compilers doesn't support stack arrays whose size is not known at compile time.  We fudge by using an STL vector,
+// which will be cleaned up propertly at end of scope or exceptions.
+# define SAWYER_VARIABLE_LENGTH_ARRAY(TYPE, NAME, SIZE) \
+    std::vector<TYPE> NAME##Vec_(SIZE);                 \
+    TYPE *NAME = &(NAME##Vec_[0]);
+
+
 #else
+//--------------------------
+// Other, GCC-based
+//--------------------------
+
 # define SAWYER_ATTR_UNUSED __attribute__((unused))
 # define SAWYER_ATTR_NORETURN __attribute__((noreturn))
 # define SAWYER_PRETTY_FUNCTION __PRETTY_FUNCTION__
