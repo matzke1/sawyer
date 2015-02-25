@@ -1179,11 +1179,11 @@ public:
      *  The edge specified by the iterator (which must not be a one-past-last iterator) is erased from the graph. The term
      *  "erasure" is Standard Template Library terminology for the withdrawal and deletion of an object from a container, and
      *  differs from the term "remove", which means to move an object to some near-the-end position in a container.  Any edge
-     *  iterator that was pointing at the removed edge becomes invalid and should not be subsequently dereferenced,
+     *  iterator that was pointing at the erased edge becomes invalid and should not be subsequently dereferenced,
      *  incremented, decremented, or compared; other iterators, edge and vertex, are unaffected.  The edge with the highest ID
-     *  number will be given the ID of the edge that was removed in order to fill the gap left in the ID sequence.  This method
-     *  returns an iterator for the edge following the one that was deleted (possibly the one-past-last iterator if the last
-     *  edge was deleted).
+     *  number will be given the ID of the edge that was erased in order to fill the gap left in the ID sequence.  This method
+     *  returns an iterator for the edge following the one that was erased (possibly the one-past-last iterator if the last
+     *  edge was erased).
      *
      *  Time complexity is constant. */
     EdgeNodeIterator eraseEdge(const EdgeNodeIterator &edge) {
@@ -1231,11 +1231,11 @@ public:
      *  The vertex specified by the iterator (which must not be a one-past-last iterator) is erased from the graph along with
      *  all edges that originate from or terminate at that vertex. The term "erasure" is Standard Template Library terminology
      *  for the withdrawal and deletion of an object from a container, and differs from the term "remove", which means to move
-     *  an object to some near-the-end position in a container.  Any iterator that was pointing at the removed vertex or any of
+     *  an object to some near-the-end position in a container.  Any iterator that was pointing at the erased vertex or any of
      *  its incident edges becomes invalid and should not be subsequently dereferenced, incremented, decremented, or compared;
      *  other iterators, edge and vertex, are unaffected.  The vertex with the highest ID number will be given the ID of the
-     *  vertex that was removed in order to fill the gap left in the ID sequence.  This method returns an iterator for the
-     *  vertex following the one that was deleted (possibly the one-past-last iterator if the last vertex was deleted).
+     *  vertex that was erased in order to fill the gap left in the ID sequence.  This method returns an iterator for the
+     *  vertex following the one that was erased (possibly the one-past-last iterator if the last vertex was erased).
      *
      *  Time complexity is constant. */
     VertexNodeIterator eraseVertex(const VertexNodeIterator &vertex) {
