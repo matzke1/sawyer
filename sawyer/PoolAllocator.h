@@ -302,7 +302,7 @@ public:
      *  Thread safety: This method is thread-safe. */
     std::pair<size_t, size_t> nAllocated() const {
         size_t nAllocated = 0, nReserved = 0;
-        SynchronizationTraits<Sync> lock(mutex_);
+        typename SynchronizationTraits<Sync>::LockGuard lock(mutex_);
         for (size_t pn=0; pn<nPools; ++pn) {
             ChunkInfoMap cim = pools_[pn].chunkInfo();
             nReserved += nCells(pn) * cim.nIntervals();
