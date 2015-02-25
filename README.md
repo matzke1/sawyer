@@ -21,7 +21,7 @@ Documentation
 
 The Saywer user manual and API reference manual are combined in a
 single document.  A version of the documentation can be found
-[here](http://www.whosyourfocus.com/~matzke/sawyer), or users can run
+[here](http://www.hoosierfocus.com/~matzke/sawyer), or users can run
 
     $ doxygen docs/doxygen.conf
 
@@ -30,16 +30,19 @@ and then browse to docs/html/index.html.
 Installing
 ==========
 
-Run the CMake configuration in your compilation directroy:
+Installation instructions are
+[here](http://www.hoosierfocus.com/~matzke/sawyer/group__installation.html). In
+summary:
 
-    $ mkdir /path/for/your/compilation/directory
-    $ cd /path/for/your/compilation/directory
-    $ cmake "${SAWYER_SOURCE}" -DBOOST_ROOT="${BOOST_HOME}" -DCMAKE_INSTALL_PREFIX:PATH="/path/for/installation"
-
-This will generate your build files, which may then be used to compile Sawyer:
-
+    $ SAWYER_SRC=/my/sawyer/source/code
+    $ git clone https://github.com/matzke1/sawyer $SAWYER_SRC
+    $ SAWYER_BLD=/my/sawyer/build/directory
+    $ mkdir $SAWYER_BLD
+    $ cd $SAWYER_BLD
+    $ cmake $SAWYER_SRC -DCMAKE_INSTALL_PREFIX:PATH="/some/directory"
     $ make
-
-Finally, install Sawyer's shared library and header files:
-
     $ make install
+
+One commonly also needs
+"-DBOOST_ROOT=/the/boost/installation/directory", and
+"-DCMAKE_BUILD_TYPE=Debug" is useful during development.

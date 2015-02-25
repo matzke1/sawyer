@@ -1,3 +1,4 @@
+#include <iostream>
 #include <sawyer/Message.h>
 
 #include <boost/thread.hpp>

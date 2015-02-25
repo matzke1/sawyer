@@ -1,35 +1,22 @@
 #include <sawyer/Sawyer.h>
 #include <sawyer/Message.h>
-#include <boost/thread.hpp>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/recursive_mutex.hpp>
+#include <sawyer/Synchronization.h>
 
 namespace Sawyer {
-
-// Sawyer::Message uses one big mutex which is acquired by all API functions. This should work fine for most multithreaded
-// applications since we don't expect diagnostics to have high contention -- if you're spitting out that many diagnostic
-// messages then there's probably more serious problems. ;-)
-static boost::recursive_mutex bigMutex_;
 
 static bool isInitialized_;
 
 // thread-safe
-SAWYER_EXPORT boost::recursive_mutex&
-bigMutex() {
-    return bigMutex_;
-}
-
-// thread-safe
 SAWYER_EXPORT bool
 isInitialized() {
-    boost::lock_guard<boost::recursive_mutex> lock(bigMutex_);
+    SAWYER_THREAD_TRAITS::RecursiveLockGuard lock(bigMutex());
     return isInitialized_;
 }
 
 // thread-safe
 SAWYER_EXPORT bool
 initializeLibrary() {
-    boost::lock_guard<boost::recursive_mutex> lock(bigMutex_);
+    SAWYER_THREAD_TRAITS::RecursiveLockGuard lock(bigMutex());
     if (!isInitialized_) {
         Message::initializeLibrary();
         isInitialized_ = true;

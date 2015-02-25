@@ -1,14 +1,12 @@
 #ifndef Sawyer_SharedPtr_H
 #define Sawyer_SharedPtr_H
 
-#include <boost/thread.hpp>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/mutex.hpp>
 #include <cstddef>
 #include <ostream>
 #include <sawyer/Assert.h>
 #include <sawyer/Optional.h>                            // FIXME[Robb Matzke 2014-08-22]: only needed for Sawyer::Nothing
 #include <sawyer/Sawyer.h>
+#include <sawyer/Synchronization.h>
 
 namespace Sawyer {
 
@@ -255,7 +253,7 @@ void clear(SharedPointer<T> &ptr) {
  *  @sa SharedPointer, @ref SharedFromThis */
 class SAWYER_EXPORT SharedObject {
     template<class U> friend class SharedPointer;
-    mutable boost::mutex mutex_;
+    mutable SAWYER_THREAD_TRAITS::Mutex mutex_;
     mutable size_t nrefs_;
 public:
     /** Default constructor.  Initializes the reference count to zero. */
@@ -337,7 +335,7 @@ public:
 template<class T>
 inline size_t SharedPointer<T>::ownershipCount(T *rawPtr) {
     if (rawPtr) {
-        boost::lock_guard<boost::mutex> lock(rawPtr->SharedObject::mutex_);
+        SAWYER_THREAD_TRAITS::LockGuard lock(rawPtr->SharedObject::mutex_);
         return rawPtr->SharedObject::nrefs_;
     }
     return 0;
@@ -346,7 +344,7 @@ inline size_t SharedPointer<T>::ownershipCount(T *rawPtr) {
 template<class T>
 inline void SharedPointer<T>::acquireOwnership(Pointee *rawPtr) {
     if (rawPtr!=NULL) {
-        boost::lock_guard<boost::mutex> lock(rawPtr->SharedObject::mutex_);
+        SAWYER_THREAD_TRAITS::LockGuard lock(rawPtr->SharedObject::mutex_);
         ++rawPtr->SharedObject::nrefs_;
     }
 }
@@ -354,7 +352,7 @@ inline void SharedPointer<T>::acquireOwnership(Pointee *rawPtr) {
 template<class T>
 inline size_t SharedPointer<T>::releaseOwnership(Pointee *rawPtr) {
     if (rawPtr!=NULL) {
-        boost::lock_guard<boost::mutex> lock(rawPtr->SharedObject::mutex_);
+        SAWYER_THREAD_TRAITS::LockGuard lock(rawPtr->SharedObject::mutex_);
         assert(rawPtr->SharedObject::nrefs_ > 0);
         return --rawPtr->SharedObject::nrefs_;
     } else {

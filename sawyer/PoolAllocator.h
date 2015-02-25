@@ -4,9 +4,6 @@
 #include <boost/foreach.hpp>
 #include <boost/static_assert.hpp>
 #include <boost/cstdint.hpp>
-#include <boost/thread.hpp>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/mutex.hpp>
 #include <list>
 #include <sawyer/Assert.h>
 #include <sawyer/Interval.h>

@@ -18,9 +18,14 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 # What is the system thread library?
-find_package(Threads)
-if(CMAKE_COMPILER_IS_GNUCXX AND ${CMAKE_USE_PTHREADS_INIT})
-  add_definitions(-pthread)
+if(NOT "${THREAD_SAFE}" STREQUAL "" AND NOT "${THREAD_SAFE}")
+  message(STATUS "Multi-thread support is disabled")
+else()
+  message(STATUS "Multi-thread support is enabled")
+  find_package(Threads)
+  if(CMAKE_COMPILER_IS_GNUCXX AND ${CMAKE_USE_PTHREADS_INIT})
+    add_definitions(-pthread)
+  endif()
 endif()
 
 find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono thread)
@@ -50,7 +55,8 @@ set(lib_src
   sawyer/ProgressBar.C
   sawyer/Sawyer.C
   sawyer/SmallObject.C
-  sawyer/Stopwatch.C)
+  sawyer/Stopwatch.C
+  sawyer/Synchronization.C)
 add_library(libsawyer SHARED ${lib_src})
 target_link_libraries(libsawyer ${Boost_LIBRARIES} ${Windows_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 set_target_properties(libsawyer PROPERTIES DEFINE_SYMBOL "SAWYER_DO_EXPORTS")

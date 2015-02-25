@@ -44,6 +44,8 @@
  *
  *  Design goals for this library can be found in the [Design goals](group__design__goals.html) page.
  *
+ *  Installation instructions can be found on the [Installation](group__installation.html) page.
+ *
  *  Other things on the way but not yet ready:
  *
  *  @li A simple, extensible, terse markup language that lets users write documentation that can be turned into TROFF, HTML,
@@ -52,6 +54,113 @@
  *
  *  <b>Good starting places for reading documentation are the [namespaces](namespaces.html).</b> */
 
+
+/** @defgroup installation Installation
+ *
+ *  %Sawyer can be downloaded from <a href="https://github.com/matzke1/sawyer">GitHub</a>. For example:
+ *
+ * @code
+ *  $ SAWYER_SRC=/directory/in/which/to/store/sources
+ *  $ git clone https://github.com/matzke1/sawyer $SAWYER_SRC
+ * @endcode
+ *
+ *  %Sawyer uses <a href="http://www.cmake.org/">cmake</a> as its configuration and build system and building is typically
+ *  performed in a separate directory from the source. The author usually creates various "_build-whatever" directories at the
+ *  top level of the source code directory, but the build directories can be located anywhere. CMake operates in two steps:
+ *  first one configures the build environment using the "cmake" commnd, then the library is built and installed.  Here is a
+ *  typical configuration step:
+ *
+ * @code
+ *  $ SAWYER_BLD=/some/directory/in/which/to/build
+ *  $ mkdir $SAWYER_BLD
+ *  $ cd $SAWYER_BLD
+ *  $ cmake $SAWYER_SRC -DBOOST_ROOT=/location/of/boost -DCMAKE_INSTALL_PREFIX:PATH=/place/to/install/sawyer
+ * @endcode
+ *
+ *  The @c BOOST_ROOT should be the directory containing Boost's "include" and "lib" directories. It's necessary only when
+ *  Boost isn't installed in a well-known location.  In addition to Boost header files, %Sawyer also requires these Boost
+ *  libraries: iostreams, system, filesystem, regex, chrono, and thread.
+ *
+ *  The @c CMAKE_BUILD_TYPE can be specified to control whether a debug or release version of the library is created. Its value
+ *  should be the word "Debug" or "Release". The default is "Release".  For instance, "-DCMAKE_BUILD_TYPE=Debug".
+ *
+ *  The @c CMAKE_INSTALL_PREFIX is the directory that will contain the "include" and "lib" subdirectories where %Sawyer is
+ *  eventually installed. %Sawyer is also designed to be used directly from the build directory if desired.
+ *
+ *  CMake will configure %Sawyer to use the system's multi-threading support by default.  If you plan to use %Sawyer in only
+ *  single-threaded programs you can avoid the thread dependencies by providing the "-DTHREAD_SAFE:BOOL=no" switch, in which
+ *  case even those parts of the API that are documented as being thread-safe will probably not be safe. Within a program that
+ *  uses %Sawyer, one can check whether multi-thread support was enabled by checking the @c SAWYER_MULTI_THREADED C
+ *  preprocessor symbol; it will be defined as zero if multi-threading is disabled, and non-zero otherwise.  The @c
+ *  SAWYER_THREAD_TRAITS will point to one of the @ref Sawyer::SynchronizationTraits specializations, and
+ *  <code>SAWYER_THREAD_TRAITS::SUPPORTED</code> is true or false depending on whether multi-threading is supported.
+ *
+ *  The next step after configuration is to build the library and tests:
+ *
+ * @code
+ *  $ cd $SAWYER_BLD
+ *  $ make
+ * @endcode
+ *
+ *  Parallel building is supported with "make -jN" where @e N is the maximum number of parallel compile commands to allow.  If
+ *  you need to see the compilation commands that are executed, add "VERBOSE=1" to the "make" command.
+ *
+ *  Finally, the library can be installed and the build directory can be removed:
+ *
+ * @code
+ *  $ cd $SAWYER_BLD
+ *  $ make install
+ * @endcode
+ *
+ *  The current build system makes no attempt to name libraries in ways that distinguish the Boost version, build type,
+ *  thread-support, compiler version, etc.  We recommend that %Sawyer be used only in programs that are built with compatible
+ *  configuration, and the CMAKE_INSTALL_PREFIX can be used to create a naming scheme to install multiple %Sawyer
+ *  configurations on one machine.
+ *
+ *  @section mingw Cross compiling on Linux targeting Microsoft Windows
+ *
+ *  %Sawyer is not regularly tested on Microsoft platforms, but the MinGW compiler is supported.  On Debian this compiler can be
+ *  installed with "sudo apt-get install mingw-w64".  One also needs cross-compiled Boost libraries, that can be created with
+ *  these steps:
+ *
+ *  @li Download and untar the Boost source code (this example uses version 1.47).
+ *  @li Run "boostrap.sh" in the Boost source directory
+ *  @li Edit project-config.jam and replace the (commented out) "using gcc" line with "using gcc : mingw32 :
+ *      i586-mingw32msvc-g++ ;". The space before the semi-colon is required.
+ *  @li Create the installation directory. This example uses "$HOME/lib-mingw32/boost-1.47".
+ *  @li Compile Boost with the following commands. The NO_ZLIB and NO_BZIP2 are for the iostreams package since we didn't
+ *      cross compile zlib or bzip2 (%Sawyer doesn't use those features of iosreams).
+ *
+ * @code
+ *  $ ./bjam --help
+ *  $ ./bjam install toolset=gcc-mingw32 \
+ *        --prefix=$HOME/lib-mingw32/boost-1.47 \
+ *        --layout=versioned \
+ *        --with-iostreams --with-system --with-filesystem --with-regex --with-chrono \
+ *        -sNO_ZLIB=1 -sNO_BZIP2=1
+ * @endcode
+ *
+ *  To compile %Sawyer use the same cmake command as for native compiling, but add
+ *  "-DCMAKE_TOOLCHAIN_FILE=$SAWYER_SRC/Toolchain-cross-mingw32-linux.cmake". Also make sure the @c BOOST_ROOT parameter points
+ *  to the cross-compiled version of Boost, which must be installed in a directory that's at or below one of the @c
+ *  CMAKE_FIND_ROOT_PATH directories specified in the Toolchain-cross-mingw32-linux.cmake. Then run "make" and "make install"
+ *  like normal.
+ *
+ *  @section msvc Native compiling with Microsoft Visual Studio
+ *
+ *  %Sawyer is seldom tested in this manner, but Microsoft Visual Studio versions 10 2010 and 12 2013 have been tested at
+ *  time or another.  To install Boost, follow the instructions at the <a href="http://boost.org">Boost web site</a>. The
+ *  instructions didn't work for my virtual machine with Windows 8.1 Enterprise and Visual Studio 12 2013, so I used
+ *  precompiled Boost libraries I found at boost.org [Matzke].
+ *
+ *  Generate a Visual Studio project file with a command like this, and the usual CMake options described above.  IIRC, cmake
+ *  expects Windows-style path names having backslashes instead of POSIX names.
+ *
+ * @code
+ *  cmake -G "Visual Studio 12 2013" ...
+ * @endcode
+ *
+ *  Then fire up the Visual Studio IDE, open the project file, right click on a "solution", and select "Build". */
 
 /** @defgroup design_goals Library design goals
  *
@@ -166,6 +275,16 @@
  *  };
  * @endcode */
 
+// Macros for thread-safety portability. This allows Sawyer to be compiled with or without thread support and not have a huge
+// proliferation of conditional compilation directives in the main body of source code.
+#ifdef _REENTRANT
+#   define SAWYER_MULTI_THREADED 1
+#   define SAWYER_THREAD_TRAITS Sawyer::SynchronizationTraits<Sawyer::MultiThreadedTag>
+#else
+#   define SAWYER_MULTI_THREADED 0
+#   define SAWYER_THREAD_TRAITS Sawyer::SynchronizationTraits<Sawyer::SingleThreadedTag>
+#endif
+
 #ifdef BOOST_WINDOWS
 // FIXME[Robb Matzke 2014-06-18]: get rid of ROSE_UTIL_EXPORTS; cmake can only have one DEFINE_SYMBOL
 #   if defined(SAWYER_DO_EXPORTS) || defined(ROSE_UTIL_EXPORTS) // defined in CMake when compiling libsawyer
@@ -223,9 +342,6 @@ SAWYER_EXPORT int pclose(FILE*);
  *
  *  A new string is generated each time this is called. */
 SAWYER_EXPORT std::string generateSequentialName(size_t length=3);
-
-// used internally.
-SAWYER_EXPORT boost::recursive_mutex& bigMutex();
 
 } // namespace
 

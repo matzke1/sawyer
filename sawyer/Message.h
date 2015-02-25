@@ -5,10 +5,10 @@
 #include <sawyer/Optional.h>
 #include <sawyer/Sawyer.h>
 #include <sawyer/SharedPointer.h>
+#include <sawyer/Synchronization.h>
 
 #include <boost/config.hpp>
 #include <boost/logic/tribool.hpp>
-#include <boost/thread/mutex.hpp>
 #include <cassert>
 #include <cstring>
 #include <list>
@@ -603,7 +603,7 @@ public:
  *  This is the base class for all nodes in the plumbing lattice. */
 class SAWYER_EXPORT Destination: public SharedObject, public SharedFromThis<Destination> {
 protected:
-    mutable boost::recursive_mutex mutex_;              /**< Mutex protecting data members here and in subclasses. */
+    mutable SAWYER_THREAD_TRAITS::RecursiveMutex mutex_; /**< Mutex protecting data members here and in subclasses. */
     MesgProps dflts_;                                   /**< Default properties merged into each incoming message. */
     MesgProps overrides_;                               /**< Override properties applied to incoming message. */
 protected:
@@ -928,13 +928,13 @@ class HighWater {
     MesgProps props_;                                   /**< Properties used for the last emission. */
     size_t ntext_;                                      /**< Number of characters of the message we've seen already. */
 protected:
-    mutable boost::recursive_mutex mutex_;
+    mutable SAWYER_THREAD_TRAITS::RecursiveMutex mutex_;
     HighWater(const HighWater&) { abort(); }          // not copyable
     HighWater& operator=(const HighWater&) { abort(); } // not copyable
 public:
     HighWater(): ntext_(0) {}
     explicit HighWater(const Mesg &m, const MesgProps &p) { emitted(m, p); }
-    boost::recursive_mutex& mutex() const { return mutex_; }
+    SAWYER_THREAD_TRAITS::RecursiveMutex& mutex() const { return mutex_; }
     void emitted(const Mesg&, const MesgProps&);        /**< Make specified message the high water mark. */
     void clear();                                       /**< Reset to initial state. */
     bool isValid() const;                               /**< Returns true if high water is defined. */
@@ -955,7 +955,7 @@ class Gang: public HighWater, public SharedObject {
     typedef Sawyer::Container::Map<int, GangPtr> GangMap;
     static GangMap *gangs_;                             /**< Gangs indexed by file descriptor or other ID. */
     static const int TTY_GANG = -1;                     /**< The ID for streams that are emitting to a terminal device. */
-    static boost::mutex classMutex_;                    /**< Mutex for class data. */
+    static SAWYER_THREAD_TRAITS::Mutex classMutex_;     /**< Mutex for class data. */
 protected:
     Gang() {}
 public:
@@ -980,7 +980,7 @@ public:
         ALWAYS=2                                        /**< Always show this item. */
     };
 private:
-    mutable boost::recursive_mutex mutex_;              /**< Mutex for data members here and in subclasses. */
+    mutable SAWYER_THREAD_TRAITS::RecursiveMutex mutex_; /**< Mutex for data members here and in subclasses. */
     ColorSet colorSet_;                                 /**< Colors to use if <code>props.useColor</code> is true. */
     Optional<std::string> programName_;                 /**< Name of program as it will be displayed (e.g., "a.out[12345]"). */
     bool showProgramName_;
@@ -1377,7 +1377,7 @@ public:
  *  importance level to each message via the stream's properties. */
 class SAWYER_EXPORT Stream: public std::ostream {
     friend class StreamBuf;
-    mutable boost::mutex mutex_;
+    mutable SAWYER_THREAD_TRAITS::Mutex mutex_;
     size_t nrefs_;                                      // used when we don't have std::move semantics
     StreamBuf *streambuf_;                              // each stream has its own, protected by our mutex
 public:
@@ -1540,7 +1540,7 @@ public:
 class SAWYER_EXPORT Facility {
     static const unsigned CONSTRUCTED_MAGIC = 0x73617779;
     unsigned constructed_;
-    mutable boost::mutex mutex_;
+    mutable SAWYER_THREAD_TRAITS::Mutex mutex_;
 #include <sawyer/WarningsOff.h>
     std::string name_;
     std::vector<SProxy> streams_;
@@ -1652,7 +1652,7 @@ public:
     typedef std::set<Importance> ImportanceSet;         /**< A set of importance levels. */
 private:
     typedef Container::Map<std::string, Facility*> FacilityMap;
-    mutable boost::mutex mutex_;
+    mutable SAWYER_THREAD_TRAITS::Mutex mutex_;
 #include <sawyer/WarningsOff.h>
     FacilityMap facilities_;
     ImportanceSet impset_;

@@ -1,6 +1,15 @@
 #ifndef Sawyer_Synchronization_H
 #define Sawyer_Synchronization_H
 
+#include <sawyer/Sawyer.h>
+
+#if SAWYER_MULTI_THREADED
+#   include <boost/thread.hpp>
+#   include <boost/thread/mutex.hpp>
+#   include <boost/thread/locks.hpp>
+#   include <boost/thread/recursive_mutex.hpp>
+#endif
+
 namespace Sawyer {
 
 /** Tag indicating that an algorithm or API should assume multiple threads.
@@ -50,20 +59,33 @@ struct SynchronizationTraits {};
 
 template<>
 struct SynchronizationTraits<MultiThreadedTag> {
+#if SAWYER_MULTI_THREADED
+    enum { SUPPORTED = 1 };
     typedef boost::mutex Mutex;
-    typedef boost::shared_mutex SharedMutex;
+    typedef boost::recursive_mutex RecursiveMutex;
     typedef boost::lock_guard<boost::mutex> LockGuard;
-    typedef boost::lock_guard<boost::shared_mutex> SharedLockGuard;
+    typedef boost::lock_guard<boost::recursive_mutex> RecursiveLockGuard;
+#else
+    enum { SUPPORTED = 0 };
+    typedef NullMutex Mutex;
+    typedef NullMutex RecursiveMutex;
+    typedef NullLockGuard LockGuard;
+    typedef NullLockGuard RecursiveLockGuard;
+#endif
 };
+
 
 template<>
 struct SynchronizationTraits<SingleThreadedTag> {
+    enum { SUPPORTED = 0 };
     typedef NullMutex Mutex;
-    typedef NullMutex SharedMutex;
+    typedef NullMutex RecursiveMutex;
     typedef NullLockGuard LockGuard;
-    typedef NullLockGuard SharedLockGuard;
+    typedef NullLockGuard RecursiveLockGuard;
 };
 
+// Used internally.
+SAWYER_EXPORT SAWYER_THREAD_TRAITS::RecursiveMutex& bigMutex();
 
 } // namespace
 #endif
