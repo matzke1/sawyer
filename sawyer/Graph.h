@@ -87,6 +87,15 @@ struct GraphTraits<const G> {
  *  @li @ref VertexNodeIterator refers to mutable vertex storage nodes
  *  @li @ref ConstVertexNodeIterator refers to constant vertex storage nodes
  *
+ *  A const-iterator points to information that is const qualified. Const-iterators can be converted to non-const iterators in
+ *  linear time if one has the non-const graph available:
+ *
+ * @code
+ *  MyGraph graph = ...
+ *  MyGraph::ConstVertexNodeIterator constVertex = ...; // not the end iterator
+ *  MyGraph::VertexNodeIterator vertex = graph.findVertex(constVertex->id());
+ * @endcode
+ *
  *  Edge iterators are similar.
  *
  *  The previous example (using vertex iterators to refer to newly-inserted vertices) should make more sense now.  Here's an
@@ -1157,7 +1166,9 @@ public:
      *  edge will eventually traverse this new edge; no iterators, edge or vertex, are invalidated.  The new edge is given the
      *  highest edge ID number; no other ID numbers, edge or vertex, change.
      *
-     *  Time complexity is constant. */
+     *  Time complexity is constant.
+     *
+     * @{ */
     EdgeNodeIterator insertEdge(const VertexNodeIterator &sourceVertex, const VertexNodeIterator &targetVertex,
                                 const EdgeValue &value = EdgeValue()) {
         ASSERT_forbid(sourceVertex==vertices().end());
@@ -1173,6 +1184,13 @@ public:
         ++targetVertex->nInEdges_;
         return newEdge;
     }
+    EdgeNodeIterator insertEdge(const ConstVertexNodeIterator &sourceVertex, const ConstVertexNodeIterator &targetVertex,
+                                const EdgeValue &value = EdgeValue()) {
+        ASSERT_forbid(sourceVertex==vertices().end());
+        ASSERT_forbid(targetVertex==vertices().end());
+        return insertEdge(findVertex(sourceVertex->id()), findVertex(targetVertex->id()), value);
+    }
+    /** @} */
 
     /** Erases an edge.
      *
@@ -1185,7 +1203,9 @@ public:
      *  returns an iterator for the edge following the one that was erased (possibly the one-past-last iterator if the last
      *  edge was erased).
      *
-     *  Time complexity is constant. */
+     *  Time complexity is constant.
+     *
+     * @{ */
     EdgeNodeIterator eraseEdge(const EdgeNodeIterator &edge) {
         ASSERT_forbid(edge==edges().end());
         EdgeNodeIterator next = edge; ++next;           // advance before we delete edge
@@ -1196,12 +1216,19 @@ public:
         edges_.eraseAt(edge->self_);                    // edge is now deleted
         return next;
     }
+    EdgeNodeIterator eraseEdge(const ConstEdgeNodeIterator &edge) {
+        ASSERT_forbid(edge==edges().end());
+        return eraseEdge(findEdge(edge->id()));
+    }
+    /** @} */
 
     /** Erases all edges connecting two vertices.
      *
      *  Given two vertex iterators, erase all edges whose source is the first vertex and whose target is the second vertex.
      *
-     *  Time complexity is linear in the number of incoming or outgoing edges (whichever is smaller). */
+     *  Time complexity is linear in the number of incoming or outgoing edges (whichever is smaller).
+     *
+     * @{ */
     void eraseEdges(const VertexNodeIterator &source, const VertexNodeIterator &target) {
         ASSERT_forbid(source==vertices().end());
         ASSERT_forbid(target==vertices().end());
@@ -1225,6 +1252,12 @@ public:
             }
         }
     }
+    void eraseEdges(const ConstVertexNodeIterator &source, const ConstVertexNodeIterator &target) {
+        ASSERT_forbid(source==vertices().end());
+        ASSERT_forbid(target==vertices().end());
+        eraseEdges(findVertex(source->id()), findVertex(target->id()));
+    }
+    /** @} */
     
     /** Erases a vertex and its incident edges.
      *
@@ -1237,13 +1270,21 @@ public:
      *  vertex that was erased in order to fill the gap left in the ID sequence.  This method returns an iterator for the
      *  vertex following the one that was erased (possibly the one-past-last iterator if the last vertex was erased).
      *
-     *  Time complexity is constant. */
+     *  Time complexity is constant.
+     *
+     * @{ */
     VertexNodeIterator eraseVertex(const VertexNodeIterator &vertex) {
+        ASSERT_forbid(vertex==vertices().end());
         VertexNodeIterator next = vertex; ++next;       // advance before we delete vertex
         clearEdges(vertex);
         vertices_.eraseAt(vertex->self_);               // vertex is now deleted
         return next;
     }
+    VertexNodeIterator eraseVertex(const ConstVertexNodeIterator &vertex) {
+        ASSERT_forbid(vertex==vertices().end());
+        return eraseVertex(findVertex(vertex->id()));
+    }
+    /** @} */
 
     /** Erase all edges, but leave all vertices.
      *
@@ -1265,35 +1306,56 @@ public:
      *  whose source or target is the vertex.  It is logically equivalent to calling @ref clearOutEdges followed by @ref
      *  clearInEdges, and has the same effects on iterators and edge ID numbers as erasing edges individually.
      *
-     *  Time complexity is linear in the number of edges erased. */
+     *  Time complexity is linear in the number of edges erased.
+     *
+     * @{ */
     void clearEdges(const VertexNodeIterator &vertex) {
         clearOutEdges(vertex);
         clearInEdges(vertex);
     }
+    void clearEdges(const ConstVertexNodeIterator &vertex) {
+        clearOutEdges(vertex);
+        clearInEdges(vertex);
+    }
+    /** @} */
 
     /** Erase all edges emanating from a vertex.
      *
      *  This method erases (withdraws and deletes) all edges whose source is the specified vertex.  It has the same effects on
      *  iterators and edge ID numbers as erasing edges individually.
      *
-     *  Time complexity is linear in the number of edges erased. */
+     *  Time complexity is linear in the number of edges erased.
+     *
+     * @{ */
     void clearOutEdges(const VertexNodeIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
         for (EdgeNodeIterator edge=vertex->outEdges().begin(); edge!=vertex->outEdges().end(); /*void*/)
             edge = eraseEdge(edge);
     }
+    void clearOutEdges(const ConstVertexNodeIterator &vertex) {
+        ASSERT_forbid(vertex==vertices().end());
+        clearOutEdges(findVertex(vertex->id()));
+    }
+    /** @} */
 
     /** Erase all edges targeting a vertex.
      *
      *  This method erases (withdraws and deletes) all edges whose target is the specified vertex.  It has the same effects on
      *  iterators and edge ID numbers as erasing edges individually.
      *
-     *  Time complexity is linear in the number of edges erased. */
+     *  Time complexity is linear in the number of edges erased.
+     *
+     * @{ */
     void clearInEdges(const VertexNodeIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
         for (EdgeNodeIterator edge=vertex->inEdges().begin(); edge!=vertex->inEdges().end(); /*void*/)
             edge = eraseEdge(edge);
     }
+    void clearInEdges(const ConstVertexNodeIterator &vertex) {
+        ASSERT_forbid(vertex==vertices().end());
+        clearInEdges(findVertex(vertex->id()));
+    }
+    /** @} */
 
     /** Remove all vertices and edges.
      *
