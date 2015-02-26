@@ -1053,6 +1053,14 @@ public:
     }
     /** @} */
 
+    /** Determines whether the vertex iterator is valid.
+     *
+     *  Returns true if and only if the specified iterator is not this graph's end iterator and the iterator points to a vertex
+     *  in this graph. */
+    bool isValidVertex(const ConstVertexNodeIterator &vertex) const {
+        return vertex!=vertices().end() && vertex->id()<nVertices() && vertex==findVertex(vertex->id());
+    }
+
     /** Iterators for all edges.
      *
      *  Returns a pair of edge node iterators that deliniate the list of all edges of this graph.  The traversal of this
@@ -1113,6 +1121,14 @@ public:
         return ConstEdgeNodeIterator(edges_.find(id));
     }
     /** @} */
+
+    /** Determines whether the edge iterator is valid.
+     *
+     *  Returns true if and only if the specified iterator is not this graph's end iterator and the iterator points to an edge
+     *  in this graph. */
+    bool isValidEdge(const ConstEdgeNodeIterator &edge) const {
+        return edge!=edges().end() && edge->id()<nEdges() && edge==findEdge(edge->id());
+    }
 
     /** Total number of vertices.
      *
