@@ -2,6 +2,8 @@
 
 namespace Sawyer {
 
+// In order to get thread safety, you probably need to add "-pthread" to all GCC compile and link lines.  It is not sufficient
+// to only add "-lpthreads" to the link lines.
 #if SAWYER_MULTI_THREADED == 0
 # ifdef _MSC_VER
 #  pragma message("Sawyer multi-threading is disabled; even documented thread-safe functions are unsafe!")

@@ -37,10 +37,10 @@ struct Worker {
         std::vector<Object*> objects(nObjects, NULL);
         for (size_t iter=0; iter<nIterations; ++iter) {
             for (size_t i=0; i<nObjects; ++i) {
-                size_t i = rand() % nObjects;
-                delete objects[i];
-                objects[i] = new Object;
-                objects[i]->work(i);
+                size_t j = rand() % nObjects;
+                delete objects[j];
+                objects[j] = new Object;
+                objects[j]->work(i);
             }
         }
         
