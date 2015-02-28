@@ -109,6 +109,9 @@ int main()
     ProgressBarSettings::initialDelay(1.0);
     size_t niter = 40000;
 
+    Message::mfacilities.control("all");
+    ASSERT_always_require(Message::mlog[MARCH].enabled());
+
     test1(niter, Message::mlog[MARCH]);
     test2(niter, Message::mlog[MARCH]);
     test3(niter, Message::mlog[MARCH]);
