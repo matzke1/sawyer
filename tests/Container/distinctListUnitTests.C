@@ -11,7 +11,7 @@ testCompileHelper() {
 
     // Implicit convertion must exist
     {
-        T t(0);
+        T t __attribute__((unused)) (0);
         U u(0);
         t = u;
     }
