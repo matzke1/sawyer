@@ -7,6 +7,7 @@
 #   include <boost/thread.hpp>
 #   include <boost/thread/mutex.hpp>
 #   include <boost/thread/locks.hpp>
+#   include <boost/thread/once.hpp>
 #   include <boost/thread/recursive_mutex.hpp>
 #endif
 

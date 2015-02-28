@@ -4,23 +4,23 @@
 
 namespace Sawyer {
 
-static bool isInitialized_;
-
-// thread-safe
-SAWYER_EXPORT bool
-isInitialized() {
-    SAWYER_THREAD_TRAITS::RecursiveLockGuard lock(bigMutex());
-    return isInitialized_;
+static void
+init() {
+  Message::initializeLibrary();
 }
+
+#if SAWYER_MULTI_THREADED
+static boost::once_flag initFlag = BOOST_ONCE_INIT;
+#endif
 
 // thread-safe
 SAWYER_EXPORT bool
 initializeLibrary() {
-    SAWYER_THREAD_TRAITS::RecursiveLockGuard lock(bigMutex());
-    if (!isInitialized_) {
-        Message::initializeLibrary();
-        isInitialized_ = true;
-    }
+#if SAWYER_MULTI_THREADED
+    boost::call_once(&init, initFlag);
+#else
+    init();
+#endif
     return true;
 }
 

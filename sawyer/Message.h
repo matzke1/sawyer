@@ -273,11 +273,6 @@ namespace Message {
  *  Thread safety: This function is thread-safe. */
 SAWYER_EXPORT bool initializeLibrary();
 
-/** True if the library has been initialized. @sa initializeLibrary().
- *
- *  Thread safety: This function is thread-safe. */
-SAWYER_EXPORT bool isInitialized();
-
 // Any header that #defines words that are this common is just plain stupid!
 #if defined(DEBUG) || defined(TRACE) || defined(WHERE) || defined(MARCH) || \
     defined(INFO) || defined(WARN) || defined(ERROR) || defined(FATAL)
@@ -1574,7 +1569,6 @@ public:
 
     /** Creates streams of all importance levels. */
     Facility(const std::string &name, const DestinationPtr &destination): constructed_(CONSTRUCTED_MAGIC), name_(name) {
-        initializeLibrary();
         initStreams(destination);
     }
 

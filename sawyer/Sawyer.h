@@ -314,9 +314,6 @@ namespace Sawyer {
  *  been initialized does nothing. The function always returns true. */
 SAWYER_EXPORT bool initializeLibrary();
 
-/** True if the library has been initialized. */
-SAWYER_EXPORT bool isInitialized();
-
 /** Portable replacement for ::strtoll
  *
  *  Microsoft doesn't define this function, so we define it in the Sawyer namespace. */

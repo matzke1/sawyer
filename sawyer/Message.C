@@ -2036,30 +2036,30 @@ SAWYER_EXPORT Facility mlog SAWYER_STATIC_INIT ("sawyer");
 SAWYER_EXPORT Facilities mfacilities SAWYER_STATIC_INIT;
 SAWYER_EXPORT SProxy assertionStream SAWYER_STATIC_INIT;
 
-static bool isInitialized_;
-
-// thread-safe
-SAWYER_EXPORT bool
-isInitialized() {
-    SAWYER_THREAD_TRAITS::RecursiveLockGuard lock(bigMutex());
-    return isInitialized_;
+static void
+init() {
+    merr = FdSink::instance(2);
+    mlog = Facility("", merr);
+    mlog[DEBUG].disable();
+    mlog[TRACE].disable();
+    mlog[WHERE].disable();
+    mlog[MARCH].disable();
+    mlog[INFO ].disable();
+    mfacilities.insert(mlog, "sawyer");
 }
+
+#if SAWYER_MULTI_THREADED
+static boost::once_flag initFlag = BOOST_ONCE_INIT;
+#endif
 
 // thread-safe
 SAWYER_EXPORT bool
 initializeLibrary() {
-    SAWYER_THREAD_TRAITS::RecursiveLockGuard lock(bigMutex());
-    if (!isInitialized_) {
-        isInitialized_ = true;
-        merr = FdSink::instance(2);
-        mlog = Facility("", merr);
-        mlog[DEBUG].disable();
-        mlog[TRACE].disable();
-        mlog[WHERE].disable();
-        mlog[MARCH].disable();
-        mlog[INFO ].disable();
-        mfacilities.insert(mlog, "sawyer");
-    }
+#if SAWYER_MULTI_THREADED
+    boost::call_once(&init, initFlag);
+#else
+    init();
+#endif
     return true;
 }
 
