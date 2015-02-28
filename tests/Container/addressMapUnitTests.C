@@ -3,6 +3,7 @@
 #include <sawyer/AllocatingBuffer.h>
 #include <sawyer/MappedBuffer.h>
 
+#include <boost/cstdint.hpp>
 #include <boost/lexical_cast.hpp>
 #include <iostream>
 
@@ -1467,7 +1468,7 @@ static void io_tests(MemoryMap &m) {
 }
 
 static void test00() {
-    typedef uint16_t Address;
+    typedef boost::uint16_t Address;
     typedef AddressMap<Address, char> AMap;
     typedef Interval<Address> AInterval;
 
@@ -1617,7 +1618,7 @@ static void test03() {
 static void test04() {
     typedef unsigned Address;
     typedef Interval<Address> Addresses;
-    typedef uint8_t Value;
+    typedef boost::uint8_t Value;
     typedef Buffer<Address, Value>::Ptr BufferPtr;
     typedef AddressSegment<Address, Value> Segment;
     typedef AddressMap<Address, Value> MemoryMap;
