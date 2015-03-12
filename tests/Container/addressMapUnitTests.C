@@ -1566,7 +1566,7 @@ static void test02() {
     char data1[15];
     memcpy(data1, "---------------", 15);
     BufferPtr buf1 = Sawyer::Container::StaticBuffer<Address, char>::instance(data1, 15);
-    char data2[5];
+    char data2[10];
     memcpy(data2, "##########", 10);
     BufferPtr buf2 = Sawyer::Container::StaticBuffer<Address, char>::instance(data2, 5); // using only first 5 bytes
 

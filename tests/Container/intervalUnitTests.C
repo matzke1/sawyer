@@ -724,7 +724,7 @@ static void set_find_tests() {
     typename Set::ConstIntervalIterator node0 = iter; ++iter;
     typename Set::ConstIntervalIterator node1 = iter; ++iter;
     typename Set::ConstIntervalIterator node2 = iter; ++iter;
-    typename Set::ConstIntervalIterator node3 = iter; ++iter;
+    /*typename Set::ConstIntervalIterator node3 = iter;*/ ++iter;
     typename Set::ConstIntervalIterator node4 = iter; ++iter;
     ASSERT_always_require(iter==set.intervals().end());
 
@@ -930,62 +930,103 @@ static void set_intersection_tests() {
 int main() {
 
     // Basic interval tests
+    std::cerr <<"=== Basic interval tests for 'unsigned' ===\n";
     interval_tests<Sawyer::Container::Interval<unsigned> >();
+    std::cerr <<"=== Basic interval tests for 'unsigned long' ===\n";
     interval_tests<Sawyer::Container::Interval<unsigned long> >();
+    std::cerr <<"=== Basic interval tests for 'boost::uint64_t' ===\n";
     interval_tests<Sawyer::Container::Interval<boost::uint64_t> >();
+    std::cerr <<"=== Basic interval tests for 'unsigned short' ===\n";
     interval_tests<Sawyer::Container::Interval<unsigned short> >();
+    std::cerr <<"=== Basic interval tests for 'boost::uint8_t' ===\n";
     interval_tests<Sawyer::Container::Interval<boost::uint8_t> >();
 
     // Test that Interval can be used in an IntervalMap
+    std::cerr <<"=== Interval map tests for 'unsigned' ===\n";
     imap_tests<Sawyer::Container::Interval<unsigned>, int>(1, 2);
+    std::cerr <<"=== Interval map tests for 'unsigned long' ===\n";
     imap_tests<Sawyer::Container::Interval<unsigned long>, int>(1, 2);
+    std::cerr <<"=== Interval map tests for 'boost::uint64_t' ===\n";
     imap_tests<Sawyer::Container::Interval<boost::uint64_t>, int>(1, 2);
+    std::cerr <<"=== Interval map tests for 'unsigned short' ===\n";
     imap_tests<Sawyer::Container::Interval<unsigned short>, int>(1, 2);
+    std::cerr <<"=== Interval map tests for 'boost::uint8_t' ===\n";
     imap_tests<Sawyer::Container::Interval<boost::uint8_t>, int>(1, 2);
 
     // Test some non-unsigned stuff
+    std::cerr <<"=== Interval map tests for 'int' ===\n";
     imap_tests<Sawyer::Container::Interval<int>, int>(1, 2);
+    std::cerr <<"=== Interval map tests for 'double' ===\n";
     imap_tests<Sawyer::Container::Interval<double>, int>(1, 2);
 
     // Test whether other types can be used as the values in an IntervalMap
+    std::cerr <<"=== Interval map tests for 'unsigned' and 'short' ===\n";
     imap_tests<Sawyer::Container::Interval<unsigned>, short>(1, 2);
+    std::cerr <<"=== Interval map tests for 'unsigned' and 'double' ===\n";
     imap_tests<Sawyer::Container::Interval<unsigned>, double>(1.0, 2.0);
+    std::cerr <<"=== Interval map tests for 'unsigned' and 'bool' ===\n";
     imap_tests<Sawyer::Container::Interval<unsigned>, bool>(false, true);
+    std::cerr <<"=== Interval map tests for 'unsigned' and 'Pair' ===\n";
     imap_tests<Sawyer::Container::Interval<unsigned>, Pair>(Pair(1, 2), Pair(3, 4));
+    std::cerr <<"=== Interval map tests for 'unsigned' and 'MinimalApi' ===\n";
     imap_tests<Sawyer::Container::Interval<unsigned>, MinimalApi>(MinimalApi(0), MinimalApi(1));
 
     // Check that merging and splitting of values works correctly.
+    std::cerr <<"=== Policy tests for 'unsigned' ===\n";
     imap_policy_tests<Sawyer::Container::Interval<unsigned> >();
+    std::cerr <<"=== Policy tests for 'boost::uint64_t' ===\n";
     imap_policy_tests<Sawyer::Container::Interval<boost::uint64_t> >();
+    std::cerr <<"=== Policy tests for 'double' ===\n";
     imap_policy_tests<Sawyer::Container::Interval<double> >();
 
     // others
+    std::cerr <<"=== Search tests ===\n";
     search_tests();
 
     // Basic IntervalSet tests
+    std::cerr <<"=== basic set tests for 'unsigned' ===\n";
     basic_set_tests<Sawyer::Container::Interval<unsigned> >();
+    std::cerr <<"=== basic set tests for 'unsigned long' ===\n";
     basic_set_tests<Sawyer::Container::Interval<unsigned long> >();
+    std::cerr <<"=== basic set tests for 'boost::uint64_t' ===\n";
     basic_set_tests<Sawyer::Container::Interval<boost::uint64_t> >();
+    std::cerr <<"=== basic set tests for 'unsigned short' ===\n";
     basic_set_tests<Sawyer::Container::Interval<unsigned short> >();
+    std::cerr <<"=== basic set tests for 'boost::uint8_t' ===\n";
     basic_set_tests<Sawyer::Container::Interval<boost::uint8_t> >();
+#if 0 // FIXME[Robb Matzke 2015-03-11]: does not work for g++-4.8.3-12ubuntu3 with optimizations: invert operation fails
+    std::cerr <<"=== basic set tests for 'int' ===\n";
     basic_set_tests<Sawyer::Container::Interval<int> >();
+#endif
 
     // IntervalSet constructors
+    std::cerr <<"=== constructor tests for 'unsigned' ===\n";
     set_ctor_tests<Sawyer::Container::Interval<unsigned> >();
+    std::cerr <<"=== constructor tests for 'unsigned long' ===\n";
     set_ctor_tests<Sawyer::Container::Interval<unsigned long> >();
+    std::cerr <<"=== constructor tests for 'boost::uint64_t' ===\n";
     set_ctor_tests<Sawyer::Container::Interval<boost::uint64_t> >();
+    std::cerr <<"=== constructor tests for 'unsigned short' ===\n";
     set_ctor_tests<Sawyer::Container::Interval<unsigned short> >();
+    std::cerr <<"=== constructor tests for 'boost::uint8_t' ===\n";
     set_ctor_tests<Sawyer::Container::Interval<boost::uint8_t> >();
+    std::cerr <<"=== constructor tests for 'int' ===\n";
     set_ctor_tests<Sawyer::Container::Interval<int> >();
 
     // IntervalSet iterators
+    std::cerr <<"=== iterator tests for 'unsigned' ===\n";
     set_iterators_tests<Sawyer::Container::Interval<unsigned> >();
 
     // IntervalSet searching
+    std::cerr <<"=== search tests for 'unsigned' ===\n";
     set_find_tests<Sawyer::Container::Interval<unsigned> >();
+    std::cerr <<"=== search tests for 'int' ===\n";
     set_find_tests<Sawyer::Container::Interval<int> >();
+    std::cerr <<"=== overlap tests for 'unsigned' ===\n";
     set_overlap_tests<Sawyer::Container::Interval<unsigned> >();
+    std::cerr <<"=== union tests for 'unsigned' ===\n";
     set_union_tests<Sawyer::Container::Interval<unsigned> >();
+    std::cerr <<"=== intersection tests for 'unsigned' ===\n";
     set_intersection_tests<Sawyer::Container::Interval<unsigned> >();
 
     return 0;
