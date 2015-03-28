@@ -10,7 +10,7 @@ template<class V, class E>
 std::ostream& operator<<(std::ostream &o, const Sawyer::Container::Graph<V, E> &graph) {
     typedef const typename Sawyer::Container::Graph<V, E> Graph;
     typedef typename Graph::ConstVertexNodeIterator VertexNodeIterator;
-    typedef typename Graph::ConstEdgeNodeIterator EdgeNodeIterator;
+    typedef typename Graph::ConstEdgeIterator EdgeIterator;
     typedef typename Graph::VertexNode Vertex;
     typedef typename Graph::EdgeNode Edge;
 
@@ -26,7 +26,7 @@ std::ostream& operator<<(std::ostream &o, const Sawyer::Container::Graph<V, E> &
 
     o <<"    edges:\n";
     for (size_t id=0; id<graph.nEdges(); ++id) {
-        EdgeNodeIterator edge = graph.findEdge(id);
+        EdgeIterator edge = graph.findEdge(id);
         o <<"      [" <<edge->id() <<"] = " <<edge->value() <<"\n";
         o <<"        from vertex [" <<edge->source()->id() <<"] = " <<edge->source()->value() <<"\n";
         o <<"        to   vertex [" <<edge->target()->id() <<"] = " <<edge->target()->value() <<"\n";
@@ -150,7 +150,7 @@ template<class Graph>
 void insert_edge() {
     std::cout <<"edge insertion\n";
     typedef typename Graph::VertexNodeIterator VertexDescriptor;
-    typedef typename Graph::EdgeNodeIterator EdgeDescriptor;
+    typedef typename Graph::EdgeIterator EdgeDescriptor;
 
     Graph graph;
     VertexDescriptor v0 = graph.insertVertex("vine");
@@ -212,7 +212,7 @@ template<class Graph>
 void erase_edge() {
     std::cout <<"edge erasure:\n";
     typedef typename Graph::VertexNodeIterator Vertex;
-    typedef typename Graph::EdgeNodeIterator Edge;
+    typedef typename Graph::EdgeIterator Edge;
     
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
@@ -271,7 +271,7 @@ template<class Graph>
 void erase_vertex() {
     std::cout <<"erase vertices with edges:\n";
     typedef typename Graph::VertexNodeIterator Vertex;
-    typedef typename Graph::EdgeNodeIterator Edge;
+    typedef typename Graph::EdgeIterator Edge;
     
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
@@ -307,7 +307,7 @@ template<class Graph>
 void iterator_conversion() {
     std::cout <<"iterator implicit conversions:\n";
     typedef typename Graph::VertexNodeIterator Vertex;
-    typedef typename Graph::EdgeNodeIterator Edge;
+    typedef typename Graph::EdgeIterator Edge;
     
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
@@ -322,7 +322,7 @@ void iterator_conversion() {
     ASSERT_always_require(*eval == "vine-vinegar");
 
 #if 0 // [Robb Matzke 2014-04-21]: going the other way is not indended to work (compile error)
-    typename Graph::EdgeNodeIterator e0fail = eval;
+    typename Graph::EdgeIterator e0fail = eval;
 #endif
     
 }
@@ -331,7 +331,7 @@ template<class Graph>
 void copy_ctor() {
     std::cout <<"copy constructor:\n";
     typedef typename Graph::VertexNodeIterator Vertex;
-    typedef typename Graph::EdgeNodeIterator Edge;
+    typedef typename Graph::EdgeIterator Edge;
     
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
@@ -358,7 +358,7 @@ void copy_ctor() {
 
     ASSERT_always_require(graph.nEdges() == g2.nEdges());
     for (size_t i=0; i<graph.nEdges(); ++i) {
-        typename Graph::ConstEdgeNodeIterator e1=graph.findEdge(i), e2=g2.findEdge(i);
+        typename Graph::ConstEdgeIterator e1=graph.findEdge(i), e2=g2.findEdge(i);
         ASSERT_always_require(e1->value() == e2->value());
         ASSERT_always_require(e1->source()->id() == e2->source()->id());
         ASSERT_always_require(e1->target()->id() == e2->target()->id());
@@ -369,7 +369,7 @@ template<class Graph>
 void assignment() {
     std::cout <<"assignment operator:\n";
     typedef typename Graph::VertexNodeIterator Vertex;
-    typedef typename Graph::EdgeNodeIterator Edge;
+    typedef typename Graph::EdgeIterator Edge;
 
     Graph g2;
     Vertex v4 = g2.insertVertex("vertex to be clobbered");
@@ -401,7 +401,7 @@ void assignment() {
 
         ASSERT_always_require(graph.nEdges() == g2.nEdges());
         for (size_t i=0; i<graph.nEdges(); ++i) {
-            typename Graph::ConstEdgeNodeIterator e1=graph.findEdge(i), e2=g2.findEdge(i);
+            typename Graph::ConstEdgeIterator e1=graph.findEdge(i), e2=g2.findEdge(i);
             ASSERT_always_require(e1->value() == e2->value());
             ASSERT_always_require(e1->source()->id() == e2->source()->id());
             ASSERT_always_require(e1->target()->id() == e2->target()->id());
@@ -412,15 +412,15 @@ void assignment() {
     for (typename Graph::VertexNodeIterator vi=g2.vertices().begin(); vi!=g2.vertices().end(); ++vi) {
         typename Graph::VertexNode &vertex = *vi;
 #if 1 /*DEBUGGING [Robb Matzke 2014-06-02]*/
-        typename Graph::EdgeNodeIterator xxx=vertex.outEdges().begin();
+        typename Graph::EdgeIterator xxx=vertex.outEdges().begin();
         ++xxx;
-        typename Graph::EdgeNodeIterator yyy=vertex.outEdges().end();
+        typename Graph::EdgeIterator yyy=vertex.outEdges().end();
 #endif
-        for (typename Graph::EdgeNodeIterator ei=vertex.outEdges().begin(); ei!=vertex.outEdges().end(); ++ei) {
+        for (typename Graph::EdgeIterator ei=vertex.outEdges().begin(); ei!=vertex.outEdges().end(); ++ei) {
             typename Graph::EdgeNode &edge = *ei;
             ASSERT_always_require(edge.source()->id() == vertex.id());
         }
-        for (typename Graph::EdgeNodeIterator ei=vertex.inEdges().begin(); ei!=vertex.inEdges().end(); ++ei) {
+        for (typename Graph::EdgeIterator ei=vertex.inEdges().begin(); ei!=vertex.inEdges().end(); ++ei) {
             typename Graph::EdgeNode &edge = *ei;
             ASSERT_always_require(edge.target()->id() == vertex.id());
         }
@@ -447,7 +447,7 @@ template<class Graph>
 void conversion() {
     std::cout <<"conversion constructor:\n";
     typedef typename Graph::VertexNodeIterator Vertex;
-    typedef typename Graph::EdgeNodeIterator Edge;
+    typedef typename Graph::EdgeIterator Edge;
     
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
@@ -476,8 +476,8 @@ void conversion() {
 
     ASSERT_always_require(graph.nEdges() == g2.nEdges());
     for (size_t i=0; i<graph.nEdges(); ++i) {
-        typename Graph::ConstEdgeNodeIterator e1 = graph.findEdge(i);
-        Graph2::ConstEdgeNodeIterator e2 = g2.findEdge(i);
+        typename Graph::ConstEdgeIterator e1 = graph.findEdge(i);
+        Graph2::ConstEdgeIterator e2 = g2.findEdge(i);
         ASSERT_always_require(e1->value() == e2->value().string());
         ASSERT_always_require(e1->source()->id() == e2->source()->id());
         ASSERT_always_require(e1->target()->id() == e2->target()->id());
@@ -488,7 +488,7 @@ template<class Graph>
 void assignment_conversion() {
     std::cout <<"assignment operator conversion:\n";
     typedef typename Graph::VertexNodeIterator Vertex;
-    typedef typename Graph::EdgeNodeIterator Edge;
+    typedef typename Graph::EdgeIterator Edge;
     
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
@@ -521,8 +521,8 @@ void assignment_conversion() {
 
     ASSERT_always_require(graph.nEdges() == g2.nEdges());
     for (size_t i=0; i<graph.nEdges(); ++i) {
-        typename Graph::ConstEdgeNodeIterator e1 = graph.findEdge(i);
-        Graph2::ConstEdgeNodeIterator e2 = g2.findEdge(i);
+        typename Graph::ConstEdgeIterator e1 = graph.findEdge(i);
+        Graph2::ConstEdgeIterator e2 = g2.findEdge(i);
         ASSERT_always_require(e1->value() == e2->value().string());
         ASSERT_always_require(e1->source()->id() == e2->source()->id());
         ASSERT_always_require(e1->target()->id() == e2->target()->id());
@@ -547,7 +547,7 @@ struct DfsVisitor {
 
     void operator()(const typename Graph::ConstVertexNodeIterator &source, bool sourceSeen,
                     const typename Graph::ConstVertexNodeIterator &target, bool targetSeen,
-                    const typename Graph::ConstEdgeNodeIterator &edge) {
+                    const typename Graph::ConstEdgeIterator &edge) {
         std::cout <<"    "
                   <<"edge " <<edge->value() <<" (v" <<source->id() <<" " <<(sourceSeen ? "  seen" : "unseen") <<" -> "
                   <<"    v" <<target->id() <<" " <<(targetSeen ? "  seen" : "unseen") <<")\n";
@@ -570,7 +570,7 @@ static void dfltGraph() {
 
     Graph::VertexNodeIterator v1 = graph.insertVertex();
     Graph::VertexNodeIterator v2 = graph.insertVertex();
-    Graph::EdgeNodeIterator e1 = graph.insertEdge(v1, v2);
+    Graph::EdgeIterator e1 = graph.insertEdge(v1, v2);
 
     ASSERT_always_require(v1->value() == Sawyer::Nothing());
     ASSERT_always_require(e1->value() == Sawyer::Nothing());
@@ -584,7 +584,7 @@ static void compileTraversals() {
     using namespace Sawyer::Container::Algorithm;
     typedef Sawyer::Container::Graph<> Graph;
     typedef Graph::VertexNodeIterator Vertex;
-    typedef Graph::EdgeNodeIterator Edge;
+    typedef Graph::EdgeIterator Edge;
     Graph g;
     Vertex v = g.insertVertex();
     Edge e = g.insertEdge(v, v);
@@ -625,10 +625,10 @@ class TraversalAnswer {
     struct Ans {
         Sawyer::Container::Algorithm::TraversalEvent event;
         typename Sawyer::Container::GraphTraits<Graph>::VertexNodeIterator vertex;
-        typename Sawyer::Container::GraphTraits<Graph>::EdgeNodeIterator edge;
+        typename Sawyer::Container::GraphTraits<Graph>::EdgeIterator edge;
         Ans(Sawyer::Container::Algorithm::TraversalEvent event,
             typename Sawyer::Container::GraphTraits<Graph>::VertexNodeIterator vertex,
-            typename Sawyer::Container::GraphTraits<Graph>::EdgeNodeIterator edge)
+            typename Sawyer::Container::GraphTraits<Graph>::EdgeIterator edge)
             : event(event), vertex(vertex), edge(edge) {}
         bool operator==(const Ans &other) const {
             return event==other.event && vertex==other.vertex && edge==other.edge;
@@ -652,7 +652,7 @@ public:
     
     void operator()(Sawyer::Container::Algorithm::TraversalEvent event,
                     typename Sawyer::Container::GraphTraits<Graph>::VertexNodeIterator vertex,
-                    typename Sawyer::Container::GraphTraits<Graph>::EdgeNodeIterator edge) {
+                    typename Sawyer::Container::GraphTraits<Graph>::EdgeIterator edge) {
         ans_.push_back(Ans(event, vertex, edge));
     }
 
@@ -704,7 +704,7 @@ static void traversals() {
     using namespace Sawyer::Container::Algorithm;
     typedef Sawyer::Container::Graph<std::string, std::string> Graph;
     typedef Graph::VertexNodeIterator Vertex;
-    typedef Graph::EdgeNodeIterator Edge;
+    typedef Graph::EdgeIterator Edge;
 
     Graph g;                                            //      A  <--.     //
     Vertex va = g.insertVertex("A");                    //    /   \    \    //

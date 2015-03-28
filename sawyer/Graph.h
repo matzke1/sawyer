@@ -18,7 +18,7 @@ namespace Container {
 /** Traits for graphs. */
 template<class G>
 struct GraphTraits {
-    typedef typename G::EdgeNodeIterator EdgeNodeIterator;
+    typedef typename G::EdgeIterator EdgeIterator;
     typedef typename G::EdgeValueIterator EdgeValueIterator;
     typedef typename G::VertexNodeIterator VertexNodeIterator;
     typedef typename G::VertexValueIterator VertexValueIterator;
@@ -30,7 +30,7 @@ struct GraphTraits {
 
 template<class G>
 struct GraphTraits<const G> {
-    typedef typename G::ConstEdgeNodeIterator EdgeNodeIterator;
+    typedef typename G::ConstEdgeIterator EdgeIterator;
     typedef typename G::ConstEdgeValueIterator EdgeValueIterator;
     typedef typename G::ConstVertexNodeIterator VertexNodeIterator;
     typedef typename G::ConstVertexValueIterator VertexValueIterator;
@@ -139,7 +139,7 @@ struct GraphTraits<const G> {
  *
  * @code
  *  for (size_t edgeId=0; edgeId<graph.nEdges(); ++edgeId) {
- *      MyGraph::ConstEdgeNodeIterator edge = graph.findEdge(edgeId);
+ *      MyGraph::ConstEdgeIterator edge = graph.findEdge(edgeId);
  *      std::cout <<"Edge " <<edgeId
  *                <<" from vertex " <<edge->source()->id()
  *                <<" to vertex " <<edge->target()->id() <<"\n";
@@ -529,50 +529,50 @@ public:
     /** Bidirectional edge node iterator.
      *
      *  Iterates over the edge nodes in a list, returning the node (type @ref EdgeNode) when dereferenced.  Edge iterators are
-     *  stable across insert and erase operations.  The difference between @ref EdgeNodeIterator and @ref ConstEdgeNodeIterator
-     *  is that the latter returns const references when dereferenced.  An EdgeNodeIterator can be impliciatly converted to a
-     *  @ref ConstEdgeNodeIterator, @ref EdgeValueIterator, or @ref ConstEdgeValueIterator. */
-    class EdgeNodeIterator: public EdgeBaseIterator<EdgeNodeIterator, EdgeNode, EdgeNode, typename EdgeList::NodeIterator,
-                                                    VirtualList<EdgeNode> > {
-        typedef                    EdgeBaseIterator<EdgeNodeIterator, EdgeNode, EdgeNode, typename EdgeList::NodeIterator,
-                                                    VirtualList<EdgeNode> > Super;
+     *  stable across insert and erase operations.  The difference between @ref EdgeIterator and @ref ConstEdgeIterator
+     *  is that the latter returns const references when dereferenced.  An EdgeIterator can be impliciatly converted to a
+     *  @ref ConstEdgeIterator, @ref EdgeValueIterator, or @ref ConstEdgeValueIterator. */
+    class EdgeIterator: public EdgeBaseIterator<EdgeIterator, EdgeNode, EdgeNode, typename EdgeList::NodeIterator,
+                                                VirtualList<EdgeNode> > {
+        typedef                EdgeBaseIterator<EdgeIterator, EdgeNode, EdgeNode, typename EdgeList::NodeIterator,
+                                                VirtualList<EdgeNode> > Super;
     public:
         typedef EdgeNode& Reference;
         typedef EdgeNode* Pointer;
-        EdgeNodeIterator() {}
-        EdgeNodeIterator(const EdgeNodeIterator &other): Super(other) {}
+        EdgeIterator() {}
+        EdgeIterator(const EdgeIterator &other): Super(other) {}
         EdgeNode& operator*() const { return this->dereference(); }
         EdgeNode* operator->() const { return &this->dereference(); }
     private:
         friend class Graph;
-        EdgeNodeIterator(const typename EdgeList::NodeIterator &base): Super(base) {}
-        EdgeNodeIterator(EdgePhase phase, VirtualList<EdgeNode> *vlist): Super(phase, vlist) {}
+        EdgeIterator(const typename EdgeList::NodeIterator &base): Super(base) {}
+        EdgeIterator(EdgePhase phase, VirtualList<EdgeNode> *vlist): Super(phase, vlist) {}
     };
 
     /** Bidirectional edge node iterator.
      *
      *  Iterates over the edge nodes in a list, returning the node (type @ref EdgeNode) when dereferenced.  Edge iterators are
-     *  stable across insert and erase operations.  The difference between @ref EdgeNodeIterator and @ref ConstEdgeNodeIterator
-     *  is that the latter returns const references when dereferenced.  A ConstEdgeNodeIterator can be implicitly converted to
+     *  stable across insert and erase operations.  The difference between @ref EdgeIterator and @ref ConstEdgeIterator
+     *  is that the latter returns const references when dereferenced.  A ConstEdgeIterator can be implicitly converted to
      *  a @ref ConstEdgeValueIterator. */
-    class ConstEdgeNodeIterator: public EdgeBaseIterator<ConstEdgeNodeIterator, const EdgeNode, const EdgeNode,
-                                                         typename EdgeList::ConstNodeIterator,
-                                                         const VirtualList<EdgeNode> > {
-        typedef                         EdgeBaseIterator<ConstEdgeNodeIterator, const EdgeNode, const EdgeNode,
-                                                         typename EdgeList::ConstNodeIterator,
-                                                         const VirtualList<EdgeNode> > Super;
+    class ConstEdgeIterator: public EdgeBaseIterator<ConstEdgeIterator, const EdgeNode, const EdgeNode,
+                                                     typename EdgeList::ConstNodeIterator,
+                                                     const VirtualList<EdgeNode> > {
+        typedef                     EdgeBaseIterator<ConstEdgeIterator, const EdgeNode, const EdgeNode,
+                                                     typename EdgeList::ConstNodeIterator,
+                                                     const VirtualList<EdgeNode> > Super;
     public:
         typedef const EdgeNode& Reference;
         typedef const EdgeNode* Pointer;
-        ConstEdgeNodeIterator() {}
-        ConstEdgeNodeIterator(const ConstEdgeNodeIterator &other): Super(other) {}
-        ConstEdgeNodeIterator(const EdgeNodeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
+        ConstEdgeIterator() {}
+        ConstEdgeIterator(const ConstEdgeIterator &other): Super(other) {}
+        ConstEdgeIterator(const EdgeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
         const EdgeNode& operator*() const { return this->dereference(); }
         const EdgeNode* operator->() const { return &this->dereference(); }
     private:
         friend class Graph;
-        ConstEdgeNodeIterator(const typename EdgeList::ConstNodeIterator &base): Super(base) {}
-        ConstEdgeNodeIterator(EdgePhase phase, const VirtualList<EdgeNode> *vlist): Super(phase, vlist) {}
+        ConstEdgeIterator(const typename EdgeList::ConstNodeIterator &base): Super(base) {}
+        ConstEdgeIterator(EdgePhase phase, const VirtualList<EdgeNode> *vlist): Super(phase, vlist) {}
     };
     /** @} */
 
@@ -591,7 +591,7 @@ public:
         typedef EdgeValue* Pointer;
         EdgeValueIterator() {}
         EdgeValueIterator(const EdgeValueIterator &other): Super(other) {}
-        EdgeValueIterator(const EdgeNodeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
+        EdgeValueIterator(const EdgeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
         EdgeValue& operator*() const { return this->dereference().value(); }
         EdgeValue* operator->() const { return &this->dereference().value(); }
     private:
@@ -617,8 +617,8 @@ public:
         ConstEdgeValueIterator() {}
         ConstEdgeValueIterator(const ConstEdgeValueIterator &other): Super(other) {}
         ConstEdgeValueIterator(const EdgeValueIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
-        ConstEdgeValueIterator(const EdgeNodeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
-        ConstEdgeValueIterator(const ConstEdgeNodeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
+        ConstEdgeValueIterator(const EdgeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
+        ConstEdgeValueIterator(const ConstEdgeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
         const EdgeValue& operator*() const { return this->dereference().value(); }
         const EdgeValue* operator->() const { return &this->dereference().value(); }
     private:
@@ -727,7 +727,7 @@ public:
     /** Edge node.
      *
      *  These list nodes contain all information about an edge and are the objects returned (by reference) when an edge node
-     *  iterator (@ref EdgeNodeIterator or @ref ConstEdgeNodeIterator) is dereferenced. */
+     *  iterator (@ref EdgeIterator or @ref ConstEdgeIterator) is dereferenced. */
     class EdgeNode {
         VirtualList<EdgeNode> edgeLists_;               // links for in- and out-edge sublists; MUST BE FIRST
         EdgeValue value_;                               // user-defined data for each edge
@@ -826,20 +826,20 @@ public:
          *
          *  Returns a sublist of edges whose target vertex is this vertex.  The return value is a pair of iterators which
          *  delineate the edges.  The traversal is in no particular order. Edge iterators are equality-comparable with one
-         *  another even when the come from different sublists. See @ref EdgeNodeIterator for details.
+         *  another even when the come from different sublists. See @ref EdgeIterator for details.
          *
          *  Time complexity is constant.
          *
          * @{ */
-        boost::iterator_range<EdgeNodeIterator> inEdges() {
-            EdgeNodeIterator begin(IN_EDGES, &edgeLists_.next(IN_EDGES));
-            EdgeNodeIterator end(IN_EDGES, &edgeLists_);
-            return boost::iterator_range<EdgeNodeIterator>(begin, end);
+        boost::iterator_range<EdgeIterator> inEdges() {
+            EdgeIterator begin(IN_EDGES, &edgeLists_.next(IN_EDGES));
+            EdgeIterator end(IN_EDGES, &edgeLists_);
+            return boost::iterator_range<EdgeIterator>(begin, end);
         }
-        boost::iterator_range<ConstEdgeNodeIterator> inEdges() const {
-            ConstEdgeNodeIterator begin(IN_EDGES, &edgeLists_.next(IN_EDGES));
-            ConstEdgeNodeIterator end(IN_EDGES, &edgeLists_);
-            return boost::iterator_range<ConstEdgeNodeIterator>(begin, end);
+        boost::iterator_range<ConstEdgeIterator> inEdges() const {
+            ConstEdgeIterator begin(IN_EDGES, &edgeLists_.next(IN_EDGES));
+            ConstEdgeIterator end(IN_EDGES, &edgeLists_);
+            return boost::iterator_range<ConstEdgeIterator>(begin, end);
         }
         /** @} */
 
@@ -847,20 +847,20 @@ public:
          *
          *  Returns a sublist of edges whose source vertex is this vertex.  The return value is a pair of iterators which
          *  delineate the edges.  The traversal is in no particular order. Edge iterators are equality-comparable with one
-         *  another even when the come from different sublists. See @ref EdgeNodeIterator for details.
+         *  another even when the come from different sublists. See @ref EdgeIterator for details.
          *
          *  Time complexity is constant.
          *
          * @{ */
-        boost::iterator_range<EdgeNodeIterator> outEdges() {
-            EdgeNodeIterator begin(OUT_EDGES, &edgeLists_.next(OUT_EDGES));
-            EdgeNodeIterator end(OUT_EDGES, &edgeLists_);
-            return boost::iterator_range<EdgeNodeIterator>(begin, end);
+        boost::iterator_range<EdgeIterator> outEdges() {
+            EdgeIterator begin(OUT_EDGES, &edgeLists_.next(OUT_EDGES));
+            EdgeIterator end(OUT_EDGES, &edgeLists_);
+            return boost::iterator_range<EdgeIterator>(begin, end);
         }
-        boost::iterator_range<ConstEdgeNodeIterator> outEdges() const {
-            ConstEdgeNodeIterator begin(OUT_EDGES, &edgeLists_.next(OUT_EDGES));
-            ConstEdgeNodeIterator end(OUT_EDGES, &edgeLists_);
-            return boost::iterator_range<ConstEdgeNodeIterator>(begin, end);
+        boost::iterator_range<ConstEdgeIterator> outEdges() const {
+            ConstEdgeIterator begin(OUT_EDGES, &edgeLists_.next(OUT_EDGES));
+            ConstEdgeIterator end(OUT_EDGES, &edgeLists_);
+            return boost::iterator_range<ConstEdgeIterator>(begin, end);
         }
         /** @} */
 
@@ -974,7 +974,7 @@ public:
             ASSERT_require(inserted->id() == i);
         }
         for (size_t i=0; i<other.nEdges(); ++i) {
-            typename Graph<V2, E2>::ConstEdgeNodeIterator edge = other.findEdge(i);
+            typename Graph<V2, E2>::ConstEdgeIterator edge = other.findEdge(i);
             VertexNodeIterator vsrc = findVertex(edge->source()->id());
             VertexNodeIterator vtgt = findVertex(edge->target()->id());
             insertEdge(vsrc, vtgt, EdgeValue(edge->value()));
@@ -1069,13 +1069,13 @@ public:
      *  Time complexity is constant.
      *
      *  @{ */
-    boost::iterator_range<EdgeNodeIterator> edges() {
-        return boost::iterator_range<EdgeNodeIterator>(EdgeNodeIterator(edges_.nodes().begin()),
-                                                       EdgeNodeIterator(edges_.nodes().end()));
+    boost::iterator_range<EdgeIterator> edges() {
+        return boost::iterator_range<EdgeIterator>(EdgeIterator(edges_.nodes().begin()),
+                                                   EdgeIterator(edges_.nodes().end()));
     }
-    boost::iterator_range<ConstEdgeNodeIterator> edges() const {
-        return boost::iterator_range<ConstEdgeNodeIterator>(ConstEdgeNodeIterator(edges_.nodes().begin()),
-                                                            ConstEdgeNodeIterator(edges_.nodes().end()));
+    boost::iterator_range<ConstEdgeIterator> edges() const {
+        return boost::iterator_range<ConstEdgeIterator>(ConstEdgeIterator(edges_.nodes().begin()),
+                                                        ConstEdgeIterator(edges_.nodes().end()));
     }
     /** @} */
 
@@ -1114,11 +1114,11 @@ public:
      *  Time complexity is constant.
      *
      *  @{ */
-    EdgeNodeIterator findEdge(size_t id) {
-        return EdgeNodeIterator(edges_.find(id));
+    EdgeIterator findEdge(size_t id) {
+        return EdgeIterator(edges_.find(id));
     }
-    ConstEdgeNodeIterator findEdge(size_t id) const {
-        return ConstEdgeNodeIterator(edges_.find(id));
+    ConstEdgeIterator findEdge(size_t id) const {
+        return ConstEdgeIterator(edges_.find(id));
     }
     /** @} */
 
@@ -1126,7 +1126,7 @@ public:
      *
      *  Returns true if and only if the specified iterator is not this graph's end iterator and the iterator points to an edge
      *  in this graph. */
-    bool isValidEdge(const ConstEdgeNodeIterator &edge) const {
+    bool isValidEdge(const ConstEdgeIterator &edge) const {
         return edge!=edges().end() && edge->id()<nEdges() && edge==findEdge(edge->id());
     }
 
@@ -1185,23 +1185,23 @@ public:
      *  Time complexity is constant.
      *
      * @{ */
-    EdgeNodeIterator insertEdge(const VertexNodeIterator &sourceVertex, const VertexNodeIterator &targetVertex,
-                                const EdgeValue &value = EdgeValue()) {
+    EdgeIterator insertEdge(const VertexNodeIterator &sourceVertex, const VertexNodeIterator &targetVertex,
+                            const EdgeValue &value = EdgeValue()) {
         ASSERT_forbid(sourceVertex==vertices().end());
         ASSERT_forbid(targetVertex==vertices().end());
         typename EdgeList::NodeIterator inserted = edges_.insert(edges_.nodes().end(),
                                                                  EdgeNode(value, sourceVertex, targetVertex));
         inserted->value().self_ = inserted;
         inserted->value().edgeLists_.reset(&inserted->value());
-        EdgeNodeIterator newEdge(inserted);
+        EdgeIterator newEdge(inserted);
         sourceVertex->edgeLists_.insert(OUT_EDGES, &newEdge->edgeLists_);
         ++sourceVertex->nOutEdges_;
         targetVertex->edgeLists_.insert(IN_EDGES, &newEdge->edgeLists_);
         ++targetVertex->nInEdges_;
         return newEdge;
     }
-    EdgeNodeIterator insertEdge(const ConstVertexNodeIterator &sourceVertex, const ConstVertexNodeIterator &targetVertex,
-                                const EdgeValue &value = EdgeValue()) {
+    EdgeIterator insertEdge(const ConstVertexNodeIterator &sourceVertex, const ConstVertexNodeIterator &targetVertex,
+                            const EdgeValue &value = EdgeValue()) {
         ASSERT_forbid(sourceVertex==vertices().end());
         ASSERT_forbid(targetVertex==vertices().end());
         return insertEdge(findVertex(sourceVertex->id()), findVertex(targetVertex->id()), value);
@@ -1222,9 +1222,9 @@ public:
      *  Time complexity is constant.
      *
      * @{ */
-    EdgeNodeIterator eraseEdge(const EdgeNodeIterator &edge) {
+    EdgeIterator eraseEdge(const EdgeIterator &edge) {
         ASSERT_forbid(edge==edges().end());
-        EdgeNodeIterator next = edge; ++next;           // advance before we delete edge
+        EdgeIterator next = edge; ++next;               // advance before we delete edge
         --edge->source_->nOutEdges_;
         edge->edgeLists_.remove(OUT_EDGES);
         --edge->target_->nInEdges_;
@@ -1232,7 +1232,7 @@ public:
         edges_.eraseAt(edge->self_);                    // edge is now deleted
         return next;
     }
-    EdgeNodeIterator eraseEdge(const ConstEdgeNodeIterator &edge) {
+    EdgeIterator eraseEdge(const ConstEdgeIterator &edge) {
         ASSERT_forbid(edge==edges().end());
         return eraseEdge(findEdge(edge->id()));
     }
@@ -1249,7 +1249,7 @@ public:
         ASSERT_forbid(source==vertices().end());
         ASSERT_forbid(target==vertices().end());
         if (source->nOutEdges() < target->nInEdges()) {
-            EdgeNodeIterator iter = source->outEdges().begin();
+            EdgeIterator iter = source->outEdges().begin();
             while (iter != source->outEdges().end()) {
                 if (iter->target() == target) {
                     iter = eraseEdge(iter);
@@ -1258,7 +1258,7 @@ public:
                 }
             }
         } else {
-            EdgeNodeIterator iter = target->inEdges().begin();
+            EdgeIterator iter = target->inEdges().begin();
             while (iter != target->inEdges().end()) {
                 if (iter->source() == source) {
                     iter = eraseEdge(iter);
@@ -1345,7 +1345,7 @@ public:
      * @{ */
     void clearOutEdges(const VertexNodeIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
-        for (EdgeNodeIterator edge=vertex->outEdges().begin(); edge!=vertex->outEdges().end(); /*void*/)
+        for (EdgeIterator edge=vertex->outEdges().begin(); edge!=vertex->outEdges().end(); /*void*/)
             edge = eraseEdge(edge);
     }
     void clearOutEdges(const ConstVertexNodeIterator &vertex) {
@@ -1364,7 +1364,7 @@ public:
      * @{ */
     void clearInEdges(const VertexNodeIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
-        for (EdgeNodeIterator edge=vertex->inEdges().begin(); edge!=vertex->inEdges().end(); /*void*/)
+        for (EdgeIterator edge=vertex->inEdges().begin(); edge!=vertex->inEdges().end(); /*void*/)
             edge = eraseEdge(edge);
     }
     void clearInEdges(const ConstVertexNodeIterator &vertex) {
