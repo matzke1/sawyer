@@ -200,7 +200,7 @@ void example_sawyer_graph() {
     // over arrays, and therefore some users omit "Iterator" from the local type names (like we do here).  Note that the
     // internally-stored data for vertices and edges is specified with the two template arguments.
     typedef Sawyer::Container::Graph<VertexData, std::string> Graph;
-    typedef Graph::VertexNodeIterator Vertex;           // a "pointer" to all information about a vertex
+    typedef Graph::VertexIterator Vertex;               // a "pointer" to all information about a vertex
     typedef Graph::EdgeIterator Edge;                   // a "pointer" to all information about an edge
 
     // Construct an empty graph

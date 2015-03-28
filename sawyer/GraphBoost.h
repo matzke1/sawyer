@@ -27,7 +27,7 @@ namespace Sawyer {
  *  Const graphs implement the same concepts except MutablePropertyGraph and MutableGraph.
  *
  *  Vertex and edge iterators in the BGL domain map to VertexOuterIterator and EdgeOuterIterator types, which are defined in
- *  this namespace and have implicit conversions from Sawyer::Container::Graph::VertexNodeIterator and
+ *  this namespace and have implicit conversions from Sawyer::Container::Graph::VertexIterator and
  *  Sawyer::Container::Graph::EdgeIterator. There are also const versions.  These outer iterators produce BGL
  *  vertex_descriptor or edge_descriptor when they're dereferenced, and these descriptors are simply the %Sawyer vertex and
  *  edge ID numbers.
@@ -59,7 +59,7 @@ namespace Boost {
 template<class V, class E, class Alloc>
 class VertexOuterIterator: public std::iterator<std::bidirectional_iterator_tag, const size_t> {
 private:
-    typedef typename Sawyer::Container::Graph<V, E, Alloc>::VertexNodeIterator BaseIter;
+    typedef typename Sawyer::Container::Graph<V, E, Alloc>::VertexIterator BaseIter;
     BaseIter base_;
 public:
     VertexOuterIterator() {}
@@ -79,7 +79,7 @@ public:
 template<class V, class E, class Alloc>
 class ConstVertexOuterIterator: public std::iterator<std::bidirectional_iterator_tag, const size_t> {
 private:
-    typedef typename Sawyer::Container::Graph<V, E, Alloc>::ConstVertexNodeIterator BaseIter;
+    typedef typename Sawyer::Container::Graph<V, E, Alloc>::ConstVertexIterator BaseIter;
     BaseIter base_;
 public:
     ConstVertexOuterIterator() {}
@@ -603,7 +603,7 @@ std::pair<typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::out_edg
           typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::out_edge_iterator>
 out_edges(typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor vertex,
           Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    typename Sawyer::Container::Graph<V, E, Alloc>::VertexNodeIterator v = graph.findVertex(vertex);
+    typename Sawyer::Container::Graph<V, E, Alloc>::VertexIterator v = graph.findVertex(vertex);
     return std::make_pair(Sawyer::Boost::EdgeOuterIterator<V, E, Alloc>(v->outEdges().begin()),
                           Sawyer::Boost::EdgeOuterIterator<V, E, Alloc>(v->outEdges().end()));
 }
@@ -613,7 +613,7 @@ std::pair<typename graph_traits<const Sawyer::Container::Graph<V, E, Alloc> >::o
           typename graph_traits<const Sawyer::Container::Graph<V, E, Alloc> >::out_edge_iterator>
 out_edges(typename graph_traits<const Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor vertex,
           const Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    typename Sawyer::Container::Graph<V, E, Alloc>::ConstVertexNodeIterator v = graph.findVertex(vertex);
+    typename Sawyer::Container::Graph<V, E, Alloc>::ConstVertexIterator v = graph.findVertex(vertex);
     return std::make_pair(Sawyer::Boost::ConstEdgeOuterIterator<V, E, Alloc>(v->outEdges().begin()),
                           Sawyer::Boost::ConstEdgeOuterIterator<V, E, Alloc>(v->outEdges().end()));
 }
@@ -641,7 +641,7 @@ std::pair<typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::in_edge
           typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::in_edge_iterator>
 in_edges(typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor vertex,
          Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    typename Sawyer::Container::Graph<V, E, Alloc>::VertexNodeIterator v = graph.findVertex(vertex);
+    typename Sawyer::Container::Graph<V, E, Alloc>::VertexIterator v = graph.findVertex(vertex);
     return std::make_pair(Sawyer::Boost::EdgeOuterIterator<V, E, Alloc>(v->inEdges().begin()),
                           Sawyer::Boost::EdgeOuterIterator<V, E, Alloc>(v->inEdges().end()));
 }
@@ -651,7 +651,7 @@ std::pair<typename graph_traits<const Sawyer::Container::Graph<V, E, Alloc> >::i
           typename graph_traits<const Sawyer::Container::Graph<V, E, Alloc> >::in_edge_iterator>
 in_edges(typename graph_traits<const Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor vertex,
          const Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    typename Sawyer::Container::Graph<V, E, Alloc>::ConstVertexNodeIterator v = graph.findVertex(vertex);
+    typename Sawyer::Container::Graph<V, E, Alloc>::ConstVertexIterator v = graph.findVertex(vertex);
     return std::make_pair(Sawyer::Boost::ConstEdgeOuterIterator<V, E, Alloc>(v->inEdges().begin()),
                           Sawyer::Boost::ConstEdgeOuterIterator<V, E, Alloc>(v->inEdges().end()));
 }
@@ -733,7 +733,7 @@ std::pair<typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::edge_de
 add_edge(typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor source,
          typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor target,
          Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    typename Sawyer::Container::Graph<V, E, Alloc>::VertexNodeIterator src=graph.findVertex(source), tgt=graph.findVertex(target);
+    typename Sawyer::Container::Graph<V, E, Alloc>::VertexIterator src=graph.findVertex(source), tgt=graph.findVertex(target);
     typename Sawyer::Container::Graph<V, E, Alloc>::EdgeIterator newEdge = graph.insertEdge(src, tgt, E());
     return std::make_pair(newEdge->id(), true);
 }
@@ -743,7 +743,7 @@ void
 remove_edge(typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor source,
             typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor target,
             Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    typename Sawyer::Container::Graph<V, E, Alloc>::VertexNodeIterator src=graph.findVertex(source), tgt=graph.findVertex(target);
+    typename Sawyer::Container::Graph<V, E, Alloc>::VertexIterator src=graph.findVertex(source), tgt=graph.findVertex(target);
     graph.eraseEdges(src, tgt);
 }
 
@@ -773,7 +773,7 @@ void
 remove_out_edge_if(typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor vertex,
                    Predicate predicate,
                    Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    typename Sawyer::Container::Graph<V, E, Alloc>::VertexNodeIterator v = graph.findVertex(vertex);
+    typename Sawyer::Container::Graph<V, E, Alloc>::VertexIterator v = graph.findVertex(vertex);
     typename Sawyer::Container::Graph<V, E, Alloc>::EdgeIterator edge = v->outEdges().begin();
     while (edge != v->outEdges().end()) {
         if (predicate(edge->id())) {
@@ -789,7 +789,7 @@ void
 remove_in_edge_if(typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor vertex,
                   Predicate predicate,
                   Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    typename Sawyer::Container::Graph<V, E, Alloc>::VertexNodeIterator v = graph.findVertex(vertex);
+    typename Sawyer::Container::Graph<V, E, Alloc>::VertexIterator v = graph.findVertex(vertex);
     typename Sawyer::Container::Graph<V, E, Alloc>::EdgeIterator edge = v->inEdges().begin();
     while (edge != v->inEdges().end()) {
         if (predicate(edge->id())) {
@@ -831,7 +831,7 @@ add_edge(typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::vertex_d
          typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::vertex_descriptor target,
          typename graph_traits<Sawyer::Container::Graph<V, E, Alloc> >::edge_property_type const &pval,
          Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    typename Sawyer::Container::Graph<V, E, Alloc>::VertexNodeIterator src=graph.findVertex(source), tgt=graph.findVertex(target);
+    typename Sawyer::Container::Graph<V, E, Alloc>::VertexIterator src=graph.findVertex(source), tgt=graph.findVertex(target);
     typename Sawyer::Container::Graph<V, E, Alloc>::EdgeIterator newEdge = graph.insertEdge(src, tgt, pval);
     return std::make_pair(newEdge->id(), true);
 }

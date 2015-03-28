@@ -20,7 +20,7 @@ template<class G>
 struct GraphTraits {
     typedef typename G::EdgeIterator EdgeIterator;
     typedef typename G::EdgeValueIterator EdgeValueIterator;
-    typedef typename G::VertexNodeIterator VertexNodeIterator;
+    typedef typename G::VertexIterator VertexIterator;
     typedef typename G::VertexValueIterator VertexValueIterator;
     typedef typename G::VertexNode VertexNode;
     typedef typename G::EdgeNode EdgeNode;
@@ -32,7 +32,7 @@ template<class G>
 struct GraphTraits<const G> {
     typedef typename G::ConstEdgeIterator EdgeIterator;
     typedef typename G::ConstEdgeValueIterator EdgeValueIterator;
-    typedef typename G::ConstVertexNodeIterator VertexNodeIterator;
+    typedef typename G::ConstVertexIterator VertexIterator;
     typedef typename G::ConstVertexValueIterator VertexValueIterator;
     typedef const typename G::VertexNode VertexNode;
     typedef const typename G::EdgeNode EdgeNode;
@@ -56,15 +56,15 @@ struct GraphTraits<const G> {
  * @code
  *  typedef Sawyer::Container::Graph<std::string, double> MyGraph;
  *  MyGraph graph;
- *  MyGraph::VertexNodeIterator v1 = graph.insertVertex("first vertex");
- *  MyGraph::VertexNodeIterator v2 = graph.insertVertex("second vertex");
+ *  MyGraph::VertexIterator v1 = graph.insertVertex("first vertex");
+ *  MyGraph::VertexIterator v2 = graph.insertVertex("second vertex");
  *  graph.insertEdge(v1, v2, 1.2); // v1 and v2 are the source and target vertices
  * @endcode
  *
- *  The term "Node" in the above iterators refers to the unit of storage for a vertex, which not only contains the user-defined
- *  value for the vertex, but also an ID number and connectivity information. Within this documentation, the term "vertex" is
- *  always used as the name of a graph component (i.e., a graph has vertices and edges), and the term "node" always refers to a
- *  unit of storage.
+ *  In this documentation, the term "node" refers to the unit of storage for an edge or vertex, which contains the user-defined
+ *  value for the edge or vertex, plus an ID number and connectivity information. Within this documentation, the term "vertex"
+ *  is always used as the name of a graph component (i.e., a graph has vertices and edges), and the term "node" always refers
+ *  to a unit of storage.
  *
  *  A graph doesn't necessarily need to store data at each vertex or edge. The vertex and node types default to @ref Nothing,
  *  which is similar to @c void.
@@ -84,16 +84,16 @@ struct GraphTraits<const G> {
  *
  *  @li @ref VertexValueIterator refers to user-defined mutable values
  *  @li @ref ConstVertexValueIterator refers to user-defined constant values
- *  @li @ref VertexNodeIterator refers to mutable vertex storage nodes
- *  @li @ref ConstVertexNodeIterator refers to constant vertex storage nodes
+ *  @li @ref VertexIterator refers to mutable vertex storage nodes
+ *  @li @ref ConstVertexIterator refers to constant vertex storage nodes
  *
  *  A const-iterator points to information that is const qualified. Const-iterators can be converted to non-const iterators in
  *  linear time if one has the non-const graph available:
  *
  * @code
  *  MyGraph graph = ...
- *  MyGraph::ConstVertexNodeIterator constVertex = ...; // not the end iterator
- *  MyGraph::VertexNodeIterator vertex = graph.findVertex(constVertex->id());
+ *  MyGraph::ConstVertexIterator constVertex = ...; // not the end iterator
+ *  MyGraph::VertexIterator vertex = graph.findVertex(constVertex->id());
  * @endcode
  *
  *  Edge iterators are similar.
@@ -103,7 +103,7 @@ struct GraphTraits<const G> {
  *
  * @code
  *  std::cout <<"Vertex names:\n";
- *  for (MyGraph::ConstVertexNodeIterator vertex=graph.vertices().begin(); vertex!=graph.vertices().end(); ++vertex)
+ *  for (MyGraph::ConstVertexIterator vertex=graph.vertices().begin(); vertex!=graph.vertices().end(); ++vertex)
  *      std::cout <<"  " << vertex->value() <<"\n";
  * @endcode
  *
@@ -630,45 +630,45 @@ public:
     /** Bidirectional vertex node iterator.
      *
      *  Iterates over the vertex nodes in a list, returning the node (type @ref VertexNode) when dereferenced.  Vertex
-     *  iterators are stable across insert and erase operations.  The difference between @ref VertexNodeIterator and @ref
-     *  ConstVertexNodeIterator is that the latter returns const references when dereferenced.  A VertexNodeIterator can be
-     *  impliciatly converted to a @ref ConstVertexNodeIterator, @ref VertexValueIterator, or @ref ConstVertexValueIterator. */
-    class VertexNodeIterator: public VertexBaseIterator<VertexNodeIterator, VertexNode, VertexNode,
-                                                        typename VertexList::NodeIterator> {
-        typedef                      VertexBaseIterator<VertexNodeIterator, VertexNode, VertexNode,
-                                                        typename VertexList::NodeIterator> Super;
+     *  iterators are stable across insert and erase operations.  The difference between @ref VertexIterator and @ref
+     *  ConstVertexIterator is that the latter returns const references when dereferenced.  A VertexIterator can be
+     *  impliciatly converted to a @ref ConstVertexIterator, @ref VertexValueIterator, or @ref ConstVertexValueIterator. */
+    class VertexIterator: public VertexBaseIterator<VertexIterator, VertexNode, VertexNode,
+                                                    typename VertexList::NodeIterator> {
+        typedef                  VertexBaseIterator<VertexIterator, VertexNode, VertexNode,
+                                                    typename VertexList::NodeIterator> Super;
     public:
         typedef VertexNode& Reference;
         typedef VertexNode* Pointer;
-        VertexNodeIterator() {}
-        VertexNodeIterator(const VertexNodeIterator &other): Super(other) {}
+        VertexIterator() {}
+        VertexIterator(const VertexIterator &other): Super(other) {}
         VertexNode& operator*() const { return this->dereference(); }
         VertexNode* operator->() const { return &this->dereference(); }
     private:
         friend class Graph;
-        VertexNodeIterator(const typename VertexList::NodeIterator &base): Super(base) {}
+        VertexIterator(const typename VertexList::NodeIterator &base): Super(base) {}
     };
 
     /** Bidirectional vertex node iterator.
      *
      *  Iterates over the vertex nodes in a list, returning the node (type @ref VertexNode) when dereferenced.  Vertex
-     *  iterators are stable across insert and erase operations.  The difference between @ref VertexNodeIterator and @ref
-     *  ConstVertexNodeIterator is that the latter returns const references when dereferenced. */
-    class ConstVertexNodeIterator: public VertexBaseIterator<ConstVertexNodeIterator, const VertexNode, const VertexNode,
-                                                             typename VertexList::ConstNodeIterator> {
-        typedef                           VertexBaseIterator<ConstVertexNodeIterator, const VertexNode, const VertexNode,
-                                                             typename VertexList::ConstNodeIterator> Super;
+     *  iterators are stable across insert and erase operations.  The difference between @ref VertexIterator and @ref
+     *  ConstVertexIterator is that the latter returns const references when dereferenced. */
+    class ConstVertexIterator: public VertexBaseIterator<ConstVertexIterator, const VertexNode, const VertexNode,
+                                                         typename VertexList::ConstNodeIterator> {
+        typedef                       VertexBaseIterator<ConstVertexIterator, const VertexNode, const VertexNode,
+                                                         typename VertexList::ConstNodeIterator> Super;
     public:
         typedef const VertexNode& Reference;
         typedef const VertexNode* Pointer;
-        ConstVertexNodeIterator() {}
-        ConstVertexNodeIterator(const ConstVertexNodeIterator &other): Super(other) {}
-        ConstVertexNodeIterator(const VertexNodeIterator &other): Super(other.base_) {}
+        ConstVertexIterator() {}
+        ConstVertexIterator(const ConstVertexIterator &other): Super(other) {}
+        ConstVertexIterator(const VertexIterator &other): Super(other.base_) {}
         const VertexNode& operator*() const { return this->dereference(); }
         const VertexNode* operator->() const { return &this->dereference(); }
     private:
         friend class Graph;
-        ConstVertexNodeIterator(const typename VertexList::ConstNodeIterator &base): Super(base) {}
+        ConstVertexIterator(const typename VertexList::ConstNodeIterator &base): Super(base) {}
     };
         
     /** Bidirectional vertex value iterator.
@@ -686,7 +686,7 @@ public:
         typedef VertexValue* Pointer;
         VertexValueIterator() {}
         VertexValueIterator(const VertexValueIterator &other): Super(other) {}
-        VertexValueIterator(const VertexNodeIterator &other): Super(other.base_) {}
+        VertexValueIterator(const VertexIterator &other): Super(other.base_) {}
         VertexValue& operator*() const { return this->dereference().value(); }
         VertexValue* operator->() const { return &this->dereference().value(); }
     private:
@@ -709,8 +709,8 @@ public:
         ConstVertexValueIterator() {}
         ConstVertexValueIterator(const ConstVertexValueIterator &other): Super(other) {}
         ConstVertexValueIterator(const VertexValueIterator &other): Super(other.base_) {}
-        ConstVertexValueIterator(const VertexNodeIterator &other): Super(other.base_) {}
-        ConstVertexValueIterator(const ConstVertexNodeIterator &other): Super(other.base_) {}
+        ConstVertexValueIterator(const VertexIterator &other): Super(other.base_) {}
+        ConstVertexValueIterator(const ConstVertexIterator &other): Super(other.base_) {}
         const VertexValue& operator*() const { return this->dereference().value(); }
         const VertexValue* operator->() const { return &this->dereference().value(); }
     private:
@@ -732,10 +732,10 @@ public:
         VirtualList<EdgeNode> edgeLists_;               // links for in- and out-edge sublists; MUST BE FIRST
         EdgeValue value_;                               // user-defined data for each edge
         typename EdgeList::NodeIterator self_;          // always points to itself so we can get to IndexedList::Node
-        VertexNodeIterator source_, target_;            // starting and ending points of the edge are always required
+        VertexIterator source_, target_;                // starting and ending points of the edge are always required
     private:
         friend class Graph;
-        EdgeNode(const EdgeValue &value, const VertexNodeIterator &source, const VertexNodeIterator &target)
+        EdgeNode(const EdgeValue &value, const VertexIterator &source, const VertexIterator &target)
             : value_(value), source_(source), target_(target) {}
     public:
         /** Unique edge ID number.
@@ -757,8 +757,8 @@ public:
          *  Time complexity is constant.
          *
          * @{ */
-        const VertexNodeIterator& source() { return source_; }
-        ConstVertexNodeIterator source() const { return source_; }
+        const VertexIterator& source() { return source_; }
+        ConstVertexIterator source() const { return source_; }
         /** @} */
 
         /** Target vertex.
@@ -769,8 +769,8 @@ public:
          *  Time complexity is constant.
          *
          * @{ */
-        const VertexNodeIterator& target() { return target_; }
-        ConstVertexNodeIterator target() const { return target_; }
+        const VertexIterator& target() { return target_; }
+        ConstVertexIterator target() const { return target_; }
         /** @} */
 
         /** User-defined value.
@@ -799,7 +799,7 @@ public:
     /** Vertex node.
      *
      *  These list nodes contain all information about a vertex and are the objects returned (by reference) when a vertex node
-     *  iterator (@ref VertexNodeIterator or @ref ConstVertexNodeIterator) is dereferenced. */
+     *  iterator (@ref VertexIterator or @ref ConstVertexIterator) is dereferenced. */
     class VertexNode {
         VertexValue value_;                             // user data for this vertex
         typename VertexList::NodeIterator self_;        // always points to itself so we can get to IndexedList::Node
@@ -969,14 +969,14 @@ public:
     Graph& operator=(const Graph<V2, E2, Alloc2> &other) {
         clear();
         for (size_t i=0; i<other.nVertices(); ++i) {
-            typename Graph<V2, E2>::ConstVertexNodeIterator vertex = other.findVertex(i);
-            VertexNodeIterator inserted SAWYER_ATTR_UNUSED = insertVertex(VertexValue(vertex->value()));
+            typename Graph<V2, E2>::ConstVertexIterator vertex = other.findVertex(i);
+            VertexIterator inserted SAWYER_ATTR_UNUSED = insertVertex(VertexValue(vertex->value()));
             ASSERT_require(inserted->id() == i);
         }
         for (size_t i=0; i<other.nEdges(); ++i) {
             typename Graph<V2, E2>::ConstEdgeIterator edge = other.findEdge(i);
-            VertexNodeIterator vsrc = findVertex(edge->source()->id());
-            VertexNodeIterator vtgt = findVertex(edge->target()->id());
+            VertexIterator vsrc = findVertex(edge->source()->id());
+            VertexIterator vtgt = findVertex(edge->target()->id());
             insertEdge(vsrc, vtgt, EdgeValue(edge->value()));
         }
         return *this;
@@ -1000,13 +1000,13 @@ public:
      *  Time complexity is constant.
      *
      * @{ */
-    boost::iterator_range<VertexNodeIterator> vertices() {
-        return boost::iterator_range<VertexNodeIterator>(VertexNodeIterator(vertices_.nodes().begin()),
-                                                         VertexNodeIterator(vertices_.nodes().end()));
+    boost::iterator_range<VertexIterator> vertices() {
+        return boost::iterator_range<VertexIterator>(VertexIterator(vertices_.nodes().begin()),
+                                                     VertexIterator(vertices_.nodes().end()));
     }
-    boost::iterator_range<ConstVertexNodeIterator> vertices() const {
-        return boost::iterator_range<ConstVertexNodeIterator>(ConstVertexNodeIterator(vertices_.nodes().begin()),
-                                                              ConstVertexNodeIterator(vertices_.nodes().end()));
+    boost::iterator_range<ConstVertexIterator> vertices() const {
+        return boost::iterator_range<ConstVertexIterator>(ConstVertexIterator(vertices_.nodes().begin()),
+                                                          ConstVertexIterator(vertices_.nodes().end()));
     }
     /** @} */
 
@@ -1045,11 +1045,11 @@ public:
      *  Time complexity is constant.
      *
      *  @{ */
-    VertexNodeIterator findVertex(size_t id) {
-        return VertexNodeIterator(vertices_.find(id));
+    VertexIterator findVertex(size_t id) {
+        return VertexIterator(vertices_.find(id));
     }
-    ConstVertexNodeIterator findVertex(size_t id) const {
-        return ConstVertexNodeIterator(vertices_.find(id));
+    ConstVertexIterator findVertex(size_t id) const {
+        return ConstVertexIterator(vertices_.find(id));
     }
     /** @} */
 
@@ -1057,7 +1057,7 @@ public:
      *
      *  Returns true if and only if the specified iterator is not this graph's end iterator and the iterator points to a vertex
      *  in this graph. */
-    bool isValidVertex(const ConstVertexNodeIterator &vertex) const {
+    bool isValidVertex(const ConstVertexIterator &vertex) const {
         return vertex!=vertices().end() && vertex->id()<nVertices() && vertex==findVertex(vertex->id());
     }
 
@@ -1168,11 +1168,11 @@ public:
      *  vertex is given the higest vertex ID number; no other ID numbers, vertex or edge, change.
      *
      *  Time complexity is constant. */
-    VertexNodeIterator insertVertex(const VertexValue &value = VertexValue()) {
+    VertexIterator insertVertex(const VertexValue &value = VertexValue()) {
         typename VertexList::NodeIterator inserted = vertices_.insert(vertices_.nodes().end(), VertexNode(value));
         inserted->value().self_ = inserted;
         inserted->value().edgeLists_.reset(NULL);       // this is a sublist head, no edge node
-        return VertexNodeIterator(inserted);
+        return VertexIterator(inserted);
     }
 
     /** Insert a new edge.
@@ -1185,7 +1185,7 @@ public:
      *  Time complexity is constant.
      *
      * @{ */
-    EdgeIterator insertEdge(const VertexNodeIterator &sourceVertex, const VertexNodeIterator &targetVertex,
+    EdgeIterator insertEdge(const VertexIterator &sourceVertex, const VertexIterator &targetVertex,
                             const EdgeValue &value = EdgeValue()) {
         ASSERT_forbid(sourceVertex==vertices().end());
         ASSERT_forbid(targetVertex==vertices().end());
@@ -1200,7 +1200,7 @@ public:
         ++targetVertex->nInEdges_;
         return newEdge;
     }
-    EdgeIterator insertEdge(const ConstVertexNodeIterator &sourceVertex, const ConstVertexNodeIterator &targetVertex,
+    EdgeIterator insertEdge(const ConstVertexIterator &sourceVertex, const ConstVertexIterator &targetVertex,
                             const EdgeValue &value = EdgeValue()) {
         ASSERT_forbid(sourceVertex==vertices().end());
         ASSERT_forbid(targetVertex==vertices().end());
@@ -1245,7 +1245,7 @@ public:
      *  Time complexity is linear in the number of incoming or outgoing edges (whichever is smaller).
      *
      * @{ */
-    void eraseEdges(const VertexNodeIterator &source, const VertexNodeIterator &target) {
+    void eraseEdges(const VertexIterator &source, const VertexIterator &target) {
         ASSERT_forbid(source==vertices().end());
         ASSERT_forbid(target==vertices().end());
         if (source->nOutEdges() < target->nInEdges()) {
@@ -1268,7 +1268,7 @@ public:
             }
         }
     }
-    void eraseEdges(const ConstVertexNodeIterator &source, const ConstVertexNodeIterator &target) {
+    void eraseEdges(const ConstVertexIterator &source, const ConstVertexIterator &target) {
         ASSERT_forbid(source==vertices().end());
         ASSERT_forbid(target==vertices().end());
         eraseEdges(findVertex(source->id()), findVertex(target->id()));
@@ -1289,14 +1289,14 @@ public:
      *  Time complexity is constant.
      *
      * @{ */
-    VertexNodeIterator eraseVertex(const VertexNodeIterator &vertex) {
+    VertexIterator eraseVertex(const VertexIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
-        VertexNodeIterator next = vertex; ++next;       // advance before we delete vertex
+        VertexIterator next = vertex; ++next;       // advance before we delete vertex
         clearEdges(vertex);
         vertices_.eraseAt(vertex->self_);               // vertex is now deleted
         return next;
     }
-    VertexNodeIterator eraseVertex(const ConstVertexNodeIterator &vertex) {
+    VertexIterator eraseVertex(const ConstVertexIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
         return eraseVertex(findVertex(vertex->id()));
     }
@@ -1309,7 +1309,7 @@ public:
      *
      *  Time complexity is linear in the number of edges erased. */
     void clearEdges() {
-        for (VertexNodeIterator vertex=vertices().begin(); vertex!=vertices().end(); ++vertex) {
+        for (VertexIterator vertex=vertices().begin(); vertex!=vertices().end(); ++vertex) {
             vertex->inEdges().reset();
             vertex->outEdges().reset();
         }
@@ -1325,11 +1325,11 @@ public:
      *  Time complexity is linear in the number of edges erased.
      *
      * @{ */
-    void clearEdges(const VertexNodeIterator &vertex) {
+    void clearEdges(const VertexIterator &vertex) {
         clearOutEdges(vertex);
         clearInEdges(vertex);
     }
-    void clearEdges(const ConstVertexNodeIterator &vertex) {
+    void clearEdges(const ConstVertexIterator &vertex) {
         clearOutEdges(vertex);
         clearInEdges(vertex);
     }
@@ -1343,12 +1343,12 @@ public:
      *  Time complexity is linear in the number of edges erased.
      *
      * @{ */
-    void clearOutEdges(const VertexNodeIterator &vertex) {
+    void clearOutEdges(const VertexIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
         for (EdgeIterator edge=vertex->outEdges().begin(); edge!=vertex->outEdges().end(); /*void*/)
             edge = eraseEdge(edge);
     }
-    void clearOutEdges(const ConstVertexNodeIterator &vertex) {
+    void clearOutEdges(const ConstVertexIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
         clearOutEdges(findVertex(vertex->id()));
     }
@@ -1362,12 +1362,12 @@ public:
      *  Time complexity is linear in the number of edges erased.
      *
      * @{ */
-    void clearInEdges(const VertexNodeIterator &vertex) {
+    void clearInEdges(const VertexIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
         for (EdgeIterator edge=vertex->inEdges().begin(); edge!=vertex->inEdges().end(); /*void*/)
             edge = eraseEdge(edge);
     }
-    void clearInEdges(const ConstVertexNodeIterator &vertex) {
+    void clearInEdges(const ConstVertexIterator &vertex) {
         ASSERT_forbid(vertex==vertices().end());
         clearInEdges(findVertex(vertex->id()));
     }
