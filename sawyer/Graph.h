@@ -22,7 +22,7 @@ struct GraphTraits {
     typedef typename G::EdgeValueIterator EdgeValueIterator;
     typedef typename G::VertexIterator VertexIterator;
     typedef typename G::VertexValueIterator VertexValueIterator;
-    typedef typename G::VertexNode VertexNode;
+    typedef typename G::Vertex Vertex;
     typedef typename G::Edge Edge;
     typedef typename G::VertexValue VertexValue;
     typedef typename G::EdgeValue EdgeValue;
@@ -34,7 +34,7 @@ struct GraphTraits<const G> {
     typedef typename G::ConstEdgeValueIterator EdgeValueIterator;
     typedef typename G::ConstVertexIterator VertexIterator;
     typedef typename G::ConstVertexValueIterator VertexValueIterator;
-    typedef const typename G::VertexNode VertexNode;
+    typedef const typename G::Vertex Vertex;
     typedef const typename G::Edge Edge;
     typedef const typename G::VertexValue VertexValue;
     typedef const typename G::EdgeValue EdgeValue;
@@ -116,7 +116,7 @@ struct GraphTraits<const G> {
  *  Here's a couple easier ways to do the same thing as the previous example:
  *
  * @code
- *  BOOST_FOREACH (const MyGraph::VertexNode &vertex, graph.vertices())
+ *  BOOST_FOREACH (const MyGraph::Vertex &vertex, graph.vertices())
  *      std::cout <<"  " <<vertex.value() <<"\n";
  * @endcode
  *
@@ -152,7 +152,7 @@ struct GraphTraits<const G> {
  *
  * @code
  *  std::vector<unsigned long> vertexHashes(graph.nVertices());
- *  BOOST_FOREACH (const MyGraph::VertexNode &vertex, graph.vertices())
+ *  BOOST_FOREACH (const MyGraph::Vertex &vertex, graph.vertices())
  *      vertexHashes[vertex.id()] = hash(vertex.value());
  * @endcode
  *
@@ -160,7 +160,7 @@ struct GraphTraits<const G> {
  *
  *  Each vertex has two additional edge lists: a list of incoming edges where this vertex serves as the edges' target, and a
  *  list of outgoing edges where this vertex serves as the edges' source.  The lists are returned by the @ref
- *  VertexNode::inEdges and @ref VertexNode::outEdges methods.  These lists are sublists of the graph-wide edge list and
+ *  Vertex::inEdges and @ref Vertex::outEdges methods.  These lists are sublists of the graph-wide edge list and
  *  iterators are equality-comparable and return references to the same underlying edges.  However, the "end" iterators for
  *  these sublists are all distinct from one another and distinct from the graph-wide edge list. (footnote: Actually, the "end"
  *  iterators for the in-coming and out-going lists of a single vertex are equal to each other, but don't depend on this.)
@@ -171,7 +171,7 @@ struct GraphTraits<const G> {
  *  Here's an example similar to the previous edge ID iteration except it presents the graph in terms of vertices:
  *
  * @code
- *  BOOST_FOREACH (const MyGraph::VertexNode &vertex, graph.vertices()) {
+ *  BOOST_FOREACH (const MyGraph::Vertex &vertex, graph.vertices()) {
  *      std::cout <<"vertex " <<vertex.id() <<"\n";
  *      BOOST_FOREACH (const MyGraph::Edge &edge, vertex.outEdges()) {
  *          std::cout <<"  edge " <<edge.id() <<" to vertex " <<edge.target()->id() <<"\n";
@@ -250,13 +250,13 @@ public:
     typedef V VertexValue;                              /**< User-level data associated with vertices. */
     typedef E EdgeValue;                                /**< User-level data associated with edges. */
     typedef Alloc Allocator;                            /**< Allocator for vertex and edge nodes. */
-    class VertexNode;                                   /**< All information about a vertex. User info plus connectivity info. */
+    class Vertex;                                       /**< All information about a vertex. User info plus connectivity info. */
     class Edge;                                         /**< All information about an edge. User info plus connectivity info. */
 
 private:
     enum EdgePhase { IN_EDGES=0, OUT_EDGES=1, N_PHASES=2 };
     typedef IndexedList<Edge, Allocator> EdgeList;
-    typedef IndexedList<VertexNode, Allocator> VertexList;
+    typedef IndexedList<Vertex, Allocator> VertexList;
 
     template<class T>
     class VirtualList {
@@ -629,21 +629,21 @@ public:
 
     /** Bidirectional vertex node iterator.
      *
-     *  Iterates over the vertex nodes in a list, returning the node (type @ref VertexNode) when dereferenced.  Vertex
+     *  Iterates over the vertex nodes in a list, returning the @ref Vertex when dereferenced.  Vertex
      *  iterators are stable across insert and erase operations.  The difference between @ref VertexIterator and @ref
      *  ConstVertexIterator is that the latter returns const references when dereferenced.  A VertexIterator can be
      *  impliciatly converted to a @ref ConstVertexIterator, @ref VertexValueIterator, or @ref ConstVertexValueIterator. */
-    class VertexIterator: public VertexBaseIterator<VertexIterator, VertexNode, VertexNode,
+    class VertexIterator: public VertexBaseIterator<VertexIterator, Vertex, Vertex,
                                                     typename VertexList::NodeIterator> {
-        typedef                  VertexBaseIterator<VertexIterator, VertexNode, VertexNode,
+        typedef                  VertexBaseIterator<VertexIterator, Vertex, Vertex,
                                                     typename VertexList::NodeIterator> Super;
     public:
-        typedef VertexNode& Reference;
-        typedef VertexNode* Pointer;
+        typedef Vertex& Reference;
+        typedef Vertex* Pointer;
         VertexIterator() {}
         VertexIterator(const VertexIterator &other): Super(other) {}
-        VertexNode& operator*() const { return this->dereference(); }
-        VertexNode* operator->() const { return &this->dereference(); }
+        Vertex& operator*() const { return this->dereference(); }
+        Vertex* operator->() const { return &this->dereference(); }
     private:
         friend class Graph;
         VertexIterator(const typename VertexList::NodeIterator &base): Super(base) {}
@@ -651,21 +651,21 @@ public:
 
     /** Bidirectional vertex node iterator.
      *
-     *  Iterates over the vertex nodes in a list, returning the node (type @ref VertexNode) when dereferenced.  Vertex
+     *  Iterates over the vertex nodes in a list, returning the @ref Vertex when dereferenced.  Vertex
      *  iterators are stable across insert and erase operations.  The difference between @ref VertexIterator and @ref
      *  ConstVertexIterator is that the latter returns const references when dereferenced. */
-    class ConstVertexIterator: public VertexBaseIterator<ConstVertexIterator, const VertexNode, const VertexNode,
+    class ConstVertexIterator: public VertexBaseIterator<ConstVertexIterator, const Vertex, const Vertex,
                                                          typename VertexList::ConstNodeIterator> {
-        typedef                       VertexBaseIterator<ConstVertexIterator, const VertexNode, const VertexNode,
+        typedef                       VertexBaseIterator<ConstVertexIterator, const Vertex, const Vertex,
                                                          typename VertexList::ConstNodeIterator> Super;
     public:
-        typedef const VertexNode& Reference;
-        typedef const VertexNode* Pointer;
+        typedef const Vertex& Reference;
+        typedef const Vertex* Pointer;
         ConstVertexIterator() {}
         ConstVertexIterator(const ConstVertexIterator &other): Super(other) {}
         ConstVertexIterator(const VertexIterator &other): Super(other.base_) {}
-        const VertexNode& operator*() const { return this->dereference(); }
-        const VertexNode* operator->() const { return &this->dereference(); }
+        const Vertex& operator*() const { return this->dereference(); }
+        const Vertex* operator->() const { return &this->dereference(); }
     private:
         friend class Graph;
         ConstVertexIterator(const typename VertexList::ConstNodeIterator &base): Super(base) {}
@@ -677,9 +677,9 @@ public:
      *  Vertex iterators are stable across insert and erase operations.  The difference between @ref VertexValueIterator and
      *  @ref ConstVertexValueIterator is that the latter returns const references when dereferenced.  A VertexValueIterator can
      *  be impliciatly converted to a @ref ConstVertexValueIterator. */
-    class VertexValueIterator: public VertexBaseIterator<VertexValueIterator, VertexValue, VertexNode,
+    class VertexValueIterator: public VertexBaseIterator<VertexValueIterator, VertexValue, Vertex,
                                                          typename VertexList::NodeIterator> {
-        typedef                       VertexBaseIterator<VertexValueIterator, VertexValue, VertexNode,
+        typedef                       VertexBaseIterator<VertexValueIterator, VertexValue, Vertex,
                                                          typename VertexList::NodeIterator> Super;
     public:
         typedef VertexValue& Reference;
@@ -699,9 +699,9 @@ public:
      *  Iterates over the vertex values in a list, returning the user-defined value (type @ref VertexValue) when dereferenced.
      *  Vertex iterators are stable across insert and erase operations.  The difference between @ref VertexValueIterator and
      *  @ref ConstVertexValueIterator is that the latter returns const references when dereferenced. */
-    class ConstVertexValueIterator: public VertexBaseIterator<ConstVertexValueIterator, const VertexValue, const VertexNode,
+    class ConstVertexValueIterator: public VertexBaseIterator<ConstVertexValueIterator, const VertexValue, const Vertex,
                                                               typename VertexList::ConstNodeIterator> {
-        typedef                            VertexBaseIterator<ConstVertexValueIterator, const VertexValue, const VertexNode,
+        typedef                            VertexBaseIterator<ConstVertexValueIterator, const VertexValue, const Vertex,
                                                               typename VertexList::ConstNodeIterator> Super;
     public:
         typedef const VertexValue& Reference;
@@ -800,7 +800,7 @@ public:
      *
      *  These list nodes contain all information about a vertex and are the objects returned (by reference) when a vertex node
      *  iterator (@ref VertexIterator or @ref ConstVertexIterator) is dereferenced. */
-    class VertexNode {
+    class Vertex {
         VertexValue value_;                             // user data for this vertex
         typename VertexList::NodeIterator self_;        // always points to itself so we can get to IndexedList::Node
         VirtualList<Edge> edgeLists_;                   // this is the head node; points to the real edges
@@ -808,7 +808,7 @@ public:
         size_t nOutEdges_;                              // number of outgoing edges
     private:
         friend class Graph;
-        VertexNode(const VertexValue &value): value_(value), nInEdges_(0), nOutEdges_(0) {}
+        Vertex(const VertexValue &value): value_(value), nInEdges_(0), nOutEdges_(0) {}
     public:
         /** Unique vertex ID number.
          *
@@ -1169,7 +1169,7 @@ public:
      *
      *  Time complexity is constant. */
     VertexIterator insertVertex(const VertexValue &value = VertexValue()) {
-        typename VertexList::NodeIterator inserted = vertices_.insert(vertices_.nodes().end(), VertexNode(value));
+        typename VertexList::NodeIterator inserted = vertices_.insert(vertices_.nodes().end(), Vertex(value));
         inserted->value().self_ = inserted;
         inserted->value().edgeLists_.reset(NULL);       // this is a sublist head, no edge node
         return VertexIterator(inserted);

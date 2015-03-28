@@ -148,11 +148,11 @@ public:
 
 // User-defined value attached to a vertex.
 template<class Graph>
-class VertexNodePropertyMap {
+class VertexPropertyMap {
     Graph &graph_;
 public:
     typedef typename Graph::VertexValue ValueType;
-    VertexNodePropertyMap(Graph &graph): graph_(graph) {}
+    VertexPropertyMap(Graph &graph): graph_(graph) {}
     ValueType get(size_t vertexId) const {
         return graph_.findVertex(vertexId)->value();
     }
@@ -169,11 +169,11 @@ public:
 
 // Const user-defined value attached to a vertex.
 template<class Graph>
-class ConstVertexNodePropertyMap {
+class ConstVertexPropertyMap {
     const Graph &graph_;
 public:
     typedef typename Graph::VertexValue ValueType;
-    ConstVertexNodePropertyMap(const Graph &graph): graph_(graph) {}
+    ConstVertexPropertyMap(const Graph &graph): graph_(graph) {}
     ValueType get(size_t vertexId) const {
         return graph_.findVertex(vertexId)->value();
     }
@@ -283,13 +283,13 @@ namespace boost {
 //     using boost::multi_index::get;
 //     return get<from>(pragma_once_files).find(filename) != pragma_once_files.end();
 // in wave matches these property_traits. E.g.,
-//     boost::property_traits<Sawyer::Boost::VertexNodePropertyMap<boost::wave::util::from> >
+//     boost::property_traits<Sawyer::Boost::VertexPropertyMap<boost::wave::util::from> >
 // and of course boost::wave::util::from has no VertexValue type.  Someone with more boost property map and template
-// programming experience is needed.  For now, users should instantiate their own Sawyer::Boost::VertexNodePropertyMap<> class
+// programming experience is needed.  For now, users should instantiate their own Sawyer::Boost::VertexPropertyMap<> class
 // and use it to make their own specialization of boost::property_traits<>.
 
 template<class Graph>
-struct property_traits<Sawyer::Boost::VertexNodePropertyMap<Graph> > {
+struct property_traits<Sawyer::Boost::VertexPropertyMap<Graph> > {
     typedef typename Graph::VertexValue value_type;
     typedef typename Graph::VertexValue &reference;
     typedef size_t key_type;                            // vertex ID number
@@ -297,7 +297,7 @@ struct property_traits<Sawyer::Boost::VertexNodePropertyMap<Graph> > {
 };
 
 template<class Graph>
-struct property_traits<Sawyer::Boost::ConstVertexNodePropertyMap<Graph> > {
+struct property_traits<Sawyer::Boost::ConstVertexPropertyMap<Graph> > {
     typedef typename Graph::VertexValue value_type;
     typedef typename Graph::VertexValue const &reference;
     typedef size_t key_type;                            // vertex ID number
@@ -341,8 +341,8 @@ struct property_traits<Sawyer::Boost::ConstEdgeIdPropertyMap<Graph> > {
 
 template<class Graph>
 struct property_map<Graph, Sawyer::Boost::vertex_value_t> {
-    typedef Sawyer::Boost::VertexNodePropertyMap<Graph> type;
-    typedef Sawyer::Boost::ConstVertexNodePropertyMap<const Graph> const_type;
+    typedef Sawyer::Boost::VertexPropertyMap<Graph> type;
+    typedef Sawyer::Boost::ConstVertexPropertyMap<const Graph> const_type;
 };
 
 template<class Graph>
@@ -371,19 +371,19 @@ struct property_map<Graph, Sawyer::Boost::edge_id_t> {
 
 template<class Graph>
 typename Graph::VertexValue&
-get(Sawyer::Boost::VertexNodePropertyMap<Graph> &pmap, size_t key) {
+get(Sawyer::Boost::VertexPropertyMap<Graph> &pmap, size_t key) {
     return pmap.at(key);
 }
 
 template<class Graph>
 const typename Graph::VertexValue&
-get(const Sawyer::Boost::ConstVertexNodePropertyMap<Graph> &pmap, size_t key) {
+get(const Sawyer::Boost::ConstVertexPropertyMap<Graph> &pmap, size_t key) {
     return pmap.at(key);
 }
 
 template<class Graph>
 void
-put(Sawyer::Boost::VertexNodePropertyMap<Graph> &pmap, size_t key, const typename Graph::VertexValue &value) {
+put(Sawyer::Boost::VertexPropertyMap<Graph> &pmap, size_t key, const typename Graph::VertexValue &value) {
     pmap.at(key) = value;
 }
 
@@ -691,13 +691,13 @@ degree(typename graph_traits<const Sawyer::Container::Graph<V, E, Alloc> >::vert
 template<class V, class E, class Alloc>
 typename property_map<Sawyer::Container::Graph<V, E, Alloc>, Sawyer::Boost::vertex_value_t>::type
 get(Sawyer::Boost::vertex_value_t, Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    return Sawyer::Boost::VertexNodePropertyMap<Sawyer::Container::Graph<V, E, Alloc> >(graph);
+    return Sawyer::Boost::VertexPropertyMap<Sawyer::Container::Graph<V, E, Alloc> >(graph);
 }
 
 template<class V, class E, class Alloc>
 typename property_map<const Sawyer::Container::Graph<V, E, Alloc>, Sawyer::Boost::vertex_value_t>::type
 get(Sawyer::Boost::vertex_value_t, const Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    return Sawyer::Boost::ConstVertexNodePropertyMap<const Sawyer::Container::Graph<V, E, Alloc> >(graph);
+    return Sawyer::Boost::ConstVertexPropertyMap<const Sawyer::Container::Graph<V, E, Alloc> >(graph);
 }
 
 template<class V, class E, class Alloc>

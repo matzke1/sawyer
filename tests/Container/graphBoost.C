@@ -252,7 +252,7 @@ void example_sawyer_graph() {
     // Print the vertex information.  If we were only interested in the user data (and not the ID) then we could have iterated
     // over graph.vertexValues(), which returns references to our data of type VertexData defined above.
     std::cout <<"vertices:\n";
-    BOOST_FOREACH (const Graph::VertexNode &vertexNode, graph.vertices()) {
+    BOOST_FOREACH (const Graph::Vertex &vertexNode, graph.vertices()) {
         const VertexData &data = vertexNode.value();
         std::cout <<"  [" <<vertexNode.id() <<"]\t" <<data.x <<"\t" <<data.y <<"\t" <<data.name <<"\n";
     }
@@ -262,7 +262,7 @@ void example_sawyer_graph() {
     // object itself and are guaranteed to be sequential beginning at zero.  This time we use "node" iterators in order to have
     // access to vertex ID numbers.
     std::vector<VertexExternalData> table(graph.nVertices(), VertexExternalData());
-    BOOST_FOREACH (const Graph::VertexNode &vertex, graph.vertices()) {
+    BOOST_FOREACH (const Graph::Vertex &vertex, graph.vertices()) {
         table[vertex.id()].r = sin(vertex.value().x);
         table[vertex.id()].g = cos(vertex.value().y);
         table[vertex.id()].b = 0.5;

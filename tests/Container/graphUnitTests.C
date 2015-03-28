@@ -11,7 +11,7 @@ std::ostream& operator<<(std::ostream &o, const Sawyer::Container::Graph<V, E> &
     typedef const typename Sawyer::Container::Graph<V, E> Graph;
     typedef typename Graph::ConstVertexIterator VertexIterator;
     typedef typename Graph::ConstEdgeIterator EdgeIterator;
-    typedef typename Graph::VertexNode Vertex;
+    typedef typename Graph::Vertex Vertex;
     typedef typename Graph::Edge Edge;
 
     o <<"    vertices:\n";
@@ -111,7 +111,7 @@ void iterate_vertices() {
 
     std::cout <<"  using BOOST_FOREACH:";
     size_t idx = 0;
-    BOOST_FOREACH (const typename Graph::VertexNode &vertex, graph.vertices()) {
+    BOOST_FOREACH (const typename Graph::Vertex &vertex, graph.vertices()) {
         std::cout <<" " <<vertex.value();
         ASSERT_always_require(vertex.value()== vertexValues[idx]);
         ++idx;
@@ -410,7 +410,7 @@ void assignment() {
 
     // graph is deleted now.
     for (typename Graph::VertexIterator vi=g2.vertices().begin(); vi!=g2.vertices().end(); ++vi) {
-        typename Graph::VertexNode &vertex = *vi;
+        typename Graph::Vertex &vertex = *vi;
 #if 1 /*DEBUGGING [Robb Matzke 2014-06-02]*/
         typename Graph::EdgeIterator xxx=vertex.outEdges().begin();
         ++xxx;
