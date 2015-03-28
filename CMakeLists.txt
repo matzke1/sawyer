@@ -18,17 +18,19 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 # What is the system thread library?
-if(NOT "${THREAD_SAFE}" STREQUAL "" AND NOT "${THREAD_SAFE}")
+option(MULTI_THREADED, "Should library be multi-thread aware?" OFF)
+if(NOT "${MULTI_THREADED}")
   message(STATUS "Multi-thread support is disabled")
+  find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono)
 else()
   message(STATUS "Multi-thread support is enabled")
   find_package(Threads)
   if(CMAKE_COMPILER_IS_GNUCXX AND ${CMAKE_USE_PTHREADS_INIT})
     add_definitions(-pthread)
   endif()
+  find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono thread)
 endif()
 
-find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono thread)
 
 # Microsoft Visual Studio needs to be told where the boost libraries are located or else you'll get
 # errors like "fatal error LNK1104: cannot open file 'libboost_system-vc90-mt-gd-1_44.lib'" even though cmake was
