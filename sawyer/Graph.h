@@ -1384,6 +1384,18 @@ public:
         edges_.clear();
         vertices_.clear();
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Deprecated stuff
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+public:
+    // Deprecated [Robb Matzke 2015-03-28]: to be removed on or after 2015-09-28
+    typedef Edge EdgeNode SAWYER_DEPRECATED("use Edge instead");
+    typedef Vertex VertexNode SAWYER_DEPRECATED("use Vertex instead");
+    typedef EdgeIterator EdgeNodeIterator SAWYER_DEPRECATED("use EdgeIterator instead");
+    typedef ConstEdgeIterator ConstEdgeNodeIterator SAWYER_DEPRECATED("use ConstEdgeIterator instead");
+    typedef VertexIterator VertexNodeIterator SAWYER_DEPRECATED("use VertexIterator instead");
+    typedef ConstVertexIterator ConstVertexNodeIterator SAWYER_DEPRECATED("use ConstVertexIterator instead");
 };
 
 } // namespace
