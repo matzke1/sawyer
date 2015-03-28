@@ -385,6 +385,7 @@ SAWYER_EXPORT std::string generateSequentialName(size_t length=3);
 # define SAWYER_PRETTY_FUNCTION __FUNCSIG__
 # define SAWYER_MAY_ALIAS /*void*/
 # define SAWYER_STATIC_INIT /*void*/
+# define SAWYER_DEPRECATED(WHY) /*void*/
 
 // Microsoft compiler doesn't support stack arrays whose size is not known at compile time.  We fudge by using an STL vector,
 // which will be cleaned up propertly at end of scope or exceptions.
@@ -402,6 +403,7 @@ SAWYER_EXPORT std::string generateSequentialName(size_t length=3);
 # define SAWYER_PRETTY_FUNCTION __PRETTY_FUNCTION__
 # define SAWYER_MAY_ALIAS /*void*/
 # define SAWYER_STATIC_INIT /*void*/
+# define SAWYER_DEPRECATED(WHY) /*void*/
 
 // Apple compilers doesn't support stack arrays whose size is not known at compile time.  We fudge by using an STL vector,
 // which will be cleaned up propertly at end of scope or exceptions.
@@ -419,6 +421,7 @@ SAWYER_EXPORT std::string generateSequentialName(size_t length=3);
 # define SAWYER_ATTR_NORETURN __attribute__((noreturn))
 # define SAWYER_PRETTY_FUNCTION __PRETTY_FUNCTION__
 # define SAWYER_MAY_ALIAS __attribute__((may_alias))
+# define SAWYER_DEPRECATED(WHY) __attribute__((deprecated))
 
 // Sawyer globals need to be initialized after the C++ standard runtime, but before other user-level stuff. The constant 101
 // causes the initialization to happen as early as possible after the C++ runtime.
