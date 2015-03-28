@@ -12,7 +12,7 @@ std::ostream& operator<<(std::ostream &o, const Sawyer::Container::Graph<V, E> &
     typedef typename Graph::ConstVertexIterator VertexIterator;
     typedef typename Graph::ConstEdgeIterator EdgeIterator;
     typedef typename Graph::VertexNode Vertex;
-    typedef typename Graph::EdgeNode Edge;
+    typedef typename Graph::Edge Edge;
 
     o <<"    vertices:\n";
     for (size_t id=0; id<graph.nVertices(); ++id) {
@@ -417,15 +417,15 @@ void assignment() {
         typename Graph::EdgeIterator yyy=vertex.outEdges().end();
 #endif
         for (typename Graph::EdgeIterator ei=vertex.outEdges().begin(); ei!=vertex.outEdges().end(); ++ei) {
-            typename Graph::EdgeNode &edge = *ei;
+            typename Graph::Edge &edge = *ei;
             ASSERT_always_require(edge.source()->id() == vertex.id());
         }
         for (typename Graph::EdgeIterator ei=vertex.inEdges().begin(); ei!=vertex.inEdges().end(); ++ei) {
-            typename Graph::EdgeNode &edge = *ei;
+            typename Graph::Edge &edge = *ei;
             ASSERT_always_require(edge.target()->id() == vertex.id());
         }
     }
-    BOOST_FOREACH (typename Graph::EdgeNode &edge, g2.edges())
+    BOOST_FOREACH (typename Graph::Edge &edge, g2.edges())
         (void) edge.value();
 }
 

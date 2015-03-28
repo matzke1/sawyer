@@ -23,7 +23,7 @@ struct GraphTraits {
     typedef typename G::VertexIterator VertexIterator;
     typedef typename G::VertexValueIterator VertexValueIterator;
     typedef typename G::VertexNode VertexNode;
-    typedef typename G::EdgeNode EdgeNode;
+    typedef typename G::Edge Edge;
     typedef typename G::VertexValue VertexValue;
     typedef typename G::EdgeValue EdgeValue;
 };
@@ -35,7 +35,7 @@ struct GraphTraits<const G> {
     typedef typename G::ConstVertexIterator VertexIterator;
     typedef typename G::ConstVertexValueIterator VertexValueIterator;
     typedef const typename G::VertexNode VertexNode;
-    typedef const typename G::EdgeNode EdgeNode;
+    typedef const typename G::Edge Edge;
     typedef const typename G::VertexValue VertexValue;
     typedef const typename G::EdgeValue EdgeValue;
 };
@@ -165,7 +165,7 @@ struct GraphTraits<const G> {
  *  these sublists are all distinct from one another and distinct from the graph-wide edge list. (footnote: Actually, the "end"
  *  iterators for the in-coming and out-going lists of a single vertex are equal to each other, but don't depend on this.)
  *
- *  Each edge has two methods, @ref EdgeNode::source and @ref EdgeNode::target that return iterators to the source and target
+ *  Each edge has two methods, @ref Edge::source and @ref Edge::target that return iterators to the source and target
  *  vertices for that edge.
  *
  *  Here's an example similar to the previous edge ID iteration except it presents the graph in terms of vertices:
@@ -173,7 +173,7 @@ struct GraphTraits<const G> {
  * @code
  *  BOOST_FOREACH (const MyGraph::VertexNode &vertex, graph.vertices()) {
  *      std::cout <<"vertex " <<vertex.id() <<"\n";
- *      BOOST_FOREACH (const MyGraph::EdgeNode &edge, vertex.outEdges()) {
+ *      BOOST_FOREACH (const MyGraph::Edge &edge, vertex.outEdges()) {
  *          std::cout <<"  edge " <<edge.id() <<" to vertex " <<edge.target()->id() <<"\n";
  *      }
  *  }
@@ -251,11 +251,11 @@ public:
     typedef E EdgeValue;                                /**< User-level data associated with edges. */
     typedef Alloc Allocator;                            /**< Allocator for vertex and edge nodes. */
     class VertexNode;                                   /**< All information about a vertex. User info plus connectivity info. */
-    class EdgeNode;                                     /**< All information about an edge. User info plus connectivity info. */
+    class Edge;                                         /**< All information about an edge. User info plus connectivity info. */
 
 private:
     enum EdgePhase { IN_EDGES=0, OUT_EDGES=1, N_PHASES=2 };
-    typedef IndexedList<EdgeNode, Allocator> EdgeList;
+    typedef IndexedList<Edge, Allocator> EdgeList;
     typedef IndexedList<VertexNode, Allocator> VertexList;
 
     template<class T>
@@ -318,10 +318,10 @@ private:
         VirtualList& prev(EdgePhase phase) { return *prev_[phase]; }
         const VirtualList& prev(EdgePhase phase) const { return *prev_[phase]; }
 
-        T& dereference() {                              // Return the EdgeNode to which this VirtualList node belongs
+        T& dereference() {                              // Return the Edge to which this VirtualList node belongs
             ASSERT_this();
             ASSERT_forbid(isHead());                    // list head contains no user-data
-            return *(T*)this;                           // depends on VirtualList being at the beginning of EdgeNode
+            return *(T*)this;                           // depends on VirtualList being at the beginning of Edge
         }
 
         const T& dereference() const {
@@ -358,7 +358,7 @@ public:                                                 // public only for the s
     class EdgeBaseIterator: public std::iterator<std::bidirectional_iterator_tag, Value> {
         EdgePhase phase_;                               // IN_EDGES, OUT_EDGES or N_PHASES (graph edges)
         BaseIter iter_;                                 // EdgeList::NodeIterator or EdgeList::ConstNodeIterator
-        VList *vlist_;                                  // (const) VirtualList<EdgeNode> when phase_ is IN_EDGES or OUT_EDGES
+        VList *vlist_;                                  // (const) VirtualList<Edge> when phase_ is IN_EDGES or OUT_EDGES
     protected:
         friend class Graph;
         EdgeBaseIterator() {}
@@ -528,51 +528,51 @@ public:                                                 // public only for the s
 public:
     /** Bidirectional edge node iterator.
      *
-     *  Iterates over the edge nodes in a list, returning the node (type @ref EdgeNode) when dereferenced.  Edge iterators are
+     *  Iterates over the edge nodes in a list, returning the @ref Edge when dereferenced.  Edge iterators are
      *  stable across insert and erase operations.  The difference between @ref EdgeIterator and @ref ConstEdgeIterator
      *  is that the latter returns const references when dereferenced.  An EdgeIterator can be impliciatly converted to a
      *  @ref ConstEdgeIterator, @ref EdgeValueIterator, or @ref ConstEdgeValueIterator. */
-    class EdgeIterator: public EdgeBaseIterator<EdgeIterator, EdgeNode, EdgeNode, typename EdgeList::NodeIterator,
-                                                VirtualList<EdgeNode> > {
-        typedef                EdgeBaseIterator<EdgeIterator, EdgeNode, EdgeNode, typename EdgeList::NodeIterator,
-                                                VirtualList<EdgeNode> > Super;
+    class EdgeIterator: public EdgeBaseIterator<EdgeIterator, Edge, Edge, typename EdgeList::NodeIterator,
+                                                VirtualList<Edge> > {
+        typedef                EdgeBaseIterator<EdgeIterator, Edge, Edge, typename EdgeList::NodeIterator,
+                                                VirtualList<Edge> > Super;
     public:
-        typedef EdgeNode& Reference;
-        typedef EdgeNode* Pointer;
+        typedef Edge& Reference;
+        typedef Edge* Pointer;
         EdgeIterator() {}
         EdgeIterator(const EdgeIterator &other): Super(other) {}
-        EdgeNode& operator*() const { return this->dereference(); }
-        EdgeNode* operator->() const { return &this->dereference(); }
+        Edge& operator*() const { return this->dereference(); }
+        Edge* operator->() const { return &this->dereference(); }
     private:
         friend class Graph;
         EdgeIterator(const typename EdgeList::NodeIterator &base): Super(base) {}
-        EdgeIterator(EdgePhase phase, VirtualList<EdgeNode> *vlist): Super(phase, vlist) {}
+        EdgeIterator(EdgePhase phase, VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
 
     /** Bidirectional edge node iterator.
      *
-     *  Iterates over the edge nodes in a list, returning the node (type @ref EdgeNode) when dereferenced.  Edge iterators are
+     *  Iterates over the edge nodes in a list, returning the @ref Edge when dereferenced.  Edge iterators are
      *  stable across insert and erase operations.  The difference between @ref EdgeIterator and @ref ConstEdgeIterator
      *  is that the latter returns const references when dereferenced.  A ConstEdgeIterator can be implicitly converted to
      *  a @ref ConstEdgeValueIterator. */
-    class ConstEdgeIterator: public EdgeBaseIterator<ConstEdgeIterator, const EdgeNode, const EdgeNode,
+    class ConstEdgeIterator: public EdgeBaseIterator<ConstEdgeIterator, const Edge, const Edge,
                                                      typename EdgeList::ConstNodeIterator,
-                                                     const VirtualList<EdgeNode> > {
-        typedef                     EdgeBaseIterator<ConstEdgeIterator, const EdgeNode, const EdgeNode,
+                                                     const VirtualList<Edge> > {
+        typedef                     EdgeBaseIterator<ConstEdgeIterator, const Edge, const Edge,
                                                      typename EdgeList::ConstNodeIterator,
-                                                     const VirtualList<EdgeNode> > Super;
+                                                     const VirtualList<Edge> > Super;
     public:
-        typedef const EdgeNode& Reference;
-        typedef const EdgeNode* Pointer;
+        typedef const Edge& Reference;
+        typedef const Edge* Pointer;
         ConstEdgeIterator() {}
         ConstEdgeIterator(const ConstEdgeIterator &other): Super(other) {}
         ConstEdgeIterator(const EdgeIterator &other): Super(other.phase_, other.iter_, other.vlist_) {}
-        const EdgeNode& operator*() const { return this->dereference(); }
-        const EdgeNode* operator->() const { return &this->dereference(); }
+        const Edge& operator*() const { return this->dereference(); }
+        const Edge* operator->() const { return &this->dereference(); }
     private:
         friend class Graph;
         ConstEdgeIterator(const typename EdgeList::ConstNodeIterator &base): Super(base) {}
-        ConstEdgeIterator(EdgePhase phase, const VirtualList<EdgeNode> *vlist): Super(phase, vlist) {}
+        ConstEdgeIterator(EdgePhase phase, const VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
     /** @} */
 
@@ -582,10 +582,10 @@ public:
      *  Edge iterators are stable across insert and erase operations.  The difference between @ref EdgeValueIterator and @ref
      *  ConstEdgeValueIterator is that the latter returns const references when dereferenced.  An EdgeValueIterator can be
      *  impliciatly converted to a @ref ConstEdgeValueIterator. */
-    class EdgeValueIterator: public EdgeBaseIterator<EdgeValueIterator, EdgeValue, EdgeNode, typename EdgeList::NodeIterator,
-                                                     VirtualList<EdgeNode> > {
-        typedef                     EdgeBaseIterator<EdgeValueIterator, EdgeValue, EdgeNode, typename EdgeList::NodeIterator,
-                                                     VirtualList<EdgeNode> > Super;
+    class EdgeValueIterator: public EdgeBaseIterator<EdgeValueIterator, EdgeValue, Edge, typename EdgeList::NodeIterator,
+                                                     VirtualList<Edge> > {
+        typedef                     EdgeBaseIterator<EdgeValueIterator, EdgeValue, Edge, typename EdgeList::NodeIterator,
+                                                     VirtualList<Edge> > Super;
     public:
         typedef EdgeValue& Reference;
         typedef EdgeValue* Pointer;
@@ -597,7 +597,7 @@ public:
     private:
         friend class Graph;
         EdgeValueIterator(const typename EdgeList::NodeIterator &base): Super(base) {}
-        EdgeValueIterator(EdgePhase phase, VirtualList<EdgeNode> *vlist): Super(phase, vlist) {}
+        EdgeValueIterator(EdgePhase phase, VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
 
     /** Bidirectional edge value iterator.
@@ -605,12 +605,12 @@ public:
      *  Iterates over the edge values in a list, returning the user-defined value (type @ref EdgeValue) when dereferenced.
      *  Edge iterators are stable across insert and erase operations.  The difference between @ref EdgeValueIterator and @ref
      *  ConstEdgeValueIterator is that the latter returns const references when dereferenced. */
-    class ConstEdgeValueIterator: public EdgeBaseIterator<ConstEdgeValueIterator, const EdgeValue, const EdgeNode,
+    class ConstEdgeValueIterator: public EdgeBaseIterator<ConstEdgeValueIterator, const EdgeValue, const Edge,
                                                           typename EdgeList::ConstNodeIterator,
-                                                          const VirtualList<EdgeNode> > {
-        typedef                          EdgeBaseIterator<ConstEdgeValueIterator, const EdgeValue, const EdgeNode,
+                                                          const VirtualList<Edge> > {
+        typedef                          EdgeBaseIterator<ConstEdgeValueIterator, const EdgeValue, const Edge,
                                                           typename EdgeList::ConstNodeIterator,
-                                                          const VirtualList<EdgeNode> > Super;
+                                                          const VirtualList<Edge> > Super;
     public:
         typedef const EdgeValue& Reference;
         typedef const EdgeValue* Pointer;
@@ -624,7 +624,7 @@ public:
     private:
         friend class Graph;
         ConstEdgeValueIterator(const typename EdgeList::ConstNodeIterator &base): Super(base) {}
-        ConstEdgeValueIterator(EdgePhase phase, const VirtualList<EdgeNode> *vlist): Super(phase, vlist) {}
+        ConstEdgeValueIterator(EdgePhase phase, const VirtualList<Edge> *vlist): Super(phase, vlist) {}
     };
 
     /** Bidirectional vertex node iterator.
@@ -728,14 +728,14 @@ public:
      *
      *  These list nodes contain all information about an edge and are the objects returned (by reference) when an edge node
      *  iterator (@ref EdgeIterator or @ref ConstEdgeIterator) is dereferenced. */
-    class EdgeNode {
-        VirtualList<EdgeNode> edgeLists_;               // links for in- and out-edge sublists; MUST BE FIRST
+    class Edge {
+        VirtualList<Edge> edgeLists_;                   // links for in- and out-edge sublists; MUST BE FIRST
         EdgeValue value_;                               // user-defined data for each edge
         typename EdgeList::NodeIterator self_;          // always points to itself so we can get to IndexedList::Node
         VertexIterator source_, target_;                // starting and ending points of the edge are always required
     private:
         friend class Graph;
-        EdgeNode(const EdgeValue &value, const VertexIterator &source, const VertexIterator &target)
+        Edge(const EdgeValue &value, const VertexIterator &source, const VertexIterator &target)
             : value_(value), source_(source), target_(target) {}
     public:
         /** Unique edge ID number.
@@ -803,7 +803,7 @@ public:
     class VertexNode {
         VertexValue value_;                             // user data for this vertex
         typename VertexList::NodeIterator self_;        // always points to itself so we can get to IndexedList::Node
-        VirtualList<EdgeNode> edgeLists_;               // this is the head node; points to the real edges
+        VirtualList<Edge> edgeLists_;                   // this is the head node; points to the real edges
         size_t nInEdges_;                               // number of incoming edges
         size_t nOutEdges_;                              // number of outgoing edges
     private:
@@ -1190,7 +1190,7 @@ public:
         ASSERT_forbid(sourceVertex==vertices().end());
         ASSERT_forbid(targetVertex==vertices().end());
         typename EdgeList::NodeIterator inserted = edges_.insert(edges_.nodes().end(),
-                                                                 EdgeNode(value, sourceVertex, targetVertex));
+                                                                 Edge(value, sourceVertex, targetVertex));
         inserted->value().self_ = inserted;
         inserted->value().edgeLists_.reset(&inserted->value());
         EdgeIterator newEdge(inserted);

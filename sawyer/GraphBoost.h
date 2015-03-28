@@ -184,11 +184,11 @@ public:
 
 // User-defined value attached to an edge. Graph is any non-const Sawyer::Container::Graph<>
 template<class Graph>
-class EdgeNodePropertyMap {
+class EdgePropertyMap {
     Graph &graph_;
 public:
     typedef typename Graph::EdgeValue ValueType;
-    EdgeNodePropertyMap(Graph &graph): graph_(graph) {}
+    EdgePropertyMap(Graph &graph): graph_(graph) {}
     ValueType get(size_t edgeId) const {
         return graph_.findEdge(edgeId)->value();
     }
@@ -205,11 +205,11 @@ public:
 
 // Const user-defined value attached to a vertex. Graph is any const Sawyer::Container::Graph<>
 template<class Graph>
-class ConstEdgeNodePropertyMap {
+class ConstEdgePropertyMap {
     const Graph &graph_;
 public:
     typedef typename Graph::EdgeValue ValueType;
-    ConstEdgeNodePropertyMap(const Graph &graph): graph_(graph) {}
+    ConstEdgePropertyMap(const Graph &graph): graph_(graph) {}
     ValueType get(size_t edgeId) const {
         return graph_.findEdge(edgeId)->value();
     }
@@ -305,7 +305,7 @@ struct property_traits<Sawyer::Boost::ConstVertexNodePropertyMap<Graph> > {
 };
 
 template<class Graph>
-struct property_traits<Sawyer::Boost::EdgeNodePropertyMap<Graph> > {
+struct property_traits<Sawyer::Boost::EdgePropertyMap<Graph> > {
     typedef typename Graph::EdgeValue value_type;
     typedef typename Graph::EdgeValue &reference;
     typedef size_t key_type;                            // edge ID number
@@ -313,7 +313,7 @@ struct property_traits<Sawyer::Boost::EdgeNodePropertyMap<Graph> > {
 };
 
 template<class Graph>
-struct property_traits<Sawyer::Boost::ConstEdgeNodePropertyMap<Graph> > {
+struct property_traits<Sawyer::Boost::ConstEdgePropertyMap<Graph> > {
     typedef typename Graph::EdgeValue value_type;
     typedef typename Graph::EdgeValue const &reference;
     typedef size_t key_type;                            // edge ID number
@@ -347,8 +347,8 @@ struct property_map<Graph, Sawyer::Boost::vertex_value_t> {
 
 template<class Graph>
 struct property_map<Graph, Sawyer::Boost::edge_value_t> {
-    typedef Sawyer::Boost::EdgeNodePropertyMap<Graph> type;
-    typedef Sawyer::Boost::ConstEdgeNodePropertyMap<const Graph> const_type;
+    typedef Sawyer::Boost::EdgePropertyMap<Graph> type;
+    typedef Sawyer::Boost::ConstEdgePropertyMap<const Graph> const_type;
 };
 
 template<class Graph>
@@ -391,19 +391,19 @@ put(Sawyer::Boost::VertexNodePropertyMap<Graph> &pmap, size_t key, const typenam
 
 template<class Graph>
 typename Graph::EdgeValue&
-get(Sawyer::Boost::EdgeNodePropertyMap<Graph> &pmap, size_t key) {
+get(Sawyer::Boost::EdgePropertyMap<Graph> &pmap, size_t key) {
     return pmap.at(key);
 }
 
 template<class Graph>
 typename Graph::EdgeValue&
-get(const Sawyer::Boost::ConstEdgeNodePropertyMap<Graph> &pmap, size_t key) {
+get(const Sawyer::Boost::ConstEdgePropertyMap<Graph> &pmap, size_t key) {
     return pmap.at(key);
 }
 
 template<class Graph>
 void
-put(Sawyer::Boost::EdgeNodePropertyMap<Graph> &pmap, size_t key,
+put(Sawyer::Boost::EdgePropertyMap<Graph> &pmap, size_t key,
     const typename Graph::EdgeValue &value) {
     pmap.at(key) = value;
 }
@@ -703,13 +703,13 @@ get(Sawyer::Boost::vertex_value_t, const Sawyer::Container::Graph<V, E, Alloc> &
 template<class V, class E, class Alloc>
 typename property_map<Sawyer::Container::Graph<V, E, Alloc>, Sawyer::Boost::edge_value_t>::type
 get(Sawyer::Boost::edge_value_t, Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    return Sawyer::Boost::EdgeNodePropertyMap<Sawyer::Container::Graph<V, E, Alloc> >(graph);
+    return Sawyer::Boost::EdgePropertyMap<Sawyer::Container::Graph<V, E, Alloc> >(graph);
 }
 
 template<class V, class E, class Alloc>
 typename property_map<const Sawyer::Container::Graph<V, E, Alloc>, Sawyer::Boost::edge_value_t>::type
 get(Sawyer::Boost::edge_value_t, const Sawyer::Container::Graph<V, E, Alloc> &graph) {
-    return Sawyer::Boost::ConstEdgeNodePropertyMap<const Sawyer::Container::Graph<V, E, Alloc> >(graph);
+    return Sawyer::Boost::ConstEdgePropertyMap<const Sawyer::Container::Graph<V, E, Alloc> >(graph);
 }
 
 template<class V, class E, class Alloc>
