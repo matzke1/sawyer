@@ -1005,6 +1005,11 @@ public:
      *  thread that created it, such as program name, thread ID, time of creation, etc. */
     static PrefixPtr instance() { return PrefixPtr(new Prefix); }
 
+    /** Construct a prefix that is silent.
+     *
+     *  Constructs a prefix whose output properties are all false, thus producing no output. */
+    static PrefixPtr silentInstance();
+
     /** Property: colors to use for the prefix if coloring is enabled.
      *
      *  Colors can be specified even for sinks that don't support them--they just won't be used.
