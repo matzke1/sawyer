@@ -221,11 +221,11 @@ void test9(const DestinationPtr &sink)
 // A stupid little sink that surrounds each message with "--->" and "<---"
 class MySink: public StreamSink {
 protected:
-    explicit MySink(std::ostream &o): StreamSink(o) {}
+    MySink(std::ostream &o, const PrefixPtr &prefix): StreamSink(o, prefix) {}
 public:
     typedef Sawyer::SharedPointer<MySink> Ptr;
-    static Ptr instance(std::ostream &o) {
-        return Ptr(new MySink(o));
+    static Ptr instance(std::ostream &o, const PrefixPtr &prefix=PrefixPtr()) {
+        return Ptr(new MySink(o, prefix));
     }
     virtual std::string maybePrefix(const Mesg &mesg, const MesgProps &props) /*override*/ {
         std::string retval = UnformattedSink::maybePrefix(mesg, props);

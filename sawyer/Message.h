@@ -1149,9 +1149,9 @@ protected:
 
 protected:
     /** Constructor for derived classes. Non-subclass users should use <code>instance</code> factory methods instead. */
-    UnformattedSink(): partialMessagesAllowed_(true) {
+    explicit UnformattedSink(const PrefixPtr &prefix): partialMessagesAllowed_(true) {
         gang_ = Gang::instance();
-        prefix_ = Prefix::instance();
+        prefix_ = prefix ? prefix : Prefix::instance();
         init();
     }
 public:
@@ -1273,11 +1273,11 @@ class SAWYER_EXPORT FdSink: public UnformattedSink {
     int fd_;                                            // file descriptor or -1
 protected:
     /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
-    explicit FdSink(int fd): fd_(fd) { init(); }
+    FdSink(int fd, const PrefixPtr &prefix): UnformattedSink(prefix), fd_(fd) { init(); }
 public:
     /** Allocating constructor.  Constructs a new message sink that sends messages to the specified Unix file descriptor. */
-    static FdSinkPtr instance(int fd) {
-        return FdSinkPtr(new FdSink(fd));
+    static FdSinkPtr instance(int fd, const PrefixPtr &prefix=PrefixPtr()) {
+        return FdSinkPtr(new FdSink(fd, prefix));
     }
 
     virtual void post(const Mesg&, const MesgProps&) /*override*/;
@@ -1290,11 +1290,11 @@ class SAWYER_EXPORT FileSink: public UnformattedSink {
     FILE *file_;
 protected:
     /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
-    explicit FileSink(FILE *f): file_(f) { init(); }
+    FileSink(FILE *f, const PrefixPtr &prefix): UnformattedSink(prefix), file_(f) { init(); }
 public:
     /** Allocating constructor.  Constructs a new message sink that sends messages to the specified C @c FILE pointer. */
-    static FileSinkPtr instance(FILE *f) {
-        return FileSinkPtr(new FileSink(f));
+    static FileSinkPtr instance(FILE *f, const PrefixPtr &prefix=PrefixPtr()) {
+        return FileSinkPtr(new FileSink(f, prefix));
     }
 
     virtual void post(const Mesg&, const MesgProps&) /*override*/;
@@ -1307,11 +1307,11 @@ class SAWYER_EXPORT StreamSink: public UnformattedSink {
     std::ostream &stream_;
 protected:
     /** Constructor for derived classes. Non-subclass users should use @ref instance instead. */
-    explicit StreamSink(std::ostream &stream): stream_(stream) {}
+    StreamSink(std::ostream &stream, const PrefixPtr &prefix): UnformattedSink(prefix), stream_(stream) {}
 public:
     /** Allocating constructor.  Constructs a new message sink that sends messages to the specified C++ output stream. */
-    static StreamSinkPtr instance(std::ostream &stream) {
-        return StreamSinkPtr(new StreamSink(stream));
+    static StreamSinkPtr instance(std::ostream &stream, const PrefixPtr &prefix=PrefixPtr()) {
+        return StreamSinkPtr(new StreamSink(stream, prefix));
     }
 
     virtual void post(const Mesg&, const MesgProps&) /*override*/;
