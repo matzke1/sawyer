@@ -640,6 +640,7 @@ Prefix::silentInstance() {
     prefix->showThreadId(false);
     prefix->showFacilityName(NEVER);
     prefix->showImportance(false);
+    prefix->showElapsedTime(false);
     return prefix;
 }
 
