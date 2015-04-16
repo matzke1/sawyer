@@ -7,6 +7,8 @@
 namespace Sawyer {
 namespace Assert {
 
+AssertFailureHandler assertFailureHandler;
+
 SAWYER_EXPORT void
 fail(const char *mesg, const char *expr, const std::string &note, const char *filename, unsigned linenum, const char *funcname)
 {
@@ -22,6 +24,9 @@ fail(const char *mesg, const char *expr, const std::string &note, const char *fi
         *Message::assertionStream <<"  " <<expr <<"\n";
     if (!note.empty())
         *Message::assertionStream <<"  " <<note <<"\n";
+
+    if (assertFailureHandler)
+        assertFailureHandler(mesg, expr, note, filename, linenum, funcname);
     abort();
 }
 
