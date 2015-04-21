@@ -5,6 +5,8 @@
 
 #if SAWYER_MULTI_THREADED
 #   include <boost/thread.hpp>
+#   include <boost/thread/barrier.hpp>
+#   include <boost/thread/condition_variable.hpp>
 #   include <boost/thread/mutex.hpp>
 #   include <boost/thread/locks.hpp>
 #   include <boost/thread/once.hpp>
@@ -39,6 +41,18 @@ public:
     NullLockGuard(NullMutex) {}
 };
 
+// Used internally as a barrier in a single-threaded environment.
+class NullBarrier {
+public:
+    explicit NullBarrier(unsigned count) {
+        if (count > 1)
+            throw std::runtime_error("barrier would deadlock");
+    }
+    bool wait() {
+        return true;
+    }
+};
+
 /** Locks multiple mutexes. */
 template<typename Mutex>
 class LockGuard2 {
@@ -68,12 +82,16 @@ struct SynchronizationTraits<MultiThreadedTag> {
     typedef boost::recursive_mutex RecursiveMutex;
     typedef boost::lock_guard<boost::mutex> LockGuard;
     typedef boost::lock_guard<boost::recursive_mutex> RecursiveLockGuard;
+    typedef boost::condition_variable_any ConditionVariable;
+    typedef boost::barrier Barrier;
 #else
     enum { SUPPORTED = 0 };
     typedef NullMutex Mutex;
     typedef NullMutex RecursiveMutex;
     typedef NullLockGuard LockGuard;
     typedef NullLockGuard RecursiveLockGuard;
+    //typedef ... ConditionVariable; -- does not make sense to use this in a single-threaded program
+    typedef NullBarrier Barrier;
 #endif
 };
 
@@ -85,6 +103,8 @@ struct SynchronizationTraits<SingleThreadedTag> {
     typedef NullMutex RecursiveMutex;
     typedef NullLockGuard LockGuard;
     typedef NullLockGuard RecursiveLockGuard;
+    //typedef ... ConditionVariable; -- does not make sense to use this in a single-threaded program
+    typedef NullBarrier Barrier;
 };
 
 // Used internally.
