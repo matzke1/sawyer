@@ -1302,6 +1302,14 @@ typename EnumParser<T>::Ptr enumParser(T &storage) {
     return EnumParser<T>::instance(TypedSaver<T>::instance(storage));
 }
 template<typename T>
+typename EnumParser<T>::Ptr enumParser(std::vector<T> &storage) {
+    return EnumParser<T>::instance(TypedSaver<std::vector<T> >::instance(storage));
+}
+template<typename T>
+typename EnumParser<T>::Ptr enumParser(Optional<T> &storage) {
+    return EnumParser<T>::instance(TypedSaver<Optional<T> >::instance(storage));
+}
+template<typename T>
 typename EnumParser<T>::Ptr enumParser() {
     return EnumParser<T>::instance();
 }

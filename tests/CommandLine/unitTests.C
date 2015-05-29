@@ -901,6 +901,32 @@ static void test22() {
     ASSERT_require(v2==UserDef1(2, "two"));
 }
 
+enum Test23Enum { T23_RED, T23_BLUE, T23_GREEN };
+
+static void test23() {
+    std::cerr <<"test23: list of enums\n";
+    Parser p;
+    std::vector<Test23Enum> v1;
+    p.with(Switch("v1")
+           .argument("v", listParser(enumParser<Test23Enum>(v1)
+                                     ->with("red", T23_RED)
+                                     ->with("green", T23_GREEN)
+                                     ->with("blue", T23_BLUE)))
+           .whichValue(SAVE_ALL)
+           .explosiveLists(true));
+
+    v1.clear();
+    mustParse(1, p, "--v1=red");
+    ASSERT_always_require(v1.size()==1);
+    ASSERT_always_require(v1[0]==T23_RED);
+
+    v1.clear();
+    mustParse(1, p, "--v1=red,blue");
+    ASSERT_always_require(v1.size()==2);
+    ASSERT_always_require(v1[0]==T23_RED);
+    ASSERT_always_require(v1[1]==T23_BLUE);
+}
+
 int main(int argc, char *argv[]) {
     test01();
     test02();
@@ -925,6 +951,7 @@ int main(int argc, char *argv[]) {
     test20();
     test21();
     test22();
+    test23();
     std::cout <<"All tests passed\n";
     return 0;
 }
