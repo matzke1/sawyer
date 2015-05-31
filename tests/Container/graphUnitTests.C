@@ -1,6 +1,6 @@
-#include <sawyer/Graph.h>
-#include <sawyer/GraphTraversal.h>
-#include <sawyer/Assert.h>
+#include <Sawyer/Graph.h>
+#include <Sawyer/GraphTraversal.h>
+#include <Sawyer/Assert.h>
 #include <boost/foreach.hpp>
 #include <iostream>
 #include <string>

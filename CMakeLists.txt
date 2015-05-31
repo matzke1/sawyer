@@ -48,17 +48,17 @@ endif()
 
 # libsawyer
 set(lib_src
-  sawyer/Assert.C
-  sawyer/CommandLine.C
-  sawyer/GraphTraversal.C
-  sawyer/Markup.C
-  sawyer/MarkupPod.C
-  sawyer/Message.C
-  sawyer/ProgressBar.C
-  sawyer/Sawyer.C
-  sawyer/SmallObject.C
-  sawyer/Stopwatch.C
-  sawyer/Synchronization.C)
+  Sawyer/Assert.C
+  Sawyer/CommandLine.C
+  Sawyer/GraphTraversal.C
+  Sawyer/Markup.C
+  Sawyer/MarkupPod.C
+  Sawyer/Message.C
+  Sawyer/ProgressBar.C
+  Sawyer/Sawyer.C
+  Sawyer/SmallObject.C
+  Sawyer/Stopwatch.C
+  Sawyer/Synchronization.C)
 add_library(libsawyer SHARED ${lib_src})
 target_link_libraries(libsawyer ${Boost_LIBRARIES} ${Windows_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 set_target_properties(libsawyer PROPERTIES DEFINE_SYMBOL "SAWYER_DO_EXPORTS")
@@ -95,5 +95,5 @@ install(TARGETS libsawyer
   ARCHIVE DESTINATION lib)
 
 # Install all header files
-file(GLOB header_files "${CMAKE_CURRENT_SOURCE_DIR}/sawyer/*.h")
-install(FILES ${header_files} DESTINATION include/sawyer)
+file(GLOB header_files "${CMAKE_CURRENT_SOURCE_DIR}/Sawyer/*.h")
+install(FILES ${header_files} DESTINATION include/Sawyer)

@@ -1,4 +1,4 @@
-#include <sawyer/Message.h>
+#include <Sawyer/Message.h>
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/erase.hpp>

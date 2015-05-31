@@ -1,5 +1,5 @@
-#include <sawyer/Message.h>
-#include <sawyer/Optional.h>
+#include <Sawyer/Message.h>
+#include <Sawyer/Optional.h>
 
 #include <boost/config.hpp>
 #include <cstdio>

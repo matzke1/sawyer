@@ -1,4 +1,4 @@
-#include <sawyer/Sawyer.h>
+#include <Sawyer/Sawyer.h>
 #include <iostream>
 
 int

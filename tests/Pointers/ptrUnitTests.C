@@ -1,7 +1,7 @@
-#include <sawyer/SharedPointer.h>
+#include <Sawyer/SharedPointer.h>
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <sawyer/Assert.h>
+#include <Sawyer/Assert.h>
 #include <sstream>
 
 using namespace Sawyer;

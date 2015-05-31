@@ -1,4 +1,4 @@
-#include <sawyer/ProgressBar.h>
+#include <Sawyer/ProgressBar.h>
 #include <boost/config.hpp>
 #include <cstdio>
 

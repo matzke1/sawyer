@@ -1,6 +1,6 @@
-#include <sawyer/CommandLine.h>
+#include <Sawyer/CommandLine.h>
 
-#include <sawyer/Optional.h>
+#include <Sawyer/Optional.h>
 #include <boost/algorithm/string/predicate.hpp>
 #include <iostream>
 

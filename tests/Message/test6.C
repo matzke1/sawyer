@@ -1,6 +1,6 @@
 // The most basic test possible
 
-#include <sawyer/Message.h>
+#include <Sawyer/Message.h>
 using namespace Sawyer::Message;
 
 int main(int argc, char *argv[]) {

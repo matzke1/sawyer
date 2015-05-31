@@ -1,7 +1,7 @@
-#include <sawyer/IndexedList.h>
+#include <Sawyer/IndexedList.h>
 
-#include <sawyer/Assert.h>
-#include <sawyer/PoolAllocator.h>
+#include <Sawyer/Assert.h>
+#include <Sawyer/PoolAllocator.h>
 #include <boost/foreach.hpp>
 #include <iostream>
 #include <string>

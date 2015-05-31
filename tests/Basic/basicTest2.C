@@ -3,7 +3,7 @@
 #define SAWYER_VERSION_MINOR 0
 #define SAWYER_VERSION_PATCH 0
 
-#include <sawyer/Sawyer.h>
+#include <Sawyer/Sawyer.h>
 #include <iostream>
 
 int

@@ -1,8 +1,8 @@
-#include <sawyer/Markup.h>
-#include <sawyer/MarkupPod.h>
+#include <Sawyer/Markup.h>
+#include <Sawyer/MarkupPod.h>
 
 #include <iostream>
-#include <sawyer/Assert.h>
+#include <Sawyer/Assert.h>
 #include <sstream>
 
 using namespace Sawyer;

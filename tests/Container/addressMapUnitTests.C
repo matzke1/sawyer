@@ -1,7 +1,7 @@
-#include <sawyer/AddressMap.h>
+#include <Sawyer/AddressMap.h>
 
-#include <sawyer/AllocatingBuffer.h>
-#include <sawyer/MappedBuffer.h>
+#include <Sawyer/AllocatingBuffer.h>
+#include <Sawyer/MappedBuffer.h>
 
 #include <boost/cstdint.hpp>
 #include <boost/lexical_cast.hpp>

@@ -1,8 +1,8 @@
-#include <sawyer/Map.h>
+#include <Sawyer/Map.h>
 
 #include <boost/foreach.hpp>
 #include <iostream>
-#include <sawyer/Assert.h>
+#include <Sawyer/Assert.h>
 #include <string>
 
 template<class Key, class Value>

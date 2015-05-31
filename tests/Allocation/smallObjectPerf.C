@@ -1,8 +1,8 @@
-#include <sawyer/SmallObject.h>
+#include <Sawyer/SmallObject.h>
 
 #include <iostream>
-#include <sawyer/Assert.h>
-#include <sawyer/Stopwatch.h>
+#include <Sawyer/Assert.h>
+#include <Sawyer/Stopwatch.h>
 
 struct Object1 {
     int a, b, c;

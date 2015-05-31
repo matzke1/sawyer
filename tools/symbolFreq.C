@@ -2,9 +2,9 @@
 #include <boost/lexical_cast.hpp>
 #include <fstream>
 #include <iostream>
-#include <sawyer/CommandLine.h>
-#include <sawyer/SlidingWindow.h>
-#include <sawyer/Histogram.h>
+#include <Sawyer/CommandLine.h>
+#include <Sawyer/SlidingWindow.h>
+#include <Sawyer/Histogram.h>
 
 using namespace Sawyer;
 

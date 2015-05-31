@@ -1,5 +1,5 @@
-#include <sawyer/BitVector.h>
-#include <sawyer/Assert.h>
+#include <Sawyer/BitVector.h>
+#include <Sawyer/Assert.h>
 
 #include <iostream>
 

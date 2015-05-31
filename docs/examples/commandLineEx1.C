@@ -1,4 +1,4 @@
-#include <sawyer/CommandLine.h>
+#include <Sawyer/CommandLine.h>
 #include <iostream>
 
 struct Disassembler {};
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
 
     // Obtain a disassembler (do this before opening the specimen so "--isa=list" has a chance to run)
     Disassembler *disassembler = getDisassembler(settings.isaName);
-    ASSERT_not_null(disassembler);
+    ASSERT_always_not_null(disassembler);
 
     // Open the file that needs to be disassembled
     if (positionalArgs.empty())

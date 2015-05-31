@@ -1,6 +1,6 @@
-#include <sawyer/PoolAllocator.h>
-#include <sawyer/SmallObject.h>
-#include <sawyer/Stopwatch.h>
+#include <Sawyer/PoolAllocator.h>
+#include <Sawyer/SmallObject.h>
+#include <Sawyer/Stopwatch.h>
 
 #include <boost/thread.hpp>
 #include <iostream>

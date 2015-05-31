@@ -1,6 +1,6 @@
 // Test that we can use a default constructed facility
 #include <boost/lexical_cast.hpp>
-#include <sawyer/Message.h>
+#include <Sawyer/Message.h>
 #include <iostream>
 
 using namespace Sawyer::Message::Common;

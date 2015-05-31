@@ -1,8 +1,8 @@
 // Demonstrates various logic assertions.  Full documentation can be found by looking at the
 // doxygen documentation for the Sawyer::Assert namespace.
 
-#include <sawyer/Assert.h>
-#include <sawyer/Message.h>
+#include <Sawyer/Assert.h>
+#include <Sawyer/Message.h>
 
 #include <cstdlib>
 #include <cstring>

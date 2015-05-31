@@ -3,7 +3,7 @@
 //    2. The pure Sawyer approach
 //    3. The BGL interface on top of a Sawyer graph.
 
-#include <sawyer/GraphBoost.h>                          // BGL interface for Sawyer::Container::Graph
+#include <Sawyer/GraphBoost.h>                          // BGL interface for Sawyer::Container::Graph
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
@@ -326,7 +326,7 @@ void hybrid_example() {
     Graph graph;
 
     // Obtain the property map for the vertex values.  This example demonstrates accessing an internal aggregate property whose
-    // tag is Sawyer::Boost::vertex_value_t, a new tag introduced by <sawyer/GraphBoost.h> for accessing the user-defined value
+    // tag is Sawyer::Boost::vertex_value_t, a new tag introduced by <Sawyer/GraphBoost.h> for accessing the user-defined value
     // associated internally with each vertex.  The Sawyer::Boost::edge_value_t is the tag for accessing the user-defined value
     // associated with each edge.
     typedef boost::property_map<Graph, Sawyer::Boost::vertex_value_t>::type VertexValueMap;

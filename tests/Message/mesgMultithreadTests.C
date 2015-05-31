@@ -1,5 +1,5 @@
 #include <iostream>
-#include <sawyer/Message.h>
+#include <Sawyer/Message.h>
 
 #include <boost/thread.hpp>
 

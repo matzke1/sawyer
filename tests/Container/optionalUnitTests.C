@@ -1,7 +1,7 @@
-#include <sawyer/Optional.h>
+#include <Sawyer/Optional.h>
 
 #include <iostream>
-#include <sawyer/Assert.h>
+#include <Sawyer/Assert.h>
 
 using namespace Sawyer;
 

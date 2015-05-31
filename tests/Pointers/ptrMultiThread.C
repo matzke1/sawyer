@@ -1,5 +1,5 @@
-#include <sawyer/SharedPointer.h>
-#include <sawyer/Stopwatch.h>
+#include <Sawyer/SharedPointer.h>
+#include <Sawyer/Stopwatch.h>
 
 #include <boost/thread.hpp>
 #include <iostream>

@@ -1,10 +1,10 @@
-#include <sawyer/PoolAllocator.h>
+#include <Sawyer/PoolAllocator.h>
 
 #include <iostream>
-#include <sawyer/Assert.h>
-#include <sawyer/Message.h>
-#include <sawyer/ProgressBar.h>
-#include <sawyer/Stopwatch.h>
+#include <Sawyer/Assert.h>
+#include <Sawyer/Message.h>
+#include <Sawyer/ProgressBar.h>
+#include <Sawyer/Stopwatch.h>
 #include <stdlib.h>
 
 struct Object {

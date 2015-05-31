@@ -1,6 +1,6 @@
-#include <sawyer/Interval.h>
-#include <sawyer/IntervalSet.h>
-#include <sawyer/Optional.h>
+#include <Sawyer/Interval.h>
+#include <Sawyer/IntervalSet.h>
+#include <Sawyer/Optional.h>
 #include <boost/foreach.hpp>
 #include <iostream>
 
