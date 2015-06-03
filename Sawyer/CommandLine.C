@@ -1320,6 +1320,7 @@ ParserResult::parsedArgs() const {
 
 SAWYER_EXPORT void
 Parser::init() {
+    initializeLibrary();
     properties_.longPrefixes.push_back("--");           // as in "--version"
     properties_.shortPrefixes.push_back("-");           // as in "-V"
     properties_.valueSeparators.push_back("=");         // as in "--switch=value"

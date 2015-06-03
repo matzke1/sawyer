@@ -1661,7 +1661,7 @@ public:
 
     /** Constructs an empty container of Facility objects. */
     Facilities() {
-        initializeLibrary();
+        //initializeLibrary(); -- delay until later for sake of static initialization of Message::mfacilities
         // Initialize impset_ for the sake of insertAndAdjust(), but do not consider it to be truly initialized until after
         // a MessageFacility is inserted.
         impset_.insert(WARN);

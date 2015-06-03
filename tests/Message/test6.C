@@ -4,6 +4,7 @@
 using namespace Sawyer::Message;
 
 int main(int argc, char *argv[]) {
+    Sawyer::initializeLibrary();
     mlog[DEBUG] <<"a low-level debugging message intended for developers\n";
     mlog[TRACE] <<"a fine-level trace message intended mostly for developers\n";
     mlog[WHERE] <<"a coarse-level trace message intended for developers and users\n";

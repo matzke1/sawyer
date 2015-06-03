@@ -6,6 +6,8 @@ using namespace Sawyer::Message;
 
 int main(int argc, char *argv[]) 
 {
+    Sawyer::initializeLibrary();
+
     // This is meant to be a SIMPLE example, so we use only the objects already defined by Sawyer.  This next line demonstrates
     // how to disable low-importance messages.  It's processed left-to-right: first disable everything, then enable things of
     // informational and greater importance.

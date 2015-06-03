@@ -2046,7 +2046,7 @@ Facilities::print(std::ostream &log) const {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 SAWYER_EXPORT DestinationPtr merr SAWYER_STATIC_INIT;
-SAWYER_EXPORT Facility mlog SAWYER_STATIC_INIT ("sawyer");
+SAWYER_EXPORT Facility mlog SAWYER_STATIC_INIT;
 SAWYER_EXPORT Facilities mfacilities SAWYER_STATIC_INIT;
 SAWYER_EXPORT SProxy assertionStream SAWYER_STATIC_INIT;
 
