@@ -9,6 +9,18 @@ namespace Sawyer {
 /** Classes to support geometry. */
 namespace Geometry {
 
+template<typename T>
+struct NumberTraits {
+    static T initialValue() { return 0; }
+    static bool isValid(T) { return true; }
+};
+
+template<>
+struct NumberTraits<double> {
+    static double initialValue() { return NAN; }
+    static bool isValid(double n) { return !isnan(n); }
+};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Points
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,7 +42,7 @@ public:
      *  Constructs a point whose coordinates are all zero. */
     EuclideanPoint() {
         for (size_t i=0; i<Dimensionality; ++i)
-            coords_[i] = NumericType(0);
+            coords_[i] = NumberTraits<NumericType>::initialValue();
     }
 
     /** Coordinate of a point.
@@ -61,6 +73,17 @@ public:
     }
     /** @} */
 
+    /** Tests whether point is valid.
+     *
+     *  Returns true if all coordinates are valid according to @ref NumberTraits::isValid. */
+    bool isValid() const {
+        for (size_t i=0; i<Dimensionality; ++i) {
+            if (!NumberTraits<NumericType>::isValid(coords_[i]))
+                return false;
+        }
+        return true;
+    }
+    
     /** Convert a point to a new numeric type.
      *
      *  This function is often used as an intermediary when one is trying to operate on an integral point.
@@ -315,7 +338,7 @@ public:
      *
      * @{ */
     NumericType angle(const EuclideanPoint &other) const {
-        return fabs(atan2(innerProduct(other), norm()*other.norm()));
+        return acos(innerProduct(other) / (norm()*other.norm()));
     }
     /** @} */
 };
