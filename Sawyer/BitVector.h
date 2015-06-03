@@ -1,6 +1,7 @@
 #ifndef Sawyer_BitVector_H
 #define Sawyer_BitVector_H
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/cstdint.hpp>
 #include <Sawyer/Assert.h>
 #include <Sawyer/BitVectorSupport.h>
@@ -64,6 +65,78 @@ public:
         resize(nbits, newBits);
     }
 
+    /** Create a bit vector by reading a string.
+     *
+     *  Reads a bit vector from the string and returns the result. The input string has an optional suffix ("h" for
+     *  hexadecimal) or optioanl prefix ("0x" for hexadecimal, "0b" or binary, or "0" for octal). It does not have both; if a
+     *  suffix is present then the parser does not search for a prefix.  Lack of both prefix and suffix implies decimal
+     *  format. Any recognized suffix or prefix is stripped from the value, and the number of valid digits is counted and used
+     *  to calculate the width of the resulting bit vector. For instance, if three octal digits are found (not counting the "0"
+     *  prefix) then the resulting bit vector will have nine bits -- three per digit.  The string is then passed to @ref
+     *  fromBinary, @ref fromOctal, @ref fromDecimal, or @ref fromHex for parsing.
+     *
+     *  @todo Decimal parsing is not fully supported. */
+    static BitVector parse(std::string str) {
+        // Radix information
+        size_t bitsPerDigit = 0;
+        const char *digits = NULL;
+        if (boost::starts_with(str, "0x")) {
+            bitsPerDigit = 4;
+            digits = "0123456789abcdefABCDEF";
+            str = str.substr(2);
+        } else if (boost::starts_with(str, "0b")==0) {
+            bitsPerDigit = 1;
+            digits = "01";
+            str = str.substr(2);
+        } else if (boost::ends_with(str, "h")) {
+            bitsPerDigit = 4;
+            digits = "0123456789abcdefABCDEF";
+            str = str.substr(0, str.size()-1);
+        } else if (boost::starts_with(str, "0")) {
+            bitsPerDigit = 2;
+            digits = "01234567";
+            str = str.substr(1);
+        } else {
+            bitsPerDigit = 0;                           // special case
+            digits = "0123456789";
+        }
+
+        // Count digits
+        size_t nDigits = 0;
+        for (const char *t=str.c_str(); *t; ++t) {
+            if (strchr(digits, *t))
+                ++nDigits;
+        }
+        if (0==nDigits)
+            throw std::runtime_error("BitVector::parse: no valid digits");
+
+        // Number of bits
+        size_t nBits = 0;
+        if (bitsPerDigit) {
+            nBits = bitsPerDigit * nDigits;
+        } else {
+            nBits = ceil(log2(pow(10.0, nDigits)));
+        }
+
+        // Parse the string
+        BitVector result(nBits);
+        switch (bitsPerDigit) {
+            case 2:
+                result.fromBinary(str);
+                break;
+            case 8:
+                result.fromOctal(str);
+                break;
+            case 10:
+                result.fromDecimal(str);
+                break;
+            case 16:
+                result.fromHex(str);
+                break;
+        }
+        return result;
+    }
+    
     /** Assignment.
      *
      *  Makes this bit vector an exact copy of the @p other vector.
@@ -1090,6 +1163,34 @@ public:
         return *this;
     }
 
+    /** Obtains bits from a decimal representation.
+     *
+     *  
+     *  Assigns the specified value, represented in decimal, to the specified range of this vector. The @p input string must
+     *  contain only valid decimal digits '0' through '9' or the underscore character (to make long strings more readable), or
+     *  else an <code>std::runtime_error</code> is thrown. The range must be valid for this vector. If the number of supplied
+     *  digits is larger than what is required to initialize the specified range then the extra data is discarded.  On the
+     *  other hand, if the length of the string is insufficient to initialize the entire range then the high order bits of the
+     *  range are cleared. */
+    BitVector& fromDecimal(const BitRange &range, const std::string &input) {
+        checkRange(range);
+        BitVectorSupport::fromDecimal(data(), range, input);
+        return *this;
+    }
+
+    /** Obtain bits from a decimal representation.
+     *
+     *  Assigns the specified value, represented in decimal, to this vector. The @p input string must contain only valid
+     *  decimal digits '0' through '9' or the underscore character (to make long strings more readable), or else an
+     *  <code>std::runtime_error</code> is thrown. If the number of supplied digits is larger than what is required to
+     *  initialize this vector then the extra data is discarded.  On the other hand, if the length of the string is insufficient
+     *  to initialize the entire vector then the high order bits of the vector are cleared. The size of this vector is not
+     *  changed by this operation. */
+    BitVector& fromDecimal(const std::string &input) {
+        BitVectorSupport::fromDecimal(data(), hull(), input);
+        return *this;
+    }
+
     /** Obtain bits from a hexadecimal representation.
      *
      *  Assigns the specified value, represented in hexadecimal, to the specified range of this vector. The @p input string
@@ -1109,7 +1210,7 @@ public:
      *  Assigns the specified value, represented in hexadecimal, to this vector. The @p input string must contain only valid
      *  hexadecimal digits '0' through '9', 'a' through 'f', and 'A' through 'F', or the underscore character (to make long
      *  strings more readable), or else an <code>std::runtime_error</code> is thrown. If the number of supplied digits is
-     *  larger than what is required to initialize this vectorthen the extra data is discarded.  On the other hand, if the
+     *  larger than what is required to initialize this vector then the extra data is discarded.  On the other hand, if the
      *  length of the string is insufficient to initialize the entire vector then the high order bits of the vector are
      *  cleared. The size of this vector is not changed by this operation. */
     BitVector& fromHex(const std::string &input) {
@@ -1136,7 +1237,7 @@ public:
      *  Assigns the specified value, represented in octal, to this vector. The @p input string must contain only valid octal
      *  digits '0' through '7' or the underscore character (to make long strings more readable), or else an
      *  <code>std::runtime_error</code> is thrown. If the number of supplied digits is larger than what is required to
-     *  initialize this vectorthen the extra data is discarded.  On the other hand, if the length of the string is insufficient
+     *  initialize this vector then the extra data is discarded.  On the other hand, if the length of the string is insufficient
      *  to initialize the entire vector then the high order bits of the vector are cleared. The size of this vector is not
      *  changed by this operation. */
     BitVector& fromOctal(const std::string &input) {
@@ -1163,7 +1264,7 @@ public:
      *  Assigns the specified value, represented in binary, to this vector. The @p input string must contain only valid binary
      *  digits '0' and '1' or the underscore character (to make long strings more readable), or else an
      *  <code>std::runtime_error</code> is thrown. If the number of supplied digits is larger than what is required to
-     *  initialize this vectorthen the extra data is discarded.  On the other hand, if the length of the string is insufficient
+     *  initialize this vector then the extra data is discarded.  On the other hand, if the length of the string is insufficient
      *  to initialize the entire vector then the high order bits of the vector are cleared. The size of this vector is not
      *  changed by this operation. */
     BitVector& fromBinary(const std::string &input) {

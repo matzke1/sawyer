@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <boost/cstdint.hpp>
+#include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <cstring>
 #include <Sawyer/Assert.h>
@@ -1361,6 +1362,32 @@ void fromString(Word *vec, const BitRange &range, const std::string &input) {
     // Zero fill high order stuff that we didn't already initialize
     if (offset < range.size())
         clear(vec, BitRange::hull(range.least()+offset, range.greatest()));
+}
+
+/** Obtain bits from a decimal representation.
+ *
+ *  The @p input string must contain only valid decimal digits '0' through '9' or the underscore character (to make long
+ *  strings more readable), or else an <code>std::runtime_error</code> is thrown. If the number of supplied digits is larger
+ *  than what is required to initialize the specified sub-vector, then extra data is discarded.  On the other hand, if the
+ *  length of the string is insufficient to initialize the entire sub-vector then the high order bits of the sub-vector are
+ *  cleared.
+ *
+ *  @todo Conversion from a decimal string to a bit vector is not fully implemented. At this time, the decimal string must not
+ *  parse to more than 64 bits. */
+template<class Word>
+void fromDecimal(Word *vec, const BitRange &range, const std::string &input) {
+    uint64_t v = 0;
+    BOOST_FOREACH (char ch, input) {
+        if (isdigit(ch)) {
+            uint64_t tmp = v * 10 + (ch - '0');
+            if (tmp < v)
+                throw std::runtime_error("overflow parsing decimal string");
+            v = tmp;
+        } else if (ch != '_') {
+            throw std::runtime_error("invalid decimal digit \"" + std::string(1, ch) + "\"");
+        }
+    }
+    fromInteger(vec, range, v);
 }
 
 /** Obtain bits from a hexadecimal representation.
