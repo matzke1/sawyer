@@ -63,9 +63,14 @@ public:
 
     /** Start the timer and report accumulated time.
      *
-     *  Reports the time accumulated as of this call, resets the accumulated time to zero if @p clear is true, then restarts
-     *  the stopwatch if not already running. */
-    double start(bool clear=false);
+     *  Reports the time accumulated as of this call and makes sure the clock is running.  If a value is specified then the
+     *  stopwatch starts with that much time accumulated.
+     *
+     * @{ */
+    double start();
+    double start(double value);
+    double start(bool b) SAWYER_DEPRECATED("use start() or start(double)") { return b ? start() : start(0.0); }
+    /** @} */
 
     /** Restart the timer.
      *

@@ -54,8 +54,19 @@ Stopwatch::report(bool clear) const {
 }
 
 SAWYER_EXPORT double
-Stopwatch::start(bool clear) {
-    double retval = report(clear);
+Stopwatch::start() {
+    double retval = report(false);
+    if (!running_) {
+        begin_ = getCurrentTime();
+        running_ = true;
+    }
+    return retval;
+}
+
+SAWYER_EXPORT double
+Stopwatch::start(double value) {
+    double retval = report(false);
+    elapsed_ = Duration(value);
     if (!running_) {
         begin_ = getCurrentTime();
         running_ = true;
@@ -65,7 +76,7 @@ Stopwatch::start(bool clear) {
 
 SAWYER_EXPORT double
 Stopwatch::restart() {
-    return start(true);
+    return start(0.0);
 }
 
 SAWYER_EXPORT double
