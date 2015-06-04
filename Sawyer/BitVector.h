@@ -121,16 +121,16 @@ public:
         // Parse the string
         BitVector result(nBits);
         switch (bitsPerDigit) {
+            case 0:
+                result.fromDecimal(str);
+                break;
             case 2:
                 result.fromBinary(str);
                 break;
-            case 8:
+            case 3:
                 result.fromOctal(str);
                 break;
-            case 10:
-                result.fromDecimal(str);
-                break;
-            case 16:
+            case 4:
                 result.fromHex(str);
                 break;
         }
