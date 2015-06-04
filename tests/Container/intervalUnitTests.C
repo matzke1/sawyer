@@ -928,6 +928,7 @@ static void set_intersection_tests() {
 }
 
 int main() {
+    Sawyer::initializeLibrary();
 
     // Basic interval tests
     std::cerr <<"=== Basic interval tests for 'unsigned' ===\n";

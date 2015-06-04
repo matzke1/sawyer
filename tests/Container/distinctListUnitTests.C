@@ -158,6 +158,7 @@ test() {
 
 int
 main() {
+    Sawyer::initializeLibrary();
     testMap();
     test();
 }

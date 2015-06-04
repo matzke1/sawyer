@@ -13,6 +13,8 @@ struct Object2: Sawyer::SmallObject {
 };
 
 int main() {
+    Sawyer::initializeLibrary();
+
     static const size_t nObjects = 1000000;
     static const size_t nIterations = 50000000;
 

@@ -37,6 +37,7 @@ void adjust(Color *color)
 int main(int argc, char *argv[])
 {
     using namespace Sawyer::Message;
+    Sawyer::initializeLibrary();
 
     // Poor man's argument checking. Normally you'd want to recover gracefully from user errors.
     ASSERT_require2(argc>=2, "wrong number of program arguments");

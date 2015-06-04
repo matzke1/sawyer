@@ -364,6 +364,8 @@ int main() {
     typedef int Value;
     typedef Sawyer::Container::Map<Key, Value> Map;
 
+    Sawyer::initializeLibrary();
+
     default_ctor<Map>();
     insert_one<Map>();
     insert_other<Map>();

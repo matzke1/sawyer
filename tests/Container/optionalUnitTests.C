@@ -6,6 +6,7 @@
 using namespace Sawyer;
 
 int main() {
+    Sawyer::initializeLibrary();
 
     Optional<int> x;
     ASSERT_always_forbid2(x, "default constructed Optional should be false");

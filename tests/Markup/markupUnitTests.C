@@ -218,6 +218,7 @@ static void test_pod() {
 
 
 int main() {
+    Sawyer::initializeLibrary();
     test_basic();
     test_errors();
     test_pod();

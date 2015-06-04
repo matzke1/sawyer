@@ -428,6 +428,7 @@ void hybrid_example() {
 }
 
 int main() {
+    Sawyer::initializeLibrary();
     std::cout <<"======== BOOST adjacency_list_graph ========\n";
     example_adjacency_list_graph();
     std::cout <<"========= Sawyer::Container::Graph =========\n";

@@ -44,6 +44,7 @@ boxConstructors() {
 
 int
 main() {
+    Sawyer::initializeLibrary();
     pointConstructors();
     pointConversion();
     boxConstructors();

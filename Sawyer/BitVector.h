@@ -84,7 +84,7 @@ public:
             bitsPerDigit = 4;
             digits = "0123456789abcdefABCDEF";
             str = str.substr(2);
-        } else if (boost::starts_with(str, "0b")==0) {
+        } else if (boost::starts_with(str, "0b")) {
             bitsPerDigit = 1;
             digits = "01";
             str = str.substr(2);

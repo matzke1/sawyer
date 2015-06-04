@@ -984,6 +984,7 @@ static void traversals() {
 
 
 int main() {
+    Sawyer::initializeLibrary();
     typedef Sawyer::Container::Graph<std::string, std::string> G1;
     default_ctor<G1>();
     insert_vertex<G1>();

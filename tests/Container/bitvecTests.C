@@ -55,8 +55,15 @@ static void string_tests() {
     check(v1.toHex()=="9876543210");
     check(v1.toOctal()=="11416625031020");
     check(v1.toBinary()=="1001100001110110010101000011001000010000");
-
     check(v1.toHex(BitRange::hull(10, 25)) == "950c");
+
+    BitVector v2 = BitVector::parse("0x12345");
+    check(v2.size()==20);
+    check(v2.toInteger() == 0x12345);
+
+    BitVector v3 = BitVector::parse("10");
+    check(v3.size()==7);
+    check(v3.toInteger() == 10);
 }
 
 static void copy_ctor_tests() {
@@ -707,6 +714,8 @@ static void numeric_tests() {
 }
 
 int main() {
+    Sawyer::initializeLibrary();
+
     ctor_tests();
     string_tests();
     copy_ctor_tests();

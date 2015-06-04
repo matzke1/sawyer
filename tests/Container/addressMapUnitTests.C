@@ -1860,6 +1860,7 @@ static void testCopyOnWrite() {
 }
 
 int main() {
+    Sawyer::initializeLibrary();
 
     test00();
     test01();

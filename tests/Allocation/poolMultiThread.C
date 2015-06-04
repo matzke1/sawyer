@@ -77,6 +77,7 @@ test(Worker<Object> &worker, size_t nthreads) {
 
 int
 main() {
+    Sawyer::initializeLibrary();
 
     // This test should show that the allocations per second scales nearly linearly with the number of threads, but
     // since the lock contention is low this doesn't do much stress testing.
