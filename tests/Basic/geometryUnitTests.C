@@ -1,4 +1,5 @@
 #include <Sawyer/Geometry.h>
+#include <iostream>
 
 using namespace Sawyer::Geometry;
 
