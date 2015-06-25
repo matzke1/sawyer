@@ -115,7 +115,7 @@ public:
         if (bitsPerDigit) {
             nBits = bitsPerDigit * nDigits;
         } else {
-            nBits = ceil(log2(pow(10.0, nDigits)));
+            nBits = ceil(log2(pow(10.0, (double)nDigits)));
         }
 
         // Parse the string
