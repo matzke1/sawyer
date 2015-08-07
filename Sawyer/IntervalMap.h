@@ -551,25 +551,16 @@ public:
      *  If the @p scalar is not part of this map's domain then an <code>std:domain_error</code> is thrown.
      *
      *  @{ */
-    Value& operator[](const typename Interval::Value &scalar) {
-        return getImpl(*this, scalar);
-    }
     const Value& operator[](const typename Interval::Value &scalar) const {
-        return getImpl(*this, scalar);
+        ConstNodeIterator found = find(scalar);
+        if (found==nodes().end())
+            throw std::domain_error("key lookup failure; key is not in map domain");
+        return found->value();
     }
 
-    Value& get(const typename Interval::Value &scalar) {
-        return getImpl(*this, scalar);
-    }
     const Value& get(const typename Interval::Value &scalar) const {
-        return getImpl(*this, scalar);
-    }
-
-    template<class IMap>
-    static typename IntervalMapTraits<IMap>::ValueReference
-    getImpl(IMap &imap, const typename Interval::Value &scalar) {
-        typename IntervalMapTraits<IMap>::NodeIterator found = imap.find(scalar);
-        if (found==imap.nodes().end())
+        ConstNodeIterator found = find(scalar);
+        if (found==nodes().end())
             throw std::domain_error("key lookup failure; key is not in map domain");
         return found->value();
     }
