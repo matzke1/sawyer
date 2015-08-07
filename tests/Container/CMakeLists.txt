@@ -27,3 +27,6 @@ target_link_libraries(distinctListUnitTests libsawyer)
 
 add_executable(setUnitTests setUnitTests.C)
 target_link_libraries(setUnitTests libsawyer)
+
+add_executable(intervalSetMapUnitTests intervalSetMapUnitTests.C)
+target_link_libraries(intervalSetMapUnitTests libsawyer)
