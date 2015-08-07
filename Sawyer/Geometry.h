@@ -75,7 +75,7 @@ public:
 
     /** Tests whether point is valid.
      *
-     *  Returns true if all coordinates are valid according to @ref NumberTraits::isValid. */
+     *  Returns true if all coordinates are valid according to @c NumberTraits::isValid. */
     bool isValid() const {
         for (size_t i=0; i<Dimensionality; ++i) {
             if (!NumberTraits<NumericType>::isValid(coords_[i]))

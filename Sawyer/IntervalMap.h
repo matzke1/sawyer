@@ -133,7 +133,11 @@ public:
  *  iterators over the user-defined values or the intervals when dereferenced.
  *
  *  This class uses CamelCase for all its methods and inner types in conformance with the naming convention for the rest of the
- *  library. This includes iterator names (we don't use <code>iterator</code>, <code>const_iterator</code>, etc). */
+ *  library. This includes iterator names (we don't use <code>iterator</code>, <code>const_iterator</code>, etc).
+ *
+ * @sa
+ *
+ *  See @ref IntervalSetMap for a similar container that stores sets of values per interval. */
 template<typename I, typename T, class Policy = MergePolicy<I, T> >
 class IntervalMap {
 public:

@@ -52,8 +52,22 @@ namespace Container {
  *  Querying is also quite efficient. Here we obtain the set of all values stored in the map's sets:
  *
  * @code
- *  Set allValues = icmap.get(icmap.hull());
- * @endcode */
+ *  Set allValues = icmap.getUnion(icmap.hull());
+ * @endcode
+ *
+ *  There are also predicates to determine whether a key or value is present in the map.
+ *
+ * @code
+ *  icmap.contains(IntRange::hull(10,19)); // Do keys 10 through 19 all have non-empty sets?
+ *  icmap.containsAnywhere(icmap.hull(), 'b'); // Is value 'b' present anywhere in the map?
+ *  icmap.containsEverywhere(IntRange::hull(10,19), 'a'); // Is value 'a' present for all keys 10 through 19?
+ * @endcode
+ *
+ *  The @p S template parameter is the set type and must implement the API defined by @ref Sawyer::Container::Set.
+ *
+ * @sa
+ *
+ *  See @ref IntervalMap for a similar container whose values don't act like sets. */
 template<typename I, typename S>
 class IntervalSetMap: public IntervalMap<I, S> {
     typedef IntervalMap<I, S> Super;

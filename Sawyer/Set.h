@@ -28,7 +28,10 @@ namespace Container {
  *  @li The existence predicate is named @ref exists instead of "count".
  *
  *  @li The insert and erase mutators are simplified. They don't take iterator hints and they return a Boolean indication of
- *      whether any operation occurred. */
+ *      whether any operation occurred.
+ *
+ *  @li The container understands union, intersection, difference, and equality. Although this makes the library larger, it
+ *      alleviates the user from needing to invoke a separate function for these operations. */
 template<typename T, class C = std::less<T>, class A = std::allocator<T> >
 class Set {
     typedef std::set<T, C, A> InternalSet;
@@ -148,6 +151,15 @@ public:
      *  Returns true if this set and @p other contain exactly the same members. */
     bool operator==(const Set &other) {
         return set_.size() == other.set_.size() && std::equal(set_.begin(), set_.end(), other.set_.begin());
+    }
+
+    /** Whether two sets do not contain the same members.
+     *
+     *  Returns true if this set and the @p other set are not equal, although this method is faster than using
+     *  <code>!(*this==other)</code>. */
+    bool operator!=(const Set &other) {
+        return (set_.size() != other.set_.size() ||
+                std::mismatch(set_.begin(), set_.end(), other.set_.begin()).first != set_.end());
     }
     
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
