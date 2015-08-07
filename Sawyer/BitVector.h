@@ -133,6 +133,9 @@ public:
             case 4:
                 result.fromHex(str);
                 break;
+            default:
+                assert(!"invalid radix");
+                break;
         }
         return result;
     }
