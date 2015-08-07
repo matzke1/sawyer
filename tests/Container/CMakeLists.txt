@@ -24,3 +24,6 @@ target_link_libraries(bitvecTests libsawyer)
 
 add_executable(distinctListUnitTests distinctListUnitTests.C)
 target_link_libraries(distinctListUnitTests libsawyer)
+
+add_executable(setUnitTests setUnitTests.C)
+target_link_libraries(setUnitTests libsawyer)
