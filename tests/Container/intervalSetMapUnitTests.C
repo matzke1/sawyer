@@ -57,17 +57,17 @@ test1() {
     cs = map.getIntersection(IntRange::hull(9, 12));
     ASSERT_always_require(cs.size()==1 && cs.exists('b'));
 
-    ASSERT_always_require(!map.containsAnywhere(IntRange(), 'a'));
-    ASSERT_always_require(!map.containsAnywhere(8, 'a'));
-    ASSERT_always_require(map.containsAnywhere(11, 'b'));
-    ASSERT_always_require(!map.containsAnywhere(IntRange::hull(9, 12), 'c'));
-    ASSERT_always_require(map.containsAnywhere(IntRange::hull(9, 12), 'a'));
+    ASSERT_always_require(!map.existsAnywhere(IntRange(), 'a'));
+    ASSERT_always_require(!map.existsAnywhere(8, 'a'));
+    ASSERT_always_require(map.existsAnywhere(11, 'b'));
+    ASSERT_always_require(!map.existsAnywhere(IntRange::hull(9, 12), 'c'));
+    ASSERT_always_require(map.existsAnywhere(IntRange::hull(9, 12), 'a'));
 
-    ASSERT_always_require(!map.containsEverywhere(IntRange(), 'a'));
-    ASSERT_always_require(!map.containsEverywhere(8, 'a'));
-    ASSERT_always_require(map.containsEverywhere(11, 'b'));
-    ASSERT_always_require(!map.containsEverywhere(IntRange::hull(9, 12), 'a'));
-    ASSERT_always_require(map.containsEverywhere(IntRange::hull(9, 12), 'b'));
+    ASSERT_always_require(!map.existsEverywhere(IntRange(), 'a'));
+    ASSERT_always_require(!map.existsEverywhere(8, 'a'));
+    ASSERT_always_require(map.existsEverywhere(11, 'b'));
+    ASSERT_always_require(!map.existsEverywhere(IntRange::hull(9, 12), 'a'));
+    ASSERT_always_require(map.existsEverywhere(IntRange::hull(9, 12), 'b'));
 
     map.erase(11, 'b');
     print("erased 'b' at 11", map);
