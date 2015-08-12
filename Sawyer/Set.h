@@ -52,6 +52,13 @@ public:
     explicit Set(const Comparator &comparator = Comparator(), const Allocator &allocator = Allocator())
         : set_(comparator, allocator) {}
 
+    /** Singleton constructor.
+     *
+     *  Constructs a singleton set having only the specified value. */
+    Set(const Value &value) /*implicit*/ {
+        set_.insert(value);
+    }
+
     /** Iterative constructor.
      *
      *  Constructs a new set and copies values into the set.  For instance, this can be used to initialize a set from a vector:
