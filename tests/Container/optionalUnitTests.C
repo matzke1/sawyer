@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <Sawyer/Assert.h>
+#include <string>
 
 using namespace Sawyer;
 
@@ -38,4 +39,10 @@ int main() {
     // This works, but because of operator<<; nothing we can do about it.
     std::cout <<x <<"\n";
 
+    Optional<std::string> os;
+    ASSERT_always_require(!os);
+    std::string s = "abc";
+    os = s;
+    ASSERT_always_require(os);
+    ASSERT_always_require(*os == "abc");
 }
