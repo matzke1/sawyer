@@ -2044,17 +2044,19 @@ SAWYER_EXPORT Facility mlog SAWYER_STATIC_INIT;
 SAWYER_EXPORT Facilities mfacilities SAWYER_STATIC_INIT;
 SAWYER_EXPORT SProxy assertionStream SAWYER_STATIC_INIT;
 
-static void
-init() {
-    merr = FdSink::instance(2);
-    mlog = Facility("", merr);
-    mlog[DEBUG].disable();
-    mlog[TRACE].disable();
-    mlog[WHERE].disable();
-    mlog[MARCH].disable();
-    mlog[INFO ].disable();
-    mfacilities.insert(mlog, "sawyer");
-}
+class Initializer {
+public:
+    void operator()() {
+        merr = FdSink::instance(2);
+        mlog = Facility("", merr);
+        mlog[DEBUG].disable();
+        mlog[TRACE].disable();
+        mlog[WHERE].disable();
+        mlog[MARCH].disable();
+        mlog[INFO ].disable();
+        mfacilities.insert(mlog, "sawyer");
+    }
+};
 
 #if SAWYER_MULTI_THREADED
 static boost::once_flag initFlag = BOOST_ONCE_INIT;
@@ -2063,10 +2065,15 @@ static boost::once_flag initFlag = BOOST_ONCE_INIT;
 // thread-safe
 SAWYER_EXPORT bool
 initializeLibrary() {
+    Initializer init;
 #if SAWYER_MULTI_THREADED
-    boost::call_once(&init, initFlag);
+    boost::call_once(initFlag, init);
 #else
-    init();
+    static bool initialized = false;
+    if (!initialized) {
+        init();
+        initialized = true;
+    }
 #endif
     return true;
 }
