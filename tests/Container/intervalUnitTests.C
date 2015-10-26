@@ -4,6 +4,14 @@
 #include <boost/foreach.hpp>
 #include <iostream>
 
+// Use std::pair as a value.  Works since it satisfies the minimal API: copy constructor, assignment operator, and equality.
+// The output function is only needed for this test file so we can print the contents of the IntervalMap
+typedef std::pair<int, long> Pair;
+std::ostream& operator<<(std::ostream &o, const Pair &p) {
+    o <<"(" <<p.first <<"," <<p.second <<")";
+    return o;
+}
+
 template<typename T>
 std::ostream& operator<<(std::ostream &o, const Sawyer::Container::Interval<T> &interval) {
     o <<"[" <<interval.least() <<"," <<interval.greatest() <<"]";
@@ -536,14 +544,6 @@ static void search_tests() {
     map2.insert(Interval::hull(10, 99), 1.0);
     map2.insert(Interval::hull(110, 139), 2.0);
     ASSERT_always_require(imap.findFirstOverlap(imap.nodes().begin(), map2, map2.nodes().begin()).first==second);
-}
-
-// Use std::pair as a value.  Works since it satisfies the minimal API: copy constructor, assignment operator, and equality.
-// The output function is only needed for this test file so we can print the contents of the IntervalMap
-typedef std::pair<int, long> Pair;
-std::ostream& operator<<(std::ostream &o, const Pair &p) {
-    o <<"(" <<p.first <<"," <<p.second <<")";
-    return o;
 }
 
 // All we need for storing a value in an IntervalMap is that it has a copy constructor, an assignment operator,

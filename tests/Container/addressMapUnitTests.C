@@ -1719,13 +1719,27 @@ struct Traversal {
     }
 };
 
+typedef unsigned test05_Address;
+typedef Interval<test05_Address> test05_Addresses;
+typedef int test05_Value;
+typedef AddressMap<test05_Address, test05_Value> test05_MemoryMap;
+
+struct test05_Traversal: test05_MemoryMap::Visitor {
+    bool operator()(const test05_MemoryMap &m, const test05_Addresses &interval) {
+        std::cout <<"    interval [" <<interval.least() <<", " <<interval.greatest() <<"]\n";
+        const test05_MemoryMap::Segment &segment = m.at(interval.least()).findNode()->value();
+        std::cout <<"      segment name = \"" <<segment.name() <<"\"\n";
+        return true;
+    }
+};
+
 static void test05() {
-    typedef unsigned Address;
-    typedef Interval<Address> Addresses;
-    typedef int Value;
+    typedef test05_Address Address;
+    typedef test05_Addresses Addresses;
+    typedef test05_Value Value;
     typedef Buffer<Address, Value>::Ptr BufferPtr;
     typedef AddressSegment<Address, Value> Segment;
-    typedef AddressMap<Address, Value> MemoryMap;
+    typedef test05_MemoryMap MemoryMap;
 
     Value values[50];
     for (size_t i=0; i<50; ++i)
@@ -1781,14 +1795,7 @@ static void test05() {
     }
 
     std::cerr <<"  local traversal\n";
-    struct T2: MemoryMap::Visitor {
-        bool operator()(const MemoryMap &m, const Addresses &interval) {
-            std::cout <<"    interval [" <<interval.least() <<", " <<interval.greatest() <<"]\n";
-            const MemoryMap::Segment &segment = m.at(interval.least()).findNode()->value();
-            std::cout <<"      segment name = \"" <<segment.name() <<"\"\n";
-            return true;
-        }
-    } t2;
+    test05_Traversal t2;
     map.any().traverse(t2);
     
 }

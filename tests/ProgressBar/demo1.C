@@ -106,6 +106,7 @@ void test7(size_t niter, const SProxy &stream) {
 
 int main()
 {
+    Sawyer::initializeLibrary();
     ProgressBarSettings::initialDelay(1.0);
     size_t niter = 40000;
 

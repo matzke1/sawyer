@@ -116,7 +116,7 @@ public:
      *  @c erase call is constant time. */
     void clear() {
         while (size_ > 0) {
-            stats.erase(buffer_[start_]);
+            stats_.erase(buffer_[start_]);
             buffer_[start_] = Value();
             start_ = (start_+1) % capacity_;
             --size_;
