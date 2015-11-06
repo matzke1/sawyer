@@ -3,6 +3,7 @@
 
 #include <Sawyer/Map.h>
 #include <Sawyer/Sawyer.h>
+#include <boost/foreach.hpp>
 
 namespace Sawyer {
 namespace Container {
