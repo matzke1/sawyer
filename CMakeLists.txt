@@ -57,6 +57,7 @@ set(lib_src
   Sawyer/Assert.C
   Sawyer/CommandLine.C
   Sawyer/GraphTraversal.C
+  Sawyer/LineVector.C
   Sawyer/Markup.C
   Sawyer/MarkupPod.C
   Sawyer/Message.C

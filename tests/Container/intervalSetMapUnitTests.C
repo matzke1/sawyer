@@ -1,5 +1,6 @@
 #include <Sawyer/IntervalSetMap.h>
 #include <Sawyer/Set.h>
+#include <iostream>
 
 using namespace Sawyer::Container;
 

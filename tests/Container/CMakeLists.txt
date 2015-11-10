@@ -30,3 +30,6 @@ target_link_libraries(setUnitTests libsawyer)
 
 add_executable(intervalSetMapUnitTests intervalSetMapUnitTests.C)
 target_link_libraries(intervalSetMapUnitTests libsawyer)
+
+add_executable(lineVectorUnitTests lineVectorUnitTests.C)
+target_link_libraries(lineVectorUnitTests libsawyer)
