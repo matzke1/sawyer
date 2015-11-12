@@ -45,6 +45,7 @@
 #include <boost/lexical_cast.hpp>
 #include <Sawyer/Map.h>
 #include <Sawyer/Optional.h>
+#include <Sawyer/Sawyer.h>
 #include <string>
 #include <vector>
 
