@@ -1,4 +1,5 @@
 #include <Sawyer/Graph.h>
+#include <Sawyer/GraphAlgorithm.h>
 #include <Sawyer/GraphTraversal.h>
 #include <Sawyer/Sawyer.h>
 #include <Sawyer/Stack.h>
@@ -81,7 +82,7 @@ public:
      *
      *  Each object can perform work only a single time. */
     void start(const DependencyGraph &dependencies, size_t nWorkers, Functor functor) {
-        if (hasCycles(dependencies))
+        if (Container::Algorithm::graphContainsCycle(dependencies))
             throw std::runtime_error("work dependency graph has cycles");
 
         boost::lock_guard<boost::mutex> lock(mutex_);
@@ -152,31 +153,6 @@ public:
     }
     
 private:
-    // Check for cycles in the dependency graph
-    // FIXME[Robb Matzke 2015-11-11]: This should be a general-purpose graph algorithm
-    bool hasCycles(const DependencyGraph &forest) {
-        typedef Container::Algorithm::DepthFirstForwardGraphTraversal<const DependencyGraph> Traversal;
-        std::vector<bool> processed(forest.nVertices(), false);
-        std::vector<size_t> vertexOnPath(forest.nVertices(), false);
-        for (size_t i=0; i<processed.size(); ++i) {
-            if (!processed[i]) {
-                vertexOnPath[i] = true;
-                for (Traversal t(forest, forest.findVertex(i), Container::Algorithm::EDGE_EVENTS); t; ++t) {
-                    size_t targetVertexId = t.edge()->target()->id();
-                    if (t.event() == Container::Algorithm::ENTER_EDGE) {
-                        if (vertexOnPath[targetVertexId])
-                            return true; // this is a back edge, thus a cycle
-                        ++vertexOnPath[targetVertexId];
-                        processed[targetVertexId] = true;
-                    } else {
-                        --vertexOnPath[targetVertexId];
-                    }
-                }
-            }
-        }
-        return false;
-    }
-    
     // Scan the dependency graph and fill the work queue with vertices that have no dependencies.
     void fillWorkQueueNS() {
         ASSERT_require(workQueue_.isEmpty());

@@ -1,4 +1,5 @@
 #include <Sawyer/Graph.h>
+#include <Sawyer/GraphAlgorithm.h>
 #include <Sawyer/GraphTraversal.h>
 #include <Sawyer/Assert.h>
 #include <boost/foreach.hpp>
@@ -981,7 +982,31 @@ static void traversals() {
     ASSERT_always_require(ans.isGood());
 }
 
+// Not really a unit test, but more of a stress test.
+static void
+breakCycles() {
+    std::cout <<"breakCycles:\n";
 
+    using namespace Sawyer::Container;
+    static const size_t nVertices = 5;
+    Graph<int, int> g;
+
+    // Build a dense graph with no self-edges
+    for (size_t i=0; i<nVertices; ++i)
+        g.insertVertex();
+    for (size_t i=0; i<g.nVertices(); ++i) {
+        for (size_t j=0; j<g.nVertices(); ++j) {
+            if (i != j)
+                g.insertEdge(g.findVertex(i), g.findVertex(j));
+        }
+    }
+    std::cout <<"  graph with cycles:\n" <<g;
+
+    size_t nRemoved = Algorithm::graphBreakCycles(g);
+    ASSERT_always_require(nRemoved > 0);
+    std::cout <<"  graph after removing " <<nRemoved <<" edges:\n" <<g;
+    ASSERT_always_require(!Algorithm::graphContainsCycle(g));
+}
 
 int main() {
     Sawyer::initializeLibrary();
@@ -1002,4 +1027,5 @@ int main() {
     dfltGraph();
     compileTraversals();
     traversals();
+    breakCycles();
 }

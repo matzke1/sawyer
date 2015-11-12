@@ -60,13 +60,13 @@ main() {
         }
     }
 
-#if 0
+#if 0 // [Robb Matzke 2015-11-12]
     // Perform the work. This doesn't return until the work is finished.
     Sawyer::workInParallel(work, nThreads, WorkFunctor());
     std::cerr <<"All done (work item #0 should have been the final output)!\n";
 #endif
 
-#if 0 // [Robb Matzke 2015-11-11]
+#if 1 // [Robb Matzke 2015-11-11]
     // Run the work asynchronously so we can report on its progress
     {
         Sawyer::ThreadWorkers<Work, WorkFunctor> workers;
@@ -87,7 +87,7 @@ main() {
     }
 #endif
 
-#if 1
+#if 0 // [Robb Matzke 2015-11-12]
     // Make sure destructor works
     {
         Sawyer::ThreadWorkers<Work, WorkFunctor> workers;
