@@ -86,6 +86,7 @@ add_subdirectory(tests/Assert)
 add_subdirectory(tests/ProgressBar)
 add_subdirectory(tests/Markup)
 add_subdirectory(tests/CommandLine)
+add_subdirectory(tests/Threads)
 add_subdirectory(tools)
 
 #-------------------------------------------------------------------------------
