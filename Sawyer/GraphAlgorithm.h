@@ -59,7 +59,7 @@ template<class Graph>
 size_t
 graphBreakCycles(Graph &g) {
     std::vector<bool> visited(g.nVertices(), false);    // have we seen this vertex already?
-    std::vector<uint8_t> onPath(g.nVertices(), false);  // is a vertex on the current path of edges? 0, 1, or 2
+    std::vector<unsigned char> onPath(g.nVertices(), false);  // is a vertex on the current path of edges? 0, 1, or 2
     std::set<typename Graph::ConstEdgeIterator> edgesToErase;
 
     for (size_t rootId = 0; rootId < g.nVertices(); ++rootId) {

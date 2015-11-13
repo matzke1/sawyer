@@ -45,8 +45,9 @@ public:
     /** Constructor that synchronously runs the work.
      *
      *  This constructor creates up to the specified number of worker threads to run the work described in the @p dependencies
-     *  (at least one thread, but not more than the number of items on which to work). The dependencies must be a forest of
-     *  lattices or else an <code>std::runtime_error</code> is thrown and no work is performed.
+     *  (at least one thread, but not more than the number of items on which to work). If @p nWorkers is zero then the system's
+     *  hadware concurrency is used. The dependencies must be a forest of lattices or else an <code>std::runtime_error</code>
+     *  is thrown and no work is performed.
      *
      *  The lattice is copied into this class so that the class can modify it as work items are completed.  The @p functor can
      *  be a class with @c operator(), a function pointer, or a lambda expression.  If a class is used, it must be copyable and
@@ -56,8 +57,8 @@ public:
      *
      *  The constructor does not return until all work has been completed. This object can only perform work a single time. */
     ThreadWorkers(const DependencyGraph &dependencies, size_t nWorkers, Functor functor)
-        : hasStarted_(false), nWorkers_(std::max((size_t)1, std::min(nWorkers, dependencies.nVertices()))),
-          workers_(NULL), nItemsStarted_(0), nItemsFinished_(0), nWorkersRunning_(0), nWorkersFinished_(0) {
+        : hasStarted_(false), nWorkers_(0), workers_(NULL), nItemsStarted_(0), nItemsFinished_(0),
+          nWorkersRunning_(0), nWorkersFinished_(0) {
         run(dependencies, nWorkers, functor);
     }
 
@@ -78,7 +79,8 @@ public:
      *
      *  The work items in @p dependencies are processed by up to @p nWorkers threads created by this method and destroyed when
      *  work is complete. This method creates at least one thread (if there's any work), but never more threads than the total
-     *  amount of work.  It returns as soon as those workers are created.
+     *  amount of work. If @p nWorkers is zero then the system's hardware concurrency is used. It returns as soon as those
+     *  workers are created.
      *
      *  Each object can perform work only a single time. */
     void start(const DependencyGraph &dependencies, size_t nWorkers, Functor functor) {
@@ -90,6 +92,8 @@ public:
             throw std::runtime_error("work can start only once per object");
         hasStarted_ = true;
         dependencies_ = dependencies;
+        if (0 == nWorkers_)
+            nWorkers = boost::thread::hardware_concurrency();
         nWorkers_ = std::max((size_t)1, std::min(nWorkers, dependencies.nVertices()));
         nItemsStarted_ = nWorkersFinished_ = 0;
         fillWorkQueueNS();
