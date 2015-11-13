@@ -56,6 +56,7 @@ endif()
 set(lib_src
   Sawyer/Assert.C
   Sawyer/Attribute.C
+  Sawyer/Clexer.C
   Sawyer/CommandLine.C
   Sawyer/GraphTraversal.C
   Sawyer/LineVector.C

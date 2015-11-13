@@ -1,0 +1,2 @@
+add_executable(threadWorkerTests threadWorkerTests.C)
+target_link_libraries(threadWorkerTests libsawyer)
