@@ -92,7 +92,7 @@ public:
             throw std::runtime_error("work can start only once per object");
         hasStarted_ = true;
         dependencies_ = dependencies;
-        if (0 == nWorkers_)
+        if (0 == nWorkers)
             nWorkers = boost::thread::hardware_concurrency();
         nWorkers_ = std::max((size_t)1, std::min(nWorkers, dependencies.nVertices()));
         nItemsStarted_ = nWorkersFinished_ = 0;

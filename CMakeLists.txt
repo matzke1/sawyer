@@ -18,7 +18,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 # What is the system thread library?
-option(MULTI_THREADED, "Should library be multi-thread aware?" OFF)
+option(MULTI_THREADED, "Should library be multi-thread aware?" ON)
 if(NOT "${MULTI_THREADED}")
   message(STATUS "Multi-thread support is disabled")
   find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono)
