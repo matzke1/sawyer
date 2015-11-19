@@ -3,6 +3,8 @@
 #include <Sawyer/Stopwatch.h>
 
 #include <boost/thread.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
 #include <iostream>
 #include <stdlib.h>
 
@@ -29,21 +31,23 @@ template<class Object>
 struct Worker {
     const size_t nObjects;
     const size_t nIterations;
+    boost::random::mt11213b generator;
+    boost::random::uniform_int_distribution<> prng;
 
     Worker(size_t nObjects, size_t nIterations)
-        : nObjects(nObjects), nIterations(nIterations) {}
+        : nObjects(nObjects), nIterations(nIterations), prng(0, nObjects-1) {}
 
     void operator()() {
         std::vector<Object*> objects(nObjects, NULL);
         for (size_t iter=0; iter<nIterations; ++iter) {
             for (size_t i=0; i<nObjects; ++i) {
-                size_t j = rand() % nObjects;
+                size_t j = prng(generator);
                 delete objects[j];
                 objects[j] = new Object;
                 objects[j]->work(i);
             }
         }
-        
+
         for (size_t i=0; i<nObjects; ++i)
             delete objects[i];
     }
@@ -56,6 +60,10 @@ test(Worker<Object> &worker, size_t nthreads) {
     ASSERT_require(nthreads <= MAX_THREADS);
     boost::thread threads[MAX_THREADS];
     std::cout <<nthreads <<(1==nthreads?" thread":" threads") <<"\n";
+
+    // Optional: make a hot tub (warm up the pool)
+    size_t highWater = 2 * worker.nObjects * nthreads;
+    Object::poolAllocator().reserve(sizeof(Object), highWater);
 
     Sawyer::Stopwatch timer;
     for (size_t i=0; i<nthreads; ++i)
