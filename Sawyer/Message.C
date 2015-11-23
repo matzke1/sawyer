@@ -1075,7 +1075,7 @@ public:
 };
 
 // not synchronized
-SAWYER_EXPORT void
+void
 StreamBuf::post() {
     if (enabled_ && message_.hasText() && (message_.isComplete() || anyUnbuffered_)) {
         assert(isBaked_);
@@ -1084,7 +1084,7 @@ StreamBuf::post() {
 }
 
 // not synchronized
-SAWYER_EXPORT void
+void
 StreamBuf::completeMessage() {
     if (!message_.isEmpty()) {
         message_.complete();
@@ -1097,7 +1097,7 @@ StreamBuf::completeMessage() {
 }
 
 // not synchronized
-SAWYER_EXPORT void
+void
 StreamBuf::cancelMessage() {
     if (!message_.isEmpty()) {
         message_.cancel();
@@ -1110,7 +1110,7 @@ StreamBuf::cancelMessage() {
 }
 
 // not synchronized
-SAWYER_EXPORT void
+void
 StreamBuf::bake() {
     if (!isBaked_) {
         destination_->bakeDestinations(message_.properties(), baked_/*out*/);
@@ -1122,7 +1122,7 @@ StreamBuf::bake() {
 }
 
 // thread-safe
-SAWYER_EXPORT std::streamsize
+std::streamsize
 StreamBuf::xsputn(const char *s, std::streamsize &n) {
     static const char termination_symbol = '\n';
 
@@ -1149,7 +1149,7 @@ StreamBuf::xsputn(const char *s, std::streamsize &n) {
 }
 
 // thread-safe by virtue of xsputn being thread-safe
-SAWYER_EXPORT StreamBuf::int_type
+StreamBuf::int_type
 StreamBuf::overflow(int_type c) {
     if (c==traits_type::eof())
         return traits_type::eof();
