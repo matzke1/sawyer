@@ -2,9 +2,8 @@
 #include <Sawyer/SmallObject.h>
 #include <Sawyer/Stopwatch.h>
 
+#include <boost/version.hpp>
 #include <boost/thread.hpp>
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int_distribution.hpp>
 #include <iostream>
 #include <stdlib.h>
 
@@ -31,8 +30,8 @@ template<class Object>
 struct Worker {
     const size_t nObjects;
     const size_t nIterations;
-    boost::random::mt11213b generator;
-    boost::random::uniform_int_distribution<> prng;
+    SAWYER_PRN_GENERATOR generator;
+    SAWYER_UNIFORM_SIZE_T prng;
 
     Worker(size_t nObjects, size_t nIterations)
         : nObjects(nObjects), nIterations(nIterations), prng(0, nObjects-1) {}

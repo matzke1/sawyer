@@ -18,10 +18,10 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 # What is the system thread library?
-option(MULTI_THREADED, "Should library be multi-thread aware?" ON)
+option(MULTI_THREADED "Should library be multi-thread aware?" YES)
 if(NOT "${MULTI_THREADED}")
   message(STATUS "Multi-thread support is disabled")
-  find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono)
+  find_package(Boost 1.45.0 REQUIRED COMPONENTS iostreams system filesystem regex)
 else()
   message(STATUS "Multi-thread support is enabled")
   find_package(Threads)
@@ -34,7 +34,7 @@ else()
   else()
     message(STATUS "not adding -pthread")
   endif()
-  find_package(Boost 1.47.0 REQUIRED COMPONENTS iostreams system filesystem regex chrono thread)
+  find_package(Boost 1.45.0 REQUIRED COMPONENTS iostreams system filesystem regex thread)
 endif()
 
 
