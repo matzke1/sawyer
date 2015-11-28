@@ -63,6 +63,7 @@ set(lib_src
   Sawyer/Markup.C
   Sawyer/MarkupPod.C
   Sawyer/Message.C
+  Sawyer/ObjectCache.C
   Sawyer/ProgressBar.C
   Sawyer/Sawyer.C
   Sawyer/SmallObject.C
