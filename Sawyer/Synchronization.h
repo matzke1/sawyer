@@ -39,6 +39,8 @@ public:
 class NullLockGuard {
 public:
     NullLockGuard(NullMutex) {}
+    void lock() {}
+    void unlock() {}
 };
 
 // Used internally as a barrier in a single-threaded environment.
@@ -81,6 +83,7 @@ struct SynchronizationTraits<MultiThreadedTag> {
     typedef boost::mutex Mutex;
     typedef boost::recursive_mutex RecursiveMutex;
     typedef boost::lock_guard<boost::mutex> LockGuard;
+    typedef boost::unique_lock<boost::mutex> UniqueLock;
     typedef boost::lock_guard<boost::recursive_mutex> RecursiveLockGuard;
     typedef boost::condition_variable_any ConditionVariable;
     typedef boost::barrier Barrier;
@@ -89,6 +92,7 @@ struct SynchronizationTraits<MultiThreadedTag> {
     typedef NullMutex Mutex;
     typedef NullMutex RecursiveMutex;
     typedef NullLockGuard LockGuard;
+    typedef NullLockGuard UniqueLock;
     typedef NullLockGuard RecursiveLockGuard;
     //typedef ... ConditionVariable; -- does not make sense to use this in a single-threaded program
     typedef NullBarrier Barrier;
@@ -102,6 +106,7 @@ struct SynchronizationTraits<SingleThreadedTag> {
     typedef NullMutex Mutex;
     typedef NullMutex RecursiveMutex;
     typedef NullLockGuard LockGuard;
+    typedef NullLockGuard UniqueLock;
     typedef NullLockGuard RecursiveLockGuard;
     //typedef ... ConditionVariable; -- does not make sense to use this in a single-threaded program
     typedef NullBarrier Barrier;
