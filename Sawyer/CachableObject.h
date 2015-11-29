@@ -24,6 +24,7 @@ class SAWYER_EXPORT CachableObject: public SharedObject {
     ObjectCache *cache_;
     CachableObject *cacheNext_, *cachePrev_;
     int cacheTimer_;
+
 public:
     /** Default constructor.
      *
