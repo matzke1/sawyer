@@ -172,7 +172,7 @@ public:
     void value(ValueType leftValue, ValueType curValue, ValueType rightValue) {
         boost::lock_guard<boost::mutex> lock(mutex_);
         value_ = Position(leftValue, curValue, rightValue);
-        bar_.shouldSpin_ = isEmpty();
+        bar_.shouldSpin_ = isEmptyNS();
         valueUpdatedNS();
     }
     /** @} */
