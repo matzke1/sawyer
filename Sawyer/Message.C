@@ -926,7 +926,7 @@ SAWYER_EXPORT void
 FdSink::init() {
 #ifdef BOOST_WINDOWS
     gangInternal(Gang::instanceForId(fd_));
-    overrideProperties().useColor = true;
+    overridePropertiesNS().useColor = true;
 #else
     if (isatty(fd_)) {
         gangInternal(Gang::instanceForTty());
@@ -973,8 +973,8 @@ SAWYER_EXPORT void
 FileSink::init() {
 #ifdef BOOST_WINDOWS
     gangInternal(Gang::instanceForTty());
-    overrideProperties().useColor = true;
-    defaultProperties().isBuffered = false;
+    overridePropertiesNS().useColor = true;
+    defaultPropertiesNS().isBuffered = false;
 #else
     if (isatty(fileno(file_))) {
         gangInternal(Gang::instanceForTty());
