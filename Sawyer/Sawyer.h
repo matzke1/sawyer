@@ -305,20 +305,6 @@
     #define SAWYER_THREAD_TRAITS Sawyer::SynchronizationTraits<Sawyer::SingleThreadedTag>
 #endif
 
-#ifdef _REENTRANT
-    #if __cplusplus >= 201103L
-       #define SAWYER_THREAD_LOCAL thread_local
-    #elif defined(_MSC_VER)
-        // Visual C++, Intel (Windows), C++ Builder, Digital Mars C++
-        #define SAWYER_THREAD_LOCAL __declspec(thread)
-    #else
-       // Solaris Studio, IBM XL, GNU, LLVM, Intel (linux)
-       #define SAWYER_THREAD_LOCAL __thread
-    #endif
-#else
-     #define SAWYER_THREAD_LOCAL /*void*/
-#endif
-
 #ifdef BOOST_WINDOWS
 // FIXME[Robb Matzke 2014-06-18]: get rid of ROSE_UTIL_EXPORTS; cmake can only have one DEFINE_SYMBOL
 #   if defined(SAWYER_DO_EXPORTS) || defined(ROSE_UTIL_EXPORTS) // defined in CMake when compiling libsawyer
