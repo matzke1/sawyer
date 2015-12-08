@@ -30,17 +30,15 @@ template<class Object>
 struct Worker {
     const size_t nObjects;
     const size_t nIterations;
-    SAWYER_PRN_GENERATOR generator;
-    SAWYER_UNIFORM_SIZE_T prng;
 
     Worker(size_t nObjects, size_t nIterations)
-        : nObjects(nObjects), nIterations(nIterations), prng(0, nObjects-1) {}
+        : nObjects(nObjects), nIterations(nIterations) {}
 
     void operator()() {
         std::vector<Object*> objects(nObjects, NULL);
         for (size_t iter=0; iter<nIterations; ++iter) {
             for (size_t i=0; i<nObjects; ++i) {
-                size_t j = prng(generator);
+                size_t j = Sawyer::fastRandomIndex(nObjects);
                 delete objects[j];
                 objects[j] = new Object;
                 objects[j]->work(i);
