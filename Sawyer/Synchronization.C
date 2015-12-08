@@ -37,17 +37,15 @@ bigMutex() {
 SAWYER_EXPORT size_t
 fastRandomIndex(size_t n) {
     assert(n > 0);
-    SAWYER_UNIFORM_SIZE_T distributor(0, n-1);
 
-#if SAWYER_MULTI_THREADED
-    static boost::thread_specific_ptr<SAWYER_PRN_GENERATOR> generator;
-    if (!generator.get())
-        generator.reset(new SAWYER_PRN_GENERATOR);
+    // FIXME[Robb Matzke 2015-12-08]: This leaks memory when threads that use this function are destroyed, but the common
+    // denominator across compilers is that thread-local storage can only be applied to POD types.
+    static SAWYER_THREAD_LOCAL SAWYER_PRN_GENERATOR *generator = NULL;
+    if (!generator)
+        generator = new SAWYER_PRN_GENERATOR;
+
+    SAWYER_UNIFORM_SIZE_T distributor(0, n-1);
     return distributor(*generator);
-#else
-    static SAWYER_PRN_GENERATOR generator;
-    return distributed(generator);
-#endif
 }
 
 } // namespace
