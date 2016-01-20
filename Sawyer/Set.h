@@ -291,7 +291,7 @@ public:
      *
      *  Returns a new set which has only those members that are common to this set and the @p other set. */
     Set operator&(const Set &other) const {
-        Set retval;
+        Set retval = *this;
         retval &= other;
         return retval;
     }
@@ -300,7 +300,7 @@ public:
      *
      *  Returns a new set containing the union of all members of this set and the @p other set. */
     Set operator|(const Set &other) const {
-        Set retval;
+        Set retval = *this;
         retval |= other;
         return retval;
     }
@@ -309,7 +309,7 @@ public:
      *
      *  Returns a new set containing those elements of @p this set that are not members of the @p other set. */
     Set operator-(const Set &other) const {
-        Set retval;
+        Set retval = *this;
         retval -= other;
         return retval;
     }
