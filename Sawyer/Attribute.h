@@ -232,6 +232,7 @@ public:
                 throw DoesNotExist(name);
             }
         }
+        checkBoost();
         return boost::any_cast<T>(values_.getOptional(id).orDefault());
     }
 
@@ -242,6 +243,7 @@ public:
      *  provided default type isn't checked). */
     template<typename T>
     T attributeOrElse(Id id, const T &dflt) const {
+        checkBoost();
         return boost::any_cast<T>(values_.getOptional(id).orElse(dflt));
     }
 
@@ -276,6 +278,9 @@ public:
 
     /** Returns ID numbers for all IDs stored in this container. */
     std::vector<Id> attributeIds() const;
+
+private:
+    void checkBoost() const;
 };
 
 } // namespace
