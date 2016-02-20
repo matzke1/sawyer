@@ -1,6 +1,7 @@
 #include <Sawyer/Attribute.h>
 #include <Sawyer/BiMap.h>
 #include <boost/foreach.hpp>
+#include <boost/version.hpp>
 
 namespace Sawyer {
 namespace Attribute {
