@@ -33,3 +33,6 @@ target_link_libraries(intervalSetMapUnitTests libsawyer)
 
 add_executable(lineVectorUnitTests lineVectorUnitTests.C)
 target_link_libraries(lineVectorUnitTests libsawyer)
+
+add_executable(indexedGraphDemo indexedGraphDemo.C)
+target_link_libraries(indexedGraphDemo libsawyer)
