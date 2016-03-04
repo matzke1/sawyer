@@ -1,10 +1,7 @@
-// Demonstrate some ways to use a Sawyer::Container::IndexedGraph
-//
-// An IndexedGraph is a graph that also has an index by which to look up vertices, and another by which to look up edges.
+// Demonstrate some ways to use a Sawyer::Container::Graph with vertex and edge indexes
 
 #include <boost/lexical_cast.hpp>
-#include <Sawyer/Exception.h>
-#include <Sawyer/IndexedGraph.h>
+#include <Sawyer/Graph.h>
 #include <string>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,15 +22,16 @@
 typedef std::string TrainCityName;                      // User's data stored at each vertex
 typedef double TrainTravelTime;                         // User's data stored at each edge
 
-// An IndexedGraph needs to know what part of the user's node and/or edge data to use as the lookup keys. In this example, the
+// An indexed Graph needs to know what part of the user's node and/or edge data to use as the lookup keys. In this example, the
 // lookup keys for the vertices are exactly the strings we stored there, and we don't need any index for edges.  Subsequent
 // examples will expand on this.
 typedef TrainCityName TrainVertexKey;
 
-// Create the indexed graph. IndexedGraph is a subclass of Graph which imparts indexes to the Graph. Its template parameters
-// are type of user's vertex data, type of user's edge data, type of keys for vertex index, type of keys for edge index, and an
-// allocator. The key and allocator types all have defaults. The default for keys is that there is no key (and no index).
-typedef Sawyer::Container::IndexedGraph<TrainCityName, TrainTravelTime, TrainVertexKey> TrainGraph;
+// Create the indexed graph. This is done by providing the 3rd and/or 4th template arguments: the types for the vertex and edge
+// lookup keys. The defaults for these arguments are to not have an index; having an index might substantially slow down vertex
+// and edge inserting and erasing.
+typedef Sawyer::Container::GraphEdgeNoKey<TrainTravelTime> EdgeKey;
+typedef Sawyer::Container::Graph<TrainCityName, TrainTravelTime, TrainVertexKey, EdgeKey> TrainGraph;
 
 static void
 demo1() {
@@ -76,8 +74,8 @@ demo1() {
     TrainGraph::EdgeIterator cb = g.insertEdge(chicago, boston, 25);
     ASSERT_always_require(g.nEdges() == 6);
 
-    // We can add vertices at the same time by giving a vertex value rather than a vertex pointer.
-    TrainGraph::EdgeIterator ce = g.insertEdgeAndMaybeVertices("Chicago", "Effingham", 6 /*hours*/);
+    // We can add vertices at the same time if they don't exist.
+    TrainGraph::EdgeIterator ce = g.insertEdgeWithVertices("Chicago", "Effingham", 6 /*hours*/);
     ASSERT_always_require(g.nVertices() == 5);
     ASSERT_always_require(g.nEdges() == 7);
     TrainGraph::VertexIterator effingham = ce->target();
@@ -85,7 +83,7 @@ demo1() {
 
     // Similarly, we can have the graph automatically erase a vertex when we erase that vertex's last edge. Unfortunately this
     // leaves the effingham pointer dangling, which might result in a segfault if we try to dereference it.
-    g.eraseEdgeAndMabyeVertices(ce);
+    g.eraseEdgeWithVertices(ce);
     ASSERT_always_require(g.nVertices() == 4);
     ASSERT_always_require(g.nEdges() == 6);
     ASSERT_always_forbid(g.isValidVertex(g.findVertexValue("Effingham")));
@@ -158,7 +156,7 @@ struct Layover {
 };
 
 // Create the graph with vertex indexing.
-typedef Sawyer::Container::IndexedGraph<Flight, Layover, FlightKey> FlightGraph;
+typedef Sawyer::Container::Graph<Flight, Layover, FlightKey> FlightGraph;
 
 static void
 demo2() {
@@ -179,9 +177,9 @@ demo2() {
     ASSERT_always_require(g.nEdges() == 1);
 
     // We can add a layover while populating the flights at the same time.
-    FlightGraph::EdgeIterator lay2 = g.insertEdgeAndMaybeVertices(Flight("Alaska", 123, 99.00),
-                                                                  Flight("Alaska", 456, 99.00),
-                                                                  Layover("DIA", 60));
+    FlightGraph::EdgeIterator lay2 = g.insertEdgeWithVertices(Flight("Alaska", 123, 99.00),
+                                                              Flight("Alaska", 456, 99.00),
+                                                              Layover("DIA", 60));
     ASSERT_always_require(g.nVertices() == 4);
     ASSERT_always_require(g.nEdges() == 2);
 
@@ -194,7 +192,7 @@ demo2() {
     }
 
     // We can remove a layover along with removing flights that no longer have edges.
-    g.eraseEdgeAndMabyeVertices(lay2);
+    g.eraseEdgeWithVertices(lay2);
     ASSERT_always_require(g.nVertices() == 2);
     ASSERT_always_require(g.nEdges() == 1);
 

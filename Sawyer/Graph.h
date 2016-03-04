@@ -2,7 +2,9 @@
 #define Sawyer_Graph_H
 
 #include <Sawyer/Assert.h>
+#include <Sawyer/BiMap.h>
 #include <Sawyer/DefaultAllocator.h>
+#include <Sawyer/Exception.h>
 #include <Sawyer/IndexedList.h>
 #include <Sawyer/Optional.h>                            // for Sawyer::Nothing
 #include <Sawyer/Sawyer.h>
@@ -14,6 +16,93 @@
 
 namespace Sawyer {
 namespace Container {
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Special vertex and edge key types.
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/** Type of vertex key for graphs that do not index their vertices. */
+template<class VertexValue>
+class GraphVertexNoKey {
+public:
+    GraphVertexNoKey() {}
+    explicit GraphVertexNoKey(const VertexValue&) {}
+};
+
+/** Type of edge key for graphs that do not index their edges. */
+template<class EdgeValue>
+class GraphEdgeNoKey {
+public:
+    GraphEdgeNoKey() {}
+    explicit GraphEdgeNoKey(const EdgeValue&) {}
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Special vertex and edge indexing types.
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/** Fake index for graphs that don't have an index. */
+template<class Source, class Target>
+class GraphVoidIndex {
+public:
+    void clear() {}
+    void insert(const Source&, const Target&) {}
+    void eraseTarget(const Target&) {}
+
+    Optional<Target> forwardLookup(const Source &source) const {
+        return Nothing();
+    }
+
+    Optional<Source> reverseLookup(const Target &source) const {
+        return Nothing();
+    }
+};
+
+/** Bi-map based index is the default index type when indexes are present. */
+template<class Source, class Target>
+class GraphBimapIndex {
+    BiMap<Source, Target> map_;
+public:
+    void clear() {
+        map_.clear();
+    }
+
+    void insert(const Source &source, const Target &target) {
+        map_.insert(source, target);
+    }
+
+    void eraseTarget(const Target &target) {
+        map_.eraseTarget(target);
+    }
+
+    Optional<Target> forwardLookup(const Source &source) const {
+        return map_.forward().getOptional(source);
+    }
+
+    Optional<Source> reverseLookup(const Target &target) const {
+        return map_.reverse().getOptional(target);
+    }
+};
+
+/** Traits for vertex and edge indexing. */
+template<class VertexOrEdgeKey, class VertexOrEdgeConstIterator>
+struct GraphIndexTraits {
+    typedef GraphBimapIndex<VertexOrEdgeKey, VertexOrEdgeConstIterator> Index;
+};
+
+template<class VertexValue, class ConstVertexIterator>
+struct GraphIndexTraits<GraphVertexNoKey<VertexValue>, ConstVertexIterator> {
+    typedef GraphVoidIndex<GraphVertexNoKey<VertexValue>, ConstVertexIterator> Index;
+};
+
+template<class EdgeValue, class ConstEdgeIterator>
+struct GraphIndexTraits<GraphEdgeNoKey<EdgeValue>, ConstEdgeIterator> {
+    typedef GraphVoidIndex<GraphEdgeNoKey<EdgeValue>, ConstEdgeIterator> Index;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Graph traits
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** Traits for graphs. */
 template<class G>
@@ -60,6 +149,18 @@ struct GraphTraits<const G> {
  *  MyGraph::VertexIterator v2 = graph.insertVertex("second vertex");
  *  graph.insertEdge(v1, v2, 1.2); // v1 and v2 are the source and target vertices
  * @endcode
+ *
+ *  This example shows a few features of the design: First, like STL containers, there is a clear separation of concerns
+ *  related to managing the storage and connectivity versus managing the user-defined data stored in the container.  Just as an
+ *  STL container like <code>std::list</code> is reponsible for managing the list's vertices and the linear connectivity
+ *  between those vertices, %Sawyer is responsible for managing the vertex storage and the connectivity (edges) between the
+ *  vertices, and the user is responsible for their data (the first two graph template arguments).
+ *
+ *  Another feature of the design is that iterators serve a dual purpose. Just like an <code>int*</code> pointing into an array
+ *  of integers can be used as a pointer to a single element or incremented to iterate through elements, %Sawyer graph
+ *  iterators are both pointers to a particular vertex or edge and at other times incremented to iterate over vertices and
+ *  edges. Oftentimes incrementing an iterator that's being used as a pointer doesn't really make much sense, just as
+ *  incrementing an <code>int*</code> for an array implementation of a lattice/heap/tree/etc might not make much sense.
  *
  *  In this documentation, the term "node" refers to the unit of storage for an edge or vertex, which contains the user-defined
  *  value for the edge or vertex, plus an ID number and connectivity information. Within this documentation, the term "vertex"
@@ -179,6 +280,84 @@ struct GraphTraits<const G> {
  *  }
  * @endcode
  *
+ * @section graph_indexing Indexing
+ *
+ *  Users should make every effort to use iterators or ID numbers to point to vertices and edges since these have constant-time
+ *  performance. However, a drawback of iterators is that if you have a data structure that contains a graph and some iterators
+ *  your copy constructor will need to update all its iterators so they point to the copied graph rather than the original
+ *  graph. On the other hand, the drawback of using ID numbers is that erasing vertices and edges might change the ID numbers
+ *  of other vertices and edges.  Therefore, graphs also optionally provide a vertex index and/or edge index that can be used
+ *  to look up a vertex or edge if you know its key. Keys are anything you want as long as they're computed from the value
+ *  stored in a vertex or edge. By default, graphs have neither vertex nor edge indexes--they must be enabled by supplying
+ *  extra template arguments.  A graph that has an index does not have the same level of performance as a graph without an
+ *  index.
+ *
+ *  Indexing works the same for vertices and edges, although it's most commonly used with vertices. By default, the graph
+ *  implements a vertex index as a bidirectional map (@ref Sawyer::Container::BiMap) that maps keys to vertex iterators and
+ *  vice versa.  Therefore the key type must have the following properties:
+ *
+ *  @li The key type must have a default constructor.
+ *  @li It must have a copy constructor.
+ *  @li It must have a less-than operator.
+ *
+ *  In addition, regardless of what kind of index the graph uses, all keys must be (explicitly) constructable from a vertex
+ *  value.  In practice it's often the case that the vertex values and the keys are the same type. For instance, if a vertex
+ *  stores <code>std::string</code> then the key can also be an <code>std::string</code> since that type has all the properties
+ *  we need.  But by distinguishing between vertex value type and vertex key types, it also allows the graph to store larger
+ *  data structures at the vertices, a small part of which becomes the key. In fact, the key need not be a particular data
+ *  member of the value as long as the key generator always produces the same key for the same data.
+ *
+ *  For example, lets say the vertex type is information about a city and that it's quite large.
+ *
+ * @code
+ *  struct City {
+ *      std::string name;
+ *      const State *state;
+ *      unsigned population;
+ *      std::vector<std::string> zipCodes;
+ *      std::vector<std::string> areaCodes;
+ *      PhoneBook phoneBook;
+ *  };
+ * @endcode
+ *
+ *  Every city has a unique name + state pair and we'd like to be able to look up cities in the graph by that pair. So we
+ *  define a lookup key for cities:
+ *
+ * @code
+ *  class CityKey {
+ *      std::string key_;
+ *  public:
+ *      CityKey() {}
+ *
+ *      CityKey(const City &city) {
+ *          key_ = city.name + ", " + city.state->abbreviation();
+ *      }
+ *
+ *      bool operator<(const CityKey &other) const {
+ *          return key_ < other.key_;
+ *      }
+ *  };
+ * @endcode
+ *
+ *  Lets say that the edges between cities represent things like travel time by various modes and we keep this information in a
+ *  type named @c TravelTime. Here's how our graph would be declared:
+ *
+ * @code
+ *  typedef Sawyer::Container::Graph<City, TravelTime, CityKey> CityGraph;
+ * @endcode
+ *
+ *  The only new thing we added is the third template argument, but this causes the graph to contain a vertex index and gives
+ *  us the ability to look up a city by value or key. The following two lines assume you've added the appropriate constructors
+ *  to your classes.
+ *
+ * @code
+ *  CityGraph::VertexIterator boston = cityGraph.findVertexValue(City("boston", MA));
+ *  CityGraph::VertexIterator boston = cityGraph.findVertexValue(CityKey("boston", MA));
+ * @endcode
+ *
+ *  The other thing a vertex index does is prevent us from adding two vertices having the same key--we'd get a @ref
+ *  Exception::AlreadyExists error.
+ *
  * @section bgl BGL Compatibility
  *
  *  The %Boost %Graph Library (<a href="http://www.boost.org/doc/libs/1_55_0/libs/graph/doc/index.html">BGL</a>) defines an API
@@ -191,7 +370,7 @@ struct GraphTraits<const G> {
  *  the small, contiguous vertex and edge ID numbers to look up vector-stored external properties in constant time. BGL graphs
  *  abstract internal and external properties to property maps (property maps are a separate part of the %Boost library but
  *  originated as part of BGL). The %Sawyer approach tends to be easier for users to understand because of its similarity to
- *  STL containers.
+ *  STL containers and its much lighter use of C++ templates in its public API.
  *
  *  The <a
  *  href="https://github.com/matzke1/Sawyer/blob/master/tests/Container/graphBoost.C"><tt>tests/Container/graphBoost.C</tt></a>
@@ -224,7 +403,7 @@ struct GraphTraits<const G> {
  *
  * @section complexity Complexity guarantees
  *
- *  Time complexity guarantees:
+ *  Time complexity guarantees for graphs without indexes:
  *
  *  @li Vertex insertion:  amortized constant
  *  @li Edge insertion: amortized constant
@@ -244,11 +423,15 @@ struct GraphTraits<const G> {
  *  @li %Graph copy: O(|V|+|E|)
  *
  *  Insertion is amortized constant time due to a vector-based ID map that may require reallocation. */
-template<class V = Nothing, class E = Nothing, class Alloc = DefaultAllocator>
+template<class V = Nothing, class E = Nothing,
+         class VKey = GraphVertexNoKey<V>, class EKey = GraphEdgeNoKey<E>,
+         class Alloc = DefaultAllocator>
 class Graph {
 public:
     typedef V VertexValue;                              /**< User-level data associated with vertices. */
     typedef E EdgeValue;                                /**< User-level data associated with edges. */
+    typedef VKey VertexKey;                             /**< Type for looking up a vertex. */
+    typedef EKey EdgeKey;                               /**< Type for looking up an edge. */
     typedef Alloc Allocator;                            /**< Allocator for vertex and edge nodes. */
     class Vertex;                                       /**< All information about a vertex. User info plus connectivity info. */
     class Edge;                                         /**< All information about an edge. User info plus connectivity info. */
@@ -902,8 +1085,13 @@ public:
     };
 
 private:
+    typedef typename GraphIndexTraits<VertexKey, ConstVertexIterator>::Index VertexIndex;
+    typedef typename GraphIndexTraits<EdgeKey, ConstEdgeIterator>::Index EdgeIndex;
+
     EdgeList edges_;                                    // all edges with integer ID numbers and O(1) insert/erase
     VertexList vertices_;                               // all vertices with integer ID numbers and O(1) insert/erase
+    EdgeIndex edgeIndex_;                               // optional mapping between EdgeValue and ConstEdgeIterator
+    VertexIndex vertexIndex_;                           // optional mapping between VertexValue and ConstVertexIterator
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -928,7 +1116,8 @@ public:
      *  having the same settings but sharing none of the original data.
      *
      *  Time complexity is linear in the total number of vertices and edges in @p other. */
-    Graph(const Graph &other): edges_(other.edges_.allocator()), vertices_(other.vertices_.allocator()) {
+    Graph(const Graph &other)
+        : edges_(other.edges_.allocator()), vertices_(other.vertices_.allocator()) {
         *this = other;
     }
 
@@ -940,8 +1129,8 @@ public:
      *  expected to be identical between the two graphs.
      *
      *  Time complexity is linear in the total number of vertices and edges in @p other. */
-    template<class V2, class E2, class Alloc2>
-    Graph(const Graph<V2, E2, Alloc2> &other, const Allocator &allocator = Allocator())
+    template<class V2, class E2, class VKey2, class EKey2, class Alloc2>
+    Graph(const Graph<V2, E2, VKey2, EKey2, Alloc2> &other, const Allocator &allocator = Allocator())
         : edges_(allocator), vertices_(allocator) {
         *this = other;
     }
@@ -964,17 +1153,20 @@ public:
      *  vertices and edges in this graph, and they will have the same ID numbers as in @p other.  The order of vertex and edge
      *  traversals is not expected to be identical between the two graphs.
      *
-     *  Time complexity is linear in the sum of the number of vertices and edges in this graph and @p other. */
-    template<class V2, class E2, class Alloc2>
-    Graph& operator=(const Graph<V2, E2, Alloc2> &other) {
+     *  Time complexity is linear in the sum of the number of vertices and edges in this graph and @p other.
+     *
+     *  <b>Warning:</b> Assignment is not currently exception safe. If an exception occurs (e.g., OOM) then the destination
+     *  graph could be left in an inconsistent state. */
+    template<class V2, class E2, class VKey2, class EKey2, class Alloc2>
+    Graph& operator=(const Graph<V2, E2, VKey2, EKey2, Alloc2> &other) {
         clear();
         for (size_t i=0; i<other.nVertices(); ++i) {
-            typename Graph<V2, E2>::ConstVertexIterator vertex = other.findVertex(i);
+            typename Graph<V2, E2, VKey2, EKey2, Alloc2>::ConstVertexIterator vertex = other.findVertex(i);
             VertexIterator inserted SAWYER_ATTR_UNUSED = insertVertex(VertexValue(vertex->value()));
             ASSERT_require(inserted->id() == i);
         }
         for (size_t i=0; i<other.nEdges(); ++i) {
-            typename Graph<V2, E2>::ConstEdgeIterator edge = other.findEdge(i);
+            typename Graph<V2, E2, VKey2, EKey2, Alloc2>::ConstEdgeIterator edge = other.findEdge(i);
             VertexIterator vsrc = findVertex(edge->source()->id());
             VertexIterator vtgt = findVertex(edge->target()->id());
             insertEdge(vsrc, vtgt, EdgeValue(edge->value()));
@@ -1044,12 +1236,52 @@ public:
      *
      *  Time complexity is constant.
      *
+     *  See also @ref findVertexValue and @ref findVertexKey.
+     *
      *  @{ */
     VertexIterator findVertex(size_t id) {
         return VertexIterator(vertices_.find(id));
     }
     ConstVertexIterator findVertex(size_t id) const {
         return ConstVertexIterator(vertices_.find(id));
+    }
+    /** @} */
+
+    /** Finds a vertex given its key.
+     *
+     *  Finds a vertex having the specified key and returns an itertor pointing to it, or the end iterator if such a vertex
+     *  does not exist. The end iterator is always returned for graphs that have no vertex index.
+     *
+     *  Time complexity depends on the vertex index type, but is usually logarithmic in the number of vertices.
+     *
+     *  See also @ref findVertex and @ref findVertexValue.
+     *
+     * @{ */
+    VertexIterator findVertexKey(const VertexKey &key) {
+        if (Optional<ConstVertexIterator> ov = vertexIndex_.forwardLookup(key))
+            return findVertex((*ov)->id());
+        return vertices().end();
+    }
+    ConstVertexIterator findVertexKey(const VertexKey &key) const {
+        return vertexIndex_.forwardLookup(key).orElse(vertices().end());
+    }
+    /** @} */
+
+    /** Finds a vertex given its value.
+     *
+     *  Finds a vertex having the specified value and returns an iterator pointing to it, or the end iterator if such a vertex
+     *  does not exist.  The end iterator is always returned for graphs that have no vertex index.  This method is just a
+     *  wrapper around a vertex key constructor followed by a call to @ref findVertexKey for the convenience of the user that
+     *  doesn't what to remember how to construct a key.
+     *
+     *  See also @ref findVertex and @ref findVertexKey.
+     *
+     * @{ */
+    VertexIterator findVertexValue(const VertexValue &value) {
+        return findVertexKey(VertexKey(value));
+    }
+    ConstVertexIterator findVertexValue(const VertexValue &value) const {
+        return findVertexKey(VertexKey(value));
     }
     /** @} */
 
@@ -1113,12 +1345,52 @@ public:
      *
      *  Time complexity is constant.
      *
+     *  See also @ref findEdgeValue and @ref findEdgeKey.
+     *
      *  @{ */
     EdgeIterator findEdge(size_t id) {
         return EdgeIterator(edges_.find(id));
     }
     ConstEdgeIterator findEdge(size_t id) const {
         return ConstEdgeIterator(edges_.find(id));
+    }
+    /** @} */
+
+    /** Finds an edge given its key.
+     *
+     *  Finds an edge having the specified key and returns an iterator pointing to it, or the end iterator if such a vertex
+     *  does not exist. The end iterator is always returned for graphs that have no edge index.
+     *
+     *  Time complexity depends on the edge index type, but is usually logarithmic in the number of edges.
+     *
+     *  See also @ref findEdge and @ref findEdgeValue.
+     *
+     * @{ */
+    EdgeIterator findEdgeKey(const EdgeKey &key) {
+        if (Optional<ConstEdgeIterator> oe = edgeIndex_.forwardLookup(key))
+            return findEdge((*oe)->id());
+        return edges().end();
+    }
+    ConstEdgeIterator findEdgeKey(const EdgeKey &key) const {
+        return edgeIndex_.forwardLookup(key).orElse(edges().end());
+    }
+    /** @} */
+
+    /** Finds an edge given its value.
+     *
+     *  Finds an edge having the specified value and returns an iterator pointing to it, or the end iterator if such an edge
+     *  does not exist.  The end iterator is always returned for graphs that have no edge index.  This method is just a
+     *  wrapper around an edge key constructor followed by a call to @ref findEdgeKey for the convenience of the user that
+     *  doesn't what to remember how to construct a key.
+     *
+     *  See also @ref findEdge and @ref findEdgeKey.
+     *
+     * @{ */
+    EdgeIterator findEdgeValue(const EdgeValue &value) {
+        return findEdgeKey(EdgeKey(value));
+    }
+    ConstEdgeIterator findEdgeValue(const EdgeValue &value) const {
+        return findEdgeValue(EdgeKey(value));
     }
     /** @} */
 
@@ -1167,14 +1439,27 @@ public:
      *  one-past-last vertex will eventually traverse this new vertex; no iterators, vertex or edge, are invalidated.  The new
      *  vertex is given the higest vertex ID number; no other ID numbers, vertex or edge, change.
      *
-     *  Time complexity is constant. */
+     *  If this graph has a vertex index and a vertex with the same key already exists then an @ref Exception::AlreadyExists is
+     *  thrown. See also @ref insertVertexMaybe.
+     *
+     *  Time complexity is constant for graphs without a vertex index. Looking up the vertex in the index has time complexity
+     *  depending on the type of index (usually logarithmic in the number of vertices). */
     VertexIterator insertVertex(const VertexValue &value = VertexValue()) {
-        typename VertexList::NodeIterator inserted = vertices_.insert(vertices_.nodes().end(), Vertex(value));
-        inserted->value().self_ = inserted;
-        inserted->value().edgeLists_.reset(NULL);       // this is a sublist head, no edge node
-        return VertexIterator(inserted);
+        return insertVertexImpl(value, true /*strict*/);
     }
 
+    /** Optionally insert a new vertex.
+     *
+     *  Same as @ref insertVertex except if this graph has a vertex index and a vertex already exists with the same key then a
+     *  new vertex is not inserted and the iterator of the existing vertex is returned instead.  This function always inserts a
+     *  new vertex for graphs that do not have a vertex index.
+     *
+     *  Time complexity is constant for graphs without a vertex index. Looking up the vertex in the index has time complexity
+     *  depending on the type of index (usually logarithmic in the number of vertices). */
+    VertexIterator insertVertexMaybe(const VertexValue &value) {
+        return insertVertexImpl(value, false /*non-strict*/);
+    }
+    
     /** Insert a new edge.
      *
      *  Inserts a new edge and copies @p value (if specified, or else default-constructed) into the edge node.  Returns an
@@ -1182,31 +1467,57 @@ public:
      *  edge will eventually traverse this new edge; no iterators, edge or vertex, are invalidated.  The new edge is given the
      *  highest edge ID number; no other ID numbers, edge or vertex, change.
      *
-     *  Time complexity is constant.
+     *  If this graph has an edge index and an edge with the same key already exists then an @ref Exception::AlreadyExists is
+     *  thrown. See also @ref insertEdgeMaybe.
+     *
+     *  Time complexity is constant for graphs without an edge index. Looking up the edge in the index has time complexity
+     *  depending on the type of index (usually logirithmic in the number of edges).
      *
      * @{ */
     EdgeIterator insertEdge(const VertexIterator &sourceVertex, const VertexIterator &targetVertex,
                             const EdgeValue &value = EdgeValue()) {
-        ASSERT_forbid(sourceVertex==vertices().end());
-        ASSERT_forbid(targetVertex==vertices().end());
-        typename EdgeList::NodeIterator inserted = edges_.insert(edges_.nodes().end(),
-                                                                 Edge(value, sourceVertex, targetVertex));
-        inserted->value().self_ = inserted;
-        inserted->value().edgeLists_.reset(&inserted->value());
-        EdgeIterator newEdge(inserted);
-        sourceVertex->edgeLists_.insert(OUT_EDGES, &newEdge->edgeLists_);
-        ++sourceVertex->nOutEdges_;
-        targetVertex->edgeLists_.insert(IN_EDGES, &newEdge->edgeLists_);
-        ++targetVertex->nInEdges_;
-        return newEdge;
+        return insertEdgeImpl(sourceVertex, targetVertex, value, true /*strict*/);
     }
     EdgeIterator insertEdge(const ConstVertexIterator &sourceVertex, const ConstVertexIterator &targetVertex,
                             const EdgeValue &value = EdgeValue()) {
-        ASSERT_forbid(sourceVertex==vertices().end());
-        ASSERT_forbid(targetVertex==vertices().end());
+        ASSERT_require(isValidVertex(sourceVertex));
+        ASSERT_require(isValidVertex(targetVertex));
         return insertEdge(findVertex(sourceVertex->id()), findVertex(targetVertex->id()), value);
     }
     /** @} */
+
+    /** Optionally insert a new edge.
+     *
+     *  Same as @ref insertEdge except if this graph has an edge index and an edge already exists with the same key then a new
+     *  edge is not inserted and the iterator of the existing edge is returned instead.  This function always inserts a new
+     *  edge for graphs that do not have an edge index.
+     *
+     *  Time complexity is constant for graphs without an edge index. Looking up the edge in the index has time complexity
+     *  depending on the type of index (usually logirithmic in the number of edges).
+     *
+     * @{ */
+    EdgeIterator insertEdgeMaybe(const VertexIterator &sourceVertex, const VertexIterator &targetVertex,
+                                 const EdgeValue &value = EdgeValue()) {
+        return insertEdgeImpl(sourceVertex, targetVertex, value, false /*non-strict*/);
+    }
+    EdgeIterator insertEdgeMaybe(const ConstVertexIterator &sourceVertex, const ConstVertexIterator &targetVertex,
+                                 const EdgeValue &value = EdgeValue()) {
+        ASSERT_require(isValidVertex(sourceVertex));
+        ASSERT_require(isValidVertex(targetVertex));
+        return insertEdgeMaybe(findVertex(sourceVertex->id()), findVertex(targetVertex->id()), value);
+    }
+    /** @} */
+
+    /** Insert an edge and its vertex end points.
+     *
+     *  Invoke @ref insertVertexMaybe for both given vertex values, and then invokes @ref insertEdge to connect the two
+     *  vertices with an edge. */
+    EdgeIterator insertEdgeWithVertices(const VertexValue &sourceValue, const VertexValue &targetValue,
+                                        const EdgeValue &edgeValue = EdgeValue()) {
+        VertexIterator source = insertVertexMaybe(sourceValue);
+        VertexIterator target = insertVertexMaybe(targetValue);
+        return insertEdge(source, target, edgeValue);
+    }
 
     /** Erases an edge.
      *
@@ -1219,12 +1530,14 @@ public:
      *  returns an iterator for the edge following the one that was erased (possibly the one-past-last iterator if the last
      *  edge was erased).
      *
-     *  Time complexity is constant.
+     *  Time complexity is constant unless the graph has an edge index, in which case time complexity is dependent on the index
+     *  type (usually logarithmic in the number of edges).
      *
      * @{ */
     EdgeIterator eraseEdge(const EdgeIterator &edge) {
-        ASSERT_forbid(edge==edges().end());
+        ASSERT_require(isValidEdge(edge));
         EdgeIterator next = edge; ++next;               // advance before we delete edge
+        edgeIndex_.eraseTarget(edge);
         --edge->source_->nOutEdges_;
         edge->edgeLists_.remove(OUT_EDGES);
         --edge->target_->nInEdges_;
@@ -1233,21 +1546,49 @@ public:
         return next;
     }
     EdgeIterator eraseEdge(const ConstEdgeIterator &edge) {
-        ASSERT_forbid(edge==edges().end());
+        ASSERT_require(isValidEdge(edge));
         return eraseEdge(findEdge(edge->id()));
     }
     /** @} */
+
+    /** Erases and edge and possibly vertices.
+     *
+     *  Erases the specified edge. If this results in the source vertex having no incoming or outgoing edges then the source
+     *  vertex is also erased. Similarly for the target vertex when the edge is not a self edge.  Erasing of the vertices and
+     *  edges has the semantics of @ref eraseVertex and @ref eraseEdges, including the affects on iterators and ID numbers, and
+     *  time complexity.
+     *
+     *  Returns an iterator for the edge following the one that was erased (possibly the on-past-last iterator if the last edge
+     *  was erased). */
+    EdgeIterator eraseEdgeWithVertices(const EdgeIterator &edge) {
+        ASSERT_require(isValidEdge(edge));
+        VertexIterator source = edge->source();
+        VertexIterator target = edge->target();
+        EdgeIterator retval = eraseEdge(edge);
+        if (source == target) {
+            if (source->degree() == 0)
+                eraseVertex(source);
+        } else {
+            if (source->degree() == 0)
+                eraseVertex(source);
+            if (target->degree() == 0)
+                eraseVertex(target);
+        }
+        return retval;
+    }
 
     /** Erases all edges connecting two vertices.
      *
      *  Given two vertex iterators, erase all edges whose source is the first vertex and whose target is the second vertex.
      *
-     *  Time complexity is linear in the number of incoming or outgoing edges (whichever is smaller).
+     *  For graphs without an edge index, time complexity is linear in the number of incoming or outgoing edges (whichever is
+     *  smaller). If an edge index is present then time complexity depends on the type of edge index (most indexes have
+     *  logarithmic lookup time).
      *
      * @{ */
     void eraseEdges(const VertexIterator &source, const VertexIterator &target) {
-        ASSERT_forbid(source==vertices().end());
-        ASSERT_forbid(target==vertices().end());
+        ASSERT_require(isValidVertex(source));
+        ASSERT_require(isValidVertex(target));
         if (source->nOutEdges() < target->nInEdges()) {
             EdgeIterator iter = source->outEdges().begin();
             while (iter != source->outEdges().end()) {
@@ -1269,8 +1610,8 @@ public:
         }
     }
     void eraseEdges(const ConstVertexIterator &source, const ConstVertexIterator &target) {
-        ASSERT_forbid(source==vertices().end());
-        ASSERT_forbid(target==vertices().end());
+        ASSERT_require(isValidVertex(source));
+        ASSERT_require(isValidVertex(target));
         eraseEdges(findVertex(source->id()), findVertex(target->id()));
     }
     /** @} */
@@ -1286,18 +1627,21 @@ public:
      *  vertex that was erased in order to fill the gap left in the ID sequence.  This method returns an iterator for the
      *  vertex following the one that was erased (possibly the one-past-last iterator if the last vertex was erased).
      *
-     *  Time complexity is constant.
+     *  For a vertex with no incident edges, time complexity is constant unless the graph has a vertex index in which case it
+     *  depends on the type of index (most vertex indexes have logarithmic lookup/erase time).  If the vertex being erased has
+     *  incoming or outgoing edges then the implementation also calls @ref eraseEdges.
      *
      * @{ */
     VertexIterator eraseVertex(const VertexIterator &vertex) {
-        ASSERT_forbid(vertex==vertices().end());
+        ASSERT_require(isValidVertex(vertex));
         VertexIterator next = vertex; ++next;       // advance before we delete vertex
         clearEdges(vertex);
+        vertexIndex_.eraseTarget(vertex);
         vertices_.eraseAt(vertex->self_);               // vertex is now deleted
         return next;
     }
     VertexIterator eraseVertex(const ConstVertexIterator &vertex) {
-        ASSERT_forbid(vertex==vertices().end());
+        ASSERT_require(isValidVertex(vertex));
         return eraseVertex(findVertex(vertex->id()));
     }
     /** @} */
@@ -1314,6 +1658,7 @@ public:
             vertex->outEdges().reset();
         }
         edges_.clear();
+        edgeIndex_.clear();
     }
 
     /** Erase all edges incident to a vertex.
@@ -1322,7 +1667,8 @@ public:
      *  whose source or target is the vertex.  It is logically equivalent to calling @ref clearOutEdges followed by @ref
      *  clearInEdges, and has the same effects on iterators and edge ID numbers as erasing edges individually.
      *
-     *  Time complexity is linear in the number of edges erased.
+     *  Time complexity is linear in the number of edges erased, multiplied by the time complexity for edge index lookups if
+     *  any. Most edge indexes have logarithmic lookup time.
      *
      * @{ */
     void clearEdges(const VertexIterator &vertex) {
@@ -1340,7 +1686,8 @@ public:
      *  This method erases (withdraws and deletes) all edges whose source is the specified vertex.  It has the same effects on
      *  iterators and edge ID numbers as erasing edges individually.
      *
-     *  Time complexity is linear in the number of edges erased.
+     *  Time complexity is linear in the number of edges erased, multiplied by the time complexity for edge index lookups if
+     *  any. Most edge indexes have logarithmic lookup time.
      *
      * @{ */
     void clearOutEdges(const VertexIterator &vertex) {
@@ -1359,7 +1706,8 @@ public:
      *  This method erases (withdraws and deletes) all edges whose target is the specified vertex.  It has the same effects on
      *  iterators and edge ID numbers as erasing edges individually.
      *
-     *  Time complexity is linear in the number of edges erased.
+     *  Time complexity is linear in the number of edges erased, multiplied by the time complexity for edge index lookups if
+     *  any. Most edge indexes have logarithmic lookup time..
      *
      * @{ */
     void clearInEdges(const VertexIterator &vertex) {
@@ -1383,7 +1731,51 @@ public:
     void clear() {
         edges_.clear();
         vertices_.clear();
+        edgeIndex_.clear();
+        vertexIndex_.clear();
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Internal implementation details
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+private:
+    VertexIterator insertVertexImpl(const VertexValue &value, bool strict) {
+        const VertexKey key(value);
+        if (Optional<ConstVertexIterator> found = vertexIndex_.forwardLookup(key)) {
+            if (strict)
+                throw Exception::AlreadyExists("cannot insert duplicate vertex when graph vertices are indexed");
+            return findVertex((*found)->id());
+        }
+        typename VertexList::NodeIterator inserted = vertices_.insert(vertices_.nodes().end(), Vertex(value));
+        inserted->value().self_ = inserted;
+        inserted->value().edgeLists_.reset(NULL);       // this is a sublist head, no edge node
+        VertexIterator retval = VertexIterator(inserted);
+        vertexIndex_.insert(key, retval);
+        return retval;
+    }
+
+    EdgeIterator insertEdgeImpl(const VertexIterator &sourceVertex, const VertexIterator &targetVertex,
+                                const EdgeValue &value, bool strict) {
+        const EdgeKey key(value);
+        ASSERT_require(isValidVertex(sourceVertex));
+        ASSERT_require(isValidVertex(targetVertex));
+        if (Optional<ConstEdgeIterator> found = edgeIndex_.forwardLookup(key)) {
+            if (strict)
+                throw Exception::AlreadyExists("cannot insert duplicate edge when graph edges are indexed");
+            return findEdge((*found)->id());
+        }
+        typename EdgeList::NodeIterator inserted = edges_.insert(edges_.nodes().end(), Edge(value, sourceVertex, targetVertex));
+        inserted->value().self_ = inserted;
+        inserted->value().edgeLists_.reset(&inserted->value());
+        EdgeIterator newEdge(inserted);
+        sourceVertex->edgeLists_.insert(OUT_EDGES, &newEdge->edgeLists_);
+        ++sourceVertex->nOutEdges_;
+        targetVertex->edgeLists_.insert(IN_EDGES, &newEdge->edgeLists_);
+        ++targetVertex->nInEdges_;
+        edgeIndex_.insert(key, newEdge);
+        return newEdge;
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Deprecated stuff
