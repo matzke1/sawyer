@@ -9,6 +9,7 @@
 #include <Sawyer/Optional.h>                            // for Sawyer::Nothing
 #include <Sawyer/Sawyer.h>
 #include <boost/range/iterator_range.hpp>
+#include <boost/unordered_map.hpp>
 #include <ostream>
 #if 1 /*DEBUGGING [Robb Matzke 2014-04-21]*/
 #include <iomanip>
@@ -104,6 +105,58 @@ public:
     }
 };
 
+/** Hash function for graph iterators. */
+template<class VertexOrEdgeConstIterator>
+struct VertexOrEdgeIteratorHash {
+    size_t operator()(const VertexOrEdgeConstIterator &iter) const {
+        size_t seed = 0;
+        void *x = (void*)&*iter;
+        boost::hash_combine(seed, x);
+        return seed;
+    }
+};
+
+/** Hash-based indexing. */
+template<class Source, class Target>
+class GraphHashIndex {
+    typedef boost::unordered_map<Source, Target> Forward;
+    typedef boost::unordered_map<Target, Source, VertexOrEdgeIteratorHash<Target> > Reverse;
+    Forward forward_;
+    Reverse reverse_;
+public:
+    void clear() {
+        forward_.clear();
+        reverse_.clear();
+    }
+
+    void insert(const Source &source, const Target &target) {
+        forward_[source] = target;
+        reverse_[target] = source;
+    }
+
+    void eraseTarget(const Target &target) {
+        typename Reverse::iterator ri = reverse_.find(target);
+        if (ri != reverse_.end()) {
+            forward_.erase(ri->second);
+            reverse_.erase(ri);
+        }
+    }
+
+    Optional<Target> forwardLookup(const Source &source) const {
+        typename Forward::const_iterator found = forward_.find(source);
+        if (found == forward_.end())
+            return Nothing();
+        return found->second;
+    }
+
+    Optional<Source> reverseLookup(const Target &target) const {
+        typename Reverse::const_iterator found = reverse_.find(target);
+        if (found == reverse_.end())
+            return Nothing();
+        return found->second;
+    }
+};
+
 /** Traits for vertex and edge indexing. */
 template<class VertexOrEdgeKey, class VertexOrEdgeConstIterator>
 struct GraphIndexTraits {
@@ -122,12 +175,22 @@ struct GraphIndexTraits<GraphEdgeNoKey<EdgeValue>, ConstEdgeIterator> {
 
 // A #define so users that don't understand C++ templates can still get by.
 // Must be used at global scope.
-#define SAWYER_GRAPH_INDEXING_SCHEME(KEY_TYPE, INDEX_TYPE)                                                                     \
+#define SAWYER_GRAPH_INDEXING_SCHEME_1(KEY_TYPE, INDEX_TYPE)                                                                   \
     namespace Sawyer {                                                                                                         \
         namespace Container {                                                                                                  \
             template<class VertexOrEdgeConstIterator>                                                                          \
             struct GraphIndexTraits<KEY_TYPE, VertexOrEdgeConstIterator> {                                                     \
                 typedef INDEX_TYPE<VertexOrEdgeConstIterator> Index;                                                           \
+            };                                                                                                                 \
+        }                                                                                                                      \
+    }
+
+#define SAWYER_GRAPH_INDEXING_SCHEME_2(KEY_TYPE, INDEX_TYPE)                                                                   \
+    namespace Sawyer {                                                                                                         \
+        namespace Container {                                                                                                  \
+            template<class VertexOrEdgeConstIterator>                                                                          \
+            struct GraphIndexTraits<KEY_TYPE, VertexOrEdgeConstIterator> {                                                     \
+                typedef INDEX_TYPE<KEY_TYPE, VertexOrEdgeConstIterator> Index;                                                 \
             };                                                                                                                 \
         }                                                                                                                      \
     }

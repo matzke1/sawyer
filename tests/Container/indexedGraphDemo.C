@@ -203,21 +203,80 @@ demo2() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Demo 3: Using a different index type.  By default, a graph uses a map based on a balanced binary tree and lookup times are
-// guaranteed to be O(log N).  We can declare our own index type if we want to use something like a hash-based lookup.
+// Demo 3: The default graph index is based on std::map and has guaranteed O(log N) lookup time.  If you want to use a
+// hash-based index you can quite easily do that.
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Define the type of values we'll store at each vertex.
+struct Person {
+    std::string lastName, firstName;
+    int birthYear;
+    std::string stateIssuedId;
+
+    Person(const std::string &lastName, const std::string &firstName, int birthYear, const std::string &id)
+        : lastName(lastName), firstName(firstName), birthYear(birthYear), stateIssuedId(id) {}
+};
+
+// Use the state-issued ID number as the unique key to identify each person.
+struct PersonKey {
+    std::string id;
+
+    PersonKey() {}
+
+    // Needed by Sawyer::Container::Graph
+    explicit PersonKey(const Person &p): id(p.stateIssuedId) {}
+
+    // Needed by boost::unordered_map
+    bool operator==(const PersonKey &other) const {
+        return id == other.id;
+    }
+};
+
+// Needed by boost::unordered_map
+size_t
+hash_value(const PersonKey &key) {
+    size_t seed = 0;
+    BOOST_FOREACH (char ch, key.id)
+        boost::hash_combine(seed, ch);
+    return seed;
+}
+
+
+
+// Partly specialize the Sawyer::Container::GraphIndexTraits for our key type.  You could do this by hand, but this macro is
+// more convenient. It must be at global scope. The "2" means the GraphHashIndex class template takes two arguments: PersonKey
+// and a graph iterator.
+SAWYER_GRAPH_INDEXING_SCHEME_2(PersonKey, Sawyer::Container::GraphHashIndex);
+
+static void
+demo3() {
+    typedef Sawyer::Container::Graph<Person, Sawyer::Nothing, PersonKey> Graph;
+    Graph g;
+
+    g.insertVertex(Person("Bear", "Smokey", 1944, "123-45-6789"));
+    try {
+        g.insertVertex(Person("Bear", "Yogi", 1958, "123-45-6789")); // Evil Yogi stealing Smokey's ID
+        ASSERT_not_reachable("inserting the same ID twice should have failed");
+    } catch (const Sawyer::Exception::AlreadyExists&) {
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Demo 4: Using your own index type.  Sawyer provides a map-based index with O(log N) time and a hash-based index with O(N)
+// lookup time (but nominally constant).  Users can also create their own index if neither of these are sufficient.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 // Declare our vertex values and keys. In this case we'll keep things trivial by storing only strings and using the string
 // itself as the vertex lookup key.
-typedef std::string Demo3VertexValue;
-typedef std::string Demo3VertexKey;
+typedef std::string Demo4VertexValue;
+typedef std::string Demo4VertexKey;
 
 // Declare the index type and define its required operations.  E.g., you could use a pair of std::map's or a pair of hash-based
 // maps such as boost::unordered_map or C++11's std::unordered_map.
 template<class ConstVertexIterator>
-class Demo3VertexIndex {
-    typedef Sawyer::Container::BiMap<Demo3VertexKey, ConstVertexIterator> Map;
+class Demo4VertexIndex {
+    typedef Sawyer::Container::BiMap<Demo4VertexKey, ConstVertexIterator> Map;
     Map map_;
 
 public:
@@ -225,7 +284,7 @@ public:
         map_.clear();
     }
 
-    void insert(const Demo3VertexKey &key, const ConstVertexIterator &iter) {
+    void insert(const Demo4VertexKey &key, const ConstVertexIterator &iter) {
         map_.insert(key, iter);
     }
 
@@ -233,25 +292,25 @@ public:
         map_.eraseTarget(iter);
     }
 
-    Sawyer::Optional<ConstVertexIterator> forwardLookup(const Demo3VertexKey &key) const {
+    Sawyer::Optional<ConstVertexIterator> forwardLookup(const Demo4VertexKey &key) const {
         return map_.forward().getOptional(key);
     }
 
-    Sawyer::Optional<Demo3VertexKey> reverseLookup(const ConstVertexIterator &iter) {
+    Sawyer::Optional<Demo4VertexKey> reverseLookup(const ConstVertexIterator &iter) {
         return map_.reverse().getOptional(iter);
     }
 };
 
-// Use this convenience macro to partially specialize Sawyer::Container::GraphIndexTraits. This has to be at global scope and
-// the index is expected to take one template argument. If this doesn't meet your needs then take a look at the macro
-// definition (it's very small and simple).
-SAWYER_GRAPH_INDEXING_SCHEME(Demo3VertexKey, Demo3VertexIndex);
+// Use this convenience macro to partly specialize Sawyer::Container::GraphIndexTraits. This has to be at global scope and the
+// index is expected to take one template argument: a graph iterator type. If this doesn't meet your needs then take a look at
+// the macro definition -- there's nothing magical about it.
+SAWYER_GRAPH_INDEXING_SCHEME_1(Demo4VertexKey, Demo4VertexIndex);
 
 // Now do some things with this graph
 static void
-demo3() {
-    typedef Sawyer::Container::Graph<Demo3VertexValue, Sawyer::Nothing, Demo3VertexKey> G;
-    G g;
+demo4() {
+    typedef Sawyer::Container::Graph<Demo4VertexValue, Sawyer::Nothing, Demo4VertexKey> Graph;
+    Graph g;
 
     g.insertVertex("vertex 1");
     try {
@@ -268,5 +327,6 @@ main() {
     demo1();
     demo2();
     demo3();
+    demo4();
 }
 
