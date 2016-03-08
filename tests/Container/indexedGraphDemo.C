@@ -202,8 +202,64 @@ demo2() {
     ASSERT_always_require(g.nEdges() == 0);
 }
 
-    
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Demo 3: Using a different index type.  By default, a graph uses a map based on a balanced binary tree and lookup times are
+// guaranteed to be O(log N).  We can declare our own index type if we want to use something like a hash-based lookup.
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+// Declare our vertex values and keys. In this case we'll keep things trivial by storing only strings and using the string
+// itself as the vertex lookup key.
+typedef std::string Demo3VertexValue;
+typedef std::string Demo3VertexKey;
+
+// Declare the index type and define its required operations.  E.g., you could use a pair of std::map's or a pair of hash-based
+// maps such as boost::unordered_map or C++11's std::unordered_map.
+template<class ConstVertexIterator>
+class Demo3VertexIndex {
+    typedef Sawyer::Container::BiMap<Demo3VertexKey, ConstVertexIterator> Map;
+    Map map_;
+
+public:
+    void clear() {
+        map_.clear();
+    }
+
+    void insert(const Demo3VertexKey &key, const ConstVertexIterator &iter) {
+        map_.insert(key, iter);
+    }
+
+    void eraseTarget(const ConstVertexIterator &iter) {
+        map_.eraseTarget(iter);
+    }
+
+    Sawyer::Optional<ConstVertexIterator> forwardLookup(const Demo3VertexKey &key) const {
+        return map_.forward().getOptional(key);
+    }
+
+    Sawyer::Optional<Demo3VertexKey> reverseLookup(const ConstVertexIterator &iter) {
+        return map_.reverse().getOptional(iter);
+    }
+};
+
+// Use this convenience macro to partially specialize Sawyer::Container::GraphIndexTraits. This has to be at global scope and
+// the index is expected to take one template argument. If this doesn't meet your needs then take a look at the macro
+// definition (it's very small and simple).
+SAWYER_GRAPH_INDEXING_SCHEME(Demo3VertexKey, Demo3VertexIndex);
+
+// Now do some things with this graph
+static void
+demo3() {
+    typedef Sawyer::Container::Graph<Demo3VertexValue, Sawyer::Nothing, Demo3VertexKey> G;
+    G g;
+
+    g.insertVertex("vertex 1");
+    try {
+        g.insertVertex("vertex 1");
+        ASSERT_not_reachable("inserting the same vertex label twice should have failed");
+    } catch (const Sawyer::Exception::AlreadyExists&) {
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -211,5 +267,6 @@ int
 main() {
     demo1();
     demo2();
+    demo3();
 }
 

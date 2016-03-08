@@ -21,7 +21,12 @@ namespace Container {
 // Special vertex and edge key types.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Type of vertex key for graphs that do not index their vertices. */
+/** Type of vertex key for graphs that do not index their vertices.
+ *
+ *  This is the default vertex key type, @c VKey argument, for the @ref Graph template. In order to index graph vertices you
+ *  must provide at least the vertex key type which must have a copy constructor and a constructor that takes a vertex value
+ *  argument. Depending on the index type obtained from @ref GraphIndexTraits, this key type may need additional functionality
+ *  such as a default constructor and a less-than operator or hashing function. */
 template<class VertexValue>
 class GraphVertexNoKey {
 public:
@@ -29,7 +34,12 @@ public:
     explicit GraphVertexNoKey(const VertexValue&) {}
 };
 
-/** Type of edge key for graphs that do not index their edges. */
+/** Type of edge key for graphs that do not index their edges.
+ *
+ *  This is the default edge key type, @c EKey argument, for the @ref Graph template. In order to index graph edges you must
+ *  provide at least the index key type which must have a copy constructor and a constructor that takes an edge value
+ *  argument. Depending on the index type obtained from @ref GraphIndexTraits, this key type may need additional functionality
+ *  such as a default constructor and a less-than operator or hashing function. */
 template<class EdgeValue>
 class GraphEdgeNoKey {
 public:
@@ -41,11 +51,21 @@ public:
 // Special vertex and edge indexing types.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Fake index for graphs that don't have an index. */
+/** Fake index for graphs that don't have an index.
+ *
+ *  This is the index type used when a vertex or edge index is not required. It has no storage and constant lookup times.  The
+ *  API of the index is documented here.  See @ref GraphIndexTraits for information about how to override the index type for a
+ *  graph.
+ *
+ *  The @c Source argument is a vertex or edge key type, and @c Target is a constant vertex or edge iterator. */
 template<class Source, class Target>
 class GraphVoidIndex {
 public:
+    /** Erase all data from this index.
+     *
+     *  This resets the index to the same state as if it were default constructed. */
     void clear() {}
+
     void insert(const Source&, const Target&) {}
     void eraseTarget(const Target&) {}
 
@@ -100,6 +120,19 @@ struct GraphIndexTraits<GraphEdgeNoKey<EdgeValue>, ConstEdgeIterator> {
     typedef GraphVoidIndex<GraphEdgeNoKey<EdgeValue>, ConstEdgeIterator> Index;
 };
 
+// A #define so users that don't understand C++ templates can still get by.
+// Must be used at global scope.
+#define SAWYER_GRAPH_INDEXING_SCHEME(KEY_TYPE, INDEX_TYPE)                                                                     \
+    namespace Sawyer {                                                                                                         \
+        namespace Container {                                                                                                  \
+            template<class VertexOrEdgeConstIterator>                                                                          \
+            struct GraphIndexTraits<KEY_TYPE, VertexOrEdgeConstIterator> {                                                     \
+                typedef INDEX_TYPE<VertexOrEdgeConstIterator> Index;                                                           \
+            };                                                                                                                 \
+        }                                                                                                                      \
+    }
+
+    
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Graph traits
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -352,7 +385,7 @@ struct GraphTraits<const G> {
  *
  * @code
  *  CityGraph::VertexIterator boston = cityGraph.findVertexValue(City("boston", MA));
- *  CityGraph::VertexIterator boston = cityGraph.findVertexValue(CityKey("boston", MA));
+ *  CityGraph::VertexIterator boston = cityGraph.findVertexKey(CityKey("boston", MA));
  * @endcode
  *
  *  The other thing a vertex index does is prevent us from adding two vertices having the same key--we'd get a @ref
