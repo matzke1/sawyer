@@ -24,7 +24,7 @@ namespace Container {
 
 /** Type of vertex key for graphs that do not index their vertices.
  *
- *  This is the default vertex key type, @c VKey argument, for the @ref Graph template. In order to index graph vertices you
+ *  This is the default vertex key type, @p VKey argument, for the @ref Graph template. In order to index graph vertices you
  *  must provide at least the vertex key type which must have a copy constructor and a constructor that takes a vertex value
  *  argument. Depending on the index type obtained from @ref GraphIndexTraits, this key type may need additional functionality
  *  such as a default constructor and a less-than operator or hashing function. */
@@ -37,7 +37,7 @@ public:
 
 /** Type of edge key for graphs that do not index their edges.
  *
- *  This is the default edge key type, @c EKey argument, for the @ref Graph template. In order to index graph edges you must
+ *  This is the default edge key type, @p EKey argument, for the @ref Graph template. In order to index graph edges you must
  *  provide at least the index key type which must have a copy constructor and a constructor that takes an edge value
  *  argument. Depending on the index type obtained from @ref GraphIndexTraits, this key type may need additional functionality
  *  such as a default constructor and a less-than operator or hashing function. */
@@ -58,7 +58,7 @@ public:
  *  API of the index is documented here.  See @ref GraphIndexTraits for information about how to override the index type for a
  *  graph.
  *
- *  The @c Source argument is a vertex or edge key type, and @c Target is a constant vertex or edge iterator. */
+ *  The @p Source argument is a vertex or edge key type, and @p Target is a constant vertex or edge iterator. */
 template<class Source, class Target>
 class GraphVoidIndex {
 public:
@@ -67,45 +67,84 @@ public:
      *  This resets the index to the same state as if it were default constructed. */
     void clear() {}
 
+    /** Insert a new element into the map.
+     *
+     *  Inserts a mapping from source to target and vice versa. Both the source and target must be unique (the @ref Graph will
+     *  never call this method with a source or target that is already in the map). */
     void insert(const Source&, const Target&) {}
+
+    /** Erase an element from the map.
+     *
+     *  Erases the mapping whose target is the specified value. Both forward and reverse directions are erased.  This function
+     *  should do nothing if the target does not exist in the index. */
     void eraseTarget(const Target&) {}
 
+    /** Look up target value given source value.
+     *
+     *  Given a user vertex or edge key, return the graph vertex or edge const iterator for that key.  If the key does not
+     *  exist in the index then return nothing. */
     Optional<Target> forwardLookup(const Source &source) const {
         return Nothing();
     }
 
+    /** Look up source value given target value.
+     *
+     *  Given a graph vertex or edge iterator, return the vertex or edge key for that iterator. If the iterator does not exist
+     *  in the index then return nothing. */
     Optional<Source> reverseLookup(const Target &source) const {
         return Nothing();
     }
 };
 
-/** Bi-map based index is the default index type when indexes are present. */
+/** Bi-map based index is the default index type when indexes are present.
+ *
+ *  This index has O(log N) insert, erase, and lookup times. Both @p Source and @p Target types must have a less-than
+ *  operator. Normally @p Source is the user's vertex or edge key type and @p Target is a graph vertex or edge const iterator
+ *  type. The iterator types already satisfy the requirements for use as map keys.
+ *
+ *  The semantics for the methods of this class are documented in the @ref GraphVoidIndex class. */
 template<class Source, class Target>
 class GraphBimapIndex {
     BiMap<Source, Target> map_;
 public:
+    /** Erase all data from this index.
+     *
+     *  See @ref GraphVoidIndex::clear. */
     void clear() {
         map_.clear();
     }
 
+    /** Insert a new element into the map.
+     *
+     *  See @ref GraphVoidIndex::insert. */
     void insert(const Source &source, const Target &target) {
         map_.insert(source, target);
     }
 
+    /** Erase an element from the map.
+     *
+     *  See @ref GraphVoidIndex::eraseTarget. */
     void eraseTarget(const Target &target) {
         map_.eraseTarget(target);
     }
 
+    /** Lookup target value given source value.
+     *
+     *  See @ref GraphVoidIndex::forwardLookup. */
     Optional<Target> forwardLookup(const Source &source) const {
         return map_.forward().getOptional(source);
     }
 
+    /** Lookup source value given target value.
+     *
+     *  See @ref GraphVoidIndex::reverseLookup. */
     Optional<Source> reverseLookup(const Target &target) const {
         return map_.reverse().getOptional(target);
     }
 };
 
-/** Hash function for graph iterators. */
+// This hash is used internally by GraphHashIndex to hash vertex and edge iterators. It depends on the fact that once a vertex
+// or edge is allocated in the graph its address never changes.
 template<class VertexOrEdgeConstIterator>
 struct VertexOrEdgeIteratorHash {
     size_t operator()(const VertexOrEdgeConstIterator &iter) const {
@@ -116,7 +155,14 @@ struct VertexOrEdgeIteratorHash {
     }
 };
 
-/** Hash-based indexing. */
+/** Hash-based indexing.
+ *
+ *  This index has O(N) insert, erase, and lookup times, although nominally the times are constant because the index uses
+ *  hashing.  The @p Source type, typically the user-defined graph vertex or edge data, must have a hash function appropriate
+ *  for <code>boost::unordered_map</code> and an equality operator.  The @p Target type is normally a graph vertex or edge
+ *  const iterator and already satisfies these requirements.
+ *
+ *  The semantics for each of the class methods are documented in @ref GraphVoidIndex. */
 template<class Source, class Target>
 class GraphHashIndex {
     typedef boost::unordered_map<Source, Target> Forward;
@@ -124,16 +170,25 @@ class GraphHashIndex {
     Forward forward_;
     Reverse reverse_;
 public:
+    /** Erase all data from this index.
+     *
+     *  See @ref GraphVoidIndex::clear. */
     void clear() {
         forward_.clear();
         reverse_.clear();
     }
 
+    /** Insert a new element into the map.
+     *
+     *  See @ref GraphVoidIndex::insert. */
     void insert(const Source &source, const Target &target) {
         forward_[source] = target;
         reverse_[target] = source;
     }
 
+    /** Erase an element from the map.
+     *
+     *  See @ref GraphVoidIndex::eraseTarget. */
     void eraseTarget(const Target &target) {
         typename Reverse::iterator ri = reverse_.find(target);
         if (ri != reverse_.end()) {
@@ -142,6 +197,9 @@ public:
         }
     }
 
+    /** Lookup target value given source value.
+     *
+     *  See @ref GraphVoidIndex::forwardLookup. */
     Optional<Target> forwardLookup(const Source &source) const {
         typename Forward::const_iterator found = forward_.find(source);
         if (found == forward_.end())
@@ -149,6 +207,9 @@ public:
         return found->second;
     }
 
+    /** Lookup source value given target value.
+     *
+     *  See @ref GraphVoidIndex::reverseLookup. */
     Optional<Source> reverseLookup(const Target &target) const {
         typename Reverse::const_iterator found = reverse_.find(target);
         if (found == reverse_.end())
@@ -157,23 +218,33 @@ public:
     }
 };
 
-/** Traits for vertex and edge indexing. */
+/** Traits for vertex and edge indexing.
+ *
+ *  By partly specializing this class template a user can define the type of index used for a particular vertex or edge key
+ *  type.   Sawyer already defines specializations for graphs that have no vertex or edge keys.  The @c
+ *  SAWYER_GRAPH_INDEXING_SCHEME_1 and @c SAWYER_GRAPH_INDEXING_SHCEME_2 macros can be used at the global scope to add partial
+ *  specializations for users that aren't keen to use C++ templates. They both take two arguments: the key type and the index
+ *  type. They differ only in whether the index type template takes one argument (a vertex or edge iterator type) or two (the
+ *  key type and an iterator type). */
 template<class VertexOrEdgeKey, class VertexOrEdgeConstIterator>
 struct GraphIndexTraits {
+    /** Type of index to use for the specified key type. */
     typedef GraphBimapIndex<VertexOrEdgeKey, VertexOrEdgeConstIterator> Index;
 };
 
+// Partial specialization for when there is no vertex index
 template<class VertexValue, class ConstVertexIterator>
 struct GraphIndexTraits<GraphVertexNoKey<VertexValue>, ConstVertexIterator> {
     typedef GraphVoidIndex<GraphVertexNoKey<VertexValue>, ConstVertexIterator> Index;
 };
 
+// Partial specialization for when there is no edge index.
 template<class EdgeValue, class ConstEdgeIterator>
 struct GraphIndexTraits<GraphEdgeNoKey<EdgeValue>, ConstEdgeIterator> {
     typedef GraphVoidIndex<GraphEdgeNoKey<EdgeValue>, ConstEdgeIterator> Index;
 };
 
-// A #define so users that don't understand C++ templates can still get by.
+// A #define so users that don't understand C++ templates can still get by. See GraphIndexTraits doc for details.
 // Must be used at global scope.
 #define SAWYER_GRAPH_INDEXING_SCHEME_1(KEY_TYPE, INDEX_TYPE)                                                                   \
     namespace Sawyer {                                                                                                         \
@@ -203,16 +274,32 @@ struct GraphIndexTraits<GraphEdgeNoKey<EdgeValue>, ConstEdgeIterator> {
 /** Traits for graphs. */
 template<class G>
 struct GraphTraits {
+    /** Const or non-const edge iterator. */
     typedef typename G::EdgeIterator EdgeIterator;
+
+    /** Const or non-const edge value iterator. */
     typedef typename G::EdgeValueIterator EdgeValueIterator;
+
+    /** Const or non-const vertex iterator. */
     typedef typename G::VertexIterator VertexIterator;
+
+    /** Const or non-const vertex value iterator. */
     typedef typename G::VertexValueIterator VertexValueIterator;
+
+    /** Vertex type including user type and connectivity. */
     typedef typename G::Vertex Vertex;
+
+    /** Edge type including user type and connectivity. */
     typedef typename G::Edge Edge;
+
+    /** User-defined vertex type without connectivity information. */
     typedef typename G::VertexValue VertexValue;
+
+    /** User-defined edge type without connectivity information. */
     typedef typename G::EdgeValue EdgeValue;
 };
 
+// GraphTraits specialization for const graphs.
 template<class G>
 struct GraphTraits<const G> {
     typedef typename G::ConstEdgeIterator EdgeIterator;
