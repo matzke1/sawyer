@@ -2,10 +2,10 @@
 #define Sawyer_Graph_H
 
 #include <Sawyer/Assert.h>
-#include <Sawyer/BiMap.h>
 #include <Sawyer/DefaultAllocator.h>
 #include <Sawyer/Exception.h>
 #include <Sawyer/IndexedList.h>
+#include <Sawyer/Map.h>
 #include <Sawyer/Optional.h>                            // for Sawyer::Nothing
 #include <Sawyer/Sawyer.h>
 #include <boost/range/iterator_range.hpp>
@@ -56,10 +56,8 @@ public:
  *
  *  This is the index type used when a vertex or edge index is not required. It has no storage and constant lookup times.  The
  *  API of the index is documented here.  See @ref GraphIndexTraits for information about how to override the index type for a
- *  graph.
- *
- *  The @p Source argument is a vertex or edge key type, and @p Target is a constant vertex or edge iterator. */
-template<class Source, class Target>
+ *  graph. */
+template<class VertexOrEdgeKey, class VertexOrEdgeConstIterator>
 class GraphVoidIndex {
 public:
     /** Erase all data from this index.
@@ -69,43 +67,34 @@ public:
 
     /** Insert a new element into the map.
      *
-     *  Inserts a mapping from source to target and vice versa. Both the source and target must be unique (the @ref Graph will
-     *  never call this method with a source or target that is already in the map). */
-    void insert(const Source&, const Target&) {}
+     *  Inserts a mapping from a vertex or edge key to a vertex or edge const iterator regardless of whether the key already
+     *  exists in the map. The index should never contain duplicate keys, so if the same key is inserted twice the second one
+     *  overrides the first one. In other words, inserting a key/iterator pair into an index behaves exactly the same whether
+     *  the index is implemented as an @c std::map from key to value or an array indexed by a key. */
+    void insert(const VertexOrEdgeKey&, const VertexOrEdgeConstIterator&) {}
 
     /** Erase an element from the map.
      *
-     *  Erases the mapping whose target is the specified value. Both forward and reverse directions are erased.  This function
-     *  should do nothing if the target does not exist in the index. */
-    void eraseTarget(const Target&) {}
+     *  Erases the mapping for the specified key. If the key does not exist in the index then nothing happens. */
+    void erase(const VertexOrEdgeKey&) {}
 
-    /** Look up target value given source value.
+    /** Look up iterator for vertex or edge key.
      *
-     *  Given a user vertex or edge key, return the graph vertex or edge const iterator for that key.  If the key does not
+     *  Given a vertex or edge key, return the graph vertex or edge const iterator for that key.  If the key does not
      *  exist in the index then return nothing. */
-    Optional<Target> forwardLookup(const Source &source) const {
-        return Nothing();
-    }
-
-    /** Look up source value given target value.
-     *
-     *  Given a graph vertex or edge iterator, return the vertex or edge key for that iterator. If the iterator does not exist
-     *  in the index then return nothing. */
-    Optional<Source> reverseLookup(const Target &source) const {
+    Optional<VertexOrEdgeConstIterator> lookup(const VertexOrEdgeKey&) const {
         return Nothing();
     }
 };
 
-/** Bi-map based index is the default index type when indexes are present.
+/** Map based index is the default index type when indexes are present.
  *
- *  This index has O(log N) insert, erase, and lookup times. Both @p Source and @p Target types must have a less-than
- *  operator. Normally @p Source is the user's vertex or edge key type and @p Target is a graph vertex or edge const iterator
- *  type. The iterator types already satisfy the requirements for use as map keys.
+ *  This index has O(log N) insert, erase, and lookup times. The key type must have a less-than operator.
  *
  *  The semantics for the methods of this class are documented in the @ref GraphVoidIndex class. */
-template<class Source, class Target>
+template<class VertexOrEdgeKey, class VertexOrEdgeConstIterator>
 class GraphBimapIndex {
-    BiMap<Source, Target> map_;
+    Map<VertexOrEdgeKey, VertexOrEdgeConstIterator> map_;
 public:
     /** Erase all data from this index.
      *
@@ -117,102 +106,64 @@ public:
     /** Insert a new element into the map.
      *
      *  See @ref GraphVoidIndex::insert. */
-    void insert(const Source &source, const Target &target) {
-        map_.insert(source, target);
+    void insert(const VertexOrEdgeKey &key, const VertexOrEdgeConstIterator &iter) {
+        map_.insert(key, iter);                         // Unlike std::map, Sawyer's "insert" always inserts
     }
 
     /** Erase an element from the map.
      *
-     *  See @ref GraphVoidIndex::eraseTarget. */
-    void eraseTarget(const Target &target) {
-        map_.eraseTarget(target);
+     *  See @ref GraphVoidIndex::erase. */
+    void erase(const VertexOrEdgeKey &key) {
+        map_.erase(key);
     }
 
-    /** Lookup target value given source value.
+    /** Lookup iterator for vertex or edge key.
      *
-     *  See @ref GraphVoidIndex::forwardLookup. */
-    Optional<Target> forwardLookup(const Source &source) const {
-        return map_.forward().getOptional(source);
-    }
-
-    /** Lookup source value given target value.
-     *
-     *  See @ref GraphVoidIndex::reverseLookup. */
-    Optional<Source> reverseLookup(const Target &target) const {
-        return map_.reverse().getOptional(target);
-    }
-};
-
-// This hash is used internally by GraphHashIndex to hash vertex and edge iterators. It depends on the fact that once a vertex
-// or edge is allocated in the graph its address never changes.
-template<class VertexOrEdgeConstIterator>
-struct VertexOrEdgeIteratorHash {
-    size_t operator()(const VertexOrEdgeConstIterator &iter) const {
-        size_t seed = 0;
-        void *x = (void*)&*iter;
-        boost::hash_combine(seed, x);
-        return seed;
+     *  See @ref GraphVoidIndex::lookup. */
+    Optional<VertexOrEdgeConstIterator> lookup(const VertexOrEdgeKey &key) const {
+        return map_.getOptional(key);
     }
 };
 
 /** Hash-based indexing.
  *
  *  This index has O(N) insert, erase, and lookup times, although nominally the times are constant because the index uses
- *  hashing.  The @p Source type, typically the user-defined graph vertex or edge data, must have a hash function appropriate
- *  for <code>boost::unordered_map</code> and an equality operator.  The @p Target type is normally a graph vertex or edge
- *  const iterator and already satisfies these requirements.
+ *  hashing.  The vertex or edge keys must have a hash function appropriate for <code>boost::unordered_map</code> and an
+ *  equality operator.
  *
  *  The semantics for each of the class methods are documented in @ref GraphVoidIndex. */
-template<class Source, class Target>
+template<class VertexOrEdgeKey, class VertexOrEdgeConstIterator>
 class GraphHashIndex {
-    typedef boost::unordered_map<Source, Target> Forward;
-    typedef boost::unordered_map<Target, Source, VertexOrEdgeIteratorHash<Target> > Reverse;
-    Forward forward_;
-    Reverse reverse_;
+    typedef boost::unordered_map<VertexOrEdgeKey, VertexOrEdgeConstIterator> Map;
+    Map map_;
 public:
     /** Erase all data from this index.
      *
      *  See @ref GraphVoidIndex::clear. */
     void clear() {
-        forward_.clear();
-        reverse_.clear();
+        map_.clear();
     }
 
     /** Insert a new element into the map.
      *
      *  See @ref GraphVoidIndex::insert. */
-    void insert(const Source &source, const Target &target) {
-        forward_[source] = target;
-        reverse_[target] = source;
+    void insert(const VertexOrEdgeKey &key, const VertexOrEdgeConstIterator &iter) {
+        map_[key] = iter;
     }
 
     /** Erase an element from the map.
      *
-     *  See @ref GraphVoidIndex::eraseTarget. */
-    void eraseTarget(const Target &target) {
-        typename Reverse::iterator ri = reverse_.find(target);
-        if (ri != reverse_.end()) {
-            forward_.erase(ri->second);
-            reverse_.erase(ri);
-        }
+     *  See @ref GraphVoidIndex::erase. */
+    void erase(const VertexOrEdgeKey &key) {
+        map_.erase(key);
     }
 
-    /** Lookup target value given source value.
+    /** Lookup iterator for vertex or edge key.
      *
-     *  See @ref GraphVoidIndex::forwardLookup. */
-    Optional<Target> forwardLookup(const Source &source) const {
-        typename Forward::const_iterator found = forward_.find(source);
-        if (found == forward_.end())
-            return Nothing();
-        return found->second;
-    }
-
-    /** Lookup source value given target value.
-     *
-     *  See @ref GraphVoidIndex::reverseLookup. */
-    Optional<Source> reverseLookup(const Target &target) const {
-        typename Reverse::const_iterator found = reverse_.find(target);
-        if (found == reverse_.end())
+     *  See @ref GraphVoidIndex::lookup. */
+    Optional<VertexOrEdgeConstIterator> lookup(const VertexOrEdgeKey &key) const {
+        typename Map::const_iterator found = map_.find(key);
+        if (found == map_.end())
             return Nothing();
         return found->second;
     }
@@ -539,7 +490,10 @@ struct GraphTraits<const G> {
  * @endcode
  *
  *  The other thing a vertex index does is prevent us from adding two vertices having the same key--we'd get a @ref
- *  Exception::AlreadyExists error.
+ *  Exception::AlreadyExists error.  And finally a word of warning: if you define a vertex key and index then the values you
+ *  store at each vertex (at least the parts from which a key is created) <em>must not change</em>, since doing so will give
+ *  the vertex a new key without ever updating the index. The only way to change the key fields of a vertex is to insert a new
+ *  vertex and erase the old one. The same is true for edges.
  *
  * @section bgl BGL Compatibility
  *
@@ -1441,12 +1395,12 @@ public:
      *
      * @{ */
     VertexIterator findVertexKey(const VertexKey &key) {
-        if (Optional<ConstVertexIterator> ov = vertexIndex_.forwardLookup(key))
+        if (Optional<ConstVertexIterator> ov = vertexIndex_.lookup(key))
             return findVertex((*ov)->id());
         return vertices().end();
     }
     ConstVertexIterator findVertexKey(const VertexKey &key) const {
-        return vertexIndex_.forwardLookup(key).orElse(vertices().end());
+        return vertexIndex_.lookup(key).orElse(vertices().end());
     }
     /** @} */
 
@@ -1550,12 +1504,12 @@ public:
      *
      * @{ */
     EdgeIterator findEdgeKey(const EdgeKey &key) {
-        if (Optional<ConstEdgeIterator> oe = edgeIndex_.forwardLookup(key))
+        if (Optional<ConstEdgeIterator> oe = edgeIndex_.lookup(key))
             return findEdge((*oe)->id());
         return edges().end();
     }
     ConstEdgeIterator findEdgeKey(const EdgeKey &key) const {
-        return edgeIndex_.forwardLookup(key).orElse(edges().end());
+        return edgeIndex_.lookup(key).orElse(edges().end());
     }
     /** @} */
 
@@ -1720,7 +1674,7 @@ public:
     EdgeIterator eraseEdge(const EdgeIterator &edge) {
         ASSERT_require(isValidEdge(edge));
         EdgeIterator next = edge; ++next;               // advance before we delete edge
-        edgeIndex_.eraseTarget(edge);
+        edgeIndex_.erase(EdgeKey(edge->value()));
         --edge->source_->nOutEdges_;
         edge->edgeLists_.remove(OUT_EDGES);
         --edge->target_->nInEdges_;
@@ -1819,7 +1773,7 @@ public:
         ASSERT_require(isValidVertex(vertex));
         VertexIterator next = vertex; ++next;       // advance before we delete vertex
         clearEdges(vertex);
-        vertexIndex_.eraseTarget(vertex);
+        vertexIndex_.erase(VertexKey(vertex->value()));
         vertices_.eraseAt(vertex->self_);               // vertex is now deleted
         return next;
     }
@@ -1924,7 +1878,7 @@ public:
 private:
     VertexIterator insertVertexImpl(const VertexValue &value, bool strict) {
         const VertexKey key(value);
-        if (Optional<ConstVertexIterator> found = vertexIndex_.forwardLookup(key)) {
+        if (Optional<ConstVertexIterator> found = vertexIndex_.lookup(key)) {
             if (strict)
                 throw Exception::AlreadyExists("cannot insert duplicate vertex when graph vertices are indexed");
             return findVertex((*found)->id());
@@ -1942,7 +1896,7 @@ private:
         const EdgeKey key(value);
         ASSERT_require(isValidVertex(sourceVertex));
         ASSERT_require(isValidVertex(targetVertex));
-        if (Optional<ConstEdgeIterator> found = edgeIndex_.forwardLookup(key)) {
+        if (Optional<ConstEdgeIterator> found = edgeIndex_.lookup(key)) {
             if (strict)
                 throw Exception::AlreadyExists("cannot insert duplicate edge when graph edges are indexed");
             return findEdge((*found)->id());

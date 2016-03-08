@@ -1,5 +1,6 @@
 // Demonstrate some ways to use a Sawyer::Container::Graph with vertex and edge indexes
 
+#include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <Sawyer/Graph.h>
 #include <string>
@@ -267,57 +268,76 @@ demo3() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-// Declare our vertex values and keys. In this case we'll keep things trivial by storing only strings and using the string
-// itself as the vertex lookup key.
-typedef std::string Demo4VertexValue;
-typedef std::string Demo4VertexKey;
+// Declare our vertex values and keys.  We'll keep this example simple by having each vertex store only an integer label which
+// is also used as its key.
+typedef size_t VertexLabel;
 
-// Declare the index type and define its required operations.  E.g., you could use a pair of std::map's or a pair of hash-based
-// maps such as boost::unordered_map or C++11's std::unordered_map.
+// Declare the index type and define its required operations.  The vertex labels are assumed to be small integers, thus we can
+// store them in a vector to acheive constant lookup time. However, we need to be able to keep track of which vector elements
+// are occupied and which aren't (in order to represent holes in our label space created perhaps by erasing vertices), so we'll
+// use Sawyer::Optional.
 template<class ConstVertexIterator>
-class Demo4VertexIndex {
-    typedef Sawyer::Container::BiMap<Demo4VertexKey, ConstVertexIterator> Map;
-    Map map_;
+class VertexLabelIndex {
+    typedef std::vector<Sawyer::Optional<ConstVertexIterator> > Vector;
+    Vector vector_;
 
 public:
     void clear() {
-        map_.clear();
+        vector_.clear();
     }
 
-    void insert(const Demo4VertexKey &key, const ConstVertexIterator &iter) {
-        map_.insert(key, iter);
+    void insert(const VertexLabel &label, const ConstVertexIterator &iter) {
+        if (label >= vector_.size())
+            vector_.resize(label+1);
+        vector_[label] = iter;
     }
 
-    void eraseTarget(const ConstVertexIterator &iter) {
-        map_.eraseTarget(iter);
+    void erase(const VertexLabel &label) {
+        if (label < vector_.size())
+            vector_[label] = Sawyer::Nothing();
     }
 
-    Sawyer::Optional<ConstVertexIterator> forwardLookup(const Demo4VertexKey &key) const {
-        return map_.forward().getOptional(key);
-    }
-
-    Sawyer::Optional<Demo4VertexKey> reverseLookup(const ConstVertexIterator &iter) {
-        return map_.reverse().getOptional(iter);
+    Sawyer::Optional<ConstVertexIterator> lookup(const VertexLabel &label) const {
+        return label < vector_.size() ? vector_[label] : Sawyer::Optional<ConstVertexIterator>();
     }
 };
 
 // Use this convenience macro to partly specialize Sawyer::Container::GraphIndexTraits. This has to be at global scope and the
 // index is expected to take one template argument: a graph iterator type. If this doesn't meet your needs then take a look at
 // the macro definition -- there's nothing magical about it.
-SAWYER_GRAPH_INDEXING_SCHEME_1(Demo4VertexKey, Demo4VertexIndex);
+SAWYER_GRAPH_INDEXING_SCHEME_1(VertexLabel, VertexLabelIndex);
 
 // Now do some things with this graph
 static void
 demo4() {
-    typedef Sawyer::Container::Graph<Demo4VertexValue, Sawyer::Nothing, Demo4VertexKey> Graph;
+    typedef Sawyer::Container::Graph<VertexLabel, Sawyer::Nothing, VertexLabel> Graph;
     Graph g;
 
-    g.insertVertex("vertex 1");
+    g.insertVertex(1);
+    g.insertVertex(2);
+    g.insertVertex(3);
+    g.insertVertex(8);
+    g.insertEdge(g.findVertexValue(3), g.findVertexValue(8));
+
     try {
-        g.insertVertex("vertex 1");
+        g.insertVertex(2);
         ASSERT_not_reachable("inserting the same vertex label twice should have failed");
     } catch (const Sawyer::Exception::AlreadyExists&) {
     }
+
+    // Erasing a vertex doesn't change any of our vertex labels--it just leaves a hole. This is in contrast to Sawyer's vertex
+    // ID numbers which are always consecutive.
+    g.eraseVertex(g.findVertexValue(2));
+    Graph::VertexIterator v3 = g.findVertexValue(3);
+    ASSERT_always_require(g.isValidVertex(v3));         // i.e, v3 != g.vertices().end()
+    ASSERT_always_require(v3->nOutEdges() == 1);
+    Graph::EdgeIterator e38 = v3->outEdges().begin();
+    Graph::VertexIterator v8 = g.findVertexValue(8);
+    ASSERT_always_require(g.isValidVertex(v8));
+    ASSERT_always_require(e38->target() == v8);
+
+    // And we should be able to re-insert vertex with label 2 again.
+    g.insertVertex(2);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
