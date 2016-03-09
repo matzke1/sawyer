@@ -18,6 +18,56 @@
 namespace Sawyer {
 namespace Container {
 
+/** @defgroup sawyer_indexed_graph_examples Examples of indexed graph features
+ *  @ingroup sawyer_examples
+ *
+ *  Examples for using indexing features of @ref Graph. */
+
+/** @defgroup sawyer_indexed_graph_example_1 Indexing string vertices
+ *  @ingroup sawyer_indexed_graph_examples
+ *
+ *  Demo of indexing graph vertices that are strings.
+ *
+ *  This demo creates a graph whose vertices are unique city names (@c std::string) and whose edges are the time in hours it
+ *  takes to travel from the source to the target city by train, including layovers (double).  We want the vertices to be
+ *  indexed so we don't have to keep track of them ourselves--we want to be able to look up a vertex in logarithmic time.
+ *
+ *  @snippet indexedGraphDemo.C demo1 */
+
+/** @defgroup sawyer_indexed_graph_example_2 Using only part of a vertex as the key
+ *  @ingroup sawyer_indexed_graph_examples
+ *
+ *  Demo of using only part of a vertex as the lookup key.
+ *
+ *  This demo creates a graph that stores multiple things at each vertex, only two of which are used to compute the unique
+ *  vertex key. Each vertex is an airline flight and the edges represent layovers at airports.
+ *
+ *  @snippet indexedGraphDemo.C demo2 */
+
+/** @defgroup sawyer_indexed_graph_example_3 Using a hash-based lookup
+ *  @ingroup sawyer_indexed_graph_examples
+ *
+ *  Demo of using a hash-based mechanism for the vertex index.
+ *
+ *  By default, %Sawyer uses a balanced binary tree for the index which guarantees logarithmic insert, erase, and lookup
+ *  times. However, the library also directly supports a hash-based index with O(N) time but which is nominally constant time
+ *  if a good hash algorithm is used.
+ *
+ *  Each graph vertex is information about a person and the edges represent relationships although for simplicity this example
+ *  doesn't actually store any information about the kinds of relationships.
+ *
+ *  @snippet indexedGraphDemo.C demo3 */
+
+/** @defgroup sawyer_indexed_graph_example_4 Using a custom index type
+ *  @ingroup sawyer_indexed_graph_examples
+ *
+ *  Demo showing how to define your own index type.
+ *
+ *  In this example the goal is to have vertices that are labeled with small, stable integers and provide O(1) index
+ *  operations. We do that by using a @c std::vector as the index, and the vertex labels are indexes into the vector.
+ *
+ *  @snippet indexedGraphDemo.C demo4 */
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Special vertex and edge key types.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -427,19 +477,16 @@ struct GraphTraits<const G> {
  *  index.
  *
  *  Indexing works the same for vertices and edges, although it's most commonly used with vertices. By default, the graph
- *  implements a vertex index as a bidirectional map (@ref Sawyer::Container::BiMap) that maps keys to vertex iterators and
- *  vice versa.  Therefore the key type must have the following properties:
- *
- *  @li The key type must have a default constructor.
- *  @li It must have a copy constructor.
- *  @li It must have a less-than operator.
+ *  implements a vertex index as a balanced binary tree that maps keys to vertices in O(log) time.  Therefore the key
+ *  type must have a copy constructor and a less-than operator. The library also implements hash-based indexing, in which case
+ *  the key must satisfy the requirements for <code>boost::unordered_map</code> instead.
  *
  *  In addition, regardless of what kind of index the graph uses, all keys must be (explicitly) constructable from a vertex
  *  value.  In practice it's often the case that the vertex values and the keys are the same type. For instance, if a vertex
  *  stores <code>std::string</code> then the key can also be an <code>std::string</code> since that type has all the properties
- *  we need.  But by distinguishing between vertex value type and vertex key types, it also allows the graph to store larger
- *  data structures at the vertices, a small part of which becomes the key. In fact, the key need not be a particular data
- *  member of the value as long as the key generator always produces the same key for the same data.
+ *  we need.  Distinguishing between vertex value type and vertex key types allows the graph to store larger data structures at
+ *  the vertices, a small part of which becomes the key. In fact, the key need not be a particular data member of the value as
+ *  long as the key generator always produces the same key for the same data.
  *
  *  For example, lets say the vertex type is information about a city and that it's quite large.
  *
@@ -451,6 +498,7 @@ struct GraphTraits<const G> {
  *      std::vector<std::string> zipCodes;
  *      std::vector<std::string> areaCodes;
  *      PhoneBook phoneBook;
+ *      // Pretend there are lots more...
  *  };
  * @endcode
  *
@@ -461,8 +509,6 @@ struct GraphTraits<const G> {
  *  class CityKey {
  *      std::string key_;
  *  public:
- *      CityKey() {}
- *
  *      CityKey(const City &city) {
  *          key_ = city.name + ", " + city.state->abbreviation();
  *      }
@@ -480,20 +526,23 @@ struct GraphTraits<const G> {
  *  typedef Sawyer::Container::Graph<City, TravelTime, CityKey> CityGraph;
  * @endcode
  *
- *  The only new thing we added is the third template argument, but this causes the graph to contain a vertex index and gives
+ *  The only new thing we added is the third template argument, which this causes the graph to contain a vertex index and gives
  *  us the ability to look up a city by value or key. The following two lines assume you've added the appropriate constructors
- *  to your classes.
+ *  to the @c City and @c CityKey types.
  *
  * @code
  *  CityGraph::VertexIterator boston = cityGraph.findVertexValue(City("boston", MA));
  *  CityGraph::VertexIterator boston = cityGraph.findVertexKey(CityKey("boston", MA));
  * @endcode
  *
- *  The other thing a vertex index does is prevent us from adding two vertices having the same key--we'd get a @ref
+ *  The other thing a vertex index does is prevent us from adding two vertices having the same key--we'd get an @ref
  *  Exception::AlreadyExists error.  And finally a word of warning: if you define a vertex key and index then the values you
  *  store at each vertex (at least the parts from which a key is created) <em>must not change</em>, since doing so will give
  *  the vertex a new key without ever updating the index. The only way to change the key fields of a vertex is to insert a new
- *  vertex and erase the old one. The same is true for edges.
+ *  vertex and erase the old one. This happens to be how many indexed containers work, including @c std::unordered_map. The
+ *  same is true for edges.
+ *
+ *  Some indexed graph demos can be found @ref sawyer_indexed_graph_examples "here".
  *
  * @section bgl BGL Compatibility
  *

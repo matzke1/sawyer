@@ -14,6 +14,8 @@
 // the same city twice.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//! [demo1]
+
 // First, we need data types for what we'll be storing at each vertex and each edge. Sawyer's graph implementation divides
 // concerns between the Sawyer library and the user in a manner very similar to STL containers. Take std::list for example: the
 // STL is reponsible for managing the notions of vertices and the linear connectivity between vertices, while the user is
@@ -104,10 +106,14 @@ demo1() {
     ASSERT_always_require(g.nEdges() == 2);             // Albuquerque->Boston and Boston->Albuquerque
 }
 
+//! [demo1]
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Demo 2: This demo builds on the previous demo by defining a graph that stores multiple things at each vertex, two of which
 // are used as the key. The edges represent layovers at airports.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//! [demo2]
 
 // Each vertex stores a Flight
 struct Flight {
@@ -121,10 +127,9 @@ struct Flight {
 };
 
 // The FlightKey is used to index the vertices. It needs the following functionality:
-//    1. A default constructor
-//    2. A copy constructor
-//    3. Construction from a vertex value (Flight)
-//    4. Comparison (operator <)
+//    1. A copy constructor
+//    2. Construction from a vertex value (Flight)
+//    3. Comparison (operator <)
 //
 // In the previous demo, where the user's vertex data and key were both std::string, it happens that std::string satisfies all
 // these requirements. In this Flight demo, we could have done something similar by making Flight both the vertex type and the
@@ -135,8 +140,6 @@ struct Flight {
 class FlightKey {
     std::string key_;
 public:
-    FlightKey() {}
-
     // Extract the key from the flight
     explicit FlightKey(const Flight &flight) {
         key_ = flight.airline + " " + boost::lexical_cast<std::string>(flight.number);
@@ -203,10 +206,14 @@ demo2() {
     ASSERT_always_require(g.nEdges() == 0);
 }
 
+//! [demo2]
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Demo 3: The default graph index is based on std::map and has guaranteed O(log N) lookup time.  If you want to use a
 // hash-based index you can quite easily do that.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//! [demo3]
 
 // Define the type of values we'll store at each vertex.
 struct Person {
@@ -221,8 +228,6 @@ struct Person {
 // Use the state-issued ID number as the unique key to identify each person.
 struct PersonKey {
     std::string id;
-
-    PersonKey() {}
 
     // Needed by Sawyer::Container::Graph
     explicit PersonKey(const Person &p): id(p.stateIssuedId) {}
@@ -242,8 +247,6 @@ hash_value(const PersonKey &key) {
     return seed;
 }
 
-
-
 // Partly specialize the Sawyer::Container::GraphIndexTraits for our key type.  You could do this by hand, but this macro is
 // more convenient. It must be at global scope. The "2" means the GraphHashIndex class template takes two arguments: PersonKey
 // and a graph iterator.
@@ -262,11 +265,14 @@ demo3() {
     }
 };
 
+//! [demo3]
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Demo 4: Using your own index type.  Sawyer provides a map-based index with O(log N) time and a hash-based index with O(N)
 // lookup time (but nominally constant).  Users can also create their own index if neither of these are sufficient.
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//! [demo4]
 
 // Declare our vertex values and keys.  We'll keep this example simple by having each vertex store only an integer label which
 // is also used as its key.
@@ -339,6 +345,8 @@ demo4() {
     // And we should be able to re-insert vertex with label 2 again.
     g.insertVertex(2);
 }
+
+//! [demo4]
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
