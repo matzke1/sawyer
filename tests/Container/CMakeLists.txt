@@ -39,3 +39,6 @@ target_link_libraries(indexedGraphDemo libsawyer)
 
 add_executable(graphIsomorphismTests graphIsomorphismTests.C)
 target_link_libraries(graphIsomorphismTests libsawyer)
+
+add_executable(denseIntegerSetUnitTests denseIntegerSetUnitTests.C)
+target_link_libraries(denseIntegerSetUnitTests libsawyer)
