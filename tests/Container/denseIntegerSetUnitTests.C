@@ -39,8 +39,9 @@ testConstructors() {
     
 static void
 testInsertErase() {
-    DenseIntegerSet<int> set(-10, 50);
-    ASSERT_always_require(set.domain() == Interval<int>::hull(-10, 50));
+    Interval<int> domain = Interval<int>::hull(-10, 50);
+    DenseIntegerSet<int> set(domain);
+    ASSERT_always_require(set.domain() == domain);
 
     ASSERT_always_require2(set.isEmpty(), "a just-constructed set is empty");
     ASSERT_always_require2(set.size() == 0, "a default-constructed set has no members");
@@ -95,6 +96,10 @@ testInsertErase() {
     ASSERT_always_require2(set.exists(0), "member zero has been inserted");
     ASSERT_always_require2(set.exists(1), "member one has been inserted");
     ASSERT_always_require2(!set.exists(2), "member two has been erased");
+
+    set.insertAll();
+    ASSERT_always_require2(!set.isEmpty(), "a set containing all values is not empty");
+    ASSERT_always_require2(set.size() == (size_t)domain.size(), "not all values inserted");
 
     set.clear();
     ASSERT_always_require2(set.isEmpty(), "a cleared set is empty");
