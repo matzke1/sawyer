@@ -1,5 +1,7 @@
 #include <Sawyer/GraphAlgorithm.h>
 #include <Sawyer/Message.h>
+#include <Sawyer/Stopwatch.h>
+#include <Sawyer/Synchronization.h>
 #include <boost/assign/list_of.hpp>
 
 using namespace Sawyer::Message::Common;
@@ -67,8 +69,16 @@ public:
 
 private:
     Solutions solns_;
+    bool allowDisconnectedSubgraphs_;
 
 public:
+    SolutionChecker()
+        : allowDisconnectedSubgraphs_(true) {}
+
+    void allowDisconnectedSubgraphs(bool b) {
+        allowDisconnectedSubgraphs_ = b;
+    }
+
     void insert(const VertexIds &x, const VertexIds &y) {
         ASSERT_require2(x.size() == y.size(), "test harness issue");
         solns_.push_back(std::make_pair(x, y));
@@ -98,6 +108,14 @@ public:
 
     void operator()(const Graph &g1, const VertexIds &x, const Graph &g2, const VertexIds &y) {
         check(x.size() == y.size(), details() <<x.size() <<", " <<y.size());
+        if (!allowDisconnectedSubgraphs_) {
+            Graph g1sub = graphCopySubgraph(g1, x);
+            if (!graphIsConnected(g1sub))
+                return;
+            Graph g2sub = graphCopySubgraph(g2, y);
+            if (!graphIsConnected(g2sub))
+                return;
+        }
         check(solutionExpected(x, y), details() <<"x = " <<x <<", y = " <<y);
     }
 
@@ -141,7 +159,6 @@ testEmptyGraphs() {
 // each graph.
 static void
 testVertexGraphs(bool allowDisconnectedSubgraphs) {
-    ASSERT_require(allowDisconnectedSubgraphs);
     heading("graphs with no edges", allowDisconnectedSubgraphs);
     Graph g1, g2;
 
@@ -152,8 +169,8 @@ testVertexGraphs(bool allowDisconnectedSubgraphs) {
     g2.insertVertex("w1");
 
     CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
-    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
     SolutionChecker &s = csi.solutionProcessor();
+    s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
     if (allowDisconnectedSubgraphs) {
         s.insert(boost::assign::list_of(0)(1),
@@ -188,7 +205,6 @@ testVertexGraphs(bool allowDisconnectedSubgraphs) {
 //
 static void
 testOneEdge(bool allowDisconnectedSubgraphs) {
-    ASSERT_require(allowDisconnectedSubgraphs);
     heading("graphs with one edge", allowDisconnectedSubgraphs);
     Graph g1, g2;
 
@@ -201,8 +217,8 @@ testOneEdge(bool allowDisconnectedSubgraphs) {
     g2.insertEdge(w0, w1, "f01");
 
     CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
-    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
     SolutionChecker &s = csi.solutionProcessor();
+    s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
     s.insert(boost::assign::list_of(0)(1),
              boost::assign::list_of(0)(1));
@@ -231,7 +247,6 @@ testOneEdge(bool allowDisconnectedSubgraphs) {
 //
 static void
 testTwoLinearEdges(bool allowDisconnectedSubgraphs) {
-    ASSERT_require(allowDisconnectedSubgraphs);
     heading("graphs with two edges", allowDisconnectedSubgraphs);
     Graph g1, g2;
 
@@ -248,8 +263,8 @@ testTwoLinearEdges(bool allowDisconnectedSubgraphs) {
     g2.insertEdge(w1, w2, "f12");
 
     CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
-    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
     SolutionChecker &s = csi.solutionProcessor();
+    s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
     //---------------------
     // Solutions of size 3
@@ -324,7 +339,6 @@ testTwoLinearEdges(bool allowDisconnectedSubgraphs) {
 // This has both solutions of size two, and all four solutions of size one.
 static void
 testTwoCircularEdges(bool allowDisconnectedSubgraphs) {
-    ASSERT_require(allowDisconnectedSubgraphs);
     heading("graphs with two edges", allowDisconnectedSubgraphs);
     Graph g1, g2;
 
@@ -339,8 +353,8 @@ testTwoCircularEdges(bool allowDisconnectedSubgraphs) {
     g2.insertEdge(w1, w0, "f10");
 
     CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
-    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
     SolutionChecker &s = csi.solutionProcessor();
+    s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
     s.insert(boost::assign::list_of(0)(1),
              boost::assign::list_of(0)(1));
@@ -377,7 +391,6 @@ testTwoCircularEdges(bool allowDisconnectedSubgraphs) {
 // solutions of length one should be present in the output.
 static void
 testParallelEdges(bool allowDisconnectedSubgraphs) {
-    ASSERT_require(allowDisconnectedSubgraphs);
     heading("test parallel edges", allowDisconnectedSubgraphs);
     Graph g1, g2;
     
@@ -391,8 +404,8 @@ testParallelEdges(bool allowDisconnectedSubgraphs) {
     g2.insertEdge(w0, w1, "f01");
 
     CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
-    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
     SolutionChecker &s = csi.solutionProcessor();
+    s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
     s.insert(boost::assign::list_of(0),
              boost::assign::list_of(0));
@@ -419,7 +432,6 @@ testParallelEdges(bool allowDisconnectedSubgraphs) {
 //            \_/                            \_/
 static void
 testSelfEdges(bool allowDisconnectedSubgraphs) {
-    ASSERT_require(allowDisconnectedSubgraphs);
     heading("graph with self-edges", allowDisconnectedSubgraphs);
     Graph g1, g2;
 
@@ -432,8 +444,8 @@ testSelfEdges(bool allowDisconnectedSubgraphs) {
     g2.insertEdge(w0, w0, "f00");
 
     CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
-    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
     SolutionChecker &s = csi.solutionProcessor();
+    s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
     if (allowDisconnectedSubgraphs) {
         s.insert(boost::assign::list_of(0)(1),
@@ -511,6 +523,7 @@ testLarger() {
 #endif
     CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
     SolutionChecker &s = csi.solutionProcessor();
+    s.allowDisconnectedSubgraphs(false);                // keeps our solution list a lot smaller
 
     //---------------------
     // Solutions of size 5
@@ -608,11 +621,69 @@ testLarger() {
     s.insert(boost::assign::list_of(2)(3)(4),
              boost::assign::list_of(3)(2)(4));
 
-    //csi.allowDisconnectedSubgraphs(false);
     csi.minAllowedSolutionSize(3);
     csi.run();
     s.checkMissing();
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Performance testing
+
+struct SolutionCounter {
+    size_t nSolutions;
+    size_t largestSolution;
+
+    SolutionCounter(): nSolutions(0), largestSolution(0) {}
+
+    void operator()(const Graph &g1, const std::vector<size_t> &g1VertIds,
+                    const Graph &g2, const std::vector<size_t> &g2VertIds) {
+        ++nSolutions;
+        largestSolution = std::max(largestSolution, g1VertIds.size());
+    }
+};
+
+// Just some stupid way of saying which vertices of g1 can be equivalent to g2
+class CloseVertices {
+public:
+    bool operator()(const Graph &g1, const Graph::ConstVertexIterator &v1,
+                    const Graph &g2, const Graph::ConstVertexIterator &v2) const {
+        int allowedDelta = (g1.nVertices() + g2.nVertices()) / 8;
+        int distance = abs((int)v1->id() - (int)v2->id());
+        return distance <= allowedDelta;
+    }
+};
+
+
+static void
+testRandomGraphs() {
+    heading("random graphs");
+    for (size_t nVertices = 5; nVertices < 500; nVertices += 5) {
+        size_t nEdges = round(1.2 * nVertices);
+
+        // Build a random graph from scratch so edges are evenly distributed across the whole graph
+        Graph g;
+        for (size_t i=0; i<nVertices; ++i)
+            g.insertVertex("v" + boost::lexical_cast<std::string>(i));
+        for (size_t i=0; i<nEdges; ++i) {
+            Graph::ConstVertexIterator v1 = g.findVertex(Sawyer::fastRandomIndex(nVertices));
+            Graph::ConstVertexIterator v2 = g.findVertex(Sawyer::fastRandomIndex(nVertices));
+            g.insertEdge(v1, v2, "e" + boost::lexical_cast<std::string>(i));
+        }
+
+        std::cerr <<"|V| = " <<nVertices <<", |E| = " <<nEdges <<"\n";
+        CommonSubgraphIsomorphism<Graph, SolutionCounter, CloseVertices> csi(g, g);
+        csi.minAllowedSolutionSize(nVertices-2);
+        Sawyer::Stopwatch stopwatch;
+        std::cerr <<"  starting...\n";
+        csi.run();
+        std::cerr <<"  " <<csi.solutionProcessor().nSolutions <<" in " <<stopwatch <<" seconds\n";
+        if (csi.solutionProcessor().nSolutions > 0)
+            std::cerr <<"  largest solution had " <<csi.solutionProcessor().largestSolution <<" vertices\n";
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 int main() {
     Sawyer::initializeLibrary();
@@ -622,16 +693,17 @@ int main() {
 
     testEmptyGraphs();
     testVertexGraphs(true);
-    //testVertexGraphs(false);
+    testVertexGraphs(false);
     testOneEdge(true);
-    //testOneEdge(false);
+    testOneEdge(false);
     testTwoLinearEdges(true);
-    //testTwoLinearEdges(false);
+    testTwoLinearEdges(false);
     testTwoCircularEdges(true);
-    //testTwoCircularEdges(false);
+    testTwoCircularEdges(false);
     testSelfEdges(true);
-    //testSelfEdges(false);
+    testSelfEdges(false);
     testParallelEdges(true);
-    //testParallelEdges(false);
+    testParallelEdges(false);
     //testLarger();
+    //testRandomGraphs();
 }

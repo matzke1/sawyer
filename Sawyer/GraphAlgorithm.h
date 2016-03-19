@@ -11,6 +11,7 @@
 
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
+#include <iostream>
 #include <set>
 #include <vector>
 
@@ -185,6 +186,40 @@ graphFindConnectedComponents(const Graph &g, std::vector<size_t> &components /*o
     }
     return nComponents;
 }
+
+/** Create a subgraph.
+ *
+ *  Creates a new graph by copying an existing graph, but copying only those vertices whose ID numbers are specified.  All
+ *  edges between the specified vertices are copied.
+ *
+ * @{ */
+template<class Graph>
+Graph
+graphCopySubgraph(const Graph &g, const std::vector<size_t> &vertexIdVector) {
+    Graph retval;
+
+    // Insert vertices
+    typedef Map<size_t, typename Graph::ConstVertexIterator> Id2Vertex;
+    Id2Vertex resultVertices;
+    for (size_t i=0; i<vertexIdVector.size(); ++i) {
+        ASSERT_forbid2(resultVertices.exists(vertexIdVector[i]), "duplicate vertices not allowed");
+        resultVertices.insert(vertexIdVector[i], retval.insertVertex(g.findVertex(vertexIdVector[i])->value()));
+    }
+
+    // Insert edges
+    for (size_t i=0; i<vertexIdVector.size(); ++i) {
+        typename Graph::ConstVertexIterator gSource = g.findVertex(vertexIdVector[i]);
+        typename Graph::ConstVertexIterator rSource = resultVertices[vertexIdVector[i]];
+        BOOST_FOREACH (const typename Graph::Edge &e, gSource->outEdges()) {
+            typename Graph::ConstVertexIterator rTarget = retval.vertices().end();
+            if (resultVertices.getOptional(e.target()->id()).assignTo(rTarget))
+                retval.insertEdge(rSource, rTarget, e.value());
+        }
+    }
+    return retval;
+}
+/** @} */
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Common subgraph isomorphism (CSI)
