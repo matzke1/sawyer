@@ -518,9 +518,6 @@ testLarger() {
     g2.insertEdge(w4, w6, "f46");
     g2.insertEdge(w6, w5, "f65");
 
-#if 1 // DEBUGGING [Robb Matzke 2016-03-18]
-    mlog[DEBUG].enable();
-#endif
     CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
     SolutionChecker &s = csi.solutionProcessor();
     s.allowDisconnectedSubgraphs(false);                // keeps our solution list a lot smaller
@@ -554,6 +551,10 @@ testLarger() {
              boost::assign::list_of(3)(2)(4)(5));
     s.insert(boost::assign::list_of(0)(1)(3)(4),
              boost::assign::list_of(3)(2)(4)(6));
+
+    // 1,2,3,4
+    s.insert(boost::assign::list_of(1)(2)(3)(4),
+             boost::assign::list_of(1)(3)(2)(4));
 
     //---------------------
     // Solutions of size 3
@@ -655,10 +656,10 @@ public:
 
 
 static void
-testRandomGraphs() {
+testRandomGraphs(size_t maxVerts, size_t vertDelta, double edgeRatio) {
     heading("random graphs");
-    for (size_t nVertices = 5; nVertices < 500; nVertices += 5) {
-        size_t nEdges = round(1.2 * nVertices);
+    for (size_t nVertices = 5; nVertices < maxVerts; nVertices += vertDelta) {
+        size_t nEdges = round(edgeRatio * nVertices);
 
         // Build a random graph from scratch so edges are evenly distributed across the whole graph
         Graph g;
@@ -676,7 +677,7 @@ testRandomGraphs() {
         Sawyer::Stopwatch stopwatch;
         std::cerr <<"  starting...\n";
         csi.run();
-        std::cerr <<"  " <<csi.solutionProcessor().nSolutions <<" in " <<stopwatch <<" seconds\n";
+        std::cerr <<"  " <<csi.solutionProcessor().nSolutions <<" solutions in " <<stopwatch <<" seconds\n";
         if (csi.solutionProcessor().nSolutions > 0)
             std::cerr <<"  largest solution had " <<csi.solutionProcessor().largestSolution <<" vertices\n";
     }
@@ -704,6 +705,6 @@ int main() {
     testSelfEdges(false);
     testParallelEdges(true);
     testParallelEdges(false);
-    //testLarger();
-    //testRandomGraphs();
+    testLarger();
+    testRandomGraphs(25, 1, 1.2);
 }

@@ -190,7 +190,11 @@ graphFindConnectedComponents(const Graph &g, std::vector<size_t> &components /*o
 /** Create a subgraph.
  *
  *  Creates a new graph by copying an existing graph, but copying only those vertices whose ID numbers are specified.  All
- *  edges between the specified vertices are copied.
+ *  edges between the specified vertices are copied.  The @p vertexIdVector should have vertex IDs that are part of graph @p g
+ *  and no ID number should occur more than once in that vector.
+ *
+ *  The ID numbers of the vertices in the returned subgraph are equal to the corresponding index into the @p vertexIdVector for
+ *  the super-graph.
  *
  * @{ */
 template<class Graph>
@@ -199,11 +203,14 @@ graphCopySubgraph(const Graph &g, const std::vector<size_t> &vertexIdVector) {
     Graph retval;
 
     // Insert vertices
-    typedef Map<size_t, typename Graph::ConstVertexIterator> Id2Vertex;
+    typedef typename Graph::ConstVertexIterator VIter;
+    typedef Map<size_t, VIter> Id2Vertex;
     Id2Vertex resultVertices;
     for (size_t i=0; i<vertexIdVector.size(); ++i) {
         ASSERT_forbid2(resultVertices.exists(vertexIdVector[i]), "duplicate vertices not allowed");
-        resultVertices.insert(vertexIdVector[i], retval.insertVertex(g.findVertex(vertexIdVector[i])->value()));
+        VIter rv = retval.insertVertex(g.findVertex(vertexIdVector[i])->value());
+        ASSERT_require(rv->id() == i);                  // some analyses depend on this
+        resultVertices.insert(vertexIdVector[i], rv);
     }
 
     // Insert edges
