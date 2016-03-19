@@ -1,97 +1,637 @@
 #include <Sawyer/GraphAlgorithm.h>
 #include <Sawyer/Message.h>
+#include <boost/assign/list_of.hpp>
 
 using namespace Sawyer::Message::Common;
+using namespace Sawyer::Container::Algorithm;
+using Sawyer::Message::mlog;
 
 typedef Sawyer::Container::Graph<std::string, std::string> Graph;
 
-//                      [ 4 ]
-//                        ^
-//                        |
-//                        |
-//         [ 2 ] -----> [ 3 ]
-//           ^            ^
-//            \          /
-//              \      /
-//                \  /
-//                [ 1 ]
-//                  ^
-//                  |
-//                  |
-//                [ 0 ]
-static Graph
-buildGraph1() {
-    Graph g;
-    Graph::VertexIterator v0 = g.insertVertex("v0");
-    Graph::VertexIterator v1 = g.insertVertex("v1");
-    Graph::VertexIterator v2 = g.insertVertex("v2");
-    Graph::VertexIterator v3 = g.insertVertex("v3");
-    Graph::VertexIterator v4 = g.insertVertex("v4");
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Test support functions
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    g.insertEdge(v0, v1, "e01");
-    g.insertEdge(v1, v2, "e12");
-    g.insertEdge(v1, v3, "e13");
-    g.insertEdge(v2, v3, "e23");
-    g.insertEdge(v3, v4, "e34");
-
-    return g;
-}
-
-//   [ 5 ] <----- [ 6 ]
-//     ^            ^
-//     \           /
-//       \       /
-//         \   /
-//         [ 4 ]
-//           ^
-//           |
-//           |
-//         [ 2 ] <----- [ 3 ]
-//           ^            ^
-//            \          /
-//              \      /
-//                \  /
-//                [ 1 ]
-//                  ^
-//                  |
-//                  |
-//                [ 0 ]
-static Graph
-buildGraph2() {
-    Graph g;
-    Graph::VertexIterator w0 = g.insertVertex("w0");
-    Graph::VertexIterator w1 = g.insertVertex("w1");
-    Graph::VertexIterator w2 = g.insertVertex("w2");
-    Graph::VertexIterator w3 = g.insertVertex("w3");
-    Graph::VertexIterator w4 = g.insertVertex("w4");
-    Graph::VertexIterator w5 = g.insertVertex("w5");
-    Graph::VertexIterator w6 = g.insertVertex("w6");
-
-    g.insertEdge(w0, w1, "f01");
-    g.insertEdge(w1, w2, "f12");
-    g.insertEdge(w1, w3, "f13");
-    g.insertEdge(w3, w2, "f32");
-    g.insertEdge(w2, w4, "f24");
-    g.insertEdge(w4, w5, "f45");
-    g.insertEdge(w4, w6, "f46");
-    g.insertEdge(w6, w5, "f65");
-
-    return g;
-}
+#define check(COND, MESG) ASSERT_always_require2(COND, MESG)
 
 static void
-testSubgraphIsomorphism() {
-    Sawyer::Message::Stream debug = Sawyer::Message::mlog[DEBUG];
-    //debug.enable();
+heading(const std::string &title) {
+    std::cerr <<std::string(20, '=') <<" " <<title <<"\n";
+}
+static void
+heading(const std::string &title, bool allowDisconnectedSubgraphs) {
+    std::cerr <<std::string(20, '=') <<" " <<title <<(allowDisconnectedSubgraphs ? " (disconnected)" : " (connected)") <<"\n";
+}
 
-    Graph g1 = buildGraph1();
-    Graph g2 = buildGraph2();
+class details {
+    std::ostringstream ss_;
+public:
+    operator std::string() { return "unit test failed\n" + ss_.str(); }
 
-    Sawyer::Container::Algorithm::CommonSubgraphIsomorphism<Graph> csi(g1, g2, debug);
+    details() {}
+
+    details& operator<<(const std::string &s) {
+        ss_ <<s;
+        return *this;
+    }
+
+    details& operator<<(size_t n) {
+        ss_ <<n;
+        return *this;
+    }
+
+    details& operator<<(const std::vector<size_t> &v) {
+        ss_ <<"[";
+        BOOST_FOREACH (size_t i, v)
+            ss_ <<" " <<i;
+        ss_ <<" ]";
+        return *this;
+    }
+
+    details& operator<<(const Graph &g) {
+        BOOST_FOREACH (const Graph::Vertex &vertex, g.vertices()) {
+            ss_ <<"  " <<vertex.value() <<"\t--> {";
+            BOOST_FOREACH (const Graph::Edge &edge, vertex.outEdges())
+                ss_ <<" " <<edge.target()->value();
+            ss_ <<" }\n";
+        }
+        return *this;
+    }
+};
+
+class SolutionChecker {
+public:
+    typedef std::vector<size_t> VertexIds;
+    typedef std::pair<VertexIds, VertexIds> Solution;
+    typedef std::vector<Solution> Solutions;
+
+private:
+    Solutions solns_;
+
+public:
+    void insert(const VertexIds &x, const VertexIds &y) {
+        ASSERT_require2(x.size() == y.size(), "test harness issue");
+        solns_.push_back(std::make_pair(x, y));
+    }
+
+    bool solutionExpected(VertexIds x, VertexIds y) {
+        // Sort x and at the same time y since changing the order of the vertices makes no difference to the solution.
+        for (size_t i=0; i+1<x.size(); ++i) {
+            for (size_t j=i+1; j<x.size(); ++j) {
+                if (x[i] > x[j]) {
+                    std::swap(x[i], x[j]);
+                    std::swap(y[i], y[j]);
+                }
+            }
+        }
+        
+        for (size_t i=0; i<solns_.size(); ++i) {
+            if (x.size() == solns_[i].first.size() &&
+                std::equal(x.begin(), x.end(), solns_[i].first.begin()) &&
+                std::equal(y.begin(), y.end(), solns_[i].second.begin())) {
+                solns_.erase(solns_.begin()+i);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void operator()(const Graph &g1, const VertexIds &x, const Graph &g2, const VertexIds &y) {
+        check(x.size() == y.size(), details() <<x.size() <<", " <<y.size());
+        check(solutionExpected(x, y), details() <<"x = " <<x <<", y = " <<y);
+    }
+
+    void checkMissing() {
+        BOOST_FOREACH (const Solution &soln, solns_) {
+            std::cerr <<"Solution not found by the analysis:\n"
+                      <<"  x = [";
+            BOOST_FOREACH (size_t i, soln.first)
+                std::cerr <<" " <<i;
+            std::cerr <<" ]\n"
+                      <<"  y = [";
+            BOOST_FOREACH (size_t j, soln.second)
+                std::cerr <<" " <<j;
+            std::cerr <<" ]\n";
+        }
+        check(solns_.empty(), details() <<solns_.size() <<" missing solutions");
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                      Tests
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Test isomorphism of two empty graphs. The only solution should be the empty graphs, which is not considered a valid solution
+// since the default minimum solution size is one vertex.
+static void
+testEmptyGraphs() {
+    heading("empty graphs");
+    Graph g1, g2;
+
+    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    SolutionChecker &s = csi.solutionProcessor();
+
     csi.run();
+    s.checkMissing();
+}
+
+// Test isomorphism of two graphs with two vertices and no edges. There are two full solutions, one which maps vertices with
+// the same ID numbers and the other having the vertices swapped. Plus four partial solutions that have only one vertex from
+// each graph.
+static void
+testVertexGraphs(bool allowDisconnectedSubgraphs) {
+    ASSERT_require(allowDisconnectedSubgraphs);
+    heading("graphs with no edges", allowDisconnectedSubgraphs);
+    Graph g1, g2;
+
+    g1.insertVertex("v0");
+    g1.insertVertex("v1");
+
+    g2.insertVertex("w0");
+    g2.insertVertex("w1");
+
+    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
+    SolutionChecker &s = csi.solutionProcessor();
+
+    if (allowDisconnectedSubgraphs) {
+        s.insert(boost::assign::list_of(0)(1),
+                 boost::assign::list_of(0)(1));
+
+        s.insert(boost::assign::list_of(0)(1),
+                 boost::assign::list_of(1)(0));
+    }
+
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(0));
+
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(1));
+
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(0));
+
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(1));
+    
+    csi.run();
+    s.checkMissing();
+}
+
+// Test isomorphism when the graphs both have two vertices connected by one edge. There's only one solution of size two, and
+// all four possibilities of size 1.
+//
+//       v0  ---> v1
+//
+//       w0  ---> w1
+//
+static void
+testOneEdge(bool allowDisconnectedSubgraphs) {
+    ASSERT_require(allowDisconnectedSubgraphs);
+    heading("graphs with one edge", allowDisconnectedSubgraphs);
+    Graph g1, g2;
+
+    Graph::ConstVertexIterator v0 = g1.insertVertex("v0");
+    Graph::ConstVertexIterator v1 = g1.insertVertex("v1");
+    g1.insertEdge(v0, v1, "e01");
+
+    Graph::ConstVertexIterator w0 = g2.insertVertex("w0");
+    Graph::ConstVertexIterator w1 = g2.insertVertex("w1");
+    g2.insertEdge(w0, w1, "f01");
+
+    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
+    SolutionChecker &s = csi.solutionProcessor();
+
+    s.insert(boost::assign::list_of(0)(1),
+             boost::assign::list_of(0)(1));
+
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(0));
+
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(1));
+
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(0));
+
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(1));
+    
+    csi.run();
+    s.checkMissing();
+}
+
+// Test graphs with three edges
+//
+//      v0 ----> v1 ----> v2
+//
+//      w0 ----> w1 ----> w2
+//
+static void
+testTwoLinearEdges(bool allowDisconnectedSubgraphs) {
+    ASSERT_require(allowDisconnectedSubgraphs);
+    heading("graphs with two edges", allowDisconnectedSubgraphs);
+    Graph g1, g2;
+
+    Graph::ConstVertexIterator v0 = g1.insertVertex("v0");
+    Graph::ConstVertexIterator v1 = g1.insertVertex("v1");
+    Graph::ConstVertexIterator v2 = g1.insertVertex("v2");
+    g1.insertEdge(v0, v1, "e01");
+    g1.insertEdge(v1, v2, "e12");
+
+    Graph::ConstVertexIterator w0 = g2.insertVertex("w0");
+    Graph::ConstVertexIterator w1 = g2.insertVertex("w1");
+    Graph::ConstVertexIterator w2 = g2.insertVertex("w2");
+    g2.insertEdge(w0, w1, "f01");
+    g2.insertEdge(w1, w2, "f12");
+
+    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
+    SolutionChecker &s = csi.solutionProcessor();
+
+    //---------------------
+    // Solutions of size 3
+    //---------------------
+
+    // 0,1,2
+    s.insert(boost::assign::list_of(0)(1)(2),
+             boost::assign::list_of(0)(1)(2));
+
+    //--------------------
+    // Solution of size 2
+    //--------------------
+
+    // 0,1
+    s.insert(boost::assign::list_of(0)(1),
+             boost::assign::list_of(0)(1));
+    s.insert(boost::assign::list_of(0)(1),
+             boost::assign::list_of(1)(2));
+
+    // 1,2 (same as 0,1)
+    s.insert(boost::assign::list_of(1)(2),
+             boost::assign::list_of(0)(1));
+    s.insert(boost::assign::list_of(1)(2),
+             boost::assign::list_of(1)(2));
+
+    // 0,2
+    if (allowDisconnectedSubgraphs) {
+        s.insert(boost::assign::list_of(0)(2),
+                 boost::assign::list_of(0)(2));
+        s.insert(boost::assign::list_of(0)(2),
+                 boost::assign::list_of(2)(0));
+    }
+
+    //--------------------
+    // Solutions of size 1
+    //--------------------
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(0));
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(1));
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(2));
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(0));
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(1));
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(2));
+    s.insert(boost::assign::list_of(2),
+             boost::assign::list_of(0));
+    s.insert(boost::assign::list_of(2),
+             boost::assign::list_of(1));
+    s.insert(boost::assign::list_of(2),
+             boost::assign::list_of(2));
+
+    csi.run();
+    s.checkMissing();
+}
+
+// Test isomorphism when the graphs both have two fully connected vertices.
+//
+//          ___________
+//         /           V
+//      v0            v1
+//         ^._________/
+//
+//          ___________
+//         /           V
+//      w0            w1
+//         ^._________/
+//
+// This has both solutions of size two, and all four solutions of size one.
+static void
+testTwoCircularEdges(bool allowDisconnectedSubgraphs) {
+    ASSERT_require(allowDisconnectedSubgraphs);
+    heading("graphs with two edges", allowDisconnectedSubgraphs);
+    Graph g1, g2;
+
+    Graph::ConstVertexIterator v0 = g1.insertVertex("v0");
+    Graph::ConstVertexIterator v1 = g1.insertVertex("v1");
+    g1.insertEdge(v0, v1, "e01");
+    g1.insertEdge(v1, v0, "e10");
+
+    Graph::ConstVertexIterator w0 = g2.insertVertex("w0");
+    Graph::ConstVertexIterator w1 = g2.insertVertex("w1");
+    g2.insertEdge(w0, w1, "f01");
+    g2.insertEdge(w1, w0, "f10");
+
+    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
+    SolutionChecker &s = csi.solutionProcessor();
+
+    s.insert(boost::assign::list_of(0)(1),
+             boost::assign::list_of(0)(1));
+
+    s.insert(boost::assign::list_of(0)(1),
+             boost::assign::list_of(1)(0));
+
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(0));
+
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(1));
+
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(0));
+
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(1));
+    
+    csi.run();
+    s.checkMissing();
+}
+
+// Test parallel edges
+//
+//          __________
+//         /          \    .
+//        /            V
+//      v0            v1             w0 ------> w1
+//        \            ^
+//         \__________/
+//
+// This should have no solutions of length 2 since that would create subgraphs with different numbers of edges. All four
+// solutions of length one should be present in the output.
+static void
+testParallelEdges(bool allowDisconnectedSubgraphs) {
+    ASSERT_require(allowDisconnectedSubgraphs);
+    heading("test parallel edges", allowDisconnectedSubgraphs);
+    Graph g1, g2;
+    
+    Graph::ConstVertexIterator v0 = g1.insertVertex("v0");
+    Graph::ConstVertexIterator v1 = g1.insertVertex("v1");
+    g1.insertEdge(v0, v1, "e01a");
+    g1.insertEdge(v0, v1, "e01b");
+
+    Graph::ConstVertexIterator w0 = g2.insertVertex("w0");
+    Graph::ConstVertexIterator w1 = g2.insertVertex("w1");
+    g2.insertEdge(w0, w1, "f01");
+
+    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
+    SolutionChecker &s = csi.solutionProcessor();
+
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(0));
+
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(1));
+
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(0));
+
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(1));
+
+    csi.run();
+    s.checkMissing();
+}
+
+// Test isomorphism of two graphs where each graph has two vertices, one of which has a self-edge.
+//
+//             _                              _
+//            / \                            / \   .
+//           v   |                          v   |
+//          v0   |   v1                    w0   |     w1
+//            \_/                            \_/
+static void
+testSelfEdges(bool allowDisconnectedSubgraphs) {
+    ASSERT_require(allowDisconnectedSubgraphs);
+    heading("graph with self-edges", allowDisconnectedSubgraphs);
+    Graph g1, g2;
+
+    Graph::ConstVertexIterator v0 = g1.insertVertex("v0");
+    g1.insertVertex("v1");
+    g1.insertEdge(v0, v0, "e00");
+
+    Graph::ConstVertexIterator w0 = g2.insertVertex("w0");
+    g2.insertVertex("w1");
+    g2.insertEdge(w0, w0, "f00");
+
+    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    //csi.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
+    SolutionChecker &s = csi.solutionProcessor();
+
+    if (allowDisconnectedSubgraphs) {
+        s.insert(boost::assign::list_of(0)(1),
+                 boost::assign::list_of(0)(1));
+    }
+
+    s.insert(boost::assign::list_of(0),
+             boost::assign::list_of(0));
+
+    s.insert(boost::assign::list_of(1),
+             boost::assign::list_of(1));
+
+    csi.run();
+    s.checkMissing();
+}
+
+// A test that's a bit larger
+//
+//
+//                                 [ 5 ] <----- [ 6 ]
+//                                   ^            ^
+//                                   \           /
+//                                     \       /
+//                                       \   /
+//                      [ 4 ]            [ 4 ]
+//                        ^                ^
+//                        |                |
+//                        |                |
+//         [ 2 ] -----> [ 3 ]            [ 2 ] <----- [ 3 ]
+//           ^            ^                ^            ^
+//            \          /                  \          /
+//              \      /                      \      /
+//                \  /                          \  /
+//                [ 1 ]                         [ 1 ]
+//                  ^                             ^
+//                  |                             |
+//                  |                             |
+//                [ 0 ]                         [ 0 ]
+//
+static void
+testLarger() {
+    heading("slightly larger test");
+    Graph g1, g2;
+    Graph::VertexIterator v0 = g1.insertVertex("v0");
+    Graph::VertexIterator v1 = g1.insertVertex("v1");
+    Graph::VertexIterator v2 = g1.insertVertex("v2");
+    Graph::VertexIterator v3 = g1.insertVertex("v3");
+    Graph::VertexIterator v4 = g1.insertVertex("v4");
+
+    g1.insertEdge(v0, v1, "e01");
+    g1.insertEdge(v1, v2, "e12");
+    g1.insertEdge(v1, v3, "e13");
+    g1.insertEdge(v2, v3, "e23");
+    g1.insertEdge(v3, v4, "e34");
+
+    Graph::VertexIterator w0 = g2.insertVertex("w0");
+    Graph::VertexIterator w1 = g2.insertVertex("w1");
+    Graph::VertexIterator w2 = g2.insertVertex("w2");
+    Graph::VertexIterator w3 = g2.insertVertex("w3");
+    Graph::VertexIterator w4 = g2.insertVertex("w4");
+    Graph::VertexIterator w5 = g2.insertVertex("w5");
+    Graph::VertexIterator w6 = g2.insertVertex("w6");
+
+    g2.insertEdge(w0, w1, "f01");
+    g2.insertEdge(w1, w2, "f12");
+    g2.insertEdge(w1, w3, "f13");
+    g2.insertEdge(w3, w2, "f32");
+    g2.insertEdge(w2, w4, "f24");
+    g2.insertEdge(w4, w5, "f45");
+    g2.insertEdge(w4, w6, "f46");
+    g2.insertEdge(w6, w5, "f65");
+
+#if 1 // DEBUGGING [Robb Matzke 2016-03-18]
+    mlog[DEBUG].enable();
+#endif
+    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    SolutionChecker &s = csi.solutionProcessor();
+
+    //---------------------
+    // Solutions of size 5
+    //---------------------
+
+    // 0,1,2,3,4
+    s.insert(boost::assign::list_of(0)(1)(2)(3)(4),
+             boost::assign::list_of(0)(1)(3)(2)(4));
+
+    //----------------------
+    // Solutions of size 4
+    //----------------------
+
+    // 0,1,2,3
+    s.insert(boost::assign::list_of(0)(1)(2)(3),
+             boost::assign::list_of(0)(1)(3)(2));
+    s.insert(boost::assign::list_of(0)(1)(2)(3),
+             boost::assign::list_of(2)(4)(6)(5));
+
+    // 0,1,3,4
+    s.insert(boost::assign::list_of(0)(1)(3)(4),
+             boost::assign::list_of(0)(1)(2)(4));
+    s.insert(boost::assign::list_of(0)(1)(3)(4),
+             boost::assign::list_of(1)(2)(4)(5));
+    s.insert(boost::assign::list_of(0)(1)(3)(4),
+             boost::assign::list_of(1)(2)(4)(6));
+    s.insert(boost::assign::list_of(0)(1)(3)(4),
+             boost::assign::list_of(3)(2)(4)(5));
+    s.insert(boost::assign::list_of(0)(1)(3)(4),
+             boost::assign::list_of(3)(2)(4)(6));
+
+    //---------------------
+    // Solutions of size 3
+    //---------------------
+
+    // 0,1,2
+    s.insert(boost::assign::list_of(0)(1)(2),
+             boost::assign::list_of(0)(1)(2));
+    s.insert(boost::assign::list_of(0)(1)(2),
+             boost::assign::list_of(0)(1)(3));
+    s.insert(boost::assign::list_of(0)(1)(2),
+             boost::assign::list_of(1)(2)(4));
+    s.insert(boost::assign::list_of(0)(1)(2),
+             boost::assign::list_of(2)(4)(5));
+    s.insert(boost::assign::list_of(0)(1)(2),
+             boost::assign::list_of(2)(4)(6));
+    s.insert(boost::assign::list_of(0)(1)(2),
+             boost::assign::list_of(3)(2)(4));
+
+    // 0,1,3 (same as 0,1,2)
+    s.insert(boost::assign::list_of(0)(1)(3),
+             boost::assign::list_of(0)(1)(2));
+    s.insert(boost::assign::list_of(0)(1)(3),
+             boost::assign::list_of(0)(1)(3));
+    s.insert(boost::assign::list_of(0)(1)(3),
+             boost::assign::list_of(1)(2)(4));
+    s.insert(boost::assign::list_of(0)(1)(3),
+             boost::assign::list_of(2)(4)(5));
+    s.insert(boost::assign::list_of(0)(1)(3),
+             boost::assign::list_of(2)(4)(6));
+    s.insert(boost::assign::list_of(0)(1)(3),
+             boost::assign::list_of(3)(2)(4));
+
+    // 1,2,3
+    s.insert(boost::assign::list_of(1)(2)(3),
+             boost::assign::list_of(1)(3)(2));
+    s.insert(boost::assign::list_of(1)(2)(3),
+             boost::assign::list_of(4)(6)(5));
+
+    // 1,3,4 (same as 0,1,2)
+    s.insert(boost::assign::list_of(1)(3)(4),
+             boost::assign::list_of(0)(1)(2));
+    s.insert(boost::assign::list_of(1)(3)(4),
+             boost::assign::list_of(0)(1)(3));
+    s.insert(boost::assign::list_of(1)(3)(4),
+             boost::assign::list_of(1)(2)(4));
+    s.insert(boost::assign::list_of(1)(3)(4),
+             boost::assign::list_of(2)(4)(5));
+    s.insert(boost::assign::list_of(1)(3)(4),
+             boost::assign::list_of(2)(4)(6));
+    s.insert(boost::assign::list_of(1)(3)(4),
+             boost::assign::list_of(3)(2)(4));
+
+    // 2,3,4 (same as 0,1,2)
+    s.insert(boost::assign::list_of(2)(3)(4),
+             boost::assign::list_of(0)(1)(2));
+    s.insert(boost::assign::list_of(2)(3)(4),
+             boost::assign::list_of(0)(1)(3));
+    s.insert(boost::assign::list_of(2)(3)(4),
+             boost::assign::list_of(1)(2)(4));
+    s.insert(boost::assign::list_of(2)(3)(4),
+             boost::assign::list_of(2)(4)(5));
+    s.insert(boost::assign::list_of(2)(3)(4),
+             boost::assign::list_of(2)(4)(6));
+    s.insert(boost::assign::list_of(2)(3)(4),
+             boost::assign::list_of(3)(2)(4));
+
+    //csi.allowDisconnectedSubgraphs(false);
+    csi.minAllowedSolutionSize(3);
+    csi.run();
+    s.checkMissing();
 }
 
 int main() {
     Sawyer::initializeLibrary();
-    testSubgraphIsomorphism();
+#if 0 // DEBUGGING [Robb Matzke 2016-03-17]
+    Sawyer::Message::mlog[DEBUG].enable();
+#endif
+
+    testEmptyGraphs();
+    testVertexGraphs(true);
+    //testVertexGraphs(false);
+    testOneEdge(true);
+    //testOneEdge(false);
+    testTwoLinearEdges(true);
+    //testTwoLinearEdges(false);
+    testTwoCircularEdges(true);
+    //testTwoCircularEdges(false);
+    testSelfEdges(true);
+    //testSelfEdges(false);
+    testParallelEdges(true);
+    //testParallelEdges(false);
+    //testLarger();
 }
