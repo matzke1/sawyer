@@ -235,52 +235,90 @@ graphCopySubgraph(const Graph &g, const std::vector<size_t> &vertexIdVector) {
 // European Bioinformatics Institute, Genome Campus, Hinxton, Cambridge CB10 1SD, UK
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/** Vertex equivalence for common subgraph isomorphism.
+ *
+ *  Determines when a pair of vertices, one from each of two graphs, can be considered isomorphic. This class serves as both a
+ *  model for those wishing to write their own formulation of equivalence, and as the default implementation when none is
+ *  provided by the user. */
 template<class Graph>
-class CsiDefaultVertexEquivalence {
+class CsiEquivalence {
 public:
-    bool operator()(const Graph &g1, const typename Graph::ConstVertexIterator &v1,
-                    const Graph &g2, const typename Graph::ConstVertexIterator &v2) const {
+    /** Isomorphism of two vertices.
+     *
+     *  Given a pair of vertices, one from each of two graphs, return true if the vertices could be an isomorphic pair in
+     *  common subgraph isomorphism algorithms.  This default implementation always returns true. */
+    bool mu(const Graph &g1, const typename Graph::ConstVertexIterator &v1,
+            const Graph &g2, const typename Graph::ConstVertexIterator &v2) const {
+        return true;
+    }
+
+    /** Isomorphism of vertices based on incident edges.
+     *
+     *  Given two pairs of vertices, (@p i1, @p i2) and (@p j1, @p j2), one from each of two graphs @p g1 and @p g2, and given
+     *  the two sets of edges that connect the vertices of each pair (in both directions), determine whether vertices @p i2 and
+     *  @p j2 are isomorphic. The pair (@p i1, @p j1) is already part of a common subgraph isomorphism solution. Vertices @p i2
+     *  and @p j2 are already known to satisfy the @ref mu predicate and have the appropriate number of edges for inclusion
+     *  into the solution.
+     *
+     *  This default implementation always returns true. */
+    bool nu(const Graph &g1, typename Graph::ConstVertexIterator i1, typename Graph::ConstVertexIterator i2,
+            const std::vector<typename Graph::ConstEdgeIterator> &edges1,
+            const Graph &g2, typename Graph::ConstVertexIterator j1, typename Graph::ConstVertexIterator j2,
+            const std::vector<typename Graph::ConstEdgeIterator> &edges2) const {
         return true;
     }
 };
 
-template<class Graph>
-class CsiDefaultEdgeEquivalence {
-public:
-    bool operator()(const Graph &g1, typename Graph::ConstVertexIterator i1, typename Graph::ConstVertexIterator i2,
-                    const std::vector<typename Graph::ConstEdgeIterator> &edges1,
-                    const Graph &g2, typename Graph::ConstVertexIterator j1, typename Graph::ConstVertexIterator j2,
-                    const std::vector<typename Graph::ConstEdgeIterator> &edges2) const {
-        return true;
-    }
-};
-
+/** Functor called for each common subgraph isomorphism solution.
+ *
+ *  This functor is called whenever a solution is found for the common subgraph isomorphism problem. It takes two graph
+ *  arguments and two vectors of vertex IDs, one for each graph.  The vectors are parallel: v[i] is isomorphic to w[i] for all
+ *  i.
+ *
+ *  Users routinely write their own solution handler. This one serves only as an example and prints the solution vectors to
+ *  standard output. */
 template<class Graph>
 class CsiShowSolution {
     size_t n;
 public:
     CsiShowSolution(): n(0) {}
 
-    void operator()(const Graph &g1, const std::vector<size_t> &g1VertIds,
-                    const Graph &g2, const std::vector<size_t> &g2VertIds) {
-        ASSERT_require(g1VertIds.size() == g2VertIds.size());
-        std::cerr <<"Common subgraph isomorphism solution #" <<n <<" found:\n"
+    /** Functor.
+     *
+     *  The vector @p x contains vertex IDs from graph @p g1, and @p y contains IDs from @p g2. Both vectors will always be the
+     *  same length.  This implementation prints the vectors @p w and @p y to standard output. */
+    void operator()(const Graph &g1, const std::vector<size_t> &x, const Graph &g2, const std::vector<size_t> &y) {
+        ASSERT_require(x.size() == y.size());
+        std::cout <<"Common subgraph isomorphism solution #" <<n <<" found:\n"
                   <<"  x = [";
-        BOOST_FOREACH (size_t i, g1VertIds)
-            std::cerr <<" " <<i;
-        std::cerr <<" ]\n"
+        BOOST_FOREACH (size_t i, x)
+            std::cout <<" " <<i;
+        std::cout <<" ]\n"
                   <<"  y = [";
-        BOOST_FOREACH (size_t j, g2VertIds)
-            std::cerr <<" " <<j;
-        std::cerr <<" ]\n";
+        BOOST_FOREACH (size_t j, y)
+            std::cout <<" " <<j;
+        std::cout <<" ]\n";
         ++n;
     }
 };
 
+/** Common subgraph isomorphism solver.
+ *
+ *  Finds subgraphs of two given graphs where the subgraphs are isomorphic to one another. Each time a solution is found, the
+ *  @p SolutionProcessor is invoked. Users will typically provide their own solution process since the default processor, @ref
+ *  CsiShowSolution, only prints the solutions to standard output.  The solver assumes that any vertex in the first graph can
+ *  be isomorphic to any vertex of the second graph unless the user provides his own equivalence predicate. The default
+ *  predicate, @ref CsiEquivalence, allows any vertex to be isomorphic to any other vertex (the solver additionally requires
+ *  that the two subgraphs of any solution have the same number of edges). Providing an equivalence predicate can substantially
+ *  reduce the search space, as can limiting the minimum size of solutions.
+ *
+ *  To use this class, instantiate an instance and specify the two graphs to be compared (they can both be the same graph if
+ *  desired), the solution handler callback, and the vertex equivalence predicate. Then, if necessary, make adjustements to the
+ *  callback and/or predicate. Finally, invoke the @ref run method. The graphs must not be modified between the time this
+ *  solver is created and the @ref run method returns.*/
 template<class Graph,
          class SolutionProcessor = CsiShowSolution<Graph>,
-         class VertexEquivalenceP = CsiDefaultVertexEquivalence<Graph>,
-         class EdgeEquivalenceP = CsiDefaultEdgeEquivalence<Graph> >
+         class EquivalenceP = CsiEquivalence<Graph> >
 class CommonSubgraphIsomorphism {
     const Graph &g1, &g2;                               // the two whole graphs being compared
     DenseIntegerSet<size_t> v, w;                       // available vertices of g1 and g2, respectively
@@ -289,9 +327,8 @@ class CommonSubgraphIsomorphism {
     DenseIntegerSet<size_t> vNotX;                      // X erased from V
 
     SolutionProcessor solutionProcessor_;               // functor to call for each solution
-    VertexEquivalenceP vertexEquivalenceP_;             // predicate to determine if two vertices can be equivalent
-    EdgeEquivalenceP edgeEquivalenceP_;                 // predicate determines vertex equivalence given sets of edges
-    size_t minAllowedSolution_;                         // size of smallest permitted solutions
+    EquivalenceP equivalenceP_;                         // predicates to determine if two vertices can be equivalent
+    size_t minimumSolutionSize_;                        // size of smallest permitted solutions
 
     class Vam {                                         // Vertex Availability Map
         typedef std::vector<size_t> TargetVertices;     // target vertices in no particular order
@@ -345,14 +382,29 @@ class CommonSubgraphIsomorphism {
     };
 
 public:
+    /** Construct a solver.
+     *
+     *  Constructs a solver that will find subgraphs of @p g1 and @p g2 that are isomorpic to one another. The graphs must not
+     *  be modified between the call to this constructor and the return of its @ref run method.
+     *
+     *  The solution processor and equivalence predicated are copied into this solver. If the size of these objects is an
+     *  issue, then they can be created with default constructors when the solver is created, and then modified afterward by
+     *  obtaining a reference to the copies that are part of the solver.
+     *
+     *  A debug stream can be provided, in which case large amounts of debug traces are emitted. The default is to use
+     *  %Sawyer's main debug stream which is normally disabled, thus no output is produced. Debug output can be selectively
+     *  turned on and off by enabling or disabling the stream at any time during the analysis.
+     *
+     *  The default solution processor, @ref CsiShowSolution, prints the solutions to standard output. The default vertex
+     *  equivalence predicate, @ref CsiEquivalence, allows any vertex in graph @p g1 to be isomorphic to any vertex in graph @p
+     *  g2. The solver additionally constrains the two sugraphs of any solution to have the same number of edges (that's the
+     *  essence of subgraph isomorphism and cannot be overridden by the vertex isomorphism predicate). */
     CommonSubgraphIsomorphism(const Graph &g1, const Graph &g2,
                               Message::Stream debug = Message::mlog[Message::DEBUG],
                               SolutionProcessor solutionProcessor = SolutionProcessor(), 
-                              VertexEquivalenceP vertexEquivalenceP = VertexEquivalenceP(),
-                              EdgeEquivalenceP edgeEquivalenceP = EdgeEquivalenceP())
+                              EquivalenceP equivalenceP = EquivalenceP())
         : g1(g1), g2(g2), v(g1.nVertices()), w(g2.nVertices()), debug(debug), vNotX(g1.nVertices()),
-          solutionProcessor_(solutionProcessor), vertexEquivalenceP_(vertexEquivalenceP),
-          edgeEquivalenceP_(edgeEquivalenceP), minAllowedSolution_(1) {}
+          solutionProcessor_(solutionProcessor), equivalenceP_(equivalenceP), minimumSolutionSize_(1) {}
 
 private:
     CommonSubgraphIsomorphism(const CommonSubgraphIsomorphism&) {
@@ -364,25 +416,82 @@ private:
     }
 
 public:
+    /** Property: minimum allowed solution size.
+     *
+     *  Determines the minimum size of solutions for which the solution processor callback is invoked. This minimum can be
+     *  changed at any time before or during the analysis and is useful when looking for the largest isomorphic subgraphs. Not
+     *  only does this property control when the solution processor is invoked, but it's also used to limit the search
+     *  space--specifying a large minimum size causes the analysis to run faster.
+     *
+     *  Decreasing the minimum solution size during a run will not cause solutions that were smaller than its previous value to
+     *  be found if those solutions have already been skipped or pruned from the search space.
+     *
+     *  The default minimum is one, which means that the trivial solution of two empty subgraphs is not reported to the
+     *  callback.
+     *
+     * @{ */
+    size_t minimumSolutionSize() const { return minimumSolutionSize_; }
+    void minimumSolutionSize(size_t n) { minimumSolutionSize_ = n; }
+    /** @} */
+
+    /** Property: reference to the solution callback.
+     *
+     *  Returns a reference to the callback that will process each solution. The callback can be changed at any time between
+     *  construction of this analysis and the return from its @ref run method.
+     *
+     * @{ */
+    SolutionProcessor& solutionProcessor() { return solutionProcessor_; }
+    const SolutionProcessor& solutionProcessor() const { return solutionProcessor_; }
+    /** @} */
+
+    /** Property: reference to the vertex equivalence predicate.
+     *
+     *  Returns a reference to the predicate that determines whether a vertex from one graph can be isomorphic to a vertex of
+     *  the other graph. Solutions will only contain pairs of vertices for which the predicate returns true.
+     *
+     *  Changing the predicate during the @ref run method may or may not have the desired effect. This is because the return
+     *  value from the predicate (at least it's @ref CsiEquivalence::mu "mu" method) is computed up front and cached.
+     *
+     * @{ */
+    EquivalenceP& equivalencePredicate() { return equivalenceP_; }
+    const EquivalenceP& equivalencePredicate() const { return equivalenceP_; }
+    /** @} */
+
+    /** Perform the common subgraph isomorphism analysis.
+     *
+     *  Runs the common subgraph isomorphism analysis from beginning to end, invoking the constructor-supplied solution
+     *  processor for each solution that's found to be large enough (see @ref minimumSolutionSize).  The solutions are not
+     *  detected in any particular order.
+     *
+     *  The graphs provided to the analysis constructor on which this analysis runs must not be modified between when the
+     *  analysis is created and this method returns. Actually, it is permissible to modify the contents of the graphs, just not
+     *  their connectivity. I.e., changing the values stored at vertices and edges is fine, but inserting or erasing vertices
+     *  or edges is not.
+     *
+     *  The @ref run method may be called multiple times and will always start from the beginning. If the solution processor
+     *  determines that the analysis is not required to complete then it may throw an exception. The @ref reset method can be
+     *  called afterward to delete memory used by the analysis. */
     void run() {
-        v.insertAll();
-        w.insertAll();
-        x.clear();
-        y.clear();
-        vNotX.insertAll();
+        reset();
         Vam vam;                                        // this is the only per-recursion local state
         initializeVam(vam);
         recurse(vam);
     }
 
-    size_t minAllowedSolutionSize() const { return minAllowedSolution_; }
-    void minAllowedSolutionSize(size_t n) { minAllowedSolution_ = n; }
-
-    SolutionProcessor& solutionProcessor() { return solutionProcessor_; }
-    const SolutionProcessor& solutionProcessor() const { return solutionProcessor_; }
-
+    /** Releases memory used by the analysis.
+     *
+     *  Releases memory that's used by the analysis, returning the analysis to its just-constructed state.  This method is
+     *  called implicitly at the beginning of each @ref run. */
+    void reset() {
+        v.insertAll();
+        w.insertAll();
+        x.clear();
+        y.clear();
+        vNotX.insertAll();
+    }
+    
 private:
-    // Print contents of a container
+    // Print contents of a container. This is only used for debugging.
     template<class ForwardIterator>
     void printContainer(std::ostream &out, const std::string &prefix, ForwardIterator begin, const ForwardIterator &end,
                         const char *ends = "[]", bool doSort = false) const {
@@ -419,8 +528,8 @@ private:
                 findEdges(g1, i, i, selfEdges1 /*out*/);
                 findEdges(g2, j, j, selfEdges2 /*out*/);
                 if (selfEdges1.size() == selfEdges2.size() &&
-                    vertexEquivalenceP_(g1, g1.findVertex(i), g2, g2.findVertex(j)) &&
-                    edgeEquivalenceP_(g1, v1, v1, selfEdges1, g2, w1, w1, selfEdges2))
+                    equivalenceP_.mu(g1, g1.findVertex(i), g2, g2.findVertex(j)) &&
+                    equivalenceP_.nu(g1, v1, v1, selfEdges1, g2, w1, w1, selfEdges2))
                     vam.insert(i, j);
             }
         }
@@ -428,15 +537,15 @@ private:
 
     // Can the solution (stored in X and Y) be extended by adding another (i,j) pair of vertices where i is an element of the
     // set of available vertices of graph1 (vNotX) and j is a vertex of graph2 that is equivalent to i according to the
-    // user-provided vertex equivalence predicate. Furthermore, is it even possible to find a solution along this branch of
-    // discover which is large enough for the user? By eliminating entire branch of the search space we can drastically
-    // decrease the time it takes to search, and the larger the required solution the more branches we can eliminate.
+    // user-provided equivalence predicate. Furthermore, is it even possible to find a solution along this branch of discovery
+    // which is large enough for the user? By eliminating entire branch of the search space we can drastically decrease the
+    // time it takes to search, and the larger the required solution the more branches we can eliminate.
     bool isSolutionPossible(const Vam &vam) const {
         size_t largestPossibleSolution = x.size();
         BOOST_FOREACH (size_t i, vNotX.values()) {
             if (vam.size(i) > 0) {
                 ++largestPossibleSolution;
-                if (largestPossibleSolution >= minAllowedSolution_)
+                if (largestPossibleSolution >= minimumSolutionSize_)
                     return true;
             }
         }
@@ -449,7 +558,7 @@ private:
     size_t pickVertex(const Vam &vam) const {
         // FIXME[Robb Matzke 2016-03-19]: Perhaps this can be made even faster. The step that initializes the VAM
         // (initializeVam or refine) might be able to compute and store the shortest row so we can retrieve it here in constant
-        // time.
+        // time.  Probably not worth the work though since loop this is small compared to the overall analysis.
         size_t shortestRowLength(-1), retval(-1);
         BOOST_FOREACH (size_t i, vNotX.values()) {
             size_t vs = vam.size(i);
@@ -503,6 +612,7 @@ private:
         ASSERT_require(i != iUnused);
         ASSERT_require(j != jUnused);
 
+        // The two subgraphs in a solution must have the same number of edges.
         std::vector<typename Graph::ConstEdgeIterator> edges1, edges2;
         findEdges(g1, i, iUnused, edges1 /*out*/);
         findEdges(g2, j, jUnused, edges2 /*out*/);
@@ -513,12 +623,15 @@ private:
         if (edges1.size() != edges2.size())
             return false;
 
+        // If there are no edges, then assume that iUnused and jUnused could be isomorphic. We already know they satisfy the mu
+        // constraint otherwise they wouldn't even be in the VAM.
         if (edges1.empty() && edges2.empty())
             return true;
 
+        // Everything looks good to us, now let the user weed out certain pairs of vertices based on their incident edges.
         typename Graph::ConstVertexIterator v1 = g1.findVertex(i), v2 = g1.findVertex(iUnused);
         typename Graph::ConstVertexIterator w1 = g2.findVertex(j), w2 = g2.findVertex(jUnused);
-        return edgeEquivalenceP_(g1, v1, v2, edges1, g2, w1, w2, edges2);
+        return equivalenceP_.nu(g1, v1, v2, edges1, g2, w1, w2, edges2);
     }
 
     // Create a new VAM from an existing one. The (i,j) pairs of the new VAM will form a subset of the specified VAM.
@@ -550,7 +663,12 @@ private:
         printContainer(debug, "  y = ", y.begin(), y.end());
         vam.print(debug, "  vam");
     }
-            
+
+    // The main recursive function. It works by extending the current solution by one pair for all combinations of such pairs
+    // that are permissible according to the vertex equivalence predicate and not already part of the solution and then
+    // recursively searching the remaining space.  This analysis class acts as a state machine whose data structures are
+    // advanced and retracted as the space is searched. The VAM is the only part of the state that needs to be stored on a
+    // stack since changes to it could not be easily undone during the retract phase.
     void recurse(const Vam &vam, size_t level = 0) {
         if (debug)
             showState(vam, "entering state", level);        // debugging
@@ -577,7 +695,7 @@ private:
             vNotX.insert(i);
             if (debug)
                 showState(vam, "restored i=" + boost::lexical_cast<std::string>(i) + " back to state", level);
-        } else if (x.size() >= minAllowedSolution_) {
+        } else if (x.size() >= minimumSolutionSize_) {
             ASSERT_require(x.size() == y.size());
             if (debug) {
                 printContainer(debug, "  found soln x = ", x.begin(), x.end());
@@ -587,254 +705,6 @@ private:
         }
     }
 };
-
-                
-            
-#if 0 // [Robb Matzke 2016-03-17]
-template<class Graph>
-class CommonSubgraphIsomorphism {
-    typedef std::vector<std::vector<size_t> > Vmm;      // vertex matching matrix
-
-    const Graph &g1, &g2;
-    Message::Stream debug;                              // optional debugging stream
-    DenseIntegerSet<size_t> v, w;                       // vertex IDs from g1 and g2, respectively
-    DenseIntegerSet<size_t> vAvoid;                     // vertices of V to avoid (only for debugging)
-    std::vector<size_t> x, y;                           // vertex equivalence maps
-    size_t n0;                                          // minimum size of desired matches
-    size_t nmax;                                        // maximum size of matched subsets (num vertices)
-public:
-    CommonSubgraphIsomorphism(const Graph &g1, const Graph &g2, Message::Stream debug = Message::mlog[Message::DEBUG])
-        : g1(g1), g2(g2), debug(debug), v(g1.nVertices()), w(g2.nVertices()), vAvoid(g1.nVertices()), n0(1), nmax(0) {
-        v.insertAll();
-        w.insertAll();
-    }
-
-    // This is usually user-defined
-    bool vertexComparator(const typename Graph::ConstVertexIterator &v1, const typename Graph::ConstVertexIterator &v2) {
-        return true;
-    }
-
-    // This is usually user-defined
-    bool edgeComparator(const std::vector<typename Graph::ConstEdgeIterator> &edges1,
-                        const std::vector<typename Graph::ConstEdgeIterator> &edges2) {
-        return true;
-    }
-
-    // This is usually user-defined
-    void output(const std::vector<size_t> &x, const std::vector<size_t> &y) {
-        std::cout <<"match found:\n"
-                  <<"  x= {";
-        BOOST_FOREACH (size_t i, x)
-            std::cout <<" " <<i;
-        std::cout <<" }\n"
-                  <<"  y= {";
-        BOOST_FOREACH (size_t j, y)
-            std::cout <<" " <<j;
-        std::cout <<" }\n";
-    }
-
-    void vmmPush(Vmm &d /*in,out*/, size_t i, size_t value) {
-        if (i >= d.size())
-            d.resize(i+1);
-        d[i].push_back(value);
-    }
-
-    size_t vmmSize(const Vmm &d, size_t i) {
-        return i < d.size() ? d[i].size() : 0;
-    }
-
-    const std::vector<size_t>& vmmRow(const Vmm &d, size_t i) {
-        static const std::vector<size_t> empty;
-        return i < d.size() ? d[i] : empty;
-    }
-
-    void vmmPrint(std::ostream &out, const std::string &indent, const std::string &title, const Vmm &d) {
-        for (size_t i=0; i<d.size(); ++i) {
-            if (!d[i].empty()) {
-                out <<indent <<title <<"[" <<i <<"] = {";
-                BOOST_FOREACH (size_t j, d[i])
-                    out <<" " <<j;
-                out <<" }\n";
-            }
-        }
-    }
-
-    void printVector(std::ostream &out, const std::string &indent, const std::string &title, const std::vector<size_t> &v) {
-        out <<indent <<title <<"[";
-        BOOST_FOREACH (size_t i, v)
-            out <<" " <<i;
-        out <<" ]\n";
-    }
-
-    void printSet(std::ostream &out, const std::string &indent, const std::string &title, const DenseIntegerSet<size_t> &s) {
-        out <<indent <<title <<"{";
-        BOOST_FOREACH (size_t i, s.values())
-            out <<" " <<i;
-        out <<" }\n";
-    }
-    
-    void vmmInit(Vmm &d /*out*/) {
-        d.clear();
-        BOOST_FOREACH (size_t i, v.values()) {
-            BOOST_FOREACH (size_t j, w.values()) {
-                if (vertexComparator(g1.findVertex(i), g2.findVertex(j)))
-                    vmmPush(d, i, j);
-            }
-        }
-    }
-
-    size_t pickVertex(const Vmm &d) {
-        DenseIntegerSet<size_t> lv = v;
-        for (size_t k=0; k<x.size(); ++k)
-            lv.erase(x[k]);
-        ASSERT_require(!lv.isEmpty());
-#if 0
-        // Debugging -- chose the least value
-        size_t least = *lv.values().begin();
-        BOOST_FOREACH (size_t i, lv.values())
-            least = std::min(least, i);
-        return least;
-#elif 1
-        // Choose any value
-        return *lv.values().begin();
-#else
-        BOOST_FOREACH (size_t i, lv.values()) {
-            if (vmmSize(d, i) == 0)
-                continue;
-            bool satisfied = true;
-            BOOST_FOREACH (size_t j, lv.values()) {
-                if (vmmSize(d, j) < vmmSize(d, i)) {
-                    satisfied = false;
-                    break;
-                }
-            }
-            if (satisfied)
-                return i;
-        }
-#endif
-        ASSERT_not_reachable("Not sure what to do here");
-    }
-
-    bool isExtendable(const Vmm &d) {
-        size_t q = x.size();
-        size_t s = q;
-        DenseIntegerSet<size_t> lv = v;
-
-        // We might not need this step. Perhaps the only d_i rows that are not empty are those where i is not in x
-        for (size_t i=0; i<q; ++i)
-            lv.erase(x[i]);
-
-        BOOST_FOREACH (size_t i, lv.values()) {
-            if (vmmSize(d, i) > 0)
-                ++s;
-        }
-        return s >= std::max(n0, nmax) && s > q;
-    }
-
-    const std::vector<size_t>& getMappableVertices(size_t i, const Vmm &d) {
-        return vmmRow(d, i);
-    }
-
-    std::vector<typename Graph::ConstEdgeIterator> findEdges(const Graph &g, size_t source, size_t target) {
-        std::vector<typename Graph::ConstEdgeIterator> retval;
-        BOOST_FOREACH (const typename Graph::Edge &candidate, g.findVertex(source)->outEdges()) {
-            if (candidate.target()->id() == target)
-                retval.push_back(g.findEdge(candidate.id()));
-        }
-        return retval;
-    }
-
-    // We just added source1 and source2 to the subgraphs. Target1 and target2 are unmapped vertices that we could consider
-    // next.
-    bool suitableEdges(size_t source1, size_t target1, size_t source2, size_t target2) {
-        ASSERT_require(source1 != target1);
-        if (source2 == target2)
-            return false;
-
-        std::vector<typename Graph::ConstEdgeIterator> edges1 = findEdges(g1, source1, target1);
-        std::vector<typename Graph::ConstEdgeIterator> edges2 = findEdges(g2, source2, target2);
-
-        // Both subgraphs must have the same number of edges.
-        if (edges2.size() != edges1.size())
-            return false;
-
-        return edgeComparator(edges1, edges2);
-    }
-
-    Vmm refine(const Vmm &d) {
-        ASSERT_require(x.size() == y.size());
-        DenseIntegerSet<size_t> lv = v;
-        for (size_t i=0; i<x.size(); ++i)
-            lv.erase(x[i]);
-
-        Vmm d1;
-        BOOST_FOREACH (size_t i, lv.values()) {
-            BOOST_FOREACH (size_t j, d[i]) {
-                if (suitableEdges(x.back(), i, y.back(), j))
-                    vmmPush(d1, i, j);
-            }
-        }
-        return d1;
-    }
-
-    void backtrack(const Vmm &d, size_t level=0) {
-        std::string indent;
-        static const size_t maxLevel = 9, indentAmount = 2;
-        if (debug) {
-            if (level > maxLevel) {
-                indent = std::string(indentAmount*(maxLevel+1), ' ') + "L" + boost::lexical_cast<std::string>(level) + ": ";
-            } else {
-                indent = std::string(indentAmount*level, ' ');
-            }
-            debug <<indent <<"at level " <<level <<":\n";
-            printVector(debug, indent, "  x = ", x);
-            printVector(debug, indent, "  y = ", y);
-            vmmPrint(debug, indent, "  d", d);
-            printSet(debug, indent, "  avoiding v = ", vAvoid);
-        }
-
-        if (isExtendable(d)) {
-            int i = pickVertex(d);
-            std::vector<size_t> z = getMappableVertices(i, d);
-            if (debug) {
-                debug <<indent <<"  pick v[" <<i <<"] mappable to any of w";
-                printVector(debug, "", "", z);
-            }
-
-            BOOST_FOREACH (size_t j, z) {
-                SAWYER_MESG(debug) <<indent <<"  trying v[" <<i <<"] mapped to w[" <<j <<"]\n";
-                x.push_back(i);
-                y.push_back(j);
-                Vmm d1 = refine(d);
-                backtrack(d1, level+1);
-                x.pop_back();
-                y.pop_back();
-            }
-
-            SAWYER_MESG(debug) <<indent <<"  backtracking by removing v[" <<i <<"] from consideration\n";
-            v.erase(i);
-            vAvoid.insert(i);                           // debugging
-            backtrack(d, level+1);
-            v.insert(i);
-            vAvoid.erase(i);                            // debuggng
-        } else {
-            nmax = std::max(nmax, x.size());
-            if (debug) {
-                printVector(debug, indent, "  solution x = ", x);
-                printVector(debug, indent, "  solution y = ", y);
-                debug <<indent <<"  n0 = " <<n0 <<", nmax = " <<nmax <<"\n";
-            }
-            output(x, y);
-        }
-    }
-
-    void run() {
-        Vmm d;
-        vmmInit(d);
-        backtrack(d);
-    }
-};
-#endif
 
 } // namespace
 } // namespace

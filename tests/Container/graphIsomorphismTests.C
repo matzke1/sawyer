@@ -622,7 +622,7 @@ testLarger() {
     s.insert(boost::assign::list_of(2)(3)(4),
              boost::assign::list_of(3)(2)(4));
 
-    csi.minAllowedSolutionSize(3);
+    csi.minimumSolutionSize(3);
     csi.run();
     s.checkMissing();
 }
@@ -644,10 +644,10 @@ struct SolutionCounter {
 };
 
 // Just some stupid way of saying which vertices of g1 can be equivalent to g2
-class CloseVertices {
+class Equivalence: public CsiEquivalence<Graph> {
 public:
-    bool operator()(const Graph &g1, const Graph::ConstVertexIterator &v1,
-                    const Graph &g2, const Graph::ConstVertexIterator &v2) const {
+    bool mu(const Graph &g1, const Graph::ConstVertexIterator &v1,
+            const Graph &g2, const Graph::ConstVertexIterator &v2) const {
         int allowedDelta = (g1.nVertices() + g2.nVertices()) / 8;
         int distance = abs((int)v1->id() - (int)v2->id());
         return distance <= allowedDelta;
@@ -672,8 +672,8 @@ testRandomGraphs(size_t maxVerts, size_t vertDelta, double edgeRatio) {
         }
 
         std::cerr <<"|V| = " <<nVertices <<", |E| = " <<nEdges <<"\n";
-        CommonSubgraphIsomorphism<Graph, SolutionCounter, CloseVertices> csi(g, g);
-        csi.minAllowedSolutionSize(nVertices-2);
+        CommonSubgraphIsomorphism<Graph, SolutionCounter, Equivalence> csi(g, g);
+        csi.minimumSolutionSize(nVertices-2);
         Sawyer::Stopwatch stopwatch;
         std::cerr <<"  starting...\n";
         csi.run();
