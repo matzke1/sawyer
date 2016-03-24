@@ -194,9 +194,7 @@ graphFindConnectedComponents(const Graph &g, std::vector<size_t> &components /*o
  *  and no ID number should occur more than once in that vector.
  *
  *  The ID numbers of the vertices in the returned subgraph are equal to the corresponding index into the @p vertexIdVector for
- *  the super-graph.
- *
- * @{ */
+ *  the super-graph. */
 template<class Graph>
 Graph
 graphCopySubgraph(const Graph &g, const std::vector<size_t> &vertexIdVector) {
@@ -225,8 +223,6 @@ graphCopySubgraph(const Graph &g, const std::vector<size_t> &vertexIdVector) {
     }
     return retval;
 }
-/** @} */
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Common subgraph isomorphism (CSI)
@@ -272,8 +268,8 @@ public:
 /** Functor called for each common subgraph isomorphism solution.
  *
  *  This functor is called whenever a solution is found for the common subgraph isomorphism problem. It takes two graph
- *  arguments and two vectors of vertex IDs, one for each graph.  The vectors are parallel: v[i] is isomorphic to w[i] for all
- *  i.
+ *  arguments and two vectors of vertex IDs, one for each graph.  The vectors are parallel: @p x[i] in @p g1 is isomorphic to
+ *  @p y[i] in @p g2 for all @p i.
  *
  *  Users routinely write their own solution handler. This one serves only as an example and prints the solution vectors to
  *  standard output. */
@@ -329,6 +325,8 @@ class CommonSubgraphIsomorphism {
     SolutionProcessor solutionProcessor_;               // functor to call for each solution
     EquivalenceP equivalenceP_;                         // predicates to determine if two vertices can be equivalent
     size_t minimumSolutionSize_;                        // size of smallest permitted solutions
+    bool monotonicallyIncreasing_;                      // size of solutions increases
+    bool findingCommonSubgraphs_;                       // solutions are subgraphs of both graphs or only second graph?
 
     class Vam {                                         // Vertex Availability Map
         typedef std::vector<size_t> TargetVertices;     // target vertices in no particular order
@@ -400,11 +398,12 @@ public:
      *  g2. The solver additionally constrains the two sugraphs of any solution to have the same number of edges (that's the
      *  essence of subgraph isomorphism and cannot be overridden by the vertex isomorphism predicate). */
     CommonSubgraphIsomorphism(const Graph &g1, const Graph &g2,
-                              Message::Stream debug = Message::mlog[Message::DEBUG],
+                              Message::Stream &debug = Message::mlog[Message::DEBUG],
                               SolutionProcessor solutionProcessor = SolutionProcessor(), 
                               EquivalenceP equivalenceP = EquivalenceP())
         : g1(g1), g2(g2), v(g1.nVertices()), w(g2.nVertices()), debug(debug), vNotX(g1.nVertices()),
-          solutionProcessor_(solutionProcessor), equivalenceP_(equivalenceP), minimumSolutionSize_(1) {}
+          solutionProcessor_(solutionProcessor), equivalenceP_(equivalenceP), minimumSolutionSize_(1),
+          monotonicallyIncreasing_(false), findingCommonSubgraphs_(true) {}
 
 private:
     CommonSubgraphIsomorphism(const CommonSubgraphIsomorphism&) {
@@ -434,6 +433,18 @@ public:
     void minimumSolutionSize(size_t n) { minimumSolutionSize_ = n; }
     /** @} */
 
+    /** Property: monotonically increasing solution size.
+     *
+     *  If true, then each solution reported to the solution processor will be at least as large as the previous
+     *  solution. Setting this property will result in more efficient behavior than culling solutions in the solution processor
+     *  because in the former situation the solver can eliminate branches of the search space.  This property is useful when
+     *  searching for the largest isomorphic subgraph.
+     *
+     * @{ */
+    bool monotonicallyIncreasing() const { return monotonicallyIncreasing_; }
+    void monotonicallyIncreasing(bool b) { monotonicallyIncreasing_ = b; }
+    /** @} */
+
     /** Property: reference to the solution callback.
      *
      *  Returns a reference to the callback that will process each solution. The callback can be changed at any time between
@@ -457,6 +468,20 @@ public:
     const EquivalenceP& equivalencePredicate() const { return equivalenceP_; }
     /** @} */
 
+    /** Property: find common subgraphs.
+     *
+     *  This property controls whether the solver finds subgraphs of both specified graphs, or requires that the entire first
+     *  graph is a subgraph of the second. When true (the default) the solver finds solutions to the "common subgraph
+     *  isomorphism" problem; when false it finds solutions to the "subgraph isomorphism" problem.
+     *
+     *  When this property is false the @ref minimumSolutionSize is ignored; all solutions will be equal in size to the number
+     *  of vertices in the first graph.
+     *
+     * @{ */
+    bool findingCommonSubgraphs() const { return findingCommonSubgraphs_; }
+    void findingCommonSubgraphs(bool b) { findingCommonSubgraphs_ = b; }
+    /** @} */
+
     /** Perform the common subgraph isomorphism analysis.
      *
      *  Runs the common subgraph isomorphism analysis from beginning to end, invoking the constructor-supplied solution
@@ -470,7 +495,8 @@ public:
      *
      *  The @ref run method may be called multiple times and will always start from the beginning. If the solution processor
      *  determines that the analysis is not required to complete then it may throw an exception. The @ref reset method can be
-     *  called afterward to delete memory used by the analysis. */
+     *  called afterward to delete memory used by the analysis (memory usage is not large to begin with), although this is not
+     *  necessary since the destructor does not leak memory. */
     void run() {
         reset();
         Vam vam;                                        // this is the only per-recursion local state
@@ -545,7 +571,8 @@ private:
         BOOST_FOREACH (size_t i, vNotX.values()) {
             if (vam.size(i) > 0) {
                 ++largestPossibleSolution;
-                if (largestPossibleSolution >= minimumSolutionSize_)
+                if ((findingCommonSubgraphs_ && largestPossibleSolution >= minimumSolutionSize_) ||
+                    (!findingCommonSubgraphs_ && largestPossibleSolution >= g1.nVertices()))
                     return true;
             }
         }
@@ -686,25 +713,140 @@ private:
             }
 
             // Try again after removing vertex i from consideration
-            SAWYER_MESG(debug) <<"  removing i=" <<i <<" from consideration\n";
-            v.erase(i);
-            ASSERT_require(vNotX.exists(i));
-            vNotX.erase(i);
-            recurse(vam, level+1);
-            v.insert(i);
-            vNotX.insert(i);
-            if (debug)
-                showState(vam, "restored i=" + boost::lexical_cast<std::string>(i) + " back to state", level);
-        } else if (x.size() >= minimumSolutionSize_) {
+            if (findingCommonSubgraphs_) {
+                SAWYER_MESG(debug) <<"  removing i=" <<i <<" from consideration\n";
+                v.erase(i);
+                ASSERT_require(vNotX.exists(i));
+                vNotX.erase(i);
+                recurse(vam, level+1);
+                v.insert(i);
+                vNotX.insert(i);
+                if (debug)
+                    showState(vam, "restored i=" + boost::lexical_cast<std::string>(i) + " back to state", level);
+            }
+        } else if ((findingCommonSubgraphs_ && x.size() >= minimumSolutionSize_) ||
+                   (!findingCommonSubgraphs_ && x.size() == g1.nVertices())) {
             ASSERT_require(x.size() == y.size());
             if (debug) {
                 printContainer(debug, "  found soln x = ", x.begin(), x.end());
                 printContainer(debug, "  found soln y = ", y.begin(), y.end());
             }
+            if (monotonicallyIncreasing_)
+                minimumSolutionSize_ = x.size();
             solutionProcessor_(g1, x, g2, y);
         }
     }
 };
+
+/** Find common isomorphic subgraphs.
+ *
+ *  Given two graphs find subgraphs of each that are isomorphic to each other.
+ *
+ *  Each solution causes an invocation of the @p solutionProcessor, which is a functor that takes four arguments: a const
+ *  reference to the first graph, a const vector of @c size_t which is the ID numbers of the first graph's vertices selected to
+ *  be in the subgraph, and the same two arguments for the second graph. Regardless of the graph sizes, the two vectors are
+ *  always parallel--they contain the matching pairs of vertices. The solutions are processed in no particular order.
+ *
+ *  The @p equivalenceP is an optional predicate to determine when a pair of vertices, one from each graph, can be
+ *  isomorphic. The subgraph solutions given by the two parallel vectors passed to the solution processor callback will contain
+ *  only pairs of vertices for which this predicate returns true.
+ *
+ *  This function is only a convenient wrapper around the @ref CommonSubgraphIsomorphism class.
+ *
+ * @{ */
+template<class Graph, class SolutionProcessor>
+void findCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const SolutionProcessor &solutionProcessor) {
+    CommonSubgraphIsomorphism<Graph, SolutionProcessor> csi(g1, g2, Message::mlog[Message::DEBUG], solutionProcessor);
+    csi.run();
+}
+
+template<class Graph, class SolutionProcessor, class EquivalenceP>
+void findCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const Message::Stream &debug,
+                                   const SolutionProcessor &solutionProcessor, const EquivalenceP &equivalenceP) {
+    CommonSubgraphIsomorphism<Graph, SolutionProcessor, EquivalenceP> csi(g1, g2, debug, solutionProcessor, equivalenceP);
+    csi.run();
+}
+/** @} */
+
+/** Find an isomorphic subgraph.
+ *
+ *  Given a smaller graph, @p g1, and a larger graph, @p g2, find all subgraphs of the larger graph that are isomorphic to the
+ *  smaller graph.  If the @p g1 is larger than @p g2 then no solutions will be found since no subgraph of @p g2 can have
+ *  enough vertices to be isomorphic to @p g1.
+ *
+ *  This function's behavior is identical to @ref findCommonIsomorphicSubgraphs except in one regard: the size of the vertex ID
+ *  vectors passed to the solution processor will always be the same size as the number of vertices in @p g1.
+ *
+ *  This function is only a convenient wrapper around the @ref CommonSubgraphIsomorphism class.
+ *
+ * @{ */
+template<class Graph, class SolutionProcessor>
+void findIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const SolutionProcessor &solutionProcessor) {
+    CommonSubgraphIsomorphism<Graph, SolutionProcessor> csi(g1, g2, Message::mlog[Message::DEBUG], solutionProcessor);
+    csi.findingCommonSubgraphs(false);
+    csi.run();
+}
+
+template<class Graph, class SolutionProcessor, class EquivalenceP>
+void findIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const Message::Stream &debug,
+                             const SolutionProcessor &solutionProcessor, const EquivalenceP &equivalenceP) {
+    CommonSubgraphIsomorphism<Graph, SolutionProcessor, EquivalenceP> csi(g1, g2, debug, solutionProcessor, equivalenceP);
+    csi.findingCommonSubgraphs(false);
+    csi.run();
+}
+/** @} */
+
+// Used internally by findMaximumCommonIsomorphicSubgraphs
+template<class Graph>
+class MaximumIsomorphicSubgraphs {
+    std::vector<std::pair<std::vector<size_t>, std::vector<size_t> > > solutions_;
+public:
+    void operator()(const Graph &g1, const std::vector<size_t> &x, const Graph &g2, const std::vector<size_t> &y) {
+        if (!solutions_.empty() && x.size() > solutions_.front().first.size())
+            solutions_.clear();
+        solutions_.push_back(std::make_pair(x, y));
+    }
+
+    const std::vector<std::pair<std::vector<size_t>, std::vector<size_t> > > &solutions() const {
+        return solutions_;
+    }
+};
+
+/** Find maximum common isomorphic subgraphs.
+ *
+ *  Given two graphs, find the largest possible isomorphic subgraph of those two graphs. The return value is a vector of pairs
+ *  of vectors with each pair of vectors representing one solution.  For any pair of vectors, the first vector contains the
+ *  IDs of vertices selected to be in a subgraph of the first graph, and the second vector contains the ID numbers of vertices
+ *  selected to be in a subgraph of the second graph. These two vectors are parallel and represent isomorphic pairs of
+ *  vertices.  The length of the vector-of-pairs is the number of solutions found; the lengths of all other vectors are equal
+ *  to each other and represent the size of the (maximum) subgraph.
+ *
+ *  The @p equivalenceP is an optional predicate to determine when a pair of vertices, one from each graph, can be
+ *  isomorphic. The subgraph solutions returned as pairs of parallel vectors will contain only pairs of vertices for which this
+ *  predicate returns true.
+ *
+ *  This function is only a convenient wrapper around the @ref CommonSubgraphIsomorphism class.
+ *
+ * @{ */
+template<class Graph>
+std::vector<std::pair<std::vector<size_t>, std::vector<size_t> > >
+findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2) {
+    CommonSubgraphIsomorphism<Graph, MaximumIsomorphicSubgraphs<Graph> > csi(g1, g2, Message::mlog[Message::DEBUG]);
+    csi.monotonicallyIncreasing(true);
+    csi.run();
+    return csi.solutionProcessor().solutions();
+}
+
+template<class Graph, class EquivalenceP>
+std::vector<std::pair<std::vector<size_t>, std::vector<size_t> > >
+findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const EquivalenceP &equivalenceP) {
+    CommonSubgraphIsomorphism<Graph, MaximumIsomorphicSubgraphs<Graph> >
+        csi(g1, g2, Message::mlog[Message::DEBUG], equivalenceP);
+    csi.monotonicallyIncreasing(true);
+    csi.run();
+    return csi.solutionProcessor().solutions();
+}
+/** @} */
 
 } // namespace
 } // namespace

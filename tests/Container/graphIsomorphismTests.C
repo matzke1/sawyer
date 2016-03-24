@@ -61,6 +61,19 @@ public:
     }
 };
 
+// Sort x and at the same time y since changing the order of the vertices makes no difference to the solution.
+static void
+sort(std::vector<size_t> &x, std::vector<size_t> &y) {
+    for (size_t i=0; i+1<x.size(); ++i) {
+        for (size_t j=i+1; j<x.size(); ++j) {
+            if (x[i] > x[j]) {
+                std::swap(x[i], x[j]);
+                std::swap(y[i], y[j]);
+            }
+        }
+    }
+}
+
 class SolutionChecker {
 public:
     typedef std::vector<size_t> VertexIds;
@@ -84,17 +97,8 @@ public:
         solns_.push_back(std::make_pair(x, y));
     }
 
-    bool solutionExpected(VertexIds x, VertexIds y) {
-        // Sort x and at the same time y since changing the order of the vertices makes no difference to the solution.
-        for (size_t i=0; i+1<x.size(); ++i) {
-            for (size_t j=i+1; j<x.size(); ++j) {
-                if (x[i] > x[j]) {
-                    std::swap(x[i], x[j]);
-                    std::swap(y[i], y[j]);
-                }
-            }
-        }
-        
+    bool isSolutionExpected(VertexIds x, VertexIds y) {
+        sort(x, y);
         for (size_t i=0; i<solns_.size(); ++i) {
             if (x.size() == solns_[i].first.size() &&
                 std::equal(x.begin(), x.end(), solns_[i].first.begin()) &&
@@ -116,7 +120,7 @@ public:
             if (!graphIsConnected(g2sub))
                 return;
         }
-        check(solutionExpected(x, y), details() <<"x = " <<x <<", y = " <<y);
+        check(isSolutionExpected(x, y), details() <<"x = " <<x <<", y = " <<y);
     }
 
     void checkMissing() {
@@ -625,6 +629,20 @@ testLarger() {
     csi.minimumSolutionSize(3);
     csi.run();
     s.checkMissing();
+
+    // Verify that findMaximumCommonIsomorphicSubgraphs works.
+    heading("slightly larger test (findMaximumCommonIsomorphicSubgraphs)");
+    std::vector<std::pair<std::vector<size_t>, std::vector<size_t> > > maxSubgraphs =
+        findMaximumCommonIsomorphicSubgraphs(g1, g2);
+    check(maxSubgraphs.size() == 1, "should be only one solution of maximal size");
+    check(maxSubgraphs[0].first.size() == 5, "max solution should have 5 vertices");
+    check(maxSubgraphs[0].second.size() == 5, "max solution should have 5 vertices");
+    sort(maxSubgraphs[0].first, maxSubgraphs[0].second);
+    check(maxSubgraphs[0].first[0] == 0 && maxSubgraphs[0].second[0] == 0, "wrong solution");
+    check(maxSubgraphs[0].first[1] == 1 && maxSubgraphs[0].second[1] == 1, "wrong solution");
+    check(maxSubgraphs[0].first[2] == 2 && maxSubgraphs[0].second[2] == 3, "wrong solution");
+    check(maxSubgraphs[0].first[3] == 3 && maxSubgraphs[0].second[3] == 2, "wrong solution");
+    check(maxSubgraphs[0].first[4] == 4 && maxSubgraphs[0].second[4] == 4, "wrong solution");
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -654,7 +672,6 @@ public:
     }
 };
 
-
 static void
 testRandomGraphs(size_t maxVerts, size_t vertDelta, double edgeRatio) {
     heading("random graphs");
@@ -670,10 +687,14 @@ testRandomGraphs(size_t maxVerts, size_t vertDelta, double edgeRatio) {
             Graph::ConstVertexIterator v2 = g.findVertex(Sawyer::fastRandomIndex(nVertices));
             g.insertEdge(v1, v2, "e" + boost::lexical_cast<std::string>(i));
         }
-
         std::cerr <<"|V| = " <<nVertices <<", |E| = " <<nEdges <<"\n";
+        
         CommonSubgraphIsomorphism<Graph, SolutionCounter, Equivalence> csi(g, g);
+#if 0 // [Robb Matzke 2016-03-24]
         csi.minimumSolutionSize(nVertices-2);
+#else
+        csi.monotonicallyIncreasing(true);
+#endif
         Sawyer::Stopwatch stopwatch;
         std::cerr <<"  starting...\n";
         csi.run();
