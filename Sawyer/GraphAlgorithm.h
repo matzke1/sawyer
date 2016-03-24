@@ -753,16 +753,20 @@ private:
  *
  *  This function is only a convenient wrapper around the @ref CommonSubgraphIsomorphism class.
  *
+ *  @sa @ref CommonSubgraphIsomorphism, @ref findIsomorphicSubgraphs, @ref findMaximumCommonIsomorphicSubgraphs.
+ *
+ *  @includelineno graphIso.C
+ *
  * @{ */
 template<class Graph, class SolutionProcessor>
-void findCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const SolutionProcessor &solutionProcessor) {
+void findCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, SolutionProcessor solutionProcessor) {
     CommonSubgraphIsomorphism<Graph, SolutionProcessor> csi(g1, g2, Message::mlog[Message::DEBUG], solutionProcessor);
     csi.run();
 }
 
 template<class Graph, class SolutionProcessor, class EquivalenceP>
 void findCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const Message::Stream &debug,
-                                   const SolutionProcessor &solutionProcessor, const EquivalenceP &equivalenceP) {
+                                   SolutionProcessor solutionProcessor, EquivalenceP equivalenceP) {
     CommonSubgraphIsomorphism<Graph, SolutionProcessor, EquivalenceP> csi(g1, g2, debug, solutionProcessor, equivalenceP);
     csi.run();
 }
@@ -779,9 +783,13 @@ void findCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const Messa
  *
  *  This function is only a convenient wrapper around the @ref CommonSubgraphIsomorphism class.
  *
+ *  @sa @ref CommonSubgraphIsomorphism, @ref findCommonIsomorphicSubgraphs, @ref findMaximumCommonIsomorphicSubgraphs.
+ *
+ *  @includelineno graphIso.C
+ *
  * @{ */
 template<class Graph, class SolutionProcessor>
-void findIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const SolutionProcessor &solutionProcessor) {
+void findIsomorphicSubgraphs(const Graph &g1, const Graph &g2, SolutionProcessor solutionProcessor) {
     CommonSubgraphIsomorphism<Graph, SolutionProcessor> csi(g1, g2, Message::mlog[Message::DEBUG], solutionProcessor);
     csi.findingCommonSubgraphs(false);
     csi.run();
@@ -789,7 +797,7 @@ void findIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const SolutionPro
 
 template<class Graph, class SolutionProcessor, class EquivalenceP>
 void findIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const Message::Stream &debug,
-                             const SolutionProcessor &solutionProcessor, const EquivalenceP &equivalenceP) {
+                             SolutionProcessor solutionProcessor, EquivalenceP equivalenceP) {
     CommonSubgraphIsomorphism<Graph, SolutionProcessor, EquivalenceP> csi(g1, g2, debug, solutionProcessor, equivalenceP);
     csi.findingCommonSubgraphs(false);
     csi.run();
@@ -827,6 +835,10 @@ public:
  *
  *  This function is only a convenient wrapper around the @ref CommonSubgraphIsomorphism class.
  *
+ *  @sa @ref CommonSubgraphIsomorphism, @ref findCommonIsomorphicSubgraphs, @ref findIsomorphicSubgraphs.
+ *
+ *  @includelineno graphIso.C
+ *
  * @{ */
 template<class Graph>
 std::vector<std::pair<std::vector<size_t>, std::vector<size_t> > >
@@ -839,7 +851,7 @@ findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2) {
 
 template<class Graph, class EquivalenceP>
 std::vector<std::pair<std::vector<size_t>, std::vector<size_t> > >
-findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const EquivalenceP &equivalenceP) {
+findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, EquivalenceP equivalenceP) {
     CommonSubgraphIsomorphism<Graph, MaximumIsomorphicSubgraphs<Graph> >
         csi(g1, g2, Message::mlog[Message::DEBUG], equivalenceP);
     csi.monotonicallyIncreasing(true);
