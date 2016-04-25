@@ -852,8 +852,8 @@ findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2) {
 template<class Graph, class EquivalenceP>
 std::vector<std::pair<std::vector<size_t>, std::vector<size_t> > >
 findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, EquivalenceP equivalenceP) {
-    CommonSubgraphIsomorphism<Graph, MaximumIsomorphicSubgraphs<Graph> >
-        csi(g1, g2, Message::mlog[Message::DEBUG], equivalenceP);
+    CommonSubgraphIsomorphism<Graph, MaximumIsomorphicSubgraphs<Graph>, EquivalenceP >
+        csi(g1, g2, Message::mlog[Message::DEBUG], MaximumIsomorphicSubgraphs<Graph>, equivalenceP);
     csi.monotonicallyIncreasing(true);
     csi.run();
     return csi.solutionProcessor().solutions();
