@@ -272,6 +272,23 @@ public:
         values_.insert(id, boost::any(value));
     }
 
+    /** Store an attribute if not already present.
+     *
+     *  Stores the specified value if the specified attribute does not yet exist. Returns true if the value was stored, false
+     *  if not stored.  The attribute type can be almost anything and can be changed for each call, but the same type must be
+     *  used when retrieving the attribute.
+     *
+     *  Thread safety: Ths method is thread safe when synchronization is enabled. */
+    template<typename T>
+    bool setAttributeMaybe(Id id, const T &value) {
+        typename Sync::LockGuard lock(mutex_);
+        if (!values_.exists(id)) {
+            values_.insert(id, boost::any(value));
+            return true;
+        }
+        return false;
+    }
+
     /** Get an attribute that is known to exist.
      *
      *  Returns the value for the attribute with the specified @p id.  The attribute must exist or a @ref DoesNotExist
