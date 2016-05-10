@@ -386,6 +386,9 @@ SAWYER_EXPORT int pclose(FILE*);
  *  A new string is generated each time this is called. */
 SAWYER_EXPORT std::string generateSequentialName(size_t length=3);
 
+/** Check for valid boost version or abort. */
+SAWYER_EXPORT void checkBoost();
+
 } // namespace
 
 // Define only when we have the Boost Chrono library, which was first available in boost-1.47.
