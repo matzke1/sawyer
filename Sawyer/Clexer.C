@@ -59,7 +59,7 @@ TokenStream::line(const Token &t) const {
     if (t.type() == TOK_EOF)
         return "";
     size_t lineIdx = content_.lineIndex(t.begin_);
-    const char *s = content_.line(lineIdx);
+    const char *s = content_.lineChars(lineIdx);
     size_t n = content_.nCharacters(lineIdx);
     return std::string(s, n);
 }
@@ -78,7 +78,7 @@ void
 TokenStream::emit(const std::string &fileName, const Token &token, const std::string &message) const {
     std::pair<size_t, size_t> loc = content_.location(token.begin_);
     std::cerr <<fileName <<":" <<(loc.first+1) <<":" <<(loc.second+1) <<": " <<message <<"\n";
-    const char *line = content_.line(loc.first);
+    const char *line = content_.lineChars(loc.first);
     if (line) {
         std::string str(line, content_.nCharacters(loc.first));
         boost::trim_right(str);
