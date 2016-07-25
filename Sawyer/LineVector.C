@@ -5,22 +5,40 @@
 namespace Sawyer {
 namespace Container {
 
-LineVector::LineVector(const std::string &fileName)
+LineVector::LineVector(const boost::filesystem::path &path)
     : charBuf_(NULL), nextCharToScan_(0) {
-    buffer_ = MappedBuffer<size_t, char>::instance(fileName);
-    charBuf_ = buffer_->data();
-    ASSERT_not_null(charBuf_);
+    load(path);
 }
 
 LineVector::LineVector(const Buffer<size_t, char>::Ptr &buffer)
     : buffer_(buffer), charBuf_(NULL), nextCharToScan_(0) {
+    load(buffer);
+}
+
+LineVector::LineVector(size_t nBytes, const char *buf)
+    : charBuf_(NULL), nextCharToScan_(0) {
+    load(nBytes, buf);
+}
+
+void
+LineVector::load(const boost::filesystem::path &path) {
+    clear();
+    buffer_ = MappedBuffer<size_t, char>::instance(path.native());
+    charBuf_ = buffer_->data();
+    ASSERT_require(charBuf_ != NULL || buffer_->size() == 0);
+}
+
+void
+LineVector::load(const Buffer<size_t, char>::Ptr &buffer) {
+    clear();
     ASSERT_not_null(buffer);
     charBuf_ = buffer_->data();
     ASSERT_not_null(charBuf_);
 }
 
-LineVector::LineVector(size_t nBytes, const char *buf)
-    : charBuf_(NULL), nextCharToScan_(0) {
+void
+LineVector::load(size_t nBytes, const char *buf) {
+    clear();
     buffer_ = StaticBuffer<size_t, char>::instance(buf, nBytes);
     charBuf_ = buffer_->data();
     ASSERT_not_null(charBuf_);
@@ -113,11 +131,21 @@ LineVector::characters(size_t charIndex) const {
 }
 
 const char*
-LineVector::line(size_t lineIdx) const {
+LineVector::lineChars(size_t lineIdx) const {
     size_t i = characterIndex(lineIdx);
     if (i >= nCharacters())
         return NULL;
     return charBuf_ + i;
+}
+
+std::string
+LineVector::lineString(size_t lineIdx) const {
+    if (const char *begin = lineChars(lineIdx)) {
+        const char *end = begin + nCharacters(lineIdx);
+        return std::string(begin, end);
+    } else {
+        return std::string();
+    }
 }
 
 size_t
