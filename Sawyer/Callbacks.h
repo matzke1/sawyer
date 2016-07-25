@@ -95,6 +95,21 @@ public:
     }
 };
 
+template<class Callback>
+class TemporaryCallback {
+    Callbacks<Callback> &callbacks_;
+    Callback callback_;
+public:
+    TemporaryCallback(Callbacks<Callback> &callbacks, const Callback &callback)
+        : callbacks_(callbacks), callback_(callback) {
+        callbacks_.append(callback);
+    }
+
+    ~TemporaryCallback() {
+        callbacks_.eraseLast(callback_);
+    }
+};
+
 } // namespace
 
 #endif
