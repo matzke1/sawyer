@@ -50,9 +50,10 @@ public:
     }
 
     Callbacks& eraseLast(const Callback &callback) {
-        for (typename CbList::reverse_iterator iter=callbacks_.rbegin(); iter!=callbacks_.rend(); ++iter) {
-            if (*iter == callback) {
-                callbacks_.erase(iter);
+        for (typename CbList::reverse_iterator reverseIter=callbacks_.rbegin(); reverseIter!=callbacks_.rend(); ++reverseIter) {
+            if (*reverseIter == callback) {
+                typename CbList::iterator forwardIter = (++reverseIter).base();
+                callbacks_.erase(forwardIter);
                 break;
             }
         }
