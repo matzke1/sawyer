@@ -18,6 +18,7 @@ toString(TokenType tt) {
         case TOK_STRING: return "string";
         case TOK_NUMBER: return "number";
         case TOK_WORD: return "word";
+        case TOK_CPP: return "cpp";
         case TOK_OTHER: return "other";
     }
     ASSERT_not_reachable("invalid token type");
@@ -161,10 +162,15 @@ TokenStream::makeNextToken() {
         }
         tokens_.push_back(Token(TOK_NUMBER, begin, at_));
     } else if ('#' == c) {
+        size_t begin = at_;
         at_ = content_.characterIndex(content_.lineIndex(at_) + 1);
         while (at_>=2 && at_ < content_.nCharacters() && content_.character(at_-2)=='\\' && content_.character(at_-1)=='\n')
             at_ = content_.characterIndex(content_.lineIndex(at_) + 1);
-        makeNextToken();
+        if (skipPreprocessorTokens_) {
+            makeNextToken();
+        } else {
+            tokens_.push_back(Token(TOK_CPP, begin, at_));
+        }
     } else {
         tokens_.push_back(Token(TOK_OTHER, at_, at_+1));
         ++at_;

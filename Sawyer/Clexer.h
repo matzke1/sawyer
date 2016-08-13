@@ -23,6 +23,7 @@ enum TokenType {
     TOK_STRING,                                         // string literal
     TOK_NUMBER,                                         // numeric constant, including optional leading sign
     TOK_WORD,                                           // word or symbol name
+    TOK_CPP,                                            // preprocessor statement starting with '#'
     TOK_OTHER                                           // anything else
 };
 
@@ -53,12 +54,16 @@ class TokenStream {
     Sawyer::Container::LineVector content_;             // contents of source file
     size_t at_;                                         // cursor position in buffer
     std::vector<Token> tokens_;                         // token stream filled on demand
+    bool skipPreprocessorTokens_;                       // skip over '#' preprocessor directives
 public:
     explicit TokenStream(const std::string &fileName)
-        : fileName_(fileName), content_(fileName), at_(0) {}
+        : fileName_(fileName), content_(fileName), at_(0), skipPreprocessorTokens_(true) {}
 
     explicit TokenStream(const std::string &fileName, const Sawyer::Container::Buffer<size_t, char>::Ptr &buffer)
-        : fileName_(fileName), content_(buffer), at_(0) {}
+        : fileName_(fileName), content_(buffer), at_(0), skipPreprocessorTokens_(true) {}
+
+    bool skipPreprocessorTokens() const { return skipPreprocessorTokens_; }
+    void skipPreprocessorTokens(bool b) { skipPreprocessorTokens_ = b; }
 
     const Token& operator[](size_t lookahead);
 
