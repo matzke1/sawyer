@@ -3,3 +3,6 @@ target_link_libraries(symbolFreq libsawyer)
 
 add_executable(searchCode searchCode.C)
 target_link_libraries(searchCode libsawyer)
+
+add_executable(findIncludes findIncludes.C)
+target_link_libraries(findIncludes libsawyer)
