@@ -2503,6 +2503,11 @@ public:
     }
     /** @} */
 
+    /** List of all switch groups. */
+    const std::vector<SwitchGroup>& switchGroups() const {
+        return switchGroups_;
+    }
+
     /** Prefixes to use for long command-line switches.  The @ref resetLongPrefixes clears the list (and adds prefixes) while
      *  @ref longPrefix only adds another prefix to the list.  The default long switch prefix on Unix-like systems is
      *  <code>-\-</code>, but this can be overridden or augmented by switch groups and switch declarations.
