@@ -174,6 +174,29 @@ enum SortOrder {
                                                          *   default. */
 };
 
+/** When errors and warnings are reported.
+ *
+ *  If the system can detect a potential problem before it happens, then it can either report the problem as early as possible
+ *  or delay until the problem becomes a real issue. For instance, if a parser has ambiguous switches (e.g., two switch groups
+ *  both contain a "--foo" switch) the parser can report the problem whenever its @ref Parser::parse "parse" method is called,
+ *  or report the problem only if the user says "--foo" on the command-line. It might be the case that the switch groups have
+ *  name spaces which would allow the user to qualify the switch. */
+enum ReportingTime {
+    ALWAYS_REPORT,                                      /**< Report problems as soon as possible. */
+    SOMETIMES_REPORT,                                   /**< Report problems only if they become an issue. */
+    NEVER_REPORT                                        /**< Be as silent as possible about problems. */
+};
+
+/** Whether to omit or keep unqualified switches.
+ *
+ *  A qualified switch is one that includes a name space string and its separator.  A switch is also considered to be qualified
+ *  if its switch group has no name. */
+enum SwitchQualification {
+    ALL_SWITCHES,                                       /**< All switches regardless of name qualification. */
+    QUALIFIED_SWITCHES,                                 /**< Only switches with complete names. */
+    UNQUALIFIED_SWITCHES                                /**< Only switches with incomplete names. */
+};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Program argument cursor
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2235,11 +2258,13 @@ private:
                                          const SwitchArgument &sa, const std::string &reason) const;
 
     /** @internal Determines if this switch can match against the specified program argument when considering only the
-     *  specified long name.  If program argument starts with a valid long name prefix and then matches the switch name, this
-     *  this function returns true (the number of characters matched).  Switches that take no arguments must match to the end of
-     *  the string, but switches that have arguments (even if they're optional or wouldn't match the rest of the string) do not
-     *  have to match entirely as long as a value separator is found when they don't match entirely. */
-    size_t matchLongName(Cursor&/*in,out*/, const ParsingProperties &props, const std::string &name) const;
+     *  specified long name.  If program argument starts with a valid long name prefix and then optionally matches the
+     *  optionalPart (e.g., name space and name space separator) and then matches the required part (switch name), then this
+     *  this function returns true (the number of characters matched).  Switches that take no arguments must match to the end
+     *  of the string, but switches that have arguments (even if they're optional or wouldn't match the rest of the string) do
+     *  not have to match entirely as long as a value separator is found when they don't match entirely. */
+    size_t matchLongName(Cursor&/*in,out*/, const ParsingProperties &props,
+                         const std::string &optionalPart, const std::string &requiredPart) const;
 
     /** @internal Matches a short switch name.  Although the cursor need not be at the beginning of the program argument, this
      *  method first matches a short name prefix at the beginning of the argument.  If the prefix ends at or before the cursor
@@ -2305,6 +2330,7 @@ class SAWYER_EXPORT SwitchGroup {
 #include <Sawyer/WarningsOff.h>
     std::vector<Switch> switches_;
     ParsingProperties properties_;
+    std::string nameSpace_;
     std::string title_;
     std::string docKey_;
     std::string documentation_;
@@ -2330,6 +2356,22 @@ public:
      * @{ */
     const std::string& title() const { return title_; }
     SwitchGroup& title(const std::string &title) { title_ = title; return *this; }
+    /** @} */
+
+    /** Property: Name space.
+     *
+     *  A switch group may have a name space in order to disambiguate command-line switches that match more than one switch
+     *  declaration. This is useful if a user is constructing a parser from switch groups over which they have no control. For
+     *  example, if two groups have a "--foo" switch then the user can give one group a namespace of "alpha" and the other
+     *  "beta" in which case "--alpha:foo" matches one and "--beta:foo" matches the other.
+     *
+     *  Name spaces can only resolve long switches, not short switches.
+     *
+     *  Note that "name space" is two words even though C++ treats it as one.
+     *
+     * @{ */
+    const std::string& nameSpace() const { return nameSpace_; }
+    SwitchGroup& nameSpace(const std::string &nameSpace) { nameSpace_ = nameSpace; return *this; }
     /** @} */
 
     /** Property: Documentation sort key.
@@ -2463,6 +2505,7 @@ class SAWYER_EXPORT Parser {
 #include <Sawyer/WarningsOff.h>
     std::vector<SwitchGroup> switchGroups_;             /**< Declarations for all recognized switches. */
     ParsingProperties properties_;                      /**< Some properties inherited by switch groups and switches. */
+    std::string nameSpaceSeparator_;                    /**< String that separates name space from switch */
     std::vector<std::string> terminationSwitches_;      /**< Special switch to terminate parsing; default is "-\-". */
     bool shortMayNestle_;                               /**< Whether "-ab" is the same as "-a -b". */
     std::vector<std::string> inclusionPrefixes_;        /**< Prefixes that mark command line file inclusion (e.g., "@"). */
@@ -2480,14 +2523,16 @@ class SAWYER_EXPORT Parser {
     Message::SProxy errorStream_;                       /**< Send errors here and exit instead of throwing runtime_error. */
     Optional<std::string> exitMessage_;                 /**< Additional message before exit when errorStream_ is not empty. */
     SortOrder switchGroupOrder_;                        /**< Order of switch groups in the documentation. */
+    ReportingTime ambiguityWarnings_;                   /**< When to report problems. */
 #include <Sawyer/WarningsRestore.h>
     
 public:
     /** Default constructor.  The default constructor sets up a new parser with defaults suitable for the operating
      *  system. The switch declarations need to be added (via @ref with) before the parser is useful. */
     Parser()
-        : shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false), versionString_("alpha"),
-          chapterNumber_(1), chapterName_("User Commands"), switchGroupOrder_(INSERTION_ORDER) {
+        : nameSpaceSeparator_(":"), shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false),
+        versionString_("alpha"), chapterNumber_(1), chapterName_("User Commands"), switchGroupOrder_(INSERTION_ORDER),
+        ambiguityWarnings_(ALWAYS_REPORT) {
         init();
     }
 
@@ -2512,6 +2557,30 @@ public:
     const std::vector<SwitchGroup>& switchGroups() const {
         return switchGroups_;
     }
+
+    /** Property: When to report ambiguous switches.
+     *
+     *  If ambiguous switches are inserted into the parser then the parser can detect and report these at various times. If set
+     *  to @ref ALWAYS_REPORT, then the parser checks for possible ambiguities at the beginning of the @ref parse call
+     *  regardless of whether the command-line would trigger such ambiguities, and throws an exception if any are detected. If
+     *  set to @ref SOMETIMES_REPORT then an error is triggered (either an exception or error message depending on @ref
+     *  errorStream) only if the command-line contains an ambiguity.  If set to @ref NEVER_REPORT then any one of the matching
+     *  switch definitions is triggered.
+     *
+     * @{ */
+    ReportingTime ambiguityWarnings() const { return ambiguityWarnings_; }
+    Parser& ambiguityWarnings(ReportingTime t) { ambiguityWarnings_ = t; return *this; }
+    /** @} */
+
+    /** Property: String separating name space from switch.
+     *
+     *  If switch group name spaces are present, this property holds the string that separates the name space part of the
+     *  switch parse string from the switch name part.
+     *
+     * @{ */
+    const std::string& nameSpaceSeparator() const { return nameSpaceSeparator_; }
+    Parser& nameSpaceSeparator(const std::string &s) { nameSpaceSeparator_ = s; return *this; }
+    /** @} */
 
     /** Prefixes to use for long command-line switches.  The @ref resetLongPrefixes clears the list (and adds prefixes) while
      *  @ref longPrefix only adds another prefix to the list.  The default long switch prefix on Unix-like systems is
@@ -2767,17 +2836,20 @@ public:
      *
      *  Generates an indexed listing of all switches. The return value is a map organized by parse strings and whose values are
      *  maps organized by @ref SwitchGroup. The values of the second-level map are pointers to the @ref Switch objects within
-     *  that group. */
-    NamedSwitches indexSwitches() const;
+     *  that group.  The @p qualification argument determines which switches are included in the index. */
+    NamedSwitches indexSwitches(SwitchQualification qualification = ALL_SWITCHES) const;
 
-    /** Print a switch index. */
-    static void printIndex(std::ostream&, const NamedSwitches&);
+    /** Print a switch index.
+     *
+     *  This is mostly for debugging. It's quite easy to traverse the @ref NamedSwitches object and print them yourself. */
+    static void printIndex(std::ostream&, const NamedSwitches&, const std::string &linePrefix = "");
 
-    /** Check for ambiguous switches.
+    /** Find for ambiguous switches.
      *
      *  Looks at all switch definitions in this parser and returns any ambiguities. An ambiguity is when a command-line switche
-     *  can resolve to more than one Switch object in two different switch groups. */
-    NamedSwitches checkAmbiguities() const;
+     *  can resolve to more than one Switch object in two different switch groups. The return value is an index containing only
+     *  the ambiguous switches.  The @p qualification argument determines which switches are included in the index. */
+    NamedSwitches findAmbiguities(SwitchQualification qualification = ALL_SWITCHES) const;
 
 private:
     void init();
@@ -2790,7 +2862,7 @@ private:
     // termination switch (e.g., "--") then consume the terminator and return false.  If the switch name is valid but the
     // arguments cannot be parsed, then throw an error.  If the cursor is at what appears to be a switch but no matching switch
     // declaration can be found, then throw an error.  The cursor will not be modified when an error is thrown.
-    bool parseOneSwitch(Cursor&, ParserResult&/*out*/);
+    bool parseOneSwitch(Cursor&, const NamedSwitches &ambiguities, ParserResult&/*out*/);
 
     /** Parse one long switch.  Upon entry, the cursor should be positioned at the beginning of a program argument. On success,
      *  the cursor will be positioned at the beginning of a subsequent program argument, or at the end of input.  If a switch
@@ -2798,7 +2870,7 @@ private:
      *  pointer is valid only as long as this parser is allocated). If no switch is available for parsing then the null pointer
      *  is returned. If some other parsing error occurs then a null value is returned and the @p saved_error is updated to
      *  reflect the nature of the error.  This function does not throw <code>std::runtime_error</code> exceptions. */
-    const Switch* parseLongSwitch(Cursor&, ParsedValues&, Optional<std::runtime_error>&);
+    const Switch* parseLongSwitch(Cursor&, ParsedValues&, const NamedSwitches &ambiguities, Optional<std::runtime_error>&);
 
     /** Parse one short switch.  Upon entry, the cursor is either at the beginning of a program argument, or at the beginning
      *  of a (potential) short switch name. On success, for non-nestled switches the cursor will be positioned at the beginning

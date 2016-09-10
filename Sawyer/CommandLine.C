@@ -824,14 +824,22 @@ Switch::malformedArgument(const std::string &switchString, const Cursor &cursor,
 }
 
 SAWYER_EXPORT size_t
-Switch::matchLongName(Cursor &cursor, const ParsingProperties &props, const std::string &name) const {
+Switch::matchLongName(Cursor &cursor, const ParsingProperties &props,
+                      const std::string &optionalPart, const std::string &requiredPart) const {
     ASSERT_require(cursor.atArgBegin());
     BOOST_FOREACH (const std::string &prefix, props.longPrefixes) {
         if (boost::starts_with(cursor.arg(), prefix)) {
             std::string rest = cursor.arg().substr(prefix.size());
-            if (boost::starts_with(rest, name)) {
-                size_t retval = prefix.size() + name.size();
-                rest = rest.substr(name.size());
+            size_t retval = prefix.size();
+
+            if (boost::starts_with(rest, optionalPart)) {
+                rest = rest.substr(optionalPart.size());
+                retval += optionalPart.size();
+            }
+                
+            if (boost::starts_with(rest, requiredPart)) {
+                retval += requiredPart.size();
+                rest = rest.substr(requiredPart.size());
                 if (rest.empty()) {
                     cursor.consumeChars(retval);
                     return retval;                  // switch name matches to end of program argument
@@ -1447,6 +1455,20 @@ Parser::parseInternal(const std::vector<std::string> &programArguments) {
     ParserResult result(*this, programArguments);
     Cursor &cursor = result.cursor();
 
+    NamedSwitches ambiguities;
+    if (ALWAYS_REPORT == ambiguityWarnings_) {
+        ambiguities = findAmbiguities(QUALIFIED_SWITCHES);
+        if (!ambiguities.isEmpty()) {
+            // ALWAYS_REPORT is used by tool authors, so they surely want exceptions rather than error messages.
+            std::ostringstream ss;
+            ss <<"ambiguous switches declared:\n";
+            printIndex(ss, ambiguities, "             ");
+            throw std::runtime_error(ss.str());
+        }
+    } else if (SOMETIMES_REPORT == ambiguityWarnings_) {
+        ambiguities = findAmbiguities(ALL_SWITCHES);
+    }
+
     while (!cursor.atEnd()) {
         ASSERT_require(cursor.atArgBegin());
 
@@ -1488,7 +1510,7 @@ Parser::parseInternal(const std::vector<std::string> &programArguments) {
         // Attempt to parse the switch. The parseOneSwitch() throws an exception if something goes wrong, but returns NULL if
         // there's no switch to parse.
         try {
-            parseOneSwitch(cursor, result);
+            parseOneSwitch(cursor, ambiguities, result);
         } catch (const std::runtime_error&) {
             if (skipUnknownSwitches_) {
                 result.skip(cursor.location());
@@ -1504,13 +1526,13 @@ Parser::parseInternal(const std::vector<std::string> &programArguments) {
 }
 
 SAWYER_EXPORT bool
-Parser::parseOneSwitch(Cursor &cursor, ParserResult &result) {
+Parser::parseOneSwitch(Cursor &cursor, const NamedSwitches &ambiguities, ParserResult &result) {
     ASSERT_require(cursor.atArgBegin());
     Optional<std::runtime_error> saved_error;
 
     // Single long switch
     ParsedValues values;
-    if (const Switch *sw = parseLongSwitch(cursor, values, saved_error /*out*/)) {
+    if (const Switch *sw = parseLongSwitch(cursor, values, ambiguities, saved_error /*out*/)) {
         ASSERT_require(cursor.atArgBegin() || cursor.atEnd());
         result.insertValuesForSwitch(values, this, sw);
         return true;
@@ -1558,11 +1580,12 @@ static bool decreasingLength(const std::string &a, const std::string &b) {
 }
 
 SAWYER_EXPORT const Switch*
-Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues,
+Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues, const NamedSwitches &ambiguities,
                         Optional<std::runtime_error> &saved_error) {
     ASSERT_require(cursor.atArgBegin());
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
+        std::string optionalPart = sg.nameSpace().empty() ? std::string("") : sg.nameSpace() + nameSpaceSeparator_;
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
             ParsingProperties swProps = sw.properties().inherit(sgProps);
             std::vector<std::string> longNames = sw.longNames();
@@ -1570,8 +1593,20 @@ Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues,
             BOOST_FOREACH (const std::string &longName, longNames) {
                 ExcursionGuard guard(cursor);
                 Location switchLocation = cursor.location();
-                if (sw.matchLongName(cursor, swProps, longName)) {
+                if (sw.matchLongName(cursor, swProps, optionalPart, longName)) {
                     const std::string switchString = cursor.substr(switchLocation);
+
+                    // Check for ambiguities
+                    if (SOMETIMES_REPORT == ambiguityWarnings_ && ambiguities.exists(switchString)) {
+                        std::string mesg = "switch \"" + switchString + "\" is ambiguous";
+                        if (errorStream_) {
+                            *errorStream_ <<mesg;
+                        } else {
+                            throw std::runtime_error(mesg);
+                        }
+                    }
+
+                    // Parse switch value(s) if possible
                     try {
                         ParsedValues pvals;
                         sw.matchLongArguments(switchString, cursor, swProps, pvals /*out*/);
@@ -2145,7 +2180,7 @@ checkMarkup(const std::string &s) {
 }
 
 NamedSwitches
-Parser::indexSwitches() const {
+Parser::indexSwitches(SwitchQualification qualification) const {
     NamedSwitches retval;
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
@@ -2154,8 +2189,22 @@ Parser::indexSwitches() const {
 
             // Long names
             BOOST_FOREACH (const std::string &name, sw.longNames()) {
-                BOOST_FOREACH (const std::string &prefix, swProps.longPrefixes)
-                    retval.insertMaybeDefault(prefix + name).insertMaybeDefault(&sg).insert(&sw);
+                BOOST_FOREACH (const std::string &prefix, swProps.longPrefixes) {
+                    bool hasNameSpace = !sg.nameSpace().empty();
+
+                    // Strings with name spaces
+                    if (hasNameSpace && (qualification == ALL_SWITCHES || qualification == QUALIFIED_SWITCHES)) {
+                        std::string fullName = prefix + sg.nameSpace() + nameSpaceSeparator() + name;
+                        retval.insertMaybeDefault(fullName).insertMaybeDefault(&sg).insert(&sw);
+                    }
+
+                    // Strings without name spaces
+                    if (qualification == ALL_SWITCHES || qualification == UNQUALIFIED_SWITCHES ||
+                        (qualification == QUALIFIED_SWITCHES && !hasNameSpace)) {
+                        std::string fullName = prefix + name;
+                        retval.insertMaybeDefault(fullName).insertMaybeDefault(&sg).insert(&sw);
+                    }
+                }
             }
 
             // Short names
@@ -2170,30 +2219,31 @@ Parser::indexSwitches() const {
 
 // class method
 void
-Parser::printIndex(std::ostream &out, const NamedSwitches &index) {
+Parser::printIndex(std::ostream &out, const NamedSwitches &index, const std::string &linePrefix) {
     BOOST_FOREACH (const NamedSwitches::Node &named, index.nodes()) {
-        out <<named.key() <<"\n";
+        out <<linePrefix <<named.key() <<"\n";
         BOOST_FOREACH (const GroupedSwitches::Node &grouped, named.value().nodes()) {
-            out <<"  switch group \"" <<grouped.key()->title() <<"\":";
+            const SwitchGroup *sg = grouped.key();
+            out <<linePrefix <<"  in group \"" <<sg->title() <<"\"";
+            if (!sg->nameSpace().empty())
+                out <<" namespace \"" <<sg->nameSpace() <<"\",";
             BOOST_FOREACH (const Switch *sw, grouped.value())
-                out <<" " <<sw->key();
+                out <<" switch.key=" <<sw->key();
             out <<"\n";
         }
     }
 }
 
 NamedSwitches
-Parser::checkAmbiguities() const {
+Parser::findAmbiguities(SwitchQualification qualification) const {
     NamedSwitches retval;
-    NamedSwitches all = indexSwitches();
+    NamedSwitches all = indexSwitches(qualification);
+
     BOOST_FOREACH (const NamedSwitches::Node &named, all.nodes()) {
         const GroupedSwitches &groups = named.value();
         if (groups.size() > 1)
             retval.insert(named.key(), groups);
     }
-#if 1 // DEBUGGING [Robb Matzke 2016-09-10]
-    printIndex(std::cerr, retval);
-#endif
     return retval;
 }
 
