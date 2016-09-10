@@ -2305,31 +2305,31 @@ class SAWYER_EXPORT SwitchGroup {
 #include <Sawyer/WarningsOff.h>
     std::vector<Switch> switches_;
     ParsingProperties properties_;
-    std::string name_;
+    std::string title_;
     std::string docKey_;
     std::string documentation_;
     SortOrder switchOrder_;
 #include <Sawyer/WarningsRestore.h>
 public:
-    /** Construct an unnamed group. */
+    /** Construct an unnamed, untitled group. */
     SwitchGroup(): switchOrder_(DOCKEY_ORDER) { initializeLibrary(); }
 
-    /** Construct a named group.
+    /** Construct a titled group.
      *
-     *  Naming a group prevents its switches from being globally sorted with other groups when the documentation is produced.
-     *  The @p name will appear as the name of a subsection for the switches and should be capitalized like a title (initial
+     *  Titling a group prevents its switches from being globally sorted with other groups when the documentation is produced.
+     *  The @p title will appear as the title of a subsection for the switches and should be capitalized like a title (initial
      *  capital letters). The optional @p docKey is used to sort the groups in relation to each other (the default is to sort
-     *  by group name). */
-    explicit SwitchGroup(const std::string &name, const std::string &docKey="")
-        : name_(name), docKey_(docKey), switchOrder_(DOCKEY_ORDER) {}
+     *  by group title). */
+    explicit SwitchGroup(const std::string &title, const std::string &docKey="")
+        : title_(title), docKey_(docKey), switchOrder_(DOCKEY_ORDER) {}
 
-    /** Property: Name of the switch group.
+    /** Property: Title of the switch group.
      *
-     *  A switch group may have a subsection name for documentation.  The name should be capitalized like a title.  The name
+     *  A switch group may have a subsection title for documentation.  The title should be capitalized like a title.  The title
      *  may also be specified in the constructor.
      * @{ */
-    const std::string& name() const { return name_; }
-    SwitchGroup& name(const std::string &name) { name_ = name; return *this; }
+    const std::string& title() const { return title_; }
+    SwitchGroup& title(const std::string &title) { title_ = title; return *this; }
     /** @} */
 
     /** Property: Documentation sort key.
@@ -2337,10 +2337,10 @@ public:
      *  This key is used to order the switch groups with respect to one another in the documentation.  Switches that belong to
      *  groups having the same documentation key are treated as if they came from the same group for the purpose of sorting the
      *  switches within groups.  Any switch group that has no documentation key will use the lower-case group title (which may
-     *  also be the empty string).  If more than one switch group has the same documentation key but different names, then only
-     *  one of those names is arbitrarily chosen as the subsection name in the documentation.
+     *  also be the empty string).  If more than one switch group has the same documentation key but different titles, then
+     *  only one of those titles is arbitrarily chosen as the subsection title in the documentation.
      *
-     *  The documentation kay may also be specified in the constructor.
+     *  The documentation key may also be specified in the constructor.
      *
      * @sa SwitchGroup::switchOrder
      * @{ */
@@ -2352,7 +2352,7 @@ public:
      *
      *  This is the description of the switch group in a simple markup language. See @ref Switch::doc for a description of the
      *  markup language.  Documentation for a switch group will appear prior to the switches within that group.  If multiple
-     *  groups are to appear in the same section of the manual page (by virtue of having the same @ref SwitchGroup::name then
+     *  groups are to appear in the same section of the manual page (by virtue of having the same @ref SwitchGroup::title then
      *  their documentation strings are appended as separate paragraphs in the order that the switch groups appear in the
      *  parser.
      *
@@ -2429,7 +2429,7 @@ public:
      *  the property is @ref INSERTION_ORDER then switch documentation keys are ignored and switches are presented in the order
      *  they were added to the group.
      *
-     *  Since documentation will combine into a single subsection all the switches from groups having the same name, it is
+     *  Since documentation will combine into a single subsection all the switches from groups having the same title, it is
      *  possible that the subsection will have conflicting orderings.  When this happens, the last group to be inserted is
      *  the one whose value is used for the entire subsection.
      *
@@ -2444,6 +2444,11 @@ private:
     const ParsingProperties& properties() const { return properties_; }
 };
 
+/** Subset of switches grouped by their switch groups. */
+typedef Container::Map<const SwitchGroup*, std::set<const Switch*> > GroupedSwitches;
+
+/** Subset of switches indexed by their command-line representation. */
+typedef Container::Map<std::string, GroupedSwitches> NamedSwitches;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Parser
@@ -2749,14 +2754,30 @@ public:
     /** Print documentation to standard output. Use a pager if possible. */
     void emitDocumentationToPager() const;
 
-    /** Property: How to order switch groups in documentation.  If the parser contains named switch groups then switches will
-     *  be organized into subsections based on the group names, and this property controls how those subsections are ordered
+    /** Property: How to order switch groups in documentation.  If the parser contains titled switch groups then switches will
+     *  be organized into subsections based on the group titles, and this property controls how those subsections are ordered
      *  with respect to each other.  The subsections can be sorted according to the order they were inserted into the parser,
-     *  or alphabetically by their documentation keys or names.
+     *  or alphabetically by their documentation keys or titles.
      * @{ */
     SortOrder switchGroupOrder() const { return switchGroupOrder_; }
     Parser& switchGroupOrder(SortOrder order) { switchGroupOrder_ = order; return *this; }
     /** @} */
+
+    /** Return an index of all switches.
+     *
+     *  Generates an indexed listing of all switches. The return value is a map organized by parse strings and whose values are
+     *  maps organized by @ref SwitchGroup. The values of the second-level map are pointers to the @ref Switch objects within
+     *  that group. */
+    NamedSwitches indexSwitches() const;
+
+    /** Print a switch index. */
+    static void printIndex(std::ostream&, const NamedSwitches&);
+
+    /** Check for ambiguous switches.
+     *
+     *  Looks at all switch definitions in this parser and returns any ambiguities. An ambiguity is when a command-line switche
+     *  can resolve to more than one Switch object in two different switch groups. */
+    NamedSwitches checkAmbiguities() const;
 
 private:
     void init();
@@ -2792,7 +2813,6 @@ private:
     // Returns true if the program argument at the cursor looks like it might be a switch.  Apparent switches are any program
     // argument that starts with a long or short prefix.
     bool apparentSwitch(const Cursor&) const;
-
 
     // Returns the best prefix for each switch--the one used for documentation
     void preferredSwitchPrefixes(Container::Map<std::string, std::string> &prefixMap /*out*/) const;

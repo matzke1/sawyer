@@ -927,6 +927,19 @@ static void test23() {
     ASSERT_always_require(v1[1]==T23_BLUE);
 }
 
+static void test24() {
+    std::cerr <<"test24: ambiguous switches\n";
+    Parser p;
+
+    SwitchGroup g1("Group 1");
+    g1.insert(Switch("foo", 'f'));
+
+    SwitchGroup g2("Group 2");
+    g2.insert(Switch("foo", 'f'));
+
+    p.with(g1).with(g2).checkAmbiguities();
+}
+
 int main(int argc, char *argv[]) {
     test01();
     test02();
@@ -952,6 +965,7 @@ int main(int argc, char *argv[]) {
     test21();
     test22();
     test23();
+    test24();
     std::cout <<"All tests passed\n";
     return 0;
 }

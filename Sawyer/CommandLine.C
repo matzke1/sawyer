@@ -1941,7 +1941,7 @@ Parser::docForSwitches() const {
     std::string notDocumented = "Not documented.";
     std::vector<SwitchDoc> switchDocs;
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
-        std::string groupKey = sg.docKey().empty() ? boost::to_lower_copy(sg.name()) : sg.docKey();
+        std::string groupKey = sg.docKey().empty() ? boost::to_lower_copy(sg.title()) : sg.docKey();
         std::string sortMajor;
         switch (switchGroupOrder_) {
             case DOCKEY_ORDER:          sortMajor = groupKey;           break;
@@ -1950,8 +1950,8 @@ Parser::docForSwitches() const {
 
         // Switch group title and doc string. When multiple groups have the same key, the title is the name of the first such
         // group and the doc string is the concatenation from all such groups.
-        if (!sg.name().empty())
-            groupTitles.insertMaybe(groupKey, sg.name());
+        if (!sg.title().empty())
+            groupTitles.insertMaybe(groupKey, sg.title());
         if (!sg.doc().empty()) {
             std::string s = groupDescriptions.getOptional(groupKey).orDefault();
             s += (s.empty() ? "" : "\n\n") + sg.doc();
@@ -2142,6 +2142,59 @@ checkMarkup(const std::string &s) {
     mp.registerTag(PropTag::instance(), "prop");
 
     mp.parse("@section{X}{"+s+"}");             // throws on error
+}
+
+NamedSwitches
+Parser::indexSwitches() const {
+    NamedSwitches retval;
+    BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
+        ParsingProperties sgProps = sg.properties().inherit(properties_);
+        BOOST_FOREACH (const Switch &sw, sg.switches()) {
+            ParsingProperties swProps = sw.properties().inherit(sgProps);
+
+            // Long names
+            BOOST_FOREACH (const std::string &name, sw.longNames()) {
+                BOOST_FOREACH (const std::string &prefix, swProps.longPrefixes)
+                    retval.insertMaybeDefault(prefix + name).insertMaybeDefault(&sg).insert(&sw);
+            }
+
+            // Short names
+            BOOST_FOREACH (const char &name, sw.shortNames()) {
+                BOOST_FOREACH (const std::string &prefix, swProps.shortPrefixes)
+                    retval.insertMaybeDefault(prefix + name).insertMaybeDefault(&sg).insert(&sw);
+            }
+        }
+    }
+    return retval;
+}
+
+// class method
+void
+Parser::printIndex(std::ostream &out, const NamedSwitches &index) {
+    BOOST_FOREACH (const NamedSwitches::Node &named, index.nodes()) {
+        out <<named.key() <<"\n";
+        BOOST_FOREACH (const GroupedSwitches::Node &grouped, named.value().nodes()) {
+            out <<"  switch group \"" <<grouped.key()->title() <<"\":";
+            BOOST_FOREACH (const Switch *sw, grouped.value())
+                out <<" " <<sw->key();
+            out <<"\n";
+        }
+    }
+}
+
+NamedSwitches
+Parser::checkAmbiguities() const {
+    NamedSwitches retval;
+    NamedSwitches all = indexSwitches();
+    BOOST_FOREACH (const NamedSwitches::Node &named, all.nodes()) {
+        const GroupedSwitches &groups = named.value();
+        if (groups.size() > 1)
+            retval.insert(named.key(), groups);
+    }
+#if 1 // DEBUGGING [Robb Matzke 2016-09-10]
+    printIndex(std::cerr, retval);
+#endif
+    return retval;
 }
 
 } // namespace
