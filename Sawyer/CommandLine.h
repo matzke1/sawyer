@@ -18,6 +18,8 @@
 #include <boost/numeric/conversion/cast.hpp>
 #include <cerrno>
 #include <ctype.h>
+#include <list>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -376,36 +378,28 @@ public:
     }
 };
 
-// partial specialization for optional storage
-template<typename T>
-class TypedSaver<Optional<T> >: public ValueSaver {
-    Optional<T> &storage_;
-protected:
-    TypedSaver(Optional<T> &storage): storage_(storage) {}
-public:
-    typedef SharedPointer<TypedSaver> Ptr;
-    static Ptr instance(Optional<T> &storage) { return Ptr(new TypedSaver(storage)); }
-    virtual void save(const boost::any &value) const /*override*/ {
-        T typed = boost::any_cast<T>(value);
-        storage_ = typed;
+// Partial specialization of TypedSaver, saving a value of any type T into a container of type CONTAINER_TEMPLATE calling the
+// containers INSERT_METHOD with one argument: the value.  The CONTAINER_TEMPLATE is the name of a class template that
+// takes one argument: type type of value stored by the container.
+#define SAWYER_COMMANDLINE_CONTAINER_SAVER(CONTAINER_TEMPLATE, INSERT_METHOD)                                                  \
+    template<typename T>                                                                                                       \
+    class TypedSaver<CONTAINER_TEMPLATE<T> >: public ValueSaver {                                                              \
+        CONTAINER_TEMPLATE<T> &storage_;                                                                                       \
+    protected:                                                                                                                 \
+        TypedSaver(CONTAINER_TEMPLATE<T> &storage): storage_(storage) {}                                                       \
+    public:                                                                                                                    \
+        static Ptr instance(CONTAINER_TEMPLATE<T> &storage) { return Ptr(new TypedSaver(storage)); }                           \
+        virtual void save(const boost::any &value) const /*override*/ {                                                        \
+            T typed = boost::any_cast<T>(value);                                                                               \
+            storage_.INSERT_METHOD(typed);                                                                                     \
+        }                                                                                                                      \
     }
-};
 
-// partial specialization for vector storage
-template<typename T>
-class TypedSaver<std::vector<T> >: public ValueSaver {
-    std::vector<T> &storage_;
-protected:
-    TypedSaver(std::vector<T> &storage): storage_(storage) {}
-public:
-    typedef SharedPointer<TypedSaver> Ptr;
-    static Ptr instance(std::vector<T> &storage) { return Ptr(new TypedSaver(storage)); }
-    virtual void save(const boost::any &value) const /*override*/ {
-        T typed = boost::any_cast<T>(value);
-        storage_.push_back(typed);
-    }
-};
 
+SAWYER_COMMANDLINE_CONTAINER_SAVER(std::vector, push_back);
+SAWYER_COMMANDLINE_CONTAINER_SAVER(std::list, push_back);
+SAWYER_COMMANDLINE_CONTAINER_SAVER(std::set, insert);
+SAWYER_COMMANDLINE_CONTAINER_SAVER(Optional, operator=);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Parsed value
