@@ -977,12 +977,12 @@ static void test24() {
 
         // fully qualified name
         settings.clear();
-        mustParse(1, p, "--g1:foo=1");
+        mustParse(1, p, "--g1-foo=1");
         ASSERT_always_require(1 == settings.g1foo);
 
         // fully qualified name
         settings.clear();
-        mustParse(2, p, "--g2:foo", "1");
+        mustParse(2, p, "--g2-foo", "1");
         ASSERT_always_require(1 == settings.g2foo);
 
         // canonical unqualified name
@@ -1011,7 +1011,7 @@ static void test24() {
         p.with(g1).with(g3);
 
         settings.clear();
-        mustNotParse("ambiguous", p, "--g1:foo=1");     // --g1:foo=1 is okay, but --bar isn't
+        mustNotParse("ambiguous", p, "--g1-foo=1");     // --g1-foo=1 is okay, but --bar isn't
     }
 
     // Groups 1 and 2 have resolvable switch "--foo" since both groups have names
@@ -1021,8 +1021,8 @@ static void test24() {
 
         settings.clear();
         std::string mesg = mustNotParse("ambiguous", p, "--foo");
-        ASSERT_always_require(boost::contains(mesg, "use --g1:foo"));
-        ASSERT_always_require(boost::contains(mesg, "use --g2:foo"));
+        ASSERT_always_require(boost::contains(mesg, "use --g1-foo"));
+        ASSERT_always_require(boost::contains(mesg, "use --g2-foo"));
     }
 
     // Groups 1 and 5 both have '-f' but it can be disambiguated by using long switches
@@ -1032,8 +1032,8 @@ static void test24() {
 
         settings.clear();
         std::string mesg = mustNotParse("ambiguous", p, "-f5");
-        ASSERT_always_require(boost::contains(mesg, "use --g1:foo"));
-        ASSERT_always_require(boost::contains(mesg, "use --g5:foo"));
+        ASSERT_always_require(boost::contains(mesg, "use --g1-foo"));
+        ASSERT_always_require(boost::contains(mesg, "use --g5-foo"));
     }
 
     // Groups 3 and 6 both have a '-b' switch and it cannot be disambiguated because group 6 has no long form of '-b'

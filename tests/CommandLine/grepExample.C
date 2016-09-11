@@ -124,6 +124,7 @@ int main(int argc, char *argv[]) {
                    .doc("Obsolete synonym for @s{i}."));
 
     SwitchGroup output("General Output Control");
+    output.nameSpace("output");
     output.switchOrder(INSERTION_ORDER);
     output.insert(Switch("count", 'c')
                   .intrinsicValue(true, opt.count)

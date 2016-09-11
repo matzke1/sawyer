@@ -663,10 +663,21 @@ SAWYER_EXPORT std::string
 Switch::synopsis() const {
     if (!synopsis_.empty())
         return synopsis_;
+    return synopsis(NULL, "");
+}
 
+std::string
+Switch::synopsis(const SwitchGroup *sg /*=NULL*/, const std::string &nameSpaceSeparator) const {
+    if (!synopsis_.empty())
+        return synopsis_;
+
+    std::string optionalPart;
+    if (sg && !sg->nameSpace().empty())
+        optionalPart = "[" + sg->nameSpace() + nameSpaceSeparator + "]";
+    
     std::vector<std::string> perName;
     BOOST_FOREACH (const std::string &name, longNames_) {
-        std::string s = "@s{" + name +"}";
+        std::string s = "@s{" + optionalPart + name +"}";
         BOOST_FOREACH (const SwitchArgument &sa, arguments_)
             s += " " + synopsisForArgument(sa);
         perName.push_back(s);
@@ -2084,7 +2095,8 @@ Parser::docForSwitches() const {
                 case DOCKEY_ORDER:      sortMinor = switchKey;          break;
                 case INSERTION_ORDER:   sortMinor = nextSortKey();      break;
             }
-            std::string markup = "@named{" + sw.synopsis() + "}{" + (sw.doc().empty() ? notDocumented : sw.doc()) + "}\n";
+            std::string markup = "@named{" + sw.synopsis(&sg, nameSpaceSeparator_) + "}"
+                                 "{" + (sw.doc().empty() ? notDocumented : sw.doc()) + "}\n";
             switchDocs.push_back(SwitchDoc(sortMajor, sortMinor, groupKey, markup));
         }
     }
@@ -2260,7 +2272,7 @@ checkMarkup(const std::string &s) {
     mp.parse("@section{X}{"+s+"}");             // throws on error
 }
 
-void
+SAWYER_EXPORT void
 Parser::insertLongSwitchStrings(Canonical canonical, NamedSwitches &retval) const {
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
@@ -2289,7 +2301,7 @@ Parser::insertLongSwitchStrings(Canonical canonical, NamedSwitches &retval) cons
     }
 }
 
-void
+SAWYER_EXPORT void
 Parser::insertShortSwitchStrings(NamedSwitches &retval) const {
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
@@ -2303,14 +2315,14 @@ Parser::insertShortSwitchStrings(NamedSwitches &retval) const {
     }
 }
 
-void
+SAWYER_EXPORT void
 Parser::insertSwitchStrings(Canonical canonical, NamedSwitches &retval) const {
     insertLongSwitchStrings(canonical, retval /*in,out*/);
     insertShortSwitchStrings(retval /*in,out*/);
 }
 
 // class method
-void
+SAWYER_EXPORT void
 Parser::printIndex(std::ostream &out, const NamedSwitches &index, const std::string &linePrefix) {
     BOOST_FOREACH (const NamedSwitches::Node &named, index.nodes()) {
         out <<linePrefix <<named.key() <<"\n";
@@ -2326,7 +2338,7 @@ Parser::printIndex(std::ostream &out, const NamedSwitches &index, const std::str
     }
 }
 
-NamedSwitches
+SAWYER_EXPORT NamedSwitches
 Parser::findAmbiguities() const {
     NamedSwitches retval, all;
     insertSwitchStrings(ALL_STRINGS, all /*out*/);
@@ -2340,7 +2352,7 @@ Parser::findAmbiguities() const {
     return retval;
 }
 
-NamedSwitches
+SAWYER_EXPORT NamedSwitches
 Parser::findUnresolvableAmbiguities() const {
     NamedSwitches retval, canonical, noncanonical;
     insertLongSwitchStrings(CANONICAL, canonical /*out*/);

@@ -153,6 +153,7 @@ namespace CommandLine {
 
 SAWYER_EXPORT extern const std::string STR_NONE;
 class Switch;
+class SwitchGroup;
 class Parser;
 class ParserResult;
 
@@ -2287,6 +2288,9 @@ private:
 
     /** @internal Return synopsis markup for a single argument. */
     std::string synopsisForArgument(const SwitchArgument&) const;
+
+    // If the synopsis is empty, create one from an optional switch group and name space separator
+    std::string synopsis(const SwitchGroup *sg, const std::string &nameSpaceSeparator) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2515,7 +2519,7 @@ public:
     /** Default constructor.  The default constructor sets up a new parser with defaults suitable for the operating
      *  system. The switch declarations need to be added (via @ref with) before the parser is useful. */
     Parser()
-        : nameSpaceSeparator_(":"), shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false),
+        : nameSpaceSeparator_("-"), shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false),
         versionString_("alpha"), chapterNumber_(1), chapterName_("User Commands"), switchGroupOrder_(INSERTION_ORDER),
         reportingAmbiguities_(true) {
         init();
