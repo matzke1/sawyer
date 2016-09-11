@@ -174,19 +174,6 @@ enum SortOrder {
                                                          *   default. */
 };
 
-/** When errors and warnings are reported.
- *
- *  If the system can detect a potential problem before it happens, then it can either report the problem as early as possible
- *  or delay until the problem becomes a real issue. For instance, if a parser has ambiguous switches (e.g., two switch groups
- *  both contain a "--foo" switch) the parser can report the problem whenever its @ref Parser::parse "parse" method is called,
- *  or report the problem only if the user says "--foo" on the command-line. It might be the case that the switch groups have
- *  name spaces which would allow the user to qualify the switch. */
-enum ReportingTime {
-    ALWAYS_REPORT,                                      /**< Report problems as soon as possible. */
-    SOMETIMES_REPORT,                                   /**< Report problems only if they become an issue. */
-    NEVER_REPORT                                        /**< Be as silent as possible about problems. */
-};
-
 /** Format of a switch string. */
 enum Canonical {
     CANONICAL,                                          /**< Switch strings that are qualified with the switch group name
@@ -2521,7 +2508,7 @@ class SAWYER_EXPORT Parser {
     Message::SProxy errorStream_;                       /**< Send errors here and exit instead of throwing runtime_error. */
     Optional<std::string> exitMessage_;                 /**< Additional message before exit when errorStream_ is not empty. */
     SortOrder switchGroupOrder_;                        /**< Order of switch groups in the documentation. */
-    ReportingTime ambiguityWarnings_;                   /**< When to report problems. */
+    bool reportingAmbiguities_;                         /**< Whether to report ambiguous switches. */
 #include <Sawyer/WarningsRestore.h>
     
 public:
@@ -2530,7 +2517,7 @@ public:
     Parser()
         : nameSpaceSeparator_(":"), shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false),
         versionString_("alpha"), chapterNumber_(1), chapterName_("User Commands"), switchGroupOrder_(INSERTION_ORDER),
-        ambiguityWarnings_(ALWAYS_REPORT) {
+        reportingAmbiguities_(true) {
         init();
     }
 
@@ -2556,18 +2543,19 @@ public:
         return switchGroups_;
     }
 
-    /** Property: When to report ambiguous switches.
+    /** Property: Whether to report ambiguities.
      *
-     *  If ambiguous switches are inserted into the parser then the parser can detect and report these at various times. If set
-     *  to @ref ALWAYS_REPORT, then the parser checks for possible ambiguities at the beginning of the @ref parse call
-     *  regardless of whether the command-line would trigger such ambiguities, and throws an exception if any are detected. If
-     *  set to @ref SOMETIMES_REPORT then an error is triggered (either an exception or error message depending on @ref
-     *  errorStream) only if the command-line contains an ambiguity.  If set to @ref NEVER_REPORT then any one of the matching
-     *  switch definitions is triggered.
+     *  If true, report ambiguous switches. Switches that can not be disambiguated are reported regardless of whether the
+     *  switch is encountered on a commandline in order to help authors detect situations where it's impossible to control some
+     *  setting from the command line.  Switches that can be disambiguated are reported only when they occur on the
+     *  commandline, and include a message about how to disambiguate them.
+     *
+     *  If false, then no ambiguities are checked or reported. When encountering an ambiguous switch, the first matching
+     *  definition is used.
      *
      * @{ */
-    ReportingTime ambiguityWarnings() const { return ambiguityWarnings_; }
-    Parser& ambiguityWarnings(ReportingTime t) { ambiguityWarnings_ = t; return *this; }
+    bool reportingAmbiguities() const { return reportingAmbiguities_; }
+    Parser& reportingAmbiguities(bool b) { reportingAmbiguities_ = b; return *this; }
     /** @} */
 
     /** Property: String separating name space from switch.
@@ -2890,7 +2878,8 @@ private:
      *  available for parsing then the null pointer is returned. If some other parsing error occurs then a null value is
      *  returned and the @p saved_error is updated to reflect the nature of the error.  This function does not throw
      *  <code>std::runtime_error</code> exceptions. */
-    const Switch* parseShortSwitch(Cursor&, ParsedValues&, Optional<std::runtime_error>&, bool mayNestle);
+    const Switch* parseShortSwitch(Cursor&, ParsedValues&, const NamedSwitches &ambiguities,
+                                   Optional<std::runtime_error>&, bool mayNestle);
 
     // Returns true if the program argument at the cursor looks like it might be a switch.  Apparent switches are any program
     // argument that starts with a long or short prefix.
@@ -2898,6 +2887,12 @@ private:
 
     // Returns the best prefix for each switch--the one used for documentation
     void preferredSwitchPrefixes(Container::Map<std::string, std::string> &prefixMap /*out*/) const;
+
+    // Construct an error message for an ambiguous switch, switchString, having an optional name space part (including the
+    // separator), and the require switch name.  The switchString must be present in the ambiguities table.
+    std::string ambiguityErrorMesg(const std::string &longSwitchString, const std::string &optionalPart,
+                                   const std::string &longSwitchName, const NamedSwitches &ambiguities);
+    std::string ambiguityErrorMesg(const std::string &shortSwitchString, const NamedSwitches &ambiguities);
 
     // FIXME[Robb Matzke 2014-02-21]: Some way to parse command-lines from a config file, or to merge parsed command-lines with
     // a yaml config file, etc.

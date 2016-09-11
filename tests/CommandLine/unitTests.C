@@ -49,7 +49,7 @@ static void mustParse(size_t nParsed, Parser &p, const std::string &a1, const st
     mustParse(nParsed, p, args);
 }
 
-static void mustNotParse(const std::string &errmesg, Parser &p, const std::vector<std::string> &args) {
+static std::string mustNotParse(const std::string &errmesg, Parser &p, const std::vector<std::string> &args) {
     showCommandLine(args);
     try {
         p.parse(args);
@@ -61,28 +61,28 @@ static void mustNotParse(const std::string &errmesg, Parser &p, const std::vecto
             ASSERT_not_reachable("parser failed with the wrong error message");
         }
         std::cout <<"    " <<e.what() <<"\n";
-        return;
+        return e.what();
     }
     ASSERT_not_reachable("parser failed with wrong exception type");
 }
-static void mustNotParse(const std::string &errmesg, Parser &p, const std::string &a1) {
+static std::string mustNotParse(const std::string &errmesg, Parser &p, const std::string &a1) {
     std::vector<std::string> args;
     args.push_back(a1);
-    mustNotParse(errmesg, p, args);
+    return mustNotParse(errmesg, p, args);
 }
-static void mustNotParse(const std::string &errmesg, Parser &p, const std::string &a1, const std::string &a2) {
+static std::string mustNotParse(const std::string &errmesg, Parser &p, const std::string &a1, const std::string &a2) {
     std::vector<std::string> args;
     args.push_back(a1);
     args.push_back(a2);
-    mustNotParse(errmesg, p, args);
+    return mustNotParse(errmesg, p, args);
 }
-static void mustNotParse(const std::string &errmesg, Parser &p, const std::string &a1, const std::string &a2,
-                         const std::string &a3) {
+static std::string mustNotParse(const std::string &errmesg, Parser &p, const std::string &a1, const std::string &a2,
+                                const std::string &a3) {
     std::vector<std::string> args;
     args.push_back(a1);
     args.push_back(a2);
     args.push_back(a3);
-    mustNotParse(errmesg, p, args);
+    return mustNotParse(errmesg, p, args);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -935,14 +935,18 @@ static void test24() {
         int g2foo;
         int g3bar;
         int g4bar, g4zoo;
+        int g5foo;
+        int g6bar;
 
         Settings() { clear(); }
-        void clear() {g1foo = g1bar = g1baz = g2foo = g3bar = g4bar = g4zoo = 0; }
+        void clear() {
+            g1foo = g1bar = g1baz = g2foo = g3bar = g4bar = g4zoo = g5foo = g6bar = 0;
+        }
     } settings;
 
     SwitchGroup g1("Group 1");
     g1.nameSpace("g1");
-    g1.insert(Switch("foo").argument("n", integerParser(settings.g1foo)));
+    g1.insert(Switch("foo", 'f').argument("n", integerParser(settings.g1foo)));
     g1.insert(Switch("bar").argument("n", integerParser(settings.g1bar)));
     g1.insert(Switch("baz").argument("n", integerParser(settings.g1baz)));
 
@@ -951,28 +955,48 @@ static void test24() {
     g2.insert(Switch("foo").argument("n", integerParser(settings.g2foo)));
 
     SwitchGroup g3("Group 3");
-    g3.insert(Switch("bar").argument("n", integerParser(settings.g3bar)));
+    g3.insert(Switch("bar", 'b').argument("n", integerParser(settings.g3bar)));
 
     SwitchGroup g4("Group 4");
     g4.insert(Switch("bar").argument("n", integerParser(settings.g4bar)));
     g4.insert(Switch("zoo").argument("n", integerParser(settings.g4zoo)));
 
-    // Group 1 and 2 are not ambiguous by default. Even though "--foo" would be ambiguous, the default warning
-    // level would not report this because they can both be qualified to be unambiguous.
+    SwitchGroup g5("Group 5");
+    g5.nameSpace("g5");
+    g5.insert(Switch("foo", 'f').argument("n", integerParser(settings.g5foo)));
+
+    SwitchGroup g6("Group 6");
+    g6.insert(Switch("", 'b').argument("n", integerParser(settings.g6bar)));
+
+
+
+    // Groups 1 and 2 have no unresolvable ambiguities
     {
         Parser p;
         p.with(g1).with(g2);
 
+        // fully qualified name
         settings.clear();
         mustParse(1, p, "--g1:foo=1");
         ASSERT_always_require(1 == settings.g1foo);
 
+        // fully qualified name
         settings.clear();
         mustParse(2, p, "--g2:foo", "1");
         ASSERT_always_require(1 == settings.g2foo);
+
+        // canonical unqualified name
+        settings.clear();
+        mustParse(1, p, "--bar=1");
+        ASSERT_always_require(1 == settings.g1bar);
+
+        // canonical single-letter switch
+        settings.clear();
+        mustParse(1, p, "-f1");
+        ASSERT_always_require(1 == settings.g1foo);
     }
 
-    // Group 3 and 4 are ambiguous because "--bar" cannot be made unambiuous by changing the command-line
+    // Groups 3 and 4 have unresolvable switch "--bar" because neither group has a name
     {
         Parser p;
         p.with(g3).with(g4);
@@ -981,8 +1005,7 @@ static void test24() {
         mustNotParse("ambiguous", p, "--zoo=1");        // --zoo is not ambiguous, but --baz ambiguity is reported
     }
 
-    // Group 1 and 3 are ambiguous because "--bar" cannot be made to unambiguously refer to g3's --bar since g3 has
-    // no name space.
+    // Groups 1 and 3 have unresolvable swtich "--bar" because group 3 has no name
     {
         Parser p;
         p.with(g1).with(g3);
@@ -990,38 +1013,36 @@ static void test24() {
         settings.clear();
         mustNotParse("ambiguous", p, "--g1:foo=1");     // --g1:foo=1 is okay, but --bar isn't
     }
-    
-    // Use groups 1, 2, and 3 but only fail if an ambiguity is actually encountered during parsing
+
+    // Groups 1 and 2 have resolvable switch "--foo" since both groups have names
     {
         Parser p;
-        p.ambiguityWarnings(SOMETIMES_REPORT).with(g1).with(g2).with(g3);
-
-        // Fully qualified switch is not ambiguous
-        settings.clear();
-        mustParse(2, p, "--g1:foo", "1");
-        ASSERT_always_require(1 == settings.g1foo);
+        p.with(g1).with(g2);
 
         settings.clear();
-        mustParse(1, p, "--g2:foo=1");
-        ASSERT_always_require(1 == settings.g2foo);
+        std::string mesg = mustNotParse("ambiguous", p, "--foo");
+        ASSERT_always_require(boost::contains(mesg, "use --g1:foo"));
+        ASSERT_always_require(boost::contains(mesg, "use --g2:foo"));
+    }
 
-        // Unqualified, unambiguous switch
-        settings.clear();
-        mustParse(2, p, "--baz", "1");
-        ASSERT_always_require(1 == settings.g1baz);
+    // Groups 1 and 5 both have '-f' but it can be disambiguated by using long switches
+    {
+        Parser p;
+        p.with(g1).with(g5);
 
-        // Same switch, but qualified
         settings.clear();
-        mustParse(2, p, "--g1:baz", "1");
-        ASSERT_always_require(1 == settings.g1baz);
+        std::string mesg = mustNotParse("ambiguous", p, "-f5");
+        ASSERT_always_require(boost::contains(mesg, "use --g1:foo"));
+        ASSERT_always_require(boost::contains(mesg, "use --g5:foo"));
+    }
 
-        // Unqualified, ambiguous switch
-        settings.clear();
-        mustNotParse("ambiguous", p, "--foo=1");
+    // Groups 3 and 6 both have a '-b' switch and it cannot be disambiguated because group 6 has no long form of '-b'
+    {
+        Parser p;
+        p.with(g3).with(g6);
 
-        // "--bar" is ambiguous with g1 and g3 and cannot be made unambiguous since g3 has no namespace
         settings.clear();
-        mustNotParse("ambiguous", p, "--bar=1");
+        mustNotParse("ambiguous", p, "--bar");          // --bar is okay, but -b cannot be disambiguated so causes error
     }
 }
 
