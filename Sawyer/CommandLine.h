@@ -187,14 +187,12 @@ enum ReportingTime {
     NEVER_REPORT                                        /**< Be as silent as possible about problems. */
 };
 
-/** Whether to omit or keep unqualified switches.
- *
- *  A qualified switch is one that includes a name space string and its separator.  A switch is also considered to be qualified
- *  if its switch group has no name. */
-enum SwitchQualification {
-    ALL_SWITCHES,                                       /**< All switches regardless of name qualification. */
-    QUALIFIED_SWITCHES,                                 /**< Only switches with complete names. */
-    UNQUALIFIED_SWITCHES                                /**< Only switches with incomplete names. */
+/** Format of a switch string. */
+enum Canonical {
+    CANONICAL,                                          /**< Switch strings that are qualified with the switch group name
+                                                         *   or which belong to a group that has no name. */
+    NONCANONICAL,                                       /**< Switch strings that are not @ref CANONICAL. */
+    ALL_STRINGS                                         /**< The union of @ref CANONICAL and @ref NONCANONICAL. */
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2832,24 +2830,36 @@ public:
     Parser& switchGroupOrder(SortOrder order) { switchGroupOrder_ = order; return *this; }
     /** @} */
 
-    /** Return an index of all switches.
+    /** Insert records for long switch strings.
      *
-     *  Generates an indexed listing of all switches. The return value is a map organized by parse strings and whose values are
-     *  maps organized by @ref SwitchGroup. The values of the second-level map are pointers to the @ref Switch objects within
-     *  that group.  The @p qualification argument determines which switches are included in the index. */
-    NamedSwitches indexSwitches(SwitchQualification qualification = ALL_SWITCHES) const;
+     *  Inserts records into the @p index for long switch strings depending on whether the switch string is canonical. */
+    void insertLongSwitchStrings(Canonical, NamedSwitches &index /*in,out*/) const;
+
+    /** Insert records for short switch strings.
+     *
+     *  Insert records into the @p index for short switch strings. */
+    void insertShortSwitchStrings(NamedSwitches &index /*in,out*/) const;
+
+    /** Insert records for long and short switch strings.
+     *
+     *  Insert records into the @p index for both long and short switch strings. This is just a convenient way to invoke @ref
+     *  insertLongSwitchStrings and @ref insertShortSwitchStrings. */
+    void insertSwitchStrings(Canonical, NamedSwitches &index /*in,out*/) const;
 
     /** Print a switch index.
      *
      *  This is mostly for debugging. It's quite easy to traverse the @ref NamedSwitches object and print them yourself. */
     static void printIndex(std::ostream&, const NamedSwitches&, const std::string &linePrefix = "");
 
-    /** Find for ambiguous switches.
+    /** Find switch string ambiguities.
      *
-     *  Looks at all switch definitions in this parser and returns any ambiguities. An ambiguity is when a command-line switche
-     *  can resolve to more than one Switch object in two different switch groups. The return value is an index containing only
-     *  the ambiguous switches.  The @p qualification argument determines which switches are included in the index. */
-    NamedSwitches findAmbiguities(SwitchQualification qualification = ALL_SWITCHES) const;
+     *  Return an index containing all switches that are ambiguous regardless of whether they're canonical. */
+    NamedSwitches findAmbiguities() const;
+
+    /** Find unresolvable switch string ambiguities.
+     *
+     *  Return an index containing all switches that are ambiguous and which cannot be made unambiguous by qualifying them. */
+    NamedSwitches findUnresolvableAmbiguities() const;
 
 private:
     void init();

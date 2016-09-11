@@ -929,15 +929,100 @@ static void test23() {
 
 static void test24() {
     std::cerr <<"test24: ambiguous switches\n";
-    Parser p;
+
+    struct Settings {
+        int g1foo, g1bar, g1baz;
+        int g2foo;
+        int g3bar;
+        int g4bar, g4zoo;
+
+        Settings() { clear(); }
+        void clear() {g1foo = g1bar = g1baz = g2foo = g3bar = g4bar = g4zoo = 0; }
+    } settings;
 
     SwitchGroup g1("Group 1");
-    g1.insert(Switch("foo", 'f'));
+    g1.nameSpace("g1");
+    g1.insert(Switch("foo").argument("n", integerParser(settings.g1foo)));
+    g1.insert(Switch("bar").argument("n", integerParser(settings.g1bar)));
+    g1.insert(Switch("baz").argument("n", integerParser(settings.g1baz)));
 
     SwitchGroup g2("Group 2");
-    g2.insert(Switch("foo", 'f'));
+    g2.nameSpace("g2");
+    g2.insert(Switch("foo").argument("n", integerParser(settings.g2foo)));
 
-    p.with(g1).with(g2).checkAmbiguities();
+    SwitchGroup g3("Group 3");
+    g3.insert(Switch("bar").argument("n", integerParser(settings.g3bar)));
+
+    SwitchGroup g4("Group 4");
+    g4.insert(Switch("bar").argument("n", integerParser(settings.g4bar)));
+    g4.insert(Switch("zoo").argument("n", integerParser(settings.g4zoo)));
+
+    // Group 1 and 2 are not ambiguous by default. Even though "--foo" would be ambiguous, the default warning
+    // level would not report this because they can both be qualified to be unambiguous.
+    {
+        Parser p;
+        p.with(g1).with(g2);
+
+        settings.clear();
+        mustParse(1, p, "--g1:foo=1");
+        ASSERT_always_require(1 == settings.g1foo);
+
+        settings.clear();
+        mustParse(2, p, "--g2:foo", "1");
+        ASSERT_always_require(1 == settings.g2foo);
+    }
+
+    // Group 3 and 4 are ambiguous because "--bar" cannot be made unambiuous by changing the command-line
+    {
+        Parser p;
+        p.with(g3).with(g4);
+
+        settings.clear();
+        mustNotParse("ambiguous", p, "--zoo=1");        // --zoo is not ambiguous, but --baz ambiguity is reported
+    }
+
+    // Group 1 and 3 are ambiguous because "--bar" cannot be made to unambiguously refer to g3's --bar since g3 has
+    // no name space.
+    {
+        Parser p;
+        p.with(g1).with(g3);
+
+        settings.clear();
+        mustNotParse("ambiguous", p, "--g1:foo=1");     // --g1:foo=1 is okay, but --bar isn't
+    }
+    
+    // Use groups 1, 2, and 3 but only fail if an ambiguity is actually encountered during parsing
+    {
+        Parser p;
+        p.ambiguityWarnings(SOMETIMES_REPORT).with(g1).with(g2).with(g3);
+
+        // Fully qualified switch is not ambiguous
+        settings.clear();
+        mustParse(2, p, "--g1:foo", "1");
+        ASSERT_always_require(1 == settings.g1foo);
+
+        settings.clear();
+        mustParse(1, p, "--g2:foo=1");
+        ASSERT_always_require(1 == settings.g2foo);
+
+        // Unqualified, unambiguous switch
+        settings.clear();
+        mustParse(2, p, "--baz", "1");
+        ASSERT_always_require(1 == settings.g1baz);
+
+        // Same switch, but qualified
+        settings.clear();
+        mustParse(2, p, "--g1:baz", "1");
+        ASSERT_always_require(1 == settings.g1baz);
+
+        // Unqualified, ambiguous switch
+        settings.clear();
+        mustNotParse("ambiguous", p, "--foo=1");
+
+        // "--bar" is ambiguous with g1 and g3 and cannot be made unambiguous since g3 has no namespace
+        settings.clear();
+        mustNotParse("ambiguous", p, "--bar=1");
+    }
 }
 
 int main(int argc, char *argv[]) {
