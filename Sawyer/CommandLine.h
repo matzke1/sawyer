@@ -2463,9 +2463,9 @@ class SAWYER_EXPORT SwitchGroup {
 #include <Sawyer/WarningsOff.h>
     std::vector<Switch> switches_;
     ParsingProperties properties_;
-    std::string nameSpace_;
-    std::string title_;
-    std::string docKey_;
+    std::string name_;                                  // name optionally prepended to all switches
+    std::string title_;                                 // title showing in documentation
+    std::string docKey_;                                // for sorting
     std::string documentation_;
     SortOrder switchOrder_;
 #include <Sawyer/WarningsRestore.h>
@@ -2491,20 +2491,18 @@ public:
     SwitchGroup& title(const std::string &title) { title_ = title; return *this; }
     /** @} */
 
-    /** Property: Name space.
+    /** Property: Group name.
      *
-     *  A switch group may have a name space in order to disambiguate command-line switches that match more than one switch
+     *  A switch group may have a name in order to disambiguate command-line switches that match more than one switch
      *  declaration. This is useful if a user is constructing a parser from switch groups over which they have no control. For
-     *  example, if two groups have a "--foo" switch then the user can give one group a namespace of "alpha" and the other
-     *  "beta" in which case "--alpha:foo" matches one and "--beta:foo" matches the other.
+     *  example, if two groups have a "--foo" switch then the user can give one group a name of "alpha" and the other "beta" in
+     *  which case "--alpha:foo" matches one and "--beta:foo" matches the other.
      *
-     *  Name spaces can only resolve long switches, not short switches.
-     *
-     *  Note that "name space" is two words even though C++ treats it as one.
+     *  Names can only resolve long switches, not short switches.
      *
      * @{ */
-    const std::string& nameSpace() const { return nameSpace_; }
-    SwitchGroup& nameSpace(const std::string &nameSpace) { nameSpace_ = nameSpace; return *this; }
+    const std::string& name() const { return name_; }
+    SwitchGroup& name(const std::string &name) { name_ = name; return *this; }
     /** @} */
 
     /** Property: Documentation sort key.
@@ -2648,7 +2646,7 @@ class SAWYER_EXPORT Parser {
 #include <Sawyer/WarningsOff.h>
     std::vector<SwitchGroup> switchGroups_;             /**< Declarations for all recognized switches. */
     ParsingProperties properties_;                      /**< Some properties inherited by switch groups and switches. */
-    std::string nameSpaceSeparator_;                    /**< String that separates name space from switch */
+    std::string groupNameSeparator_;                    /**< String that separates group name from switch name. */
     std::vector<std::string> terminationSwitches_;      /**< Special switch to terminate parsing; default is "-\-". */
     bool shortMayNestle_;                               /**< Whether "-ab" is the same as "-a -b". */
     std::vector<std::string> inclusionPrefixes_;        /**< Prefixes that mark command line file inclusion (e.g., "@"). */
@@ -2673,7 +2671,7 @@ public:
     /** Default constructor.  The default constructor sets up a new parser with defaults suitable for the operating
      *  system. The switch declarations need to be added (via @ref with) before the parser is useful. */
     Parser()
-        : nameSpaceSeparator_("-"), shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false),
+        : groupNameSeparator_("-"), shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false),
           versionString_("alpha"), chapterNumber_(1), chapterName_("User Commands"), switchGroupOrder_(INSERTION_ORDER),
           reportingAmbiguities_(true) {
         init();
@@ -2716,23 +2714,24 @@ public:
     Parser& reportingAmbiguities(bool b) { reportingAmbiguities_ = b; return *this; }
     /** @} */
 
-    /** Property: String separating name space from switch.
+    /** Property: String separating group name from switch name.
      *
-     *  If switch group name spaces are present, this property holds the string that separates the name space part of the
-     *  switch parse string from the switch name part.
+     *  If switch group names are present, this property holds the string that separates the group name from the
+     *  switch name.  For instance, if the group name is "group" and the switch name is "switch", the prefix is "--" and the
+     *  separator is "-", then the switch can be parsed as either "--switch" or as "--group-switch".
      *
      * @{ */
-    const std::string& nameSpaceSeparator() const { return nameSpaceSeparator_; }
-    Parser& nameSpaceSeparator(const std::string &s) { nameSpaceSeparator_ = s; return *this; }
+    const std::string& groupNameSeparator() const { return groupNameSeparator_; }
+    Parser& groupNameSeparator(const std::string &s) { groupNameSeparator_ = s; return *this; }
     /** @} */
 
-    /** Property: How to show name space in switch documentation.
+    /** Property: How to show group names in switch documentation.
      *
      *  When generating a switch synopsis and the group containing the switch has a non-empty name, the group name can be added
      *  to the switch name.  The default is to add the group name as an optional part of the switch, like "--[group-]switch"
      *  since the parser treats them as optional unless the abbreviated name is ambiguous.
      *
-     *  See also, @ref nameSpaceSeparator, @ref SwitchGroup::nameSpace.
+     *  See also, @ref groupNameSeparator, @ref SwitchGroup::name.
      *
      * @{ */
     ShowGroupName showingGroupNames() const { return properties_.showGroupName; }
@@ -3059,8 +3058,8 @@ private:
     // Returns the best prefix for each switch--the one used for documentation
     void preferredSwitchPrefixes(Container::Map<std::string, std::string> &prefixMap /*out*/) const;
 
-    // Construct an error message for an ambiguous switch, switchString, having an optional name space part (including the
-    // separator), and the require switch name.  The switchString must be present in the ambiguities table.
+    // Construct an error message for an ambiguous switch, switchString, having an optional group name part (including the
+    // separator), and the required switch name.  The switchString must be present in the ambiguities table.
     std::string ambiguityErrorMesg(const std::string &longSwitchString, const std::string &optionalPart,
                                    const std::string &longSwitchName, const NamedSwitches &ambiguities);
     std::string ambiguityErrorMesg(const std::string &shortSwitchString, const NamedSwitches &ambiguities);

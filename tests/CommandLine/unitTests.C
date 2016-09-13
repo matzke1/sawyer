@@ -946,13 +946,13 @@ static void test24() {
     } settings;
 
     SwitchGroup g1("Group 1");
-    g1.nameSpace("g1");
+    g1.name("g1");
     g1.insert(Switch("foo", 'f').argument("n", integerParser(settings.g1foo)));
     g1.insert(Switch("bar").argument("n", integerParser(settings.g1bar)));
     g1.insert(Switch("baz").argument("n", integerParser(settings.g1baz)));
 
     SwitchGroup g2("Group 2");
-    g2.nameSpace("g2");
+    g2.name("g2");
     g2.insert(Switch("foo").argument("n", integerParser(settings.g2foo)));
 
     SwitchGroup g3("Group 3");
@@ -963,7 +963,7 @@ static void test24() {
     g4.insert(Switch("zoo").argument("n", integerParser(settings.g4zoo)));
 
     SwitchGroup g5("Group 5");
-    g5.nameSpace("g5");
+    g5.name("g5");
     g5.insert(Switch("foo", 'f').argument("n", integerParser(settings.g5foo)));
 
     SwitchGroup g6("Group 6");

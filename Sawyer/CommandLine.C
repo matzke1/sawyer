@@ -675,19 +675,19 @@ Switch::synopsis() const {
 
 std::string
 Switch::synopsis(const ParsingProperties &swProps, const SwitchGroup *sg /*=NULL*/,
-                 const std::string &nameSpaceSeparator) const {
+                 const std::string &groupNameSeparator) const {
     if (!synopsis_.empty())
         return synopsis_;
 
     std::string optionalPart;
-    if (sg && !sg->nameSpace().empty()) {
+    if (sg && !sg->name().empty()) {
         switch (swProps.showGroupName) {
             case SHOW_GROUP_OPTIONAL:
             case SHOW_GROUP_INHERIT:
-                optionalPart = "[" + sg->nameSpace() + nameSpaceSeparator + "]";
+                optionalPart = "[" + sg->name() + groupNameSeparator + "]";
                 break;
             case SHOW_GROUP_REQUIRED:
-                optionalPart = sg->nameSpace() + nameSpaceSeparator;
+                optionalPart = sg->name() + groupNameSeparator;
                 break;
             case SHOW_GROUP_NONE:
                 break;
@@ -1623,8 +1623,8 @@ Parser::ambiguityErrorMesg(const std::string &switchString, const std::string &o
     std::string mesg = "switch \"" + switchString + "\" is ambiguous, declared in groups:";
     BOOST_FOREACH (const SwitchGroup *otherGroup, ambiguities[switchString].keys()) {
         mesg += "\n  \"" + otherGroup->title() + "\"";
-        if (!otherGroup->nameSpace().empty()) {
-            std::string otherCanonical = prefix + otherGroup->nameSpace() + nameSpaceSeparator_ + switchName;
+        if (!otherGroup->name().empty()) {
+            std::string otherCanonical = prefix + otherGroup->name() + groupNameSeparator_ + switchName;
             mesg += "; use " + otherCanonical;
         } else {
             mesg += "; cannot be accessed";
@@ -1651,14 +1651,14 @@ Parser::ambiguityErrorMesg(const std::string &switchString, const NamedSwitches 
             ParsingProperties swProps = sw->properties().inherit(sgProps);
             BOOST_FOREACH (const std::string &prefix, swProps.longPrefixes) {
                 BOOST_FOREACH (const std::string &name, sw->longNames()) {
-                    if (sg->nameSpace().empty()) {
+                    if (sg->name().empty()) {
                         std::string s = prefix + name;
                         if (!ambiguities.exists(s)) {
                             found = s;
                             goto found;
                         }
                     } else {
-                        std::string s = prefix + sg->nameSpace() + nameSpaceSeparator_ + name;
+                        std::string s = prefix + sg->name() + groupNameSeparator_ + name;
                         if (!ambiguities.exists(s)) {
                             found = s;
                             goto found;
@@ -1684,7 +1684,7 @@ Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues, const NamedS
     ASSERT_require(cursor.atArgBegin());
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
         ParsingProperties sgProps = sg.properties().inherit(properties_);
-        std::string optionalPart = sg.nameSpace().empty() ? std::string("") : sg.nameSpace() + nameSpaceSeparator_;
+        std::string optionalPart = sg.name().empty() ? std::string("") : sg.name() + groupNameSeparator_;
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
             ParsingProperties swProps = sw.properties().inherit(sgProps);
             std::vector<std::string> longNames = sw.longNames();
@@ -2116,7 +2116,7 @@ Parser::docForSwitches() const {
                 case DOCKEY_ORDER:      sortMinor = switchKey;          break;
                 case INSERTION_ORDER:   sortMinor = nextSortKey();      break;
             }
-            std::string swSynopsis = sw.synopsis(swProps, &sg, nameSpaceSeparator_);
+            std::string swSynopsis = sw.synopsis(swProps, &sg, groupNameSeparator_);
             std::string markup = "@named{" + swSynopsis + "}{" + (sw.doc().empty() ? notDocumented : sw.doc()) + "}\n";
             switchDocs.push_back(SwitchDoc(sortMajor, sortMinor, groupKey, markup));
         }
@@ -2303,16 +2303,16 @@ Parser::insertLongSwitchStrings(Canonical canonical, NamedSwitches &retval) cons
             // Long names
             BOOST_FOREACH (const std::string &name, sw.longNames()) {
                 BOOST_FOREACH (const std::string &prefix, swProps.longPrefixes) {
-                    bool hasNameSpace = !sg.nameSpace().empty();
+                    bool groupHasName = !sg.name().empty();
 
-                    // Strings with name spaces
-                    if (hasNameSpace && (canonical == ALL_STRINGS || canonical == CANONICAL)) {
-                        std::string fullName = prefix + sg.nameSpace() + nameSpaceSeparator() + name;
+                    // Strings with group names
+                    if (groupHasName && (canonical == ALL_STRINGS || canonical == CANONICAL)) {
+                        std::string fullName = prefix + sg.name() + groupNameSeparator() + name;
                         retval.insertMaybeDefault(fullName).insertMaybeDefault(&sg).insert(&sw);
                     }
 
-                    // Strings without name spaces
-                    if (canonical == ALL_STRINGS || canonical == NONCANONICAL || (canonical == CANONICAL && !hasNameSpace)) {
+                    // Strings without group names
+                    if (canonical == ALL_STRINGS || canonical == NONCANONICAL || (canonical == CANONICAL && !groupHasName)) {
                         std::string fullName = prefix + name;
                         retval.insertMaybeDefault(fullName).insertMaybeDefault(&sg).insert(&sw);
                     }
@@ -2350,8 +2350,8 @@ Parser::printIndex(std::ostream &out, const NamedSwitches &index, const std::str
         BOOST_FOREACH (const GroupedSwitches::Node &grouped, named.value().nodes()) {
             const SwitchGroup *sg = grouped.key();
             out <<linePrefix <<"  in group \"" <<sg->title() <<"\"";
-            if (!sg->nameSpace().empty())
-                out <<" namespace \"" <<sg->nameSpace() <<"\",";
+            if (!sg->name().empty())
+                out <<" name \"" <<sg->name() <<"\",";
             BOOST_FOREACH (const Switch *sw, grouped.value())
                 out <<" switch.key=" <<sw->key();
             out <<"\n";
@@ -2413,12 +2413,12 @@ Parser::findUnresolvableAmbiguities() const {
                 ParsingProperties swProps = sw->properties().inherit(sgProps);
                 BOOST_FOREACH (const std::string &prefix, swProps.longPrefixes) {
                     BOOST_FOREACH (const std::string &name, sw->longNames()) {
-                        if (sg->nameSpace().empty()) {
+                        if (sg->name().empty()) {
                             std::string s = prefix + name;
                             if (!retval.exists(s))
                                 goto found;
                         } else {
-                            std::string s = prefix + sg->nameSpace() + nameSpaceSeparator_ + name;
+                            std::string s = prefix + sg->name() + groupNameSeparator_ + name;
                             if (!retval.exists(s))
                                 goto found;
                         }

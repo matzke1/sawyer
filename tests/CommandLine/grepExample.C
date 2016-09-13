@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
                    .doc("Obsolete synonym for @s{i}."));
 
     SwitchGroup output("General Output Control");
-    output.nameSpace("output");
+    output.name("output");
     output.doc("In this example, we've given this group of switches a name, \"output\", to demonstrate how switch group "
                "name spaces work.  The switches here can be invoked by the name they were given in the C++ source code, "
                "or they can include the switch group name, as in @s{count} or @s{output-count}.");
