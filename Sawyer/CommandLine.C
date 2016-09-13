@@ -673,7 +673,7 @@ Switch::synopsis() const {
     return synopsis(properties_, NULL, "");
 }
 
-std::string
+SAWYER_EXPORT std::string
 Switch::synopsis(const ParsingProperties &swProps, const SwitchGroup *sg /*=NULL*/,
                  const std::string &groupNameSeparator) const {
     if (!synopsis_.empty())
@@ -1610,7 +1610,7 @@ static bool decreasingLength(const std::string &a, const std::string &b) {
 }
 
 // For long switches
-std::string
+SAWYER_EXPORT std::string
 Parser::ambiguityErrorMesg(const std::string &switchString, const std::string &optionalPart, const std::string &switchName,
                            const NamedSwitches &ambiguities) {
     // Find the prefix by erasing everything but it.
@@ -1634,7 +1634,7 @@ Parser::ambiguityErrorMesg(const std::string &switchString, const std::string &o
 }
 
 // For short switches
-std::string
+SAWYER_EXPORT std::string
 Parser::ambiguityErrorMesg(const std::string &switchString, const NamedSwitches &ambiguities) {
     ASSERT_require(!switchString.empty());
 
