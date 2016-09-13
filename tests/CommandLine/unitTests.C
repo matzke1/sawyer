@@ -1,6 +1,7 @@
 #include <Sawyer/CommandLine.h>
 
 #include <Sawyer/Optional.h>
+#include <Sawyer/Set.h>
 #include <boost/algorithm/string/predicate.hpp>
 #include <iostream>
 
@@ -1046,6 +1047,153 @@ static void test24() {
     }
 }
 
+static void test25() {
+    std::cerr <<"test25: std::map<std::string, int> storage\n";
+
+    std::map<std::string, int> map;
+
+    SwitchGroup sg1;
+    sg1.insert(Switch("foo", 'f').argument("n", integerParser(map)));
+    sg1.insert(Switch("bar", 'b').argument("n", integerParser(map)));
+
+    // Basic usage
+    {
+        Parser p;
+        p.with(sg1);
+        map.clear();
+        mustParse(2, p, "--foo=1", "--bar=2");
+        ASSERT_always_require(map.find("foo") != map.end());
+        ASSERT_always_require(map["foo"] == 1);
+        ASSERT_always_require(map.find("bar") != map.end());
+        ASSERT_always_require(map["bar"] == 2);
+    }
+
+    // Storing the same switch more than once should give the last value (since that's the default saveValue property.
+    {
+        Parser p;
+        p.with(sg1);
+        map.clear();
+        mustParse(2, p, "--foo=1", "--foo=2");
+        ASSERT_always_require(map.find("foo") != map.end());
+        ASSERT_always_require(map["foo"] == 2);
+        ASSERT_always_require(map.find("bar") == map.end());
+    }
+}
+
+static void test26() {
+    std::cerr <<"test26: Sawyer::Container::Map<std::string, int> storage\n";
+
+    Sawyer::Container::Map<std::string, int> map;
+    
+    SwitchGroup sg1;
+    sg1.insert(Switch("foo", 'f').argument("n", integerParser(map)));
+    sg1.insert(Switch("bar", 'b').argument("n", integerParser(map)));
+
+    // Basic usage
+    {
+        Parser p;
+        p.with(sg1);
+        map.clear();
+        mustParse(2, p, "--foo=1", "--bar=2");
+        ASSERT_always_require(map.exists("foo"));
+        ASSERT_always_require(map["foo"] == 1);
+        ASSERT_always_require(map.exists("bar"));
+        ASSERT_always_require(map["bar"] == 2);
+    }
+
+    // Storing the same switch more than once should give the last value (since that's the default saveValue property.
+    {
+        Parser p;
+        p.with(sg1);
+        map.clear();
+        mustParse(2, p, "--foo=1", "--foo=2");
+        ASSERT_always_require(map.exists("foo"));
+        ASSERT_always_require(map["foo"] == 2);
+        ASSERT_always_require(!map.exists("bar"));
+    }
+}
+
+static void test27() {
+    std::cerr <<"test27: std::set<int> storage\n";
+
+    std::set<int> values;
+
+    SwitchGroup sg1;
+    sg1.insert(Switch("foo", 'v')
+               .argument("values", listParser(integerParser(values)))
+               .whichValue(SAVE_ALL));
+
+    Parser p;
+    p.with(sg1);
+    values.clear();
+    mustParse(2, p, "-v1,3", "-v2");
+    ASSERT_always_require(values.find(1) != values.end());
+    ASSERT_always_require(values.find(2) != values.end());
+    ASSERT_always_require(values.find(3) != values.end());
+    ASSERT_always_require(values.size() == 3);
+}
+
+static void test28() {
+    std::cerr <<"test28: Sawyer::Container::Set<int> storage\n";
+
+    Sawyer::Container::Set<int> values;
+
+    SwitchGroup sg1;
+    sg1.insert(Switch("foo", 'v')
+               .argument("values", listParser(integerParser(values)))
+               .whichValue(SAVE_ALL));
+
+    Parser p;
+    p.with(sg1);
+    values.clear();
+    mustParse(2, p, "-v1,3", "-v2");
+    ASSERT_always_require(values.exists(1));
+    ASSERT_always_require(values.exists(2));
+    ASSERT_always_require(values.exists(3));
+    ASSERT_always_require(values.size() == 3);
+}
+
+static void test29() {
+    std::cerr <<"test29: std::vector<int> storage\n";
+
+    std::vector<int> values;
+
+    SwitchGroup sg1;
+    sg1.insert(Switch("foo", 'v')
+               .argument("values", listParser(integerParser(values)))
+               .whichValue(SAVE_ALL));
+
+    Parser p;
+    p.with(sg1);
+    values.clear();
+    mustParse(2, p, "-v1,3", "-v2");
+    ASSERT_always_require(values.size() == 3);
+    ASSERT_always_require(values[0] == 1);
+    ASSERT_always_require(values[1] == 3);
+    ASSERT_always_require(values[2] == 2);
+}
+
+static void test30() {
+    std::cerr <<"test30: std::list<int> storage\n";
+
+    std::list<int> values;
+
+    SwitchGroup sg1;
+    sg1.insert(Switch("foo", 'v')
+               .argument("values", listParser(integerParser(values)))
+               .whichValue(SAVE_ALL));
+
+    Parser p;
+    p.with(sg1);
+    values.clear();
+    mustParse(2, p, "-v1,3", "-v2");
+    ASSERT_always_require(values.size() == 3);
+    std::list<int>::iterator i = values.begin();
+    ASSERT_always_require(*i++ == 1);
+    ASSERT_always_require(*i++ == 3);
+    ASSERT_always_require(*i++ == 2);
+}
+
 int main(int argc, char *argv[]) {
     test01();
     test02();
@@ -1072,6 +1220,12 @@ int main(int argc, char *argv[]) {
     test22();
     test23();
     test24();
+    test25();
+    test26();
+    test27();
+    test28();
+    test29();
+    test30();
     std::cout <<"All tests passed\n";
     return 0;
 }

@@ -58,6 +58,7 @@ set(lib_src
   Sawyer/Attribute.C
   Sawyer/Clexer.C
   Sawyer/CommandLine.C
+  Sawyer/CommandLineBoost.C
   Sawyer/GraphTraversal.C
   Sawyer/LineVector.C
   Sawyer/Markup.C

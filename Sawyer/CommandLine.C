@@ -564,8 +564,8 @@ ParsedValue::asString() const {
 SAWYER_EXPORT void
 ParsedValue::save() const {
     if (valueSaver_)
-        valueSaver_->save(value_);
-
+        valueSaver_->save(value_, switchKey_);
+    
     if (value_.type() == typeid(ListParser::ValueList)) {
         const ListParser::ValueList &values = boost::any_cast<ListParser::ValueList>(value_);
         BOOST_FOREACH (const ParsedValue &pval, values)
@@ -608,12 +608,19 @@ ParsingProperties::inherit(const ParsingProperties &base) const {
     if (inheritLongPrefixes)
         retval.longPrefixes = base.longPrefixes;
     retval.longPrefixes.insert(retval.longPrefixes.end(), longPrefixes.begin(), longPrefixes.end());
+
     if (inheritShortPrefixes)
         retval.shortPrefixes = base.shortPrefixes;
     retval.shortPrefixes.insert(retval.shortPrefixes.end(), shortPrefixes.begin(), shortPrefixes.end());
+
     if (inheritValueSeparators)
         retval.valueSeparators = base.valueSeparators;
     retval.valueSeparators.insert(retval.valueSeparators.end(), valueSeparators.begin(), valueSeparators.end());
+
+    retval.showGroupName = SHOW_GROUP_INHERIT == showGroupName ? base.showGroupName : showGroupName;
+    if (SHOW_GROUP_INHERIT == retval.showGroupName)
+        retval.showGroupName = SHOW_GROUP_OPTIONAL;
+
     return retval;
 }
 
@@ -663,17 +670,29 @@ SAWYER_EXPORT std::string
 Switch::synopsis() const {
     if (!synopsis_.empty())
         return synopsis_;
-    return synopsis(NULL, "");
+    return synopsis(properties_, NULL, "");
 }
 
 std::string
-Switch::synopsis(const SwitchGroup *sg /*=NULL*/, const std::string &nameSpaceSeparator) const {
+Switch::synopsis(const ParsingProperties &swProps, const SwitchGroup *sg /*=NULL*/,
+                 const std::string &nameSpaceSeparator) const {
     if (!synopsis_.empty())
         return synopsis_;
 
     std::string optionalPart;
-    if (sg && !sg->nameSpace().empty())
-        optionalPart = "[" + sg->nameSpace() + nameSpaceSeparator + "]";
+    if (sg && !sg->nameSpace().empty()) {
+        switch (swProps.showGroupName) {
+            case SHOW_GROUP_OPTIONAL:
+            case SHOW_GROUP_INHERIT:
+                optionalPart = "[" + sg->nameSpace() + nameSpaceSeparator + "]";
+                break;
+            case SHOW_GROUP_REQUIRED:
+                optionalPart = sg->nameSpace() + nameSpaceSeparator;
+                break;
+            case SHOW_GROUP_NONE:
+                break;
+        }
+    }
     
     std::vector<std::string> perName;
     BOOST_FOREACH (const std::string &name, longNames_) {
@@ -2068,6 +2087,7 @@ Parser::docForSwitches() const {
     std::string notDocumented = "Not documented.";
     std::vector<SwitchDoc> switchDocs;
     BOOST_FOREACH (const SwitchGroup &sg, switchGroups_) {
+        ParsingProperties sgProps = sg.properties().inherit(properties_);
         std::string groupKey = sg.docKey().empty() ? boost::to_lower_copy(sg.title()) : sg.docKey();
         std::string sortMajor;
         switch (switchGroupOrder_) {
@@ -2089,14 +2109,15 @@ Parser::docForSwitches() const {
         BOOST_FOREACH (const Switch &sw, sg.switches()) {
             if (sw.hidden())
                 continue;
+            ParsingProperties swProps = sw.properties().inherit(sgProps);
             std::string switchKey = sw.docKey().empty() ? boost::to_lower_copy(sw.key()) : sw.docKey();
             std::string sortMinor;
             switch (sg.switchOrder()) {
                 case DOCKEY_ORDER:      sortMinor = switchKey;          break;
                 case INSERTION_ORDER:   sortMinor = nextSortKey();      break;
             }
-            std::string markup = "@named{" + sw.synopsis(&sg, nameSpaceSeparator_) + "}"
-                                 "{" + (sw.doc().empty() ? notDocumented : sw.doc()) + "}\n";
+            std::string swSynopsis = sw.synopsis(swProps, &sg, nameSpaceSeparator_);
+            std::string markup = "@named{" + swSynopsis + "}{" + (sw.doc().empty() ? notDocumented : sw.doc()) + "}\n";
             switchDocs.push_back(SwitchDoc(sortMajor, sortMinor, groupKey, markup));
         }
     }

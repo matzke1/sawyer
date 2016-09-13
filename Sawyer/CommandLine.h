@@ -8,6 +8,7 @@
 #include <Sawyer/Message.h>
 #include <Sawyer/Optional.h>
 #include <Sawyer/Sawyer.h>
+#include <Sawyer/Set.h>
 #include <Sawyer/SharedPointer.h>
 
 #include <boost/algorithm/string/case_conv.hpp>
@@ -183,6 +184,14 @@ enum Canonical {
     ALL_STRINGS                                         /**< The union of @ref CANONICAL and @ref NONCANONICAL. */
 };
 
+/** How to show group names in switch synopsis. */
+enum ShowGroupName {
+    SHOW_GROUP_OPTIONAL,                                /**< Show name as being optional, like "--[group-]switch". */
+    SHOW_GROUP_REQUIRED,                                /**< Show name as being required, like "--group-switch". */
+    SHOW_GROUP_NONE,                                    /**< Never show the group name. */
+    SHOW_GROUP_INHERIT,                                 /**< Group inherits value from the parser. */
+};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Program argument cursor
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -243,6 +252,9 @@ public:
     /** Constructs a cursor for a single string.  The cursor's initial position is the first character of the string, or the
      *  end if the string is empty. */
     Cursor(const std::string &string): strings_(1, string) { location(Location()); }
+
+    /** Constructs a not-very-useful cursor to nothing. */
+    Cursor() {}
 
     /** All strings for the cursor. */
     const std::vector<std::string>& strings() const { return strings_; }
@@ -370,7 +382,7 @@ protected:
 public:
     typedef SharedPointer<ValueSaver> Ptr;
     virtual ~ValueSaver() {}
-    virtual void save(const boost::any&) const = 0;
+    virtual void save(const boost::any&, const std::string &switchKey) const = 0;
 };
 
 // used internally
@@ -382,7 +394,7 @@ protected:
 public:
     typedef SharedPointer<TypedSaver> Ptr;
     static Ptr instance(T &storage) { return Ptr(new TypedSaver(storage)); }
-    virtual void save(const boost::any &value) const /*override*/ {
+    virtual void save(const boost::any &value, const std::string &switchKey) const /*override*/ {
         storage_ = boost::any_cast<T>(value);
     }
 };
@@ -390,7 +402,7 @@ public:
 // Partial specialization of TypedSaver, saving a value of any type T into a container of type CONTAINER_TEMPLATE calling the
 // containers INSERT_METHOD with one argument: the value.  The CONTAINER_TEMPLATE is the name of a class template that
 // takes one argument: type type of value stored by the container.
-#define SAWYER_COMMANDLINE_CONTAINER_SAVER(CONTAINER_TEMPLATE, INSERT_METHOD)                                                  \
+#define SAWYER_COMMANDLINE_SEQUENCE_SAVER(CONTAINER_TEMPLATE, INSERT_METHOD)                                                   \
     template<typename T>                                                                                                       \
     class TypedSaver<CONTAINER_TEMPLATE<T> >: public ValueSaver {                                                              \
         CONTAINER_TEMPLATE<T> &storage_;                                                                                       \
@@ -398,17 +410,55 @@ public:
         TypedSaver(CONTAINER_TEMPLATE<T> &storage): storage_(storage) {}                                                       \
     public:                                                                                                                    \
         static Ptr instance(CONTAINER_TEMPLATE<T> &storage) { return Ptr(new TypedSaver(storage)); }                           \
-        virtual void save(const boost::any &value) const /*override*/ {                                                        \
+        virtual void save(const boost::any &value, const std::string &switchKey) const /*override*/ {                          \
             T typed = boost::any_cast<T>(value);                                                                               \
             storage_.INSERT_METHOD(typed);                                                                                     \
         }                                                                                                                      \
     }
 
+// Partial specialization of TypedSaver for saving values into map-like containers. The CONTAINER_TEMPLATE should take two
+// parameters: the key type (always std::string) and the value type (not part of this specialization). The value is stored by
+// invoking the INSERT_METHOD with two arguments: the key string for the switch whose value is being saved, and the value to
+// save.
+#define SAWYER_COMMANDLINE_MAP_SAVER(CONTAINER_TEMPLATE, INSERT_METHOD)                                                        \
+    template<typename T>                                                                                                       \
+    class TypedSaver<CONTAINER_TEMPLATE<std::string, T> >: public ValueSaver {                                                 \
+        CONTAINER_TEMPLATE<std::string, T> &storage_;                                                                          \
+    protected:                                                                                                                 \
+        TypedSaver(CONTAINER_TEMPLATE<std::string, T> &storage): storage_(storage) {}                                          \
+    public:                                                                                                                    \
+        static Ptr instance(CONTAINER_TEMPLATE<std::string, T> &storage) { return Ptr(new TypedSaver(storage)); }              \
+        virtual void save(const boost::any &value, const std::string &switchKey) const /*override*/ {                          \
+            T typed = boost::any_cast<T>(value);                                                                               \
+            storage_.INSERT_METHOD(switchKey, typed);                                                                          \
+        }                                                                                                                      \
+    }
 
-SAWYER_COMMANDLINE_CONTAINER_SAVER(std::vector, push_back);
-SAWYER_COMMANDLINE_CONTAINER_SAVER(std::list, push_back);
-SAWYER_COMMANDLINE_CONTAINER_SAVER(std::set, insert);
-SAWYER_COMMANDLINE_CONTAINER_SAVER(Optional, operator=);
+// Partial specialization of TypedSaver for saving values into map-like containers using the STL approach where the insert
+// operator takes an std::pair(key,value) rather than two arguments. The CONTAINER_TEMPLATE should take two parameters: the key
+// type (always std::string) and the value type (not part of this specialization). The value is stored by invoking the
+// INSERT_METHOD with two arguments: the key string for the switch whose value is being saved, and the value to save.
+#define SAWYER_COMMANDLINE_MAP_PAIR_SAVER(CONTAINER_TEMPLATE, INSERT_METHOD)                                                   \
+    template<typename T>                                                                                                       \
+    class TypedSaver<CONTAINER_TEMPLATE<std::string, T> >: public ValueSaver {                                                 \
+        CONTAINER_TEMPLATE<std::string, T> &storage_;                                                                          \
+    protected:                                                                                                                 \
+        TypedSaver(CONTAINER_TEMPLATE<std::string, T> &storage): storage_(storage) {}                                          \
+    public:                                                                                                                    \
+        static Ptr instance(CONTAINER_TEMPLATE<std::string, T> &storage) { return Ptr(new TypedSaver(storage)); }              \
+        virtual void save(const boost::any &value, const std::string &switchKey) const /*override*/ {                          \
+            T typed = boost::any_cast<T>(value);                                                                               \
+            storage_.INSERT_METHOD(std::make_pair(switchKey, typed));                                                          \
+        }                                                                                                                      \
+    }
+
+SAWYER_COMMANDLINE_SEQUENCE_SAVER(std::vector, push_back);
+SAWYER_COMMANDLINE_SEQUENCE_SAVER(std::list, push_back);
+SAWYER_COMMANDLINE_SEQUENCE_SAVER(std::set, insert);
+SAWYER_COMMANDLINE_SEQUENCE_SAVER(Sawyer::Container::Set, insert);
+SAWYER_COMMANDLINE_SEQUENCE_SAVER(Optional, operator=);
+SAWYER_COMMANDLINE_MAP_PAIR_SAVER(std::map, insert);
+SAWYER_COMMANDLINE_MAP_SAVER(Sawyer::Container::Map, insert);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Parsed value
@@ -679,6 +729,13 @@ struct LexicalCast {
     }
 };
 
+template<>
+struct LexicalCast<boost::any> {
+    static boost::any convert(const std::string &src) {
+        return src;
+    }
+};
+
 template<typename T>
 struct LexicalCast<Optional<T> > {
     static T convert(const std::string &src) {
@@ -687,7 +744,42 @@ struct LexicalCast<Optional<T> > {
 };
 
 template<typename T>
+struct LexicalCast<Sawyer::Container::Set<T> > {
+    static T convert(const std::string &src) {
+        return LexicalCast<T>::convert(src);
+    }
+};
+
+template<typename T>
+struct LexicalCast<Sawyer::Container::Map<std::string, T> > {
+    static T convert(const std::string &src) {
+        return LexicalCast<T>::convert(src);
+    }
+};
+
+template<typename T>
 struct LexicalCast<std::vector<T> > {
+    static T convert(const std::string &src) {
+        return LexicalCast<T>::convert(src);
+    }
+};
+
+template<typename T>
+struct LexicalCast<std::set<T> > {
+    static T convert(const std::string &src) {
+        return LexicalCast<T>::convert(src);
+    }
+};
+
+template<typename T>
+struct LexicalCast<std::list<T> > {
+    static T convert(const std::string &src) {
+        return LexicalCast<T>::convert(src);
+    }
+};
+
+template<typename T>
+struct LexicalCast<std::map<std::string, T> > {
     static T convert(const std::string &src) {
         return LexicalCast<T>::convert(src);
     }
@@ -777,6 +869,46 @@ struct NumericCast<Optional<Target>, Source> {
 // partial specialization for std::vector<Target>
 template<typename Target, typename Source>
 struct NumericCast<std::vector<Target>, Source> {
+    static Target convert(Source from, const std::string &parsed) {
+        return NumericCast<Target, Source>::convert(from, parsed);
+    }
+};
+
+// partial specialization for std::list<Target>
+template<typename Target, typename Source>
+struct NumericCast<std::list<Target>, Source> {
+    static Target convert(Source from, const std::string &parsed) {
+        return NumericCast<Target, Source>::convert(from, parsed);
+    }
+};
+
+// partial specialization for std::set<Target>
+template<typename Target, typename Source>
+struct NumericCast<std::set<Target>, Source> {
+    static Target convert(Source from, const std::string &parsed) {
+        return NumericCast<Target, Source>::convert(from, parsed);
+    }
+};
+
+// partial specialization for Sawyer::Container::Set<Target>
+template<typename Target, typename Source>
+struct NumericCast<Sawyer::Container::Set<Target>, Source> {
+    static Target convert(Source from, const std::string &parsed) {
+        return NumericCast<Target, Source>::convert(from, parsed);
+    }
+};
+
+// partial specialization for std::map<std::string, Target>
+template<typename Target, typename Source>
+struct NumericCast<std::map<std::string, Target>, Source> {
+    static Target convert(Source from, const std::string &parsed) {
+        return NumericCast<Target, Source>::convert(from, parsed);
+    }
+};
+
+// partial specialization for Sawyer::Container::Map<std::string, Target>
+template<typename Target, typename Source>
+struct NumericCast<Sawyer::Container::Map<std::string, Target>, Source> {
     static Target convert(Source from, const std::string &parsed) {
         return NumericCast<Target, Source>::convert(from, parsed);
     }
@@ -1775,9 +1907,11 @@ struct SAWYER_EXPORT ParsingProperties {
     bool inheritShortPrefixes;
     std::vector<std::string> valueSeparators;           // What separates a long switch from its value.
     bool inheritValueSeparators;
+    ShowGroupName showGroupName;                        // How to show group name in switch synopsis
 #include <Sawyer/WarningsRestore.h>
     ParsingProperties()
-        : inheritLongPrefixes(true), inheritShortPrefixes(true), inheritValueSeparators(true) {}
+        : inheritLongPrefixes(true), inheritShortPrefixes(true), inheritValueSeparators(true),
+          showGroupName(SHOW_GROUP_INHERIT) {}
     ParsingProperties inherit(const ParsingProperties &base) const;
 };
 
@@ -2290,7 +2424,7 @@ private:
     std::string synopsisForArgument(const SwitchArgument&) const;
 
     // If the synopsis is empty, create one from an optional switch group and name space separator
-    std::string synopsis(const SwitchGroup *sg, const std::string &nameSpaceSeparator) const;
+    std::string synopsis(const ParsingProperties &swProps, const SwitchGroup *sg, const std::string &nameSpaceSeparator) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2389,7 +2523,7 @@ public:
     SwitchGroup& docKey(const std::string &key) { docKey_ = key; return *this; }
     /** @} */
 
-    /** Property: detailed description.
+    /** Property: Detailed description.
      *
      *  This is the description of the switch group in a simple markup language. See @ref Switch::doc for a description of the
      *  markup language.  Documentation for a switch group will appear prior to the switches within that group.  If multiple
@@ -2403,6 +2537,16 @@ public:
      * @{ */
     SwitchGroup& doc(const std::string &s) { checkMarkup(s); documentation_ = s; return *this; }
     const std::string& doc() const { return documentation_; }
+    /** @} */
+
+    /** Property: How to show group name in switch synopsis.
+     *
+     *  A switch group can override how the group name appears in a switch synopsis. The default is to inherit the setting from
+     *  the parser containing the group at the time of documentation.
+     *
+     * @{ */
+    ShowGroupName showingGroupNames() const { return properties_.showGroupName; }
+    void showingGroupNames(ShowGroupName x) { properties_.showGroupName = x; }
     /** @} */
 
     /** @copydoc Switch::resetLongPrefixes
@@ -2530,8 +2674,8 @@ public:
      *  system. The switch declarations need to be added (via @ref with) before the parser is useful. */
     Parser()
         : nameSpaceSeparator_("-"), shortMayNestle_(true), skipNonSwitches_(false), skipUnknownSwitches_(false),
-        versionString_("alpha"), chapterNumber_(1), chapterName_("User Commands"), switchGroupOrder_(INSERTION_ORDER),
-        reportingAmbiguities_(true) {
+          versionString_("alpha"), chapterNumber_(1), chapterName_("User Commands"), switchGroupOrder_(INSERTION_ORDER),
+          reportingAmbiguities_(true) {
         init();
     }
 
@@ -2580,6 +2724,19 @@ public:
      * @{ */
     const std::string& nameSpaceSeparator() const { return nameSpaceSeparator_; }
     Parser& nameSpaceSeparator(const std::string &s) { nameSpaceSeparator_ = s; return *this; }
+    /** @} */
+
+    /** Property: How to show name space in switch documentation.
+     *
+     *  When generating a switch synopsis and the group containing the switch has a non-empty name, the group name can be added
+     *  to the switch name.  The default is to add the group name as an optional part of the switch, like "--[group-]switch"
+     *  since the parser treats them as optional unless the abbreviated name is ambiguous.
+     *
+     *  See also, @ref nameSpaceSeparator, @ref SwitchGroup::nameSpace.
+     *
+     * @{ */
+    ShowGroupName showingGroupNames() const { return properties_.showGroupName; }
+    Parser& showingGroupNames(ShowGroupName x) { properties_.showGroupName = x; return *this; }
     /** @} */
 
     /** Prefixes to use for long command-line switches.  The @ref resetLongPrefixes clears the list (and adds prefixes) while
@@ -2670,7 +2827,7 @@ public:
      * @sa ParserResult::skippedArgs ParserResult::unparsedArgs
      * @{ */
     Parser& skipUnknownSwitches(bool b=true) { skipUnknownSwitches_ = b; return *this; }
-    bool skippingUnkownSwitches() const { return skipUnknownSwitches_; }
+    bool skippingUnknownSwitches() const { return skipUnknownSwitches_; }
     /** @} */
 
     /** Specifies a message stream to which errors are sent.  If non-null, when a parse method encounters an error it writes
@@ -2970,6 +3127,8 @@ private:
     ParserResult(const Parser &parser, const std::vector<std::string> &argv): parser_(parser), cursor_(argv) {}
 
 public:
+    ParserResult() {}
+
     /** Saves parsed values in switch-specified locations.  This method implements the @e push paradigm mentioned in the class
      *  documentation (see @ref ParserResult). */
     const ParserResult& apply() const;
