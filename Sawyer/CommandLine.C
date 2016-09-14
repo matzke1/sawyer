@@ -1700,6 +1700,7 @@ Parser::parseLongSwitch(Cursor &cursor, ParsedValues &parsedValues, const NamedS
                         std::string mesg = ambiguityErrorMesg(switchString, optionalPart, longName, ambiguities);
                         if (errorStream_) {
                             *errorStream_ <<mesg <<"\n";
+                            exit(1);
                         } else {
                             throw std::runtime_error(mesg);
                         }
@@ -1743,6 +1744,7 @@ Parser::parseShortSwitch(Cursor &cursor, ParsedValues &parsedValues, const Named
                     std::string mesg = ambiguityErrorMesg(switchString, ambiguities);
                     if (errorStream_) {
                         *errorStream_ <<mesg <<"\n";
+                        exit(1);
                     } else {
                         throw std::runtime_error(mesg);
                     }
