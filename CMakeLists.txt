@@ -59,6 +59,10 @@ set(lib_src
   Sawyer/Clexer.C
   Sawyer/CommandLine.C
   Sawyer/CommandLineBoost.C
+  Sawyer/DocumentMarkup.C
+  Sawyer/DocumentBaseMarkup.C
+  Sawyer/DocumentPodMarkup.C
+  Sawyer/DocumentTextMarkup.C
   Sawyer/GraphTraversal.C
   Sawyer/LineVector.C
   Sawyer/Markup.C

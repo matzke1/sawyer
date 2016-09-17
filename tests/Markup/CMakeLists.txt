@@ -1,2 +1,5 @@
 add_executable(markupUnitTests markupUnitTests.C)
 target_link_libraries(markupUnitTests libsawyer)
+
+add_executable(markupUnitTests2 markupUnitTests2.C)
+target_link_libraries(markupUnitTests2 libsawyer)
