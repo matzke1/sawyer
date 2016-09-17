@@ -11,7 +11,7 @@ LineVector::LineVector(const boost::filesystem::path &path)
 }
 
 LineVector::LineVector(const Buffer<size_t, char>::Ptr &buffer)
-    : buffer_(buffer), charBuf_(NULL), nextCharToScan_(0) {
+    : charBuf_(NULL), nextCharToScan_(0) {
     load(buffer);
 }
 
@@ -32,8 +32,9 @@ void
 LineVector::load(const Buffer<size_t, char>::Ptr &buffer) {
     clear();
     ASSERT_not_null(buffer);
-    charBuf_ = buffer_->data();
-    ASSERT_not_null(charBuf_);
+    buffer_ = buffer;
+    charBuf_ = buffer->data();
+    ASSERT_require(charBuf_ != NULL || buffer_->size() == 0);
 }
 
 void
@@ -41,7 +42,7 @@ LineVector::load(size_t nBytes, const char *buf) {
     clear();
     buffer_ = StaticBuffer<size_t, char>::instance(buf, nBytes);
     charBuf_ = buffer_->data();
-    ASSERT_not_null(charBuf_);
+    ASSERT_require(charBuf_ != NULL || buffer_->size() == 0);
 }
 
 bool
