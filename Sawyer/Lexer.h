@@ -18,7 +18,7 @@ namespace Lexer {
  *  the end of the input stream.  Tokens do not store their own lexeme, but rather point to the beginning and end of their
  *  lexeme in the input stream. */
 template<typename T>
-class Token {
+class SAWYER_EXPORT Token {
 public:
     typedef T TokenEnum;
 
@@ -81,7 +81,7 @@ public:
  *  A token stream is an ordered list of tokens scanned from an unchanging input stream and consumed in the order they're
  *  produced. */
 template<class T>
-class TokenStream {
+class SAWYER_EXPORT TokenStream {
 public:
     typedef T Token;
 

@@ -26,7 +26,7 @@ ErrorLocation::Frame::Frame(TokenStream &where, const std::string &mesg) {
     input = where.lineString(lineIdx);
 };
 
-std::string
+SAWYER_EXPORT std::string
 ErrorLocation::toString() const {
     std::string retval;
     BOOST_FOREACH (const Frame &frame, frames_) {
@@ -64,7 +64,7 @@ isValidNameCharacter(int c) {
     return isalnum(c) || strchr("_-", c);
 }
 
-Token
+SAWYER_EXPORT Token
 TokenStream::scanNextToken(const Container::LineVector &content, size_t &at /*in,out*/) {
     size_t begin = at;
 
@@ -125,36 +125,36 @@ TokenStream::scanNextToken(const Container::LineVector &content, size_t &at /*in
 //                                      Function
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const std::string&
+SAWYER_EXPORT const std::string&
 Function::name() const {
     return name_;
 }
 
-bool
+SAWYER_EXPORT bool
 Function::isMacro() const {
     return isMacro_;
 }
 
-Function::Ptr
+SAWYER_EXPORT Function::Ptr
 Function::arg(const std::string &name) {
     ASSERT_require(nOptionalArgs() == 0);
     formals_.push_back(FormalArg(name));
     return sharedFromThis();
 }
 
-Function::Ptr
+SAWYER_EXPORT Function::Ptr
 Function::arg(const std::string &name, const std::string &dflt) {
     formals_.push_back(FormalArg(name, dflt));
     return sharedFromThis();
 }
 
-Function::Ptr
+SAWYER_EXPORT Function::Ptr
 Function::ellipsis(size_t n) {
     ellipsis_ = n;
     return sharedFromThis();
 }
 
-size_t
+SAWYER_EXPORT size_t
 Function::nRequiredArgs() const {
     size_t retval = 0;
     for (size_t i = 0; i<formals_.size() && formals_[i].isRequired(); ++i)
@@ -162,7 +162,7 @@ Function::nRequiredArgs() const {
     return retval;
 }
 
-size_t
+SAWYER_EXPORT size_t
 Function::nOptionalArgs() const {
     size_t retval = 0;
     for (size_t i = formals_.size(); i > 0 && formals_[i-1].isOptional(); --i)
@@ -170,17 +170,17 @@ Function::nOptionalArgs() const {
     return retval;
 }
 
-size_t
+SAWYER_EXPORT size_t
 Function::nAdditionalArgs() const {
     return ellipsis_;
 }
 
-size_t
+SAWYER_EXPORT size_t
 Function::maxArgs() const {
     return nRequiredArgs() + nOptionalArgs() + nAdditionalArgs();
 }
 
-void
+SAWYER_EXPORT void
 Function::validateArgs(std::vector<std::string> &actuals /*in,out*/, TokenStream &tokens) const {
     if (actuals.size() < nRequiredArgs()) {
         throw SyntaxError("not enough arguments for \"" + name() + "\""
@@ -203,30 +203,30 @@ Function::validateArgs(std::vector<std::string> &actuals /*in,out*/, TokenStream
 //                                      Predefined functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::string
+SAWYER_EXPORT std::string
 StaticContent::eval(const Grammar&, const std::vector<std::string> &args) {
     ASSERT_require(args.empty());
     return resultString_;
 }
 
-std::string
+SAWYER_EXPORT std::string
 Error::eval(const Grammar&, const std::vector<std::string> &args) {
     ASSERT_require(args.size() == 1);
     throw SyntaxError(args[0]);
 }
 
-std::string
+SAWYER_EXPORT std::string
 Quote::eval(const Grammar&, const std::vector<std::string> &args) {
     return boost::join(args, "");
 }
 
-std::string
+SAWYER_EXPORT std::string
 Eval::eval(const Grammar &grammar, const std::vector<std::string> &args) {
     std::string s = grammar.unescape(boost::join(args, ""));
     return grammar(s);
 }
 
-std::string
+SAWYER_EXPORT std::string
 IfEq::eval(const Grammar &grammar, const std::vector<std::string> &args) {
     ASSERT_require(args.size() == 4);
     std::string v1 = grammar.unescape(args[0]);
@@ -234,7 +234,7 @@ IfEq::eval(const Grammar &grammar, const std::vector<std::string> &args) {
     return grammar(v1==v2 ? args[2] : args[3]);
 }
 
-std::string
+SAWYER_EXPORT std::string
 Concat::eval(const Grammar &grammar, const std::vector<std::string> &args) {
     return boost::join(args, "");
 }
@@ -243,20 +243,20 @@ Concat::eval(const Grammar &grammar, const std::vector<std::string> &args) {
 //                                      Reflow
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Reflow&
+SAWYER_EXPORT Reflow&
 Reflow::operator++() {
     ++indentLevel_;
     return *this;
 }
 
-Reflow&
+SAWYER_EXPORT Reflow&
 Reflow::operator--() {
     if (indentLevel_ > 0)
         --indentLevel_;
     return *this;
 }
 
-void
+SAWYER_EXPORT void
 Reflow::emitIndentation() {
     if (0 == column_) {
         for (size_t i=0; i<indentLevel_; ++i)
@@ -266,7 +266,7 @@ Reflow::emitIndentation() {
     }
 }
 
-void
+SAWYER_EXPORT void
 Reflow::emitAccumulated() {
     if (nonspaces_.empty()) {
         // emit nothing
@@ -286,7 +286,7 @@ Reflow::emitAccumulated() {
     spaces_ = nonspaces_ = "";
 }
 
-Reflow&
+SAWYER_EXPORT Reflow&
 Reflow::lineBreak() {
     emitAccumulated();
     if (column_ > 0)
@@ -294,13 +294,13 @@ Reflow::lineBreak() {
     return *this;
 }
 
-void
+SAWYER_EXPORT void
 Reflow::emitNewLine() {
     out_ <<"\n";
     column_ = 0;
 }
 
-Reflow&
+SAWYER_EXPORT Reflow&
 Reflow::operator()(const std::string &s) {
     BOOST_FOREACH (char ch, s) {
         if ('\n'==ch) {
@@ -326,7 +326,7 @@ Reflow::operator()(const std::string &s) {
     return *this;
 }
 
-std::string
+SAWYER_EXPORT std::string
 Reflow::toString() {
     emitAccumulated();
     if (column_ != 0)
@@ -338,13 +338,13 @@ Reflow::toString() {
 //                                      Grammar
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Grammar&
+SAWYER_EXPORT Grammar&
 Grammar::with(const Function::Ptr &f) {
     functions_.insert(f->name(), f);
     return *this;
 }
 
-std::string
+SAWYER_EXPORT std::string
 Grammar::operator()(const std::string &s) const {
     static size_t callLevel = 0;
 
@@ -367,7 +367,7 @@ Grammar::operator()(const std::string &s) const {
     }
 }
 
-std::string
+SAWYER_EXPORT std::string
 Grammar::eval(TokenStream &tokens, ErrorLocation &eloc) const {
     std::string retval;
     while (!tokens.atEof()) {
@@ -379,7 +379,7 @@ Grammar::eval(TokenStream &tokens, ErrorLocation &eloc) const {
 }
 
 // class method
-std::string
+SAWYER_EXPORT std::string
 Grammar::unescape(const std::string &s) {
     std::ostringstream out(std::ios::out | std::ios::binary);
     std::ostream_iterator<char, char> oi(out);
@@ -390,7 +390,7 @@ Grammar::unescape(const std::string &s) {
 }
 
 // class method
-std::string
+SAWYER_EXPORT std::string
 Grammar::escape(const std::string &s) {
     std::string retval;
     BOOST_FOREACH (char ch, s) {
@@ -403,7 +403,7 @@ Grammar::escape(const std::string &s) {
     return retval;
 }
 
-std::string
+SAWYER_EXPORT std::string
 Grammar::readArgument(TokenStream &tokens, ErrorLocation &eloc, bool requireRight) const {
     std::string retval;
     size_t depth = 0;
@@ -427,7 +427,7 @@ Grammar::readArgument(TokenStream &tokens, ErrorLocation &eloc, bool requireRigh
     return retval;
 }
 
-std::string
+SAWYER_EXPORT std::string
 Grammar::evalArgument(TokenStream &tokens, ErrorLocation &eloc, bool requireRight) const {
     std::string retval, data;
     size_t depth = 0;
@@ -459,7 +459,7 @@ Grammar::evalArgument(TokenStream &tokens, ErrorLocation &eloc, bool requireRigh
     return retval;
 }
 
-std::string
+SAWYER_EXPORT std::string
 Grammar::evalFunction(TokenStream &tokens, ErrorLocation &eloc) const {
     ASSERT_require(tokens.isa(TOK_FUNCTION));
     std::string funcName = tokens.lexeme();

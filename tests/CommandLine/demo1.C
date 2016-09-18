@@ -5,8 +5,8 @@ using namespace Sawyer::CommandLine;
     
 enum WhenColor { NEVER, AUTO, ALWAYS };
 
-void showRawManPage(const ParserResult &parserResult) {
-    std::cout <<parserResult.parser().manDocumentation();
+void showText(const ParserResult &parserResult) {
+    std::cout <<parserResult.parser().textDocumentation();
     exit(0);
 }
 
@@ -85,9 +85,9 @@ int main(int argc, char *argv[]) {
     // Here's a user defined action the shortest way possible.  User's can also use the boost shared pointer paradigm used
     // throughout Sawyer itself, but this way is a little shorter and more STL-like. The functor should expect one argument, a
     // pointer to the parser which is calling it.
-    ss.insert(Switch("raw-man")
-              .action(userAction(showRawManPage))
-              .doc("Prints the raw nroff man page to standard output for debugging."));
+    ss.insert(Switch("raw-text")
+              .action(userAction(showText))
+              .doc("Prints the text man page to standard output for debugging."));
 
     ss.insert(Switch("raw-pod")
               .action(userAction(showRawPod))

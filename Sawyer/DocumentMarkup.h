@@ -46,7 +46,7 @@ typedef Lexer::Token<TokenType> Token;
 //                                      TokenStream
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class TokenStream: public Lexer::TokenStream<Token> {
+class SAWYER_EXPORT TokenStream: public Lexer::TokenStream<Token> {
     static const char CHAR_LEFT = '{';
     static const char CHAR_RIGHT = '}';
     static const char CHAR_AT = '@';
@@ -61,7 +61,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** Base class for markup functions. */
-class Function: public SharedObject, public SharedFromThis<Function> {
+class SAWYER_EXPORT Function: public SharedObject, public SharedFromThis<Function> {
 public:
     /** Reference-counting pointer to markup function. */
     typedef SharedPointer<Function> Ptr;
@@ -153,7 +153,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** Information about the location of an exception. */
-class ErrorLocation {
+class SAWYER_EXPORT ErrorLocation {
     friend class Grammar;
 
     // Stack frame where error occurred
@@ -200,7 +200,7 @@ public:
 };
 
 /** Syntax error when parsing markup. */
-class SyntaxError: public Sawyer::Exception::SyntaxError {
+class SAWYER_EXPORT SyntaxError: public Sawyer::Exception::SyntaxError {
     ErrorLocation eloc_;
 public:
     /** Syntax error. */
@@ -220,7 +220,7 @@ public:
 /** A function that inserts a string.
  *
  *  When this function is seen in markup it is replaced by a string that is set when the function is declared. */
-class StaticContent: public Function {
+class SAWYER_EXPORT StaticContent: public Function {
     std::string resultString_;
 protected:
     StaticContent(const std::string &name, const std::string &resultString)
@@ -237,7 +237,7 @@ public:
  *
  *  This function generates an error. If given an argument, the argument is the text of the error message, otherwise it
  *  uses the default value set at declaration time. */
-class Error: public Function {
+class SAWYER_EXPORT Error: public Function {
 protected:
     Error(const std::string &name): Function(name) {}
 public:
@@ -252,7 +252,7 @@ public:
  *
  *  This function quotes its arguments. Any function calls in the arguments are not expanded, but curly braces must still
  *  balance correctly in order for the argument to be parsed. */
-class Quote: public Function {
+class SAWYER_EXPORT Quote: public Function {
 protected:
     Quote(const std::string &name): Function(name, false) {}
 public:
@@ -268,7 +268,7 @@ public:
  *  All arguments are evaluated once (like for normal functions) and are concatenated. The concatenation is then evaluated
  *  recursively and its result becomes the result of this function.  Escaped characters in the concatenation are unescaped
  *  before it is evaluated. */
-class Eval: public Function {
+class SAWYER_EXPORT Eval: public Function {
 protected:
     Eval(const std::string &name): Function(name) {}
 public:
@@ -283,7 +283,7 @@ public:
  *
  *  This function compares its first two arguments and if they are equal it evaluates the third argument, otherwise it
  *  evaluates the fourth argument. The fourth argument is optional and defaults to the emtpy string. */
-class IfEq: public Function {
+class SAWYER_EXPORT IfEq: public Function {
 protected:
     IfEq(const std::string &name): Function(name, false) {}
 public:
@@ -296,7 +296,7 @@ public:
 /** No-operation.
  *
  *  This function simply concatenates its arguments. */
-class Concat: public Function {
+class SAWYER_EXPORT Concat: public Function {
 protected:
     Concat(const std::string &name): Function(name) {}
 public:
@@ -315,7 +315,7 @@ public:
  *  This class acts as an input stream in that it processes calls to its function operator to accumulate text. The accumulated
  *  text is indented according to the current indentation level, and reflowed so that it fills the current page width. Isolated
  *  linefeeds are ignored, and consecutive linefeeds (no matter how many) result in a single blank line in the output. */
-class Reflow {
+class SAWYER_EXPORT Reflow {
     size_t indentLevel_;
     std::string indentation_;                           // string for one level of indentation
     std::ostringstream out_;
@@ -330,7 +330,7 @@ public:
      *
      *  This reflow filter will use the specified page width, measured in characters. */
     explicit Reflow(size_t pageWidth = 80)
-        : indentLevel_(0), indentation_("    "), pageWidth_(pageWidth), nLineFeeds_(0) {}
+        : indentLevel_(0), indentation_("    "), column_(0), pageWidth_(pageWidth), nLineFeeds_(0) {}
 
     /** Property: Page width.
      *
@@ -391,7 +391,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** Grammar declaration. */
-class Grammar {
+class SAWYER_EXPORT Grammar {
     Container::Map<std::string, Function::Ptr> functions_;         // functions indexed by their names
     static const bool CONSUME = true;
     static const bool LEAVE = false;

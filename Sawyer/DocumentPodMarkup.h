@@ -6,9 +6,11 @@
 namespace Sawyer {
 namespace Document {
 
-class PodMarkup: public BaseMarkup {
+class SAWYER_EXPORT PodMarkup: public BaseMarkup {
 public:
     PodMarkup() { init(); }
+
+    virtual void emit(const std::string &doc) /*override*/;
 
 private:
     void init();

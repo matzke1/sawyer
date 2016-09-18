@@ -65,8 +65,6 @@ set(lib_src
   Sawyer/DocumentTextMarkup.C
   Sawyer/GraphTraversal.C
   Sawyer/LineVector.C
-  Sawyer/Markup.C
-  Sawyer/MarkupPod.C
   Sawyer/Message.C
   Sawyer/ObjectCache.C
   Sawyer/ProgressBar.C

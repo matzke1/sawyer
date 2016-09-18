@@ -9,30 +9,24 @@
 //      particular switch declaration or switch group overrides the prefix, and even works for switches whose names are not
 //      recognized.
 //
-//  (2) When referring to another command, do it like this: "the @man{ls}(1) program lists files".  This will cause an
-//      appropriate font to be used as well as a reference in the "see also" section.
+//  (2) When referring to another command, do it like this: "the @man{ls}{1} program lists files".  This will cause an
+//      appropriate font to be used as well as a reference in the "see also" section.  You can leave off the "{1}" since that's
+//      the default.
 //
 //  (3) Use @v for variables, like "@v{name}".  Do not use upper-case names; the documentation will convert the name to
-//      whatever format is needed for the backend.  If "@v{name}" is too verbose, you can also use the doxygen style "@v name"
-//      (where "name" is everything to the next white space).  In fact, this works for all the tags, so you could have said
-//      "the @man ls 1 program lists files" (@man is a bit unusual -- it takes two arguments, "ls" and "1"; incidentally,
-//      saying "@man ls(1)" won't work because the first argument is everything to the next white space and there's no space
-//      between the "ls" and the "(1)").  Besides curly braces and white space, you can use "()", "[]", and "<>".  In fact, the
-//      thing inside the delimiters can use more of the same delimiters as long as they balance.  There cannot be white space
-//      between the tag name and first argument and between arguments (unless, of course, white space is the delimiter).
+//      whatever format is needed for the backend. The "{" and "}" must balance or be escaped with "@{" and "@}".  There cannot
+//      be white space between the tag name and first argument and between arguments.
 //
-//  (4) Use @em for emphasis
+//  (4) Use @b for emphasis, although this won't be evident in the plain-text output.
 //
-//  (5) To get a real "@em" into the document, add a backslash before it.  Since "@foobar" is not a recognized tag, there's no
-//      need to add anything before it. Don't forget, this is C, so you'll need two backslashes.
-//      FIXME[Robb Matzke 2014-02-24]: not tested yet
+//  (5) To get a "@" into a document use "@@".  For example, "@foo" is an error if foo is not defined, but "@@foo" expands to
+//      just "@foo" with no error.
 //
 //  (6) Switch synopses may improve in the future.  For now, they just use the names you gave for arguments.
 //
 //  (7) The markup is meant to be readable yet precise.  I.e., it doesn't have the verbosity of XML or HTML, nor the ambiguity
 //      of simple markup languages like Markdown.  The language has very few markup tags because it needs to support a variety
-//      of backends.  We currently support ROFF for generating man pages (because it's installed on pretty much every unix
-//      system in existence), but plan to also support PerlDoc, HTML, and plain text.  Perhaps even TeX.
+//      of backends.  We currently support PerlDoc and plain text. PerlDoc can be converted to additional formats.
 //
 //  (8) The API supports many other documentation related things that aren't demonstrated by this simple example.
 //
@@ -46,31 +40,32 @@ using namespace Sawyer::CommandLine;
 
 int main(int argc, char *argv[]) {
 
-    SwitchGroup general;                                // general switches for all git commands
+    SwitchGroup general("General switches for all git commands");
+    general.name("gen").showingGroupNames(SHOW_GROUP_NONE); // only for resolving conflicts
     general.insert(Switch("version")
                    .action(showVersion("1.0.0"))
                    .doc("Prints the git suite version that the git program came from."));
     general.insert(Switch("help")
                    .action(showHelp())
-                   .doc("Prints the synopsis and a list of the most commonly used commands.  If the option @s all "
-                        "or @s a is given then all available commands are printed.  If a git command is named, this "
+                   .doc("Prints the synopsis and a list of the most commonly used commands.  If the option @s{all} "
+                        "or @s{a} is given then all available commands are printed.  If a git command is named, this "
                         "option will bring up the manual page for that command.\n\n"
-                        "Other options are available to control how the manual page is displayed. See @man git-help 1 "
+                        "Other options are available to control how the manual page is displayed. See @man{git-help}{1} "
                         "for more information, because '@prop{programName} @s{help} ...' is converted internally into "
                         "'@prop{programName} help ...'"));
     general.insert(Switch("", 'c')
                    .argument("@v{name}=@v{value}")
                    .doc("Pass a configuration parameter to the command.  The value given will override values from "
-                        "configuration files.  The @v name is expected in the same format as listed by @man git-config 1 "
+                        "configuration files.  The @v{name} is expected in the same format as listed by @man{git-config}{1} "
                         "(subkeys separated by dots)."));
     general.insert(Switch("html-path")
                    .doc("Print the path, without trailing slash, where git's HTML documentation is installed and exit."));
     general.insert(Switch("man-path")
-                   .doc("Print the manpath (see @man<man><1>) for the man pages for this version of git and exit."));
+                   .doc("Print the manpath (see @man{man}{1}) for the man pages for this version of git and exit."));
     general.insert(Switch("info-path")
                    .doc("Print the path where the Info files documenting this version of git are installed and exit."));
     general.insert(Switch("paginate", 'p')
-                   .doc("Pipe all output into @man less 1 (or if set, $PAGER) if standard output is a terminal. This "
+                   .doc("Pipe all output into @man{less}{1} (or if set, $PAGER) if standard output is a terminal. This "
                         "overrides the pager.<cmd> configuration options (see the 'Configuration Mechanism' section "
                         "below)."));
     general.insert(Switch("no-pager")
@@ -83,15 +78,16 @@ int main(int argc, char *argv[]) {
                         "variable.  It can be an absolute path or relative path to current working directory."));
     general.insert(Switch("namespace")
                    .argument("path")
-                   .doc("Set the git namespace. See @man(gitnamespaces)(7) for more details.  Equivalent to setting the "
+                   .doc("Set the git namespace. See @man{gitnamespaces}{7} for more details.  Equivalent to setting the "
                         "GIT_NAMESPACE environment variable."));
     general.insert(Switch("bare")
                    .doc("Treat the repository as a bare repository.  If GIT_DIR environment is not set, it is set to the "
                         "current working directory."));
     general.insert(Switch("no-replace-objects")
-                   .doc("Do not use replacement refs to replace git objects. See @man<git-replace>(1) for more information."));
+                   .doc("Do not use replacement refs to replace git objects. See @man{git-replace}{1} for more information."));
 
-    SwitchGroup cmd;                                    // switches particular to the git-clone command
+    SwitchGroup cmd("Switches particular to the git-clone command");
+    cmd.name("clone");
     cmd.insert(Switch("local", 'l')
                .doc("When the repository to clone from is on a local machine, this flag bypasses the normal 'git aware' "
                     "transport mechanism and clones the repository by making a copy of HEAD and everything under objects "
@@ -99,7 +95,7 @@ int main(int argc, char *argv[]) {
                     "possible. This is now the default when the source repository is specified with /path/to/repo syntax, "
                     "so it essentially is a no-op option. To force copying instead of hardlinking (which may be desirable "
                     "if you are trying to make a back-up of your repository), but still avoid the usual 'git aware' "
-                    "transport mechanism, @s no-hardlinks can be used."));
+                    "transport mechanism, @s{no-hardlinks} can be used."));
     cmd.insert(Switch("no-hardlinks")
                .doc("Optimize the cloning process from a repository on a local filesystem by copying files under "
                     ".git/objects directory."));
@@ -107,19 +103,19 @@ int main(int argc, char *argv[]) {
                .doc("When the repository to clone is on the local machine, instead of using hard links, automatically "
                     "setup .git/objects/info/alternates to share the objects with the source repository. The resulting "
                     "repository starts out without any object of its own.\n\n"
-                    "@em NOTE: this is a possibly dangerous operation; do not use it unless you understand what it does. If "
+                    "@b{NOTE:} this is a possibly dangerous operation; do not use it unless you understand what it does. If "
                     "you clone your repository using this option and then delete branches (or use any other git command "
                     "that makes any existing commit unreferenced) in the source repository, some objects may become "
                     "unreferenced (or dangling). These objects may be removed by normal git operations (such as "
-                    "'@prop{commandName} commit') which automatically call '@prop{commandName} gc @s auto'. "
+                    "'@prop{programName} commit') which automatically call '@prop{programName} gc @s{auto}'. "
                     " (See @man{git-gc}{1}.) If these objects are removed and were referenced by the cloned repository, then "
                     "the cloned repository will become corrupt.\n\n"
-                    "Note that running '@prop{commandName} repack' without the @s{l} option in a repository cloned with "
+                    "Note that running '@prop{programName} repack' without the @s{l} option in a repository cloned with "
                     "@s{s} will copy objects from the source repository into a pack in the cloned repository, removing the "
-                    "disk space savings of clone @s{s}. It is safe, however, to run '@prop{commandName} gc', which uses the "
+                    "disk space savings of clone @s{s}. It is safe, however, to run '@prop{programName} gc', which uses the "
                     "@s{l} option by default.\n\n"
                     "If you want to break the dependency of a repository cloned with @s{s} on its source repository, you can "
-                    "simply run '@prop{commandName} repack @s{a}' to copy all objects from the source repository into a "
+                    "simply run '@prop{programName} repack @s{a}' to copy all objects from the source repository into a "
                     "pack in the cloned repository."));
     cmd.insert(Switch("reference")
                .argument("repository")
@@ -127,7 +123,7 @@ int main(int argc, char *argv[]) {
                     "to obtain objects from the reference repository. Using an already existing repository as an alternate "
                     "will require fewer objects to be copied from the repository being cloned, reducing network and local "
                     "storage costs.\n\n"
-                    "@em{@em NOTE}: see the NOTE for the @s shared option.")); // double emphasis
+                    "@b{NOTE}: see the NOTE for the @s{shared} option.")); // double emphasis
     cmd.insert(Switch("quiet", 'q')
                .doc("Operate quietly. Progress is not reported to the standard error stream. This flag is also passed to "
                     "the 'rsync' command when given."));
@@ -140,21 +136,21 @@ int main(int argc, char *argv[]) {
     cmd.insert(Switch("no-checkout", 'n')
                .doc("No checkout of HEAD is performed after the clone is complete."));
     cmd.insert(Switch("bare")
-               .doc("Make a bare GIT repository. That is, instead of creating @v directory and placing the administrative "
-                    "files in @v{directory}/.git, make the @v directory itself the $GIT_DIR. This obviously implies the @s{n} "
+               .doc("Make a bare GIT repository. That is, instead of creating @v{directory} and placing the administrative "
+                    "files in @v{directory}/.git, make the @v{directory} itself the $GIT_DIR. This obviously implies the @s{n} "
                     "because there is nowhere to check out the working tree. Also the branch heads at the remote are "
                     "copied directly to corresponding local branch heads, without mapping them to refs/remotes/origin/. "
                     "When this option is used, neither remote-tracking branches nor the related configuration variables "
                     "are created."));
     cmd.insert(Switch("mirror")
-               .doc("Set up a mirror of the source repository. This implies @s{bare}. Compared to @s{bare}, @s mirror not only "
+               .doc("Set up a mirror of the source repository. This implies @s{bare}. Compared to @s{bare}, @s{mirror} not only "
                     "maps local branches of the source to local branches of the target, it maps all refs (including "
                     "remote-tracking branches, notes etc.) and sets up a refspec configuration such that all these refs "
-                    "are overwritten by a '@prop{commandName} remote update' in the target repository."));
+                    "are overwritten by a '@prop{programName} remote update' in the target repository."));
     cmd.insert(Switch("origin", 'b')
                .argument("name")
                .doc("Instead of pointing the newly created HEAD to the branch pointed to by the cloned repository's HEAD, "
-                    "point to @v name branch instead.  @s branch can also take tags and treat them like detached HEAD. In a "
+                    "point to @v{name} branch instead.  @s{branch} can also take tags and treat them like detached HEAD. In a "
                     "non-bare repository, this is the branch that will be checked out."));
     cmd.insert(Switch("upload-pack", 'u')
                .argument("upload-pack")
@@ -164,7 +160,7 @@ int main(int argc, char *argv[]) {
                .argument("template-directory")
                .doc("Specify the directory from which templates will be used; (See the 'TEMPLATE DIRECTORY' section of "
                     "@man{git-init}{1}.)"));
-    cmd.insert(Switch("config", 'c')
+    cmd.insert(Switch("config") // The short name -c would cause a runtime ambiguity error with -c in the general group
                .argument("@v{key}=@v{value}")
                .doc("Set a configuration variable in the newly-created repository; this takes effect immediately after the "
                     "repository is initialized, but before the remote history is fetched or any files checked out. The key "
@@ -178,9 +174,9 @@ int main(int argc, char *argv[]) {
                     "it), but is adequate if you are only interested in the recent history of a large project with a long "
                     "history, and would want to send in fixes as patches."));
     cmd.insert(Switch("single-branch")
-               .doc("Clone only the history leading to the tip of a single branch, either specified by the @s branch option "
-                    "or the primary branch remote's HEAD points at. When creating a shallow clone with the @s depth option, "
-                    "this is the default, unless @s no-single-branch is given to fetch the histories near the tips of all "
+               .doc("Clone only the history leading to the tip of a single branch, either specified by the @s{branch} option "
+                    "or the primary branch remote's HEAD points at. When creating a shallow clone with the @s{depth} option, "
+                    "this is the default, unless @s{no-single-branch} is given to fetch the histories near the tips of all "
                     "branches."));
     cmd.insert(Switch("no-single-branch")
                .key("single-branch")
@@ -189,7 +185,7 @@ int main(int argc, char *argv[]) {
     cmd.insert(Switch("recursive")
                .longName("recursive-submodules")        // alternate name for same switch
                .doc("After the clone is created, initialize all submodules within, using their default settings. This is "
-                    "equivalent to running '@prop{commandName} submodule update @s init @s{recursive}' immediately after "
+                    "equivalent to running '@prop{programName} submodule update @s{init} @s{recursive}' immediately after "
                     "the clone is "
                     "finished. This option is ignored if the cloned repository does not have a worktree/checkout (i.e. if "
                     "any of @s{no-checkout}/@s{n}, @s{bare}, or @s{mirror} is given)"));
@@ -245,7 +241,7 @@ int main(int argc, char *argv[]) {
 
         // I always like to put the nitty gritty details after the command-line switches because I'm looking at a man
         // page because I forgot how to use a program, not because I forgot what it does.
-        .doc("details", "1",
+        .doc("Details", "1",
              "More details... Any number of user-defined sections are possible and their order can be controled.")
 
         // Extra stuff, some standard and some funny. Sawyer doesn't care what sections you define.
@@ -256,14 +252,13 @@ int main(int argc, char *argv[]) {
         // this section (that is, prior in the output, not the C++ source code).  You can also insert your own text.
         .doc("See Also", "zzz", "And you can augment sections that are created automatically.")
 
-        // The markup parser is decently smart about deciding when a "@" is part of a tag and when it should be copied
-        // to the output.  For instance, the "@" in the email address works fine.  Also, the two @man references here show
-        // up in the See Also section since "authors" comes before "zzz" alphabetically.
+        // To get an "@" in the output, escape it by doubling it. Also, the two @man references here show up in the See Also
+        // section since "authors" comes before "zzz" alphabetically.
         .doc("Authors",
              "Git was started by Linus Torvalds, and is currently maintained by Junio C Hamano. Numerous contributions "
-             "have come from the git mailing list @link{git@vger.kernel.org}{}. For a more complete list of contributors, see "
-             "@link{http://git-scm.com/about}{}. If you have a clone of git.git itself, the output of @man{git-shortlog}(1) "
-             " and @man{git-blame}(1) can show you the authors for specific parts of the projecyt.")
+             "have come from the git mailing list @link{git@@vger.kernel.org}. For a more complete list of contributors, see "
+             "@link{http://git-scm.com/about}{}. If you have a clone of git.git itself, the output of @man{git-shortlog}{1} "
+             " and @man{git-blame}{1} can show you the authors for specific parts of the project.")
 
         // You can delete some sections (this example's a bit stupid because you wouldn't normally delete a section you
         // just created, but you might want to delete a section if the parser was created in source code you don't "own".

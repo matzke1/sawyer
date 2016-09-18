@@ -1,4 +1,8 @@
 #include <Sawyer/DocumentPodMarkup.h>
+#include <Sawyer/FileSystem.h>
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 
@@ -44,7 +48,8 @@ public:
         if (!BaseMarkup::hasNonSpace(BaseMarkup::unescape(args[1])))
             return "";
 
-        return "\n\n=head1 " + BaseMarkup::makeOneLine(args[0]) + "\n\n" + args[1] + "\n\n";
+        // The =section and =endsection are processed by Sawyer before perpod sees anything
+        return "\n\n=section " + BaseMarkup::makeOneLine(args[0]) + "\n\n" + args[1] + "\n\n=endsection\n\n";
     }
 };
 
@@ -92,7 +97,7 @@ public:
 
 // To override BaseMarkup's @v{variable}
 class InlineFormat: public Markup::Function {
-    std::string format_;                                // I, B, C, L, E, F, S, X, Z
+    std::string format_;                                // I, B, C, E, F, S, X, Z (L is handled by Link)
 protected:
     InlineFormat(const std::string &name, const std::string &format)
         : Markup::Function(name), format_(format) {}
@@ -106,22 +111,60 @@ public:
     }
 };
 
+// To handle links like @link{url}{title} where {title} is optional
+class Link: public Markup::Function {
+protected:
+    Link(const std::string &name)
+        : Markup::Function(name) {}
+public:
+    static Ptr instance(const std::string &name) {
+        return Ptr(new Link(name))->arg("url")->arg("title", "");
+    }
+    std::string eval(const Markup::Grammar&, const std::vector<std::string> &args) {
+        ASSERT_require(args.size() == 2);
+        if (args[1].empty())
+            return "[L<" + podEscape(args[0]) + ">]";
+        return "[" + args[1] + "](L<" + podEscape(args[0]) + ">)";
+    }
+};
+
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void
+SAWYER_EXPORT void
 PodMarkup::init() {
     with(InlineFormat::instance("b", "B"));             // bold
     with(NumberedItem::instance("bullet", "*"));
     with(InlineFormat::instance("c", "C"));             // code
+    with(Link::instance("link"));
     with(NamedItem::instance("named"));
     with(NumberedItem::instance("numbered", "1"));
     with(Section::instance("section"));
     with(InlineFormat::instance("v", "I"));;            // variable
 }
 
-std::string
+SAWYER_EXPORT void
+PodMarkup::emit(const std::string &doc) {
+    // Generate POD documentation into a temporary file. Since perldc doesn't support the "name" property, but rather uses the
+    // file name, we create a temporary directory and place a POD file inside with the name we want.
+    FileSystem::TemporaryDirectory tmpDir;
+    FileSystem::TemporaryFile tmpFile(tmpDir.name() / (pageName() + ".pod"));
+    tmpFile.stream() <<(*this)(doc);
+    tmpFile.stream().close();
+
+    std::string cmd = "perldoc"
+                      " -o man"
+                      " -w 'center:" + escapeSingleQuoted(chapterTitleOrDefault()) + "'"
+                      " -w 'date:" + escapeSingleQuoted(versionDateOrDefault()) + "'"
+                      " -w 'release:" + escapeSingleQuoted(versionStringOrDefault()) + "'"
+                      " -w 'section:" + escapeSingleQuoted(chapterNumberOrDefault()) + "'"
+                      " '" + escapeSingleQuoted(tmpFile.name().native()) + "'";
+
+    system(cmd.c_str());
+};
+
+SAWYER_EXPORT std::string
 PodMarkup::finalizeDocument(const std::string &s_) {
     std::string s = "=pod\n\n" + s_ + "\n\n=cut\n";
 
@@ -134,6 +177,25 @@ PodMarkup::finalizeDocument(const std::string &s_) {
         s = out.str();
     }
 
+    // Change "=section" to "=headN" where N is 1, 2, 3, or 4, and remove =endsection
+    {
+        std::string result;
+        int sectionDepth = 0;
+        std::vector<std::string> lines;
+        boost::split(lines, s, boost::is_any_of("\n"));
+        BOOST_FOREACH (const std::string &line, lines) {
+            if (boost::starts_with(line, "=section")) {
+                size_t headLevel = std::max(1, std::min(++sectionDepth, 4));
+                result += "=head" + boost::lexical_cast<std::string>(headLevel) + line.substr(8) + "\n";
+            } else if (boost::starts_with(line, "=endsection")) {
+                --sectionDepth;
+            } else {
+                result += line + "\n";
+            }
+        }
+        std::swap(s, result);
+    }
+    
     // Replace lots of blank lines with just one blank line
     {
         boost::regex blankLines("\\n{3,}");

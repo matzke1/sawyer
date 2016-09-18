@@ -1,5 +1,7 @@
 #include <Sawyer/DocumentTextMarkup.h>
+#include <Sawyer/FileSystem.h>
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -117,23 +119,54 @@ public:
     }
 };
 
+// To handle links like @link{url}{title} where {title} is optional
+class Link: public Markup::Function {
+protected:
+    Link(const std::string &name)
+        : Markup::Function(name) {}
+public:
+    static Ptr instance(const std::string &name) {
+        return Ptr(new Link(name))->arg("url")->arg("title", "");
+    }
+    std::string eval(const Markup::Grammar&, const std::vector<std::string> &args) {
+        ASSERT_require(args.size() == 2);
+        if (args[1].empty())
+            return "[" + args[0] + "]";
+        return "[" + args[1] + "](" + args[0] + ")";
+    }
+};
 
 } // namespace
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void
+SAWYER_EXPORT void
+TextMarkup::emit(const std::string &doc) {
+    std::string rendered = (*this)(doc);
+
+    FileSystem::TemporaryFile tmpFile;
+    tmpFile.stream() <<rendered;
+    tmpFile.stream().close();
+    std::string cmd = "${PAGER-less} '" + escapeSingleQuoted(tmpFile.name().native()) + "'";
+    if (system(cmd.c_str()) ==0)
+        return;
+
+    std::cout <<rendered;
+}
+
+SAWYER_EXPORT void
 TextMarkup::init() {
-    with(Surround::instance("b", "*", "*"));            // bold
+    with(Surround::instance("b", "", ""));              // bold: do nothing, not even *bold* or _bold_
     with(NumberedItem::instance("bullet", "*"));
     with(Markup::Concat::instance("c"));                // code
+    with(Link::instance("link"));
     with(NamedItem::instance("named"));
     with(NumberedItem::instance("numbered", "1"));
     with(Section::instance("section"));
     with(Surround::instance("v", "<", ">"));;           // variable
 }
 
-std::string
+SAWYER_EXPORT std::string
 TextMarkup::finalizeDocument(const std::string &s_) {
     std::string s = boost::trim_copy(s_);
 
@@ -187,7 +220,32 @@ TextMarkup::finalizeDocument(const std::string &s_) {
             reflow(line + "\n");
         }
     }
-    return reflow.toString();
+    s = reflow.toString();
+
+    // Add the header and footer
+    {
+        std::string page = boost::to_upper_copy(pageName()) + "(" + chapterNumberOrDefault() + ")";
+        std::string title = chapterTitleOrDefault();
+        std::string version = versionStringOrDefault();
+        std::string date = versionDateOrDefault();
+
+        size_t headSize = page.size() + title.size() + page.size();
+        size_t footSize = version.size() + date.size() + page.size();
+
+        std::string headPad = reflow.pageWidth() > headSize + 2 ?
+                              std::string(round(0.5 * (reflow.pageWidth() - (headSize+2))), ' ') :
+                              std::string(" ");
+
+        std::string footPad = reflow.pageWidth() > footSize + 2 ?
+                              std::string(round(0.5 * (reflow.pageWidth() - (footSize+2))), ' ') :
+                              std::string(" ");
+
+        s = (doPageHeader_ ? page + headPad + title + headPad + page + "\n\n" : std::string()) +
+            s +
+            (doPageFooter_ ? "\n" + version + footPad + date + footPad + page + "\n" : std::string());
+    }
+
+    return s;
 }
 
 } // namespace

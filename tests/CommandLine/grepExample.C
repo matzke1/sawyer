@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
                           "file matches, or no message if there is no match.  If @v{type} is \"without-match"
                           "@prop{programName} assumes that a binary file does not match; this is equivalent to "
                           "the @s{I} option.  If @v{type} is \"text\", @prop{programName} processes a binary "
-                          "file as if it were text; ths is equivalent to the @s{a} option.  @em Warning: "
+                          "file as if it were text; ths is equivalent to the @s{a} option.  @b{Warning:} "
                           "\"@prop{programName} @s{binary-files}=text\" might output binary garbage, which can "
                           "have nasty side effects if the output is a terminal and if the terminal driver "
                           "interprets some of it as commands."));
@@ -324,8 +324,8 @@ int main(int argc, char *argv[]) {
                 .doc("Use line buffering on output.  This can cause a performance penalty."));
     misc.insert(Switch("mmap")
                 .intrinsicValue(true, opt.useMmap)
-                .doc("If possible, use the @man{mmap}(2) system call to read input, instead of the default "
-                     "@man{read}(2) system call.  In some situations, @s{mmap} yields better performance.  "
+                .doc("If possible, use the @man{mmap}{2} system call to read input, instead of the default "
+                     "@man{read}{2} system call.  In some situations, @s{mmap} yields better performance.  "
                      "However, @s{mmap} can cause undefined behavior (including core dumps) if an input "
                      "file shrinks while @prop{programName} is operating, or if an I/O error occurs."));
     misc.insert(Switch("binary", 'U')
@@ -363,8 +363,8 @@ int main(int argc, char *argv[]) {
         .purpose("print lines matching a pattern")
         .version(VERSION_STRING)
         .doc("Synopsis",
-             "@em{@prop{programName}} [@v{options}] @v{pattern} [@v{file}...]\n\n"
-             "@em{@prop{programName}} [@v{options}] [@s{e} @v{pattern} | @s{f} @v{file}] [@v{file}...]")
+             "@b{@prop{programName}} [@v{options}] @v{pattern} [@v{file}...]\n\n"
+             "@b{@prop{programName}} [@v{options}] [@s{e} @v{pattern} | @s{f} @v{file}] [@v{file}...]")
         .doc("Description",
              "@prop{programName} searches the named input @v{file}s (or standard input if no files are named, or if "
              "a single hyphen-minus (\"-\") is given as the file name) for lines containing a match to the given "
@@ -384,7 +384,7 @@ int main(int argc, char *argv[]) {
              "between basic and extended syntaxes.  In other implementations, basic regular expressions are less "
              "powerful.  The following description applies to extended regular expressions; differences for basic "
              "regular expressions are summarized afterwards.  Perl regular expressions give additional functionality, "
-             "and are documented in @man{pcresyntax}(3) and @man{pcrepattern}(3), but may not be available on every "
+             "and are documented in @man{pcresyntax}{3} and @man{pcrepattern}{3}, but may not be available on every "
              "system."
              "\n\n"
              "The fundamental building blocks are the regular expressions that match a single character.  Most "
