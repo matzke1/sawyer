@@ -203,6 +203,8 @@ public:
 class SAWYER_EXPORT SyntaxError: public Sawyer::Exception::SyntaxError {
     ErrorLocation eloc_;
 public:
+    ~SyntaxError() throw () {}
+
     /** Syntax error. */
     SyntaxError(const std::string &mesg)
         : Sawyer::Exception::SyntaxError(mesg) {}
