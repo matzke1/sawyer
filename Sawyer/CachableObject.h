@@ -43,18 +43,14 @@ public:
 
     /** Copy constructor.
      *
-     *  It is permissible to copy one cachable object to another. The @p other @ref restore method is not invoked during the
-     *  copy because it has presumably already been restored due to its pointer having been dereferenced in order to pass it to
-     *  this constructor. */
+     *  It is permissible to copy one cachable object to another. */
     CachableObject(const CachableObject &other)
         : SharedObject(other), cache_(NULL), cacheNext_(NULL), cachePrev_(NULL), cacheTimer_(0) {
     }
 
     /** Assignment operator.
      *
-     *  Assigning a source object to a cachable destination object does not change whether either object is cached. The @ref
-     *  restore method of the @p other object is not called first since that presumably has already occurred by dereferencing
-     *  a pointer in order pass a reference to this method. */
+     *  Assigning a source object to a cachable destination object does not change whether either object is cached. */
     CachableObject& operator=(const CachableObject &other) {
         SharedObject::operator=(other);
         cacheTimer_ = 0;
