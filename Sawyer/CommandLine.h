@@ -184,7 +184,7 @@ enum ShowGroupName {
     SHOW_GROUP_OPTIONAL,                                /**< Show name as being optional, like "--[group-]switch". */
     SHOW_GROUP_REQUIRED,                                /**< Show name as being required, like "--group-switch". */
     SHOW_GROUP_NONE,                                    /**< Never show the group name. */
-    SHOW_GROUP_INHERIT,                                 /**< Group inherits value from the parser. */
+    SHOW_GROUP_INHERIT                                  /**< Group inherits value from the parser. */
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1151,8 +1151,8 @@ private:
         for (size_t i=0; i<nchars; ++i) {
             if (!a[i] || !b[i])
                 return a[i] ? 1 : (b[i] ? -1 : 0);
-            char achar = tolower(a[i]);
-            char bchar = tolower(b[i]);
+            char achar = (char)tolower(a[i]);
+            char bchar = (char)tolower(b[i]);
             if (achar != bchar)
                 return achar < bchar ? -1 : 1;
         }

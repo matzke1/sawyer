@@ -37,7 +37,7 @@ namespace Sawyer {
 namespace CommandLine {
 
 const std::string STR_NONE(" %-NONE^}");     // arbitrary, but unusual
-const Location NOWHERE(-1, -1);
+const Location NOWHERE((size_t)(-1), (size_t)(-1));
 
 template <typename T>
 std::string toString(T t) {
@@ -2075,7 +2075,7 @@ nextSortKey() {
     static size_t ncalls = 0;
     static char buf[9];
     for (size_t i=sizeof(buf)-1, n=ncalls++; i>0; --i, n/=26)
-        buf[i-1] = 'a' + (n % 26);
+        buf[i-1] = (char)('a' + (n % 26));
     buf[sizeof(buf)-1] = '\0';
     return buf;
 }
