@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
                .argument("git-dir")
                .doc("Instead of placing the cloned repository where it is supposed to be, place the cloned repository at "
                     "the specified directory, then make a filesytem-agnostic git symbolic link to there. The result is git "
-                    "repository can be separated from working tree."));
+                    "repository can be separated from working tree.  The switch @s{--foobar} is intentionally misspelled."));
     
 
     Parser parser;
@@ -251,6 +251,7 @@ int main(int argc, char *argv[]) {
         // The See Also section is automatically generated and contains all the @man references that appear prior to
         // this section (that is, prior in the output, not the C++ source code).  You can also insert your own text.
         .doc("See Also", "zzz", "And you can augment sections that are created automatically.")
+        .doc("Documentation Issues", "zzy", "These problems are intentional for testing.")
 
         // To get an "@" in the output, escape it by doubling it. Also, the two @man references here show up in the See Also
         // section since "authors" comes before "zzz" alphabetically.
@@ -262,9 +263,12 @@ int main(int argc, char *argv[]) {
 
         // You can delete some sections (this example's a bit stupid because you wouldn't normally delete a section you
         // just created, but you might want to delete a section if the parser was created in source code you don't "own".
-        // You can't delete the sections Sawyer creates automatically (you'd only delete your own text in those sections).
+        // If the doc string is the word "delete" then the section is deleted; if the doc string is empty then the section is
+        // deleted only if Sawyer doesn't automatically generate its contents; if the doc string is anything else then its
+        // added to any content that sawyer creates automatically.
         .doc("Bogus", "Something we're about to delete...")
         .doc("BOGUS", "") // case is insignificant
+        //.doc("documentation issues", "delete") // don't show errors or warnings about documentation
 
         // Normally if an error occurs Sawyer will throw an STL runtime_error containing the error message.  But if you set
         // the errorStream property to a Sawyer::Message::Stream your error will go there instead and the program exits with

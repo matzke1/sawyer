@@ -34,8 +34,8 @@ namespace Sawyer { // documented in Sawyer.h
  *  @li A <em>program command line</em> is the vector of strings passed to a program by the operating system or runtime.
  *  @li A <em>commmand line argument</em> is one element of the program command line vector.
  *  @li A <em>switch</em> is a named command line argument, usually introduced with a special character sequence followed
- *      by a name, such as <code>-\-color</code>. The "-\-" is the <em>switch prefix</em>, "color" is the <em>switch name</em>,
- *      and "-\-color" is the <em>switch string</em>.
+ *      by a name, such as <code>-\-color</code>. The "--" is the <em>switch prefix</em>, "color" is the <em>switch name</em>,
+ *      and "--color" is the <em>switch string</em>.
  *  @li A <em>switch argument</em> is an optional value specified on the program command line and associated with a switch,
  *      such as the word "grey" in <code>-\-color=grey</code> or <code>-\-color grey</code> (as two command-line arguments).
  *  @li A <em>switch value</em> is a switch argument that has been converted to a value within a program, such as the
@@ -88,8 +88,9 @@ namespace Sawyer { // documented in Sawyer.h
  *      push capabilities for the results: the user can query results or the library can write them directly into user-supplied
  *      variables.
  *  @li Documentation should appear next to the thing it documents, and it should not be necessary to have more than one
- *      source-level copy of documentation.  The library is able to generate complete Unix manual pages (TROFF format) which
- *      can be converted to to a variety of other formats with standard tools.
+ *      source-level copy of documentation.  The library is able to generate complete Unix manual pages as plain text or
+ *      [POD](https://en.wikipedia.org/wiki/Plain_Old_Documentation), the latter which can be converted to to a variety of
+ *      other formats with standard tools.
  *
  * @section sawyer_commandline_ex1 An example
  *
@@ -115,9 +116,9 @@ namespace Sawyer { // documented in Sawyer.h
  * @snippet commandLineEx1.C parseCommandLine helpversion
  *
  *  We place all the tool-specific switches in another switch group we call <code>tool</code>.  The <code>--isa</code> switch
- *  will accept an argument that can be anything and is stored in <code>std::string settings.isaName</code>.  If the arguent is
- *  the word "list" then the function that eventually parses it will generate a list (this function is part of the tool source
- *  code and is not part of %Sawyer).
+ *  will accept an argument that can be anything and is stored in <code>std::string settings.isaName</code>.  If the argument
+ *  is the word "list" then the function that eventually parses it will generate a list (this function is part of the tool
+ *  source code and is not part of %Sawyer).
  *
  * @snippet commandLineEx1.C parseCommandLine isa
  *
@@ -2339,13 +2340,15 @@ public:
     ValueAugmenter::Ptr valueAugmenter() const { return valueAugmenter_; }
     /** @} */
 
+public:
+    // Used internally
+    const ParsingProperties& properties() const { return properties_; }
+
 private:
     friend class Parser;
     friend class ParserResult;
 
     void init(const std::string &longName, char shortName);
-
-    const ParsingProperties& properties() const { return properties_; }
 
     /** @internal Constructs an exception describing that there is no separator between the switch name and its value. */
     std::runtime_error noSeparator(const std::string &switchString, const Cursor&, const ParsingProperties&) const;
@@ -2613,9 +2616,12 @@ public:
     SwitchGroup& switchOrder(SortOrder order) { switchOrder_ = order; return *this; }
     /** @} */
 
+public:
+    // Used internally
+    const ParsingProperties& properties() const { return properties_; }
+
 private:
     friend class Parser;
-    const ParsingProperties& properties() const { return properties_; }
 };
 
 /** Subset of switches grouped by their switch groups. */
@@ -2927,12 +2933,41 @@ public:
 
     /** Documentation for a section of the manual.  The user may define any number of sections with any names. Names should
      *  be capitalized like titles (initial capital letter), although case is insensitive in the table that stores them. The
-     *  sections of a manual page are sorted according to lower-case versions of either the @p docKey or the @p sectionName.
-     *  The sections "Name", "Synopsis", "Description", and "Options" are always present in that order.  If text is given for
-     *  the "Options" section it will appear before the list of program switches, but text for the other sections replaces what
-     *  would be generated automatically.
+     *  sections of a manual page are sorted according to lower-case versions of either the @p docKey or the @p sectionName. If
+     *  a section's documentation is completely empty (no user specified documentation and no automatically generated
+     *  documentation) then it will not show up in the output.
+     *
+     *  Some sections have content that's generatated automatically. For these sections, setting the doc string will either
+     *  override the generated content or augment the content as described below.  Since setting the doc string to an empty
+     *  string only suppresses any user-defined content and not the auto-generated content, this doesn't delete the section
+     *  from the output. In order to delete the section, set its doc string to "delete" (this also works for sections that have
+     *  no auto-generated content).
+     *
+     *  The following sections are always present in this order unless explicitly deleted by setting their doc string to
+     *  "delete":
+     *
+     *  @li "Name" contains the program name and purpose separated from one another by a single hyphen. By convention, the
+     *      purpose should be a short string with no capitalization (except special words) and no terminating punctuation.  If
+     *      no user documentation is specified then this section is generated automatically from the parser's @ref purpose
+     *      property.
+     *
+     *  @li "Synopsis" contains information about how to invoke the program.  If the user does not provide documentation, then
+     *      an automatically generated value is used, which says to invoke the program by its name followed by zero or more
+     *      switches.
+     *
+     *  @li "Description" is the detailed description of the program. It has no automatically generated content.
+     *
+     *  @li "Switches" lists all the non-hidden switches organized by @ref SwitchGroup.
+     *
+     *  @li All user-defined sections are inserted next.
+     *
+     *  @li "See Also" lists other man pages that were referenced prior to this point in the documentation.
+     *
+     *  @li "Documentation Issues" lists any non-fatal problems found in the documentation up to this point, such as
+     *      switches that were referenced but not declared (e.g., misspelled).
      *
      *  The documentation is specified with a simple markup languge described by Switch::doc.
+     *
      * @{ */
     Parser& doc(const std::string &sectionName, const std::string &docKey, const std::string &text);
     Parser& doc(const std::string &sectionName, const std::string &text) { return doc(sectionName, sectionName, text); }
@@ -2957,6 +2992,15 @@ public:
 
     /** Print documentation to standard output. Use a pager if possible. */
     void emitDocumentationToPager() const;
+
+    template<class Grammar>
+    void emitDocumentationToPager() const {
+        Grammar grammar;
+        initDocGrammar(grammar);
+        grammar.title(programName(), boost::lexical_cast<std::string>(chapter().first), chapter().second);
+        grammar.version(version().first, version().second);
+        grammar.emit(documentationMarkup());
+    }
 
     /** Property: How to order switch groups in documentation.  If the parser contains titled switch groups then switches will
      *  be organized into subsections based on the group titles, and this property controls how those subsections are ordered
@@ -2997,6 +3041,10 @@ public:
      *
      *  Return an index containing all switches that are ambiguous and which cannot be made unambiguous by qualifying them. */
     NamedSwitches findUnresolvableAmbiguities() const;
+
+public:
+    // Used internally
+    const ParsingProperties& properties() const { return properties_; }
 
 private:
     void init();
