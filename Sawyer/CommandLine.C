@@ -1189,12 +1189,12 @@ SwitchGroup::getByKey(const std::string &s) {
 SAWYER_EXPORT void
 ParserResult::insertValuesForSwitch(const ParsedValues &pvals, const Parser *parser, const Switch *sw) {
     ASSERT_not_null(sw);
+    ASSERT_forbid(sw->skipping() == SKIP_STRONG);
     std::string key = sw->key();
     std::string name = sw->preferredName();
 
     // How to save this value
     bool shouldSave = true;
-    
     switch (sw->whichValue()) {
         case SAVE_NONE:
             if (!pvals.empty())
@@ -1260,7 +1260,8 @@ ParserResult::insertOneValue(const ParsedValue &pval, const Switch *sw, bool sav
     
 SAWYER_EXPORT void
 ParserResult::skip(const Location &loc) {
-    skippedIndex_.push_back(loc.idx);
+    if (loc.idx != (size_t)(-1) && std::find(skippedIndex_.begin(), skippedIndex_.end(), loc.idx) == skippedIndex_.end())
+        skippedIndex_.push_back(loc.idx);
 }
 
 SAWYER_EXPORT void
@@ -1566,16 +1567,30 @@ Parser::parseOneSwitch(Cursor &cursor, const NamedSwitches &ambiguities, ParserR
     // Single long switch
     ParsedValues values;
     if (const Switch *sw = parseLongSwitch(cursor, values, ambiguities, saved_error /*out*/)) {
+        ASSERT_forbid(values.empty());
         ASSERT_require(cursor.atArgBegin() || cursor.atEnd());
-        result.insertValuesForSwitch(values, this, sw);
+        if (sw->skipping() != SKIP_STRONG)
+            result.insertValuesForSwitch(values, this, sw);
+        if (sw->skipping() != SKIP_NEVER) {
+            result.skip(values[0].switchLocation());
+            BOOST_FOREACH (const ParsedValue &pval, values)
+                result.skip(pval.valueLocation());
+        }
         return true;
     }
 
     if (!shortMayNestle_) {
         // Single short switch
         if (const Switch *sw = parseShortSwitch(cursor, values, ambiguities, saved_error, shortMayNestle_)) {
+            ASSERT_forbid(values.empty());
             ASSERT_require(cursor.atArgBegin() || cursor.atEnd());
-            result.insertValuesForSwitch(values, this, sw);
+            if (sw->skipping() != SKIP_STRONG)
+                result.insertValuesForSwitch(values, this, sw);
+            if (sw->skipping() != SKIP_NEVER) {
+                result.skip(values[0].switchLocation());
+                BOOST_FOREACH (const ParsedValue &pval, values)
+                    result.skip(pval.valueLocation());
+            }
             return true;
         }
     } else {
@@ -1586,6 +1601,7 @@ Parser::parseOneSwitch(Cursor &cursor, const NamedSwitches &ambiguities, ParserR
         ExcursionGuard guard(cursor);
         while (guard.startingLocation().idx == cursor.location().idx) {
             if (const Switch *sw = parseShortSwitch(cursor, values, ambiguities, saved_error, shortMayNestle_)) {
+                ASSERT_forbid(values.empty());
                 valuesBySwitch.push_back(SwitchValues(sw, values));
                 values.clear();
             } else {
@@ -1593,8 +1609,18 @@ Parser::parseOneSwitch(Cursor &cursor, const NamedSwitches &ambiguities, ParserR
             }
         }
         if (!valuesBySwitch.empty() && (cursor.atArgBegin() || cursor.atEnd())) {
-            BOOST_FOREACH (SwitchValues &svpair, valuesBySwitch)
-                result.insertValuesForSwitch(svpair.second, this, svpair.first);
+            BOOST_FOREACH (SwitchValues &svpair, valuesBySwitch) {
+                const Switch *sw = svpair.first;
+                const ParsedValues &values = svpair.second;
+                if (sw->skipping() != SKIP_STRONG)
+                    result.insertValuesForSwitch(values, this, sw);
+                if (sw->skipping() != SKIP_NEVER) {
+                    result.skip(values[0].switchLocation());
+                    BOOST_FOREACH (const ParsedValue &pval, values)
+                        result.skip(pval.valueLocation());
+                }
+            }
+            
             guard.cancel();
             return true;
         }

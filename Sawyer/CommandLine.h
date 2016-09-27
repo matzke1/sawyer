@@ -188,6 +188,13 @@ enum ShowGroupName {
     SHOW_GROUP_INHERIT                                  /**< Group inherits value from the parser. */
 };
 
+/** Whether to skip a switch. */
+enum SwitchSkipping {
+    SKIP_NEVER,                                         /**< Treat the switch normally. */
+    SKIP_WEAK,                                          /**< Process switch normally, but also add to skipped list. */
+    SKIP_STRONG                                         /**< Skip switch and its argument(s) without saving any value. */
+};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                      Program argument cursor
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1946,20 +1953,21 @@ enum WhichValue {
 class SAWYER_EXPORT Switch {
 private:
 #include <Sawyer/WarningsOff.h>
-    std::vector<std::string> longNames_;                /**< Long name of switch, or empty string. */
-    std::string shortNames_;                            /**< %Optional short names for this switch. */
-    std::string key_;                                   /**< Unique key, usually the long name or the first short name. */
-    ParsingProperties properties_;                      /**< Properties valid at multiple levels of the hierarchy. */
-    std::string synopsis_;                              /**< User-defined synopsis or empty string. */
-    std::string documentation_;                         /**< Main documentation for the switch. */
-    std::string documentationKey_;                      /**< For sorting documentation. */
-    bool hidden_;                                       /**< Whether to hide documentation. */
-    std::vector<SwitchArgument> arguments_;             /**< Arguments with optional default values. */
-    SwitchAction::Ptr action_;                          /**< %Optional action to perform during ParserResult::apply. */
-    WhichValue whichValue_;                             /**< Which switch values should be saved. */
-    ValueAugmenter::Ptr valueAugmenter_;                /**< Used if <code>whichValue_==SAVE_AUGMENTED</code>. */
-    ParsedValue intrinsicValue_;                        /**< Value for switches that have no declared arguments. */
-    bool explosiveLists_;                               /**< Whether to expand ListParser::ValueList into separate values. */
+    std::vector<std::string> longNames_;                // Long name of switch, or empty string.
+    std::string shortNames_;                            // Optional short names for this switch.
+    std::string key_;                                   // Unique key, usually the long name or the first short name.
+    ParsingProperties properties_;                      // Properties valid at multiple levels of the hierarchy.
+    std::string synopsis_;                              // User-defined synopsis or empty string.
+    std::string documentation_;                         // Main documentation for the switch.
+    std::string documentationKey_;                      // For sorting documentation.
+    bool hidden_;                                       // Whether to hide documentation.
+    std::vector<SwitchArgument> arguments_;             // Arguments with optional default values.
+    SwitchAction::Ptr action_;                          // Optional action to perform during ParserResult::apply.
+    WhichValue whichValue_;                             // Which switch values should be saved.
+    ValueAugmenter::Ptr valueAugmenter_;                // Used if <code>whichValue_==SAVE_AUGMENTED</code>.
+    ParsedValue intrinsicValue_;                        // Value for switches that have no declared arguments.
+    bool explosiveLists_;                               // Whether to expand ListParser::ValueList into separate values.
+    SwitchSkipping skipping_;                           // Whether to skip over this switch without saving or acting.
 #include <Sawyer/WarningsRestore.h>
 
 public:
@@ -1977,7 +1985,7 @@ public:
      *  arguments or argument types. */
     explicit Switch(const std::string &longName, char shortName='\0')
         : hidden_(false), whichValue_(SAVE_LAST), intrinsicValue_(ParsedValue(true, NOWHERE, "true", ValueSaver::Ptr())),
-          explosiveLists_(false) {
+          explosiveLists_(false), skipping_(SKIP_NEVER) {
         init(longName, shortName);
     }
 
@@ -2102,6 +2110,21 @@ public:
      * @{ */
     Switch& hidden(bool b) { hidden_ = b; return *this; }
     bool hidden() const { return hidden_; }
+    /** @} */
+
+    /** Property: whether to skip over this switch.
+     *
+     *  The default is to not skip over anything, in which case if the switch appears on the command-line its actions are run
+     *  and its value are saved.  If skipping is set to @ref SKIP_WEAK or @ref SKIP_STRONG then the switch and its arguments
+     *  are also added to the skipped list returned by @ref Parser::skippedArgs and @ref Parser::unparsedArgs.  The difference
+     *  between weak and strong is that strong also skips any actions and value saving for the switch.
+     *
+     *  For short, nestled switches, a program argument is added to the skipped list if any of the short switches in that
+     *  argument are @ref SKIP_WEAK or @ref SKIP_STRONG.
+     *
+     * @{ */
+    Switch& skipping(SwitchSkipping how) { skipping_ = how; return *this; }
+    SwitchSkipping skipping() const { return skipping_; }
     /** @} */
 
     /** Property: prefixes for long names.  A long name prefix is the characters that introduce a long switch, usually "-\-"
