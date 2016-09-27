@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
                     "When this option is used, neither remote-tracking branches nor the related configuration variables "
                     "are created."));
     cmd.insert(Switch("mirror")
-               .doc("Set up a mirror of the source repository. This implies @s{bare}. Compared to @s{bare}, @s{mirror} not only "
+               .doc("Set up a mirror of the source repository. This implies @s{clone-bare}. Compared to @s{clone-bare}, @s{mirror} not only "
                     "maps local branches of the source to local branches of the target, it maps all refs (including "
                     "remote-tracking branches, notes etc.) and sets up a refspec configuration such that all these refs "
                     "are overwritten by a '@prop{programName} remote update' in the target repository."));
@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
                     "equivalent to running '@prop{programName} submodule update @s{init} @s{recursive}' immediately after "
                     "the clone is "
                     "finished. This option is ignored if the cloned repository does not have a worktree/checkout (i.e. if "
-                    "any of @s{no-checkout}/@s{n}, @s{bare}, or @s{mirror} is given)"));
+                    "any of @s{no-checkout}/@s{n}, @s{clone-bare}, or @s{mirror} is given)"));
     cmd.insert(Switch("separate-git-dir")
                .argument("git-dir")
                .doc("Instead of placing the cloned repository where it is supposed to be, place the cloned repository at "

@@ -399,8 +399,8 @@ int main(int argc, char *argv[]) {
     args = Parser()
            .with(Switch("width")
                  .argument("n", integerParser(width)))
-           .skipUnknownSwitches()
-           .skipNonSwitches()
+           .skippingUnknownSwitches(true)
+           .skippingNonSwitches(true)
            .parse(argc, argv)
            .apply()
            .unparsedArgs(true);

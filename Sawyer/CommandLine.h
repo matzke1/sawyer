@@ -2812,7 +2812,7 @@ public:
      *
      * @sa ParserResult::skippedArgs ParserResult::unparsedArgs
      * @{ */
-    Parser& skipNonSwitches(bool b=true) { skipNonSwitches_ = b; return *this; }
+    Parser& skippingNonSwitches(bool b) { skipNonSwitches_ = b; return *this; }
     bool skippingNonSwitches() const { return skipNonSwitches_; }
     /** @} */
 
@@ -2822,7 +2822,7 @@ public:
      *
      * @sa ParserResult::skippedArgs ParserResult::unparsedArgs
      * @{ */
-    Parser& skipUnknownSwitches(bool b=true) { skipUnknownSwitches_ = b; return *this; }
+    Parser& skippingUnknownSwitches(bool b) { skipUnknownSwitches_ = b; return *this; }
     bool skippingUnknownSwitches() const { return skipUnknownSwitches_; }
     /** @} */
 
@@ -2841,7 +2841,7 @@ public:
      *  parser.errorStream(Message::mlog[Message::FATAL]);
      * @endcode
      *
-     * @sa @ref skipNonSwitches @ref skipUnknownSwitches
+     * @sa @ref skipingNonSwitches @ref skippingUnknownSwitches
      * @{ */
     Parser& errorStream(const Message::SProxy &stream) { errorStream_ = stream; return *this; }
     const Message::SProxy& errorStream() const { return errorStream_; }
@@ -3193,9 +3193,9 @@ public:
 
     /** Program arguments that were skipped over during parsing.
      *
-     *  If the Parser::skipUnknownSwitches or Parser::skipNonSwitches properties are true, then this method returns those
-     *  command-line arguments that the parser skipped.  The library makes no distinction between these two classes of skipping
-     *  because in general, it is impossible to be accurate about it (see @ref SwitchGroup for an example).
+     *  If the Parser::skippingUnknownSwitches or Parser::skippingNonSwitches properties are true, then this method returns
+     *  those command-line arguments that the parser skipped.  The library makes no distinction between these two classes of
+     *  skipping because in general, it is impossible to be accurate about it (see @ref SwitchGroup for an example).
      *
      *  Program arguments inserted into the command line due to file inclusion will be returned in place of the file inclusion
      *  switch itself.
