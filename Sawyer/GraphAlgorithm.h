@@ -6,7 +6,6 @@
 #include <Sawyer/Sawyer.h>
 #include <Sawyer/DenseIntegerSet.h>
 #include <Sawyer/GraphTraversal.h>
-#include <Sawyer/Message.h>
 #include <Sawyer/Set.h>
 
 #include <boost/foreach.hpp>
@@ -346,7 +345,6 @@ class CommonSubgraphIsomorphism {
     const Graph &g1, &g2;                               // the two whole graphs being compared
     DenseIntegerSet<size_t> v, w;                       // available vertices of g1 and g2, respectively
     std::vector<size_t> x, y;                           // selected vertices of g1 and g2, which defines vertex mapping
-    mutable Message::Stream debug;                      // debugging output
     DenseIntegerSet<size_t> vNotX;                      // X erased from V
 
     SolutionProcessor solutionProcessor_;               // functor to call for each solution
@@ -389,22 +387,6 @@ class CommonSubgraphIsomorphism {
             static const std::vector<size_t> empty;
             return i < map_.size() ? map_[i] : empty;
         }
-
-        // Print for debugging
-        void print(std::ostream &out, const std::string &prefix = "vam") const {
-            if (isEmpty()) {
-                out <<prefix <<" is empty\n";
-            } else {
-                for (size_t i=0; i<map_.size(); ++i) {
-                    if (!map_[i].empty()) {
-                        out <<prefix <<"[" <<i <<"] -> {";
-                        BOOST_FOREACH (size_t j, map_[i])
-                            out <<" " <<j;
-                        out <<" }\n";
-                    }
-                }
-            }
-        }
     };
 
 public:
@@ -417,21 +399,16 @@ public:
      *  issue, then they can be created with default constructors when the solver is created, and then modified afterward by
      *  obtaining a reference to the copies that are part of the solver.
      *
-     *  A debug stream can be provided, in which case large amounts of debug traces are emitted. The default is to use
-     *  %Sawyer's main debug stream which is normally disabled, thus no output is produced. Debug output can be selectively
-     *  turned on and off by enabling or disabling the stream at any time during the analysis.
-     *
      *  The default solution processor, @ref CsiShowSolution, prints the solutions to standard output. The default vertex
      *  equivalence predicate, @ref CsiEquivalence, allows any vertex in graph @p g1 to be isomorphic to any vertex in graph @p
      *  g2. The solver additionally constrains the two sugraphs of any solution to have the same number of edges (that's the
      *  essence of subgraph isomorphism and cannot be overridden by the vertex isomorphism predicate). */
     CommonSubgraphIsomorphism(const Graph &g1, const Graph &g2,
-                              Message::Stream &debug = Message::mlog[Message::DEBUG],
                               SolutionProcessor solutionProcessor = SolutionProcessor(), 
                               EquivalenceP equivalenceP = EquivalenceP())
-        : g1(g1), g2(g2), v(g1.nVertices()), w(g2.nVertices()), debug(debug), vNotX(g1.nVertices()),
-          solutionProcessor_(solutionProcessor), equivalenceP_(equivalenceP), minimumSolutionSize_(1),
-          maximumSolutionSize_(-1), monotonicallyIncreasing_(false), findingCommonSubgraphs_(true) {}
+        : g1(g1), g2(g2), v(g1.nVertices()), w(g2.nVertices()), vNotX(g1.nVertices()), solutionProcessor_(solutionProcessor),
+          equivalenceP_(equivalenceP), minimumSolutionSize_(1), maximumSolutionSize_(-1), monotonicallyIncreasing_(false),
+          findingCommonSubgraphs_(true) {}
 
 private:
     CommonSubgraphIsomorphism(const CommonSubgraphIsomorphism&) {
@@ -565,31 +542,6 @@ public:
     }
     
 private:
-    // Print contents of a container. This is only used for debugging.
-    template<class ForwardIterator>
-    void printContainer(std::ostream &out, const std::string &prefix, ForwardIterator begin, const ForwardIterator &end,
-                        const char *ends = "[]", bool doSort = false) const {
-        ASSERT_require(ends && 2 == strlen(ends));
-        if (doSort) {
-            std::vector<size_t> sorted(begin, end);
-            std::sort(sorted.begin(), sorted.end());
-            printContainer(out, prefix, sorted.begin(), sorted.end(), ends, false);
-        } else {
-            out <<prefix <<ends[0];
-            while (begin != end) {
-                out <<" " <<*begin;
-                ++begin;
-            }
-            out <<" " <<ends[1] <<"\n";
-        }
-    }
-
-    template<class ForwardIterator>
-    void printContainer(std::ostream &out, const std::string &prefix, const boost::iterator_range<ForwardIterator> &range,
-                        const char *ends = "[]", bool doSort = false) const {
-        printContainer(out, prefix, range.begin(), range.end(), ends, doSort);
-    }
-
     // Initialize VAM so to indicate which source vertices (v of g1) map to which target vertices (w of g2) based only on the
     // vertex comparator.  We also handle self edges here.
     void initializeVam(Vam &vam) const {
@@ -651,7 +603,6 @@ private:
 
     // Extend the current solution by adding vertex i from G1 and vertex j from G2. The VAM should be adjusted separately.
     void extendSolution(size_t i, size_t j) {
-        SAWYER_MESG(debug) <<"  extending solution with (i,j) = (" <<i <<"," <<j <<")\n";
         ASSERT_require(x.size() == y.size());
         ASSERT_require(std::find(x.begin(), x.end(), i) == x.end());
         ASSERT_require(std::find(y.begin(), y.end(), j) == y.end());
@@ -717,29 +668,11 @@ private:
         Vam refined;
         BOOST_FOREACH (size_t i, vNotX.values()) {
             BOOST_FOREACH (size_t j, vam.get(i)) {
-                if (j != y.back()) {
-                    SAWYER_MESG(debug) <<"  refining with edges " <<x.back() <<" <--> " <<i <<" in G1"
-                                       <<" and " <<y.back() <<" <--> " <<j <<" in G2";
-                    if (edgesAreSuitable(x.back(), i, y.back(), j)) {
-                        SAWYER_MESG(debug) <<": inserting (" <<i <<", " <<j <<")\n";
-                        refined.insert(i, j);
-                    } else {
-                        SAWYER_MESG(debug) <<": non-equivalent edges\n";
-                    }
-                }
+                if (j != y.back() && edgesAreSuitable(x.back(), i, y.back(), j))
+                    refined.insert(i, j);
             }
         }
-        refined.print(debug, "  refined");
         return refined;
-    }
-
-    // Show some debugging inforamtion
-    void showState(const Vam &vam, const std::string &what, size_t level) const {
-        debug <<what <<" " <<level <<":\n";
-        printContainer(debug, "  v - x = ", vNotX.values(), "{}", true);
-        printContainer(debug, "  x = ", x.begin(), x.end());
-        printContainer(debug, "  y = ", y.begin(), y.end());
-        vam.print(debug, "  vam");
     }
 
     // The Goldilocks predicate. Returns true if the solution is a valid size, false if it's too small or too big.
@@ -757,12 +690,9 @@ private:
     // advanced and retracted as the space is searched. The VAM is the only part of the state that needs to be stored on a
     // stack since changes to it could not be easily undone during the retract phase.
     CsiNextAction recurse(const Vam &vam, size_t level = 0) {
-        if (debug)
-            showState(vam, "entering state", level);        // debugging
         equivalenceP_.progress(level);
         if (isSolutionPossible(vam)) {
             size_t i = pickVertex(vam);
-            SAWYER_MESG(debug) <<"  picked i = " <<i <<"\n";
             std::vector<size_t> jCandidates = vam.get(i);
             BOOST_FOREACH (size_t j, jCandidates) {
                 extendSolution(i, j);
@@ -770,13 +700,10 @@ private:
                 if (recurse(refined, level+1) == CSI_ABORT)
                     return CSI_ABORT;
                 retractSolution();
-                if (debug)
-                    showState(vam, "back to state", level);
             }
 
             // Try again after removing vertex i from consideration
             if (findingCommonSubgraphs_) {
-                SAWYER_MESG(debug) <<"  removing i=" <<i <<" from consideration\n";
                 v.erase(i);
                 ASSERT_require(vNotX.exists(i));
                 vNotX.erase(i);
@@ -784,15 +711,9 @@ private:
                     return CSI_ABORT;
                 v.insert(i);
                 vNotX.insert(i);
-                if (debug)
-                    showState(vam, "restored i=" + boost::lexical_cast<std::string>(i) + " back to state", level);
             }
         } else if (isSolutionValidSize()) {
             ASSERT_require(x.size() == y.size());
-            if (debug) {
-                printContainer(debug, "  found soln x = ", x.begin(), x.end());
-                printContainer(debug, "  found soln y = ", y.begin(), y.end());
-            }
             if (monotonicallyIncreasing_)
                 minimumSolutionSize_ = x.size();
             if (solutionProcessor_(g1, x, g2, y) == CSI_ABORT)
@@ -824,14 +745,14 @@ private:
  * @{ */
 template<class Graph, class SolutionProcessor>
 void findCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, SolutionProcessor solutionProcessor) {
-    CommonSubgraphIsomorphism<Graph, SolutionProcessor> csi(g1, g2, Message::mlog[Message::DEBUG], solutionProcessor);
+    CommonSubgraphIsomorphism<Graph, SolutionProcessor> csi(g1, g2, solutionProcessor);
     csi.run();
 }
 
 template<class Graph, class SolutionProcessor, class EquivalenceP>
-void findCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const Message::Stream &debug,
+void findCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2,
                                    SolutionProcessor solutionProcessor, EquivalenceP equivalenceP) {
-    CommonSubgraphIsomorphism<Graph, SolutionProcessor, EquivalenceP> csi(g1, g2, debug, solutionProcessor, equivalenceP);
+    CommonSubgraphIsomorphism<Graph, SolutionProcessor, EquivalenceP> csi(g1, g2, solutionProcessor, equivalenceP);
     csi.run();
 }
 /** @} */
@@ -861,7 +782,7 @@ public:
 template<class Graph>
 std::pair<std::vector<size_t>, std::vector<size_t> >
 findFirstCommonIsomorphicSubgraph(const Graph &g1, const Graph &g2, size_t minimumSize) {
-    CommonSubgraphIsomorphism<Graph, FirstIsomorphicSubgraph<Graph> > csi(g1, g2, Message::mlog[Message::DEBUG]);
+    CommonSubgraphIsomorphism<Graph, FirstIsomorphicSubgraph<Graph> > csi(g1, g2);
     csi.minimumSolutionSize(minimumSize);
     csi.maximumSolutionSize(minimumSize);               // to avoid going further than necessary
     csi.run();
@@ -871,10 +792,9 @@ findFirstCommonIsomorphicSubgraph(const Graph &g1, const Graph &g2, size_t minim
 
 template<class Graph, class EquivalenceP>
 std::pair<std::vector<size_t>, std::vector<size_t> >
-findFirstCommonIsomorphicSubgraph(const Graph &g1, const Graph &g2, const Message::Stream &debug,
-                                  size_t minimumSize, EquivalenceP equivalenceP) {
+findFirstCommonIsomorphicSubgraph(const Graph &g1, const Graph &g2, size_t minimumSize, EquivalenceP equivalenceP) {
     CommonSubgraphIsomorphism<Graph, FirstIsomorphicSubgraph<Graph>, EquivalenceP>
-        csi(g1, g2, debug, FirstIsomorphicSubgraph<Graph>(), equivalenceP);
+        csi(g1, g2, FirstIsomorphicSubgraph<Graph>(), equivalenceP);
     csi.minimumSolutionSize(minimumSize);
     csi.maximumSolutionSize(minimumSize);               // to avoid going further than necessary
     csi.run();
@@ -901,15 +821,14 @@ findFirstCommonIsomorphicSubgraph(const Graph &g1, const Graph &g2, const Messag
  * @{ */
 template<class Graph, class SolutionProcessor>
 void findIsomorphicSubgraphs(const Graph &g1, const Graph &g2, SolutionProcessor solutionProcessor) {
-    CommonSubgraphIsomorphism<Graph, SolutionProcessor> csi(g1, g2, Message::mlog[Message::DEBUG], solutionProcessor);
+    CommonSubgraphIsomorphism<Graph, SolutionProcessor> csi(g1, g2, solutionProcessor);
     csi.findingCommonSubgraphs(false);
     csi.run();
 }
 
 template<class Graph, class SolutionProcessor, class EquivalenceP>
-void findIsomorphicSubgraphs(const Graph &g1, const Graph &g2, const Message::Stream &debug,
-                             SolutionProcessor solutionProcessor, EquivalenceP equivalenceP) {
-    CommonSubgraphIsomorphism<Graph, SolutionProcessor, EquivalenceP> csi(g1, g2, debug, solutionProcessor, equivalenceP);
+void findIsomorphicSubgraphs(const Graph &g1, const Graph &g2, SolutionProcessor solutionProcessor, EquivalenceP equivalenceP) {
+    CommonSubgraphIsomorphism<Graph, SolutionProcessor, EquivalenceP> csi(g1, g2, solutionProcessor, equivalenceP);
     csi.findingCommonSubgraphs(false);
     csi.run();
 }
@@ -955,7 +874,7 @@ public:
 template<class Graph>
 std::vector<std::pair<std::vector<size_t>, std::vector<size_t> > >
 findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2) {
-    CommonSubgraphIsomorphism<Graph, MaximumIsomorphicSubgraphs<Graph> > csi(g1, g2, Message::mlog[Message::DEBUG]);
+    CommonSubgraphIsomorphism<Graph, MaximumIsomorphicSubgraphs<Graph> > csi(g1, g2);
     csi.monotonicallyIncreasing(true);
     csi.run();
     return csi.solutionProcessor().solutions();
@@ -965,7 +884,7 @@ template<class Graph, class EquivalenceP>
 std::vector<std::pair<std::vector<size_t>, std::vector<size_t> > >
 findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, EquivalenceP equivalenceP) {
     CommonSubgraphIsomorphism<Graph, MaximumIsomorphicSubgraphs<Graph>, EquivalenceP >
-        csi(g1, g2, Message::mlog[Message::DEBUG], MaximumIsomorphicSubgraphs<Graph>(), equivalenceP);
+        csi(g1, g2, MaximumIsomorphicSubgraphs<Graph>(), equivalenceP);
     csi.monotonicallyIncreasing(true);
     csi.run();
     return csi.solutionProcessor().solutions();
