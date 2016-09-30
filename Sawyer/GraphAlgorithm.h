@@ -342,6 +342,8 @@ template<class Graph,
          class SolutionProcessor = CsiShowSolution<Graph>,
          class EquivalenceP = CsiEquivalence<Graph> >
 class CommonSubgraphIsomorphism {
+    typedef std::vector<size_t> IndexVector;
+
     const Graph &g1, &g2;                               // the two whole graphs being compared
     DenseIntegerSet<size_t> v, w;                       // available vertices of g1 and g2, respectively
     std::vector<size_t> x, y;                           // selected vertices of g1 and g2, which defines vertex mapping
@@ -355,10 +357,16 @@ class CommonSubgraphIsomorphism {
     bool findingCommonSubgraphs_;                       // solutions are subgraphs of both graphs or only second graph?
 
     class Vam {                                         // Vertex Availability Map
-        typedef std::vector<size_t> TargetVertices;     // target vertices in no particular order
-        typedef std::vector<TargetVertices> Map;        // map from source vertex to available target vertices
+        typedef std::vector<IndexVector> Map;           // map from source vertex to available target vertices
+        const std::vector<size_t> empty_;
         Map map_;
+        size_t nVerts2_;                                // for reserving space in IndexVectors
     public:
+        Vam(size_t nVerts1, size_t nVerts2)
+            : nVerts2_(nVerts2) {
+            map_.reserve(nVerts1);
+        }
+
         // Set to initial emtpy state
         void clear() {
             map_.clear();
@@ -372,8 +380,12 @@ class CommonSubgraphIsomorphism {
 
         // Insert the pair (i,j) into the mapping. Assumes this pair isn't already present.
         void insert(size_t i, size_t j) {
-            if (i >= map_.size())
+            size_t oldSize = map_.size();
+            if (i >= oldSize) {
                 map_.resize(i+1);
+                for (size_t j=oldSize; j<=i; ++j)
+                    map_[j].reserve(nVerts2_);
+            }
             map_[i].push_back(j);
         }
 
@@ -383,9 +395,8 @@ class CommonSubgraphIsomorphism {
         }
 
         // Given a vertex i in G1, return those vertices j in G2 where i and j can be equivalent.
-        const std::vector<size_t>& get(size_t i) const {
-            static const std::vector<size_t> empty;
-            return i < map_.size() ? map_[i] : empty;
+        const IndexVector& get(size_t i) const {
+            return i < map_.size() ? map_[i] : empty_;
         }
     };
 
@@ -524,7 +535,7 @@ public:
      *  necessary since the destructor does not leak memory. */
     void run() {
         reset();
-        Vam vam;                                        // this is the only per-recursion local state
+        Vam vam(g1.nVertices(), g2.nVertices());        // this is the only per-recursion local state
         initializeVam(vam);
         recurse(vam);
     }
@@ -664,15 +675,13 @@ private:
     }
 
     // Create a new VAM from an existing one. The (i,j) pairs of the new VAM will form a subset of the specified VAM.
-    Vam refine(const Vam &vam) const {
-        Vam refined;
+    void refine(const Vam &vam, Vam &refined /*out*/) const {
         BOOST_FOREACH (size_t i, vNotX.values()) {
             BOOST_FOREACH (size_t j, vam.get(i)) {
                 if (j != y.back() && edgesAreSuitable(x.back(), i, y.back(), j))
                     refined.insert(i, j);
             }
         }
-        return refined;
     }
 
     // The Goldilocks predicate. Returns true if the solution is a valid size, false if it's too small or too big.
@@ -696,7 +705,8 @@ private:
             std::vector<size_t> jCandidates = vam.get(i);
             BOOST_FOREACH (size_t j, jCandidates) {
                 extendSolution(i, j);
-                Vam refined = refine(vam);
+                Vam refined(g1.nVertices(), g2.nVertices());
+                refine(vam, refined /*out*/);
                 if (recurse(refined, level+1) == CSI_ABORT)
                     return CSI_ABORT;
                 retractSolution();
