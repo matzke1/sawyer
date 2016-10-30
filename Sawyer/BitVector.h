@@ -1,13 +1,15 @@
 #ifndef Sawyer_BitVector_H
 #define Sawyer_BitVector_H
 
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/cstdint.hpp>
 #include <Sawyer/Assert.h>
 #include <Sawyer/BitVectorSupport.h>
 #include <Sawyer/Optional.h>
 #include <Sawyer/Sawyer.h>
-#include <vector>
+
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/cstdint.hpp>
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/vector.hpp>
 
 namespace Sawyer {
 namespace Container {
@@ -60,6 +62,13 @@ private:
     std::vector<Word> words_;
     size_t size_;
 
+private:
+    friend class boost::serialization::access;
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & size_ & words_;
+    }
+    
 public:
     /** Default construct an empty vector. */
     BitVector(): size_(0) {}
