@@ -184,6 +184,7 @@ facilitiesRename() {
 
 int
 main() {
+    initializeLibrary();
     controlImportanceCase();
     streamRename();
     facilityRename();

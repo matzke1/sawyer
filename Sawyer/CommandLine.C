@@ -2610,7 +2610,7 @@ Parser::regroupArgs(const std::vector<std::string> &args, const Container::Inter
                 std::string mesg = "empty specimen specification on command-line";
                 if (errorStream_) {
                     *errorStream_ <<mesg <<"\n";
-                    *errorStream_ <<exitMessage_ <<"\n";
+                    *errorStream_ <<exitMessage() <<"\n";
                     exit(1);
                 } else {
                     throw std::runtime_error(mesg);
@@ -2637,7 +2637,7 @@ Parser::regroupArgs(const std::vector<std::string> &args, const Container::Inter
         }
         if (errorStream_) {
             *errorStream_ <<mesg.str() <<"\n";
-            *errorStream_ <<exitMessage_ <<"\n";
+            *errorStream_ <<exitMessage() <<"\n";
             exit(1);
         } else {
             throw std::runtime_error(mesg.str());
