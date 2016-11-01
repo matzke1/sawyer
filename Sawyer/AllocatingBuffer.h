@@ -5,9 +5,11 @@
 #include <Sawyer/Sawyer.h>
 
 #include <boost/lexical_cast.hpp>
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/base_object.hpp>
+#include <boost/serialization/vector.hpp>
 #include <cstring>                                      // memcpy
 #include <string>
-#include <vector>
 
 namespace Sawyer {
 namespace Container {
@@ -26,8 +28,19 @@ private:
     Address size_;
     std::vector<Value> values_;
 
+private:
+    friend class boost::serialization::access;
+
+    // Users: You'll need to register the subclass once you know its type, such as
+    // BOOST_CLASS_REGISTER(Sawyer::Container::AllocatingBuffer<size_t,uint8_t>);
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & boost::serialization::base_object<Buffer<A, T> >(*this);
+        s & size_ & values_;
+    }
+
 protected:
-    AllocatingBuffer(Address size): size_(size), values_(size) {}
+    explicit AllocatingBuffer(Address size = 0): size_(size), values_(size) {}
 
 public:
     /** Allocating constructor.

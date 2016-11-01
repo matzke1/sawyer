@@ -1,10 +1,19 @@
+#include <Sawyer/AddressMap.h>
+#include <Sawyer/AddressSegment.h>
+#include <Sawyer/AllocatingBuffer.h>
 #include <Sawyer/BitVector.h>
+#include <Sawyer/FileSystem.h>
 #include <Sawyer/Interval.h>
+#include <Sawyer/IntervalMap.h>
+#include <Sawyer/Map.h>
+#include <Sawyer/MappedBuffer.h>
+#include <Sawyer/NullBuffer.h>
 #include <Sawyer/SharedObject.h>
 #include <Sawyer/SharedPointer.h>
 
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/export.hpp>
 #include <sstream>
@@ -216,6 +225,204 @@ test03() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// AllocatingBuffer
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef Sawyer::Container::AllocatingBuffer<size_t, int> T04;
+
+// Since the derived class is a template, we can't call BOOST_CLASS_EXPORT until we know the template arguments.
+BOOST_CLASS_EXPORT(T04);
+
+static void
+test04() {
+    static const int data[] = {1, 2, 3};
+
+    std::cerr <<"AllocatingBuffer<size_t,int> empty\n";
+    T04::Ptr empty_out = T04::instance(0), empty_in;
+    serunser(empty_out, empty_in);
+    ASSERT_always_require(empty_in != NULL);
+    ASSERT_always_require(empty_in->size() == 0);
+
+    std::cerr <<"AllocatingBuffer<size_t,int> nonempty\n";
+    T04::Ptr nonempty_out = T04::instance(3), nonempty_in;
+    size_t nwrite = nonempty_out->write(data, 0, 3);
+    ASSERT_always_require(nwrite == 3);
+    serunser(nonempty_out, nonempty_in);
+    ASSERT_always_require(nonempty_in != NULL);
+    ASSERT_always_require(nonempty_in->size() == 3);
+    int buf[3];
+    buf[0] = buf[1] = buf[2] = 0;
+    size_t nread = nonempty_in->read(buf, 0, 3);
+    ASSERT_always_require(nread == 3);
+    ASSERT_always_require(buf[0] = data[0]);
+    ASSERT_always_require(buf[1] = data[1]);
+    ASSERT_always_require(buf[2] = data[2]);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MappedBuffer
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef Sawyer::Container::MappedBuffer<size_t, uint8_t> T05;
+
+// Since the derived class is a template, we can't call BOOST_CLASS_EXPORT until we know the template arguments.
+BOOST_CLASS_EXPORT(T05);
+
+static void
+test05() {
+    static const uint8_t data[] = {1, 2, 3};
+
+    Sawyer::FileSystem::TemporaryFile f;
+    f.stream().write((const char*)data, sizeof data);
+    ASSERT_always_require(f.stream().good());
+    f.stream().close();
+
+    std::cerr <<"MappedBuffer<size_t,uint8_t>\n";
+    T05::Ptr out = T05::instance(f.name());
+    ASSERT_always_require(out->size() == 3);
+
+    T05::Ptr in;
+    serunser(out, in);
+    ASSERT_always_require(in != NULL);
+    ASSERT_always_require(in->size() == 3);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// NullBuffer
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef Sawyer::Container::NullBuffer<size_t, uint8_t> T06;
+
+// Since the derived class is a template, we can't call BOOST_CLASS_EXPORT until we know the template arguments.
+BOOST_CLASS_EXPORT(T06);
+
+static void
+test06() {
+    std::cerr <<"NullBuffer<size_t,uint8_t>\n";
+    T06::Ptr out = T06::instance(100);
+    ASSERT_always_require(out->size() == 100);
+
+    T06::Ptr in;
+    serunser(out, in);
+    ASSERT_always_require(in != NULL);
+    ASSERT_always_require(in->size() == 100);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Map
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef Sawyer::Container::Map<int, int> T07;
+
+static void
+test07() {
+    std::cerr <<"Map<int,int> empty\n";
+    T07 empty_out, empty_in;
+    empty_in.insert(1, 2);
+    serunser(empty_out, empty_in);
+    ASSERT_always_require(empty_in.isEmpty());
+
+    std::cerr <<"Map<int,int> non-empty\n";
+    T07 nonempty_out, nonempty_in;
+    nonempty_out.insert(3, 4);
+    nonempty_out.insert(5, 6);
+    serunser(nonempty_out, nonempty_in);
+    ASSERT_always_require(nonempty_in.size() == 2);
+    ASSERT_always_require(nonempty_in.exists(3));
+    ASSERT_always_require(nonempty_in[3] == 4);
+    ASSERT_always_require(nonempty_in.exists(5));
+    ASSERT_always_require(nonempty_in[5] == 6);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// AddressSegment<size_t, boost::uint8_t>
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef Sawyer::Container::AddressSegment<size_t, boost::uint8_t> T08;
+typedef Sawyer::Container::AllocatingBuffer<size_t, boost::uint8_t> T08_buffer;
+
+BOOST_CLASS_EXPORT(T08_buffer);
+
+static void
+test08() {
+    static const boost::uint8_t data[] = {1, 2, 3, 4};
+
+    std::cerr <<"AddressSegment<size_t, uint8_t>\n";
+
+    T08_buffer::Ptr buf = T08_buffer::instance(4);
+    size_t nwrite = buf->write(data, 0, 4);
+    ASSERT_always_require(nwrite == 4);
+
+    T08 out(buf, 1, Sawyer::Access::READABLE|Sawyer::Access::WRITABLE, "the_name");
+    T08 in;
+    serunser(out, in);
+
+    ASSERT_always_require(in.buffer() != NULL);
+    ASSERT_always_require(in.buffer()->size() == 4);
+    ASSERT_always_require(in.offset() == 1);
+    ASSERT_always_require(in.accessibility() == (Sawyer::Access::READABLE | Sawyer::Access::WRITABLE));
+    ASSERT_always_require(in.name() == "the_name");
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IntervalMap<unsigned, float>
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef Sawyer::Container::Interval<unsigned> T09_interval;
+typedef Sawyer::Container::IntervalMap<T09_interval, float> T09;
+
+static void
+test09() {
+    std::cerr <<"IntervalMap<unsigned, float> empty\n";
+    T09 empty_out, empty_in;
+    empty_in.insert(1, 2);
+    serunser(empty_out, empty_in);
+    ASSERT_always_require(empty_in.isEmpty());
+
+    std::cerr <<"IntervalMap<unsigned, float> non-empty\n";
+    T09 nonempty_out, nonempty_in;
+    nonempty_out.insert(999, 100.0);
+    nonempty_out.insert(T09_interval::hull(5, 7), 101.0);
+    serunser(nonempty_out, nonempty_in);
+    ASSERT_always_require(nonempty_in.size() == nonempty_out.size());
+    ASSERT_always_require(nonempty_in.exists(999));
+    ASSERT_always_require(nonempty_in[999] == nonempty_out[999]);
+    ASSERT_always_require(nonempty_in.exists(5));
+    ASSERT_always_require(nonempty_in[5] == nonempty_out[5]);
+    ASSERT_always_require(nonempty_in.exists(6));
+    ASSERT_always_require(nonempty_in[6] == nonempty_out[6]);
+    ASSERT_always_require(nonempty_in.exists(7));
+    ASSERT_always_require(nonempty_in[7] == nonempty_out[7]);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// AddressMap<size_t, boost::uint8_t>
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef Sawyer::Container::Interval<size_t> T10_interval;
+typedef Sawyer::Container::AddressMap<size_t, boost::uint8_t> T10;
+
+static void
+test10() {
+    std::cerr <<"AddressMap empty\n";
+    T10 empty_out, empty_in;
+    serunser(empty_out, empty_in);
+    ASSERT_always_require(empty_in.isEmpty());
+
+    std::cerr <<"AddressMap non-empty\n";
+    static const boost::uint8_t data[] = {65, 66, 67, 68};
+    T10 nonempty_out, nonempty_in;
+    nonempty_out.insert(T10_interval::baseSize(10, 4),
+                        T10::Segment::anonymousInstance(4, Sawyer::Access::READABLE, "test_name"));
+    size_t nwrite = nonempty_out.at(10).limit(4).write(data).size();
+    ASSERT_always_require(nwrite == 4);
+    serunser(nonempty_out, nonempty_in);
+    ASSERT_always_require(nonempty_in.size() == nonempty_out.size());
+    ASSERT_always_require(nonempty_in.at(10).available().size() == 4);
+
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int
 main() {
@@ -223,4 +430,11 @@ main() {
     test01();
     test02();
     test03();
+    test04();
+    test05();
+    test06();
+    test07();
+    test08();
+    test09();
+    test10();
 }

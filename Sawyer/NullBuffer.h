@@ -4,6 +4,9 @@
 #include <Sawyer/Buffer.h>
 #include <Sawyer/Sawyer.h>
 
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/base_object.hpp>
+
 namespace Sawyer {
 namespace Container {
 
@@ -16,11 +19,25 @@ class NullBuffer: public Buffer<A, T> {
 public:
     typedef A Address;
     typedef T Value;
+
 private:
     Address size_;
+
+private:
+    friend class boost::serialization::access;
+
+    // Users: You'll need to register the subclass once you know its type, such as
+    // BOOST_CLASS_REGISTER(Sawyer::Container::NullBuffer<size_t,uint8_t>);
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & boost::serialization::base_object<Buffer<A, T> >(*this);
+        s & size_;
+    }
+
 protected:
     NullBuffer(): size_(0) {}
     explicit NullBuffer(Address size): size_(size) {}
+
 public:
     /** Construct a new buffer.
      *

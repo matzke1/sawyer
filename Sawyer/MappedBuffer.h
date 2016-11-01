@@ -10,7 +10,10 @@
 #include <boost/filesystem.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/lexical_cast.hpp>
-#include <string>
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/base_object.hpp>
+#include <boost/serialization/split_member.hpp>
+#include <boost/serialization/string.hpp>
 
 namespace Sawyer {
 namespace Container {
@@ -32,10 +35,46 @@ template<class A, class T>
 class MappedBuffer: public Buffer<A, T> {
     boost::iostreams::mapped_file_params params_;
     boost::iostreams::mapped_file device_;
+
 public:
     typedef A Address;
     typedef T Value;
+
+private:
+    friend class boost::serialization::access;
+
+    // Users: You'll need to register the subclass once you know its type, such as
+    // BOOST_CLASS_REGISTER(Sawyer::Container::MappedBuffer<size_t,uint8_t>);
+    template<class S>
+    void save(S &s, const unsigned version) const {
+        s & boost::serialization::base_object<Buffer<A, T> >(*this);
+        s & params_.path & params_.flags & params_.mode & params_.offset & params_.length & params_.new_file_size;
+
+        boost::uint64_t hint;
+        BOOST_STATIC_ASSERT(sizeof hint >= sizeof params_.hint);
+        hint = (boost::uint64_t)(params_.hint);
+        s & hint;
+    }
+
+    // Users: You'll need to register the subclass once you know its type, such as
+    // BOOST_CLASS_REGISTER(Sawyer::Container::MappedBuffer<size_t,uint8_t>);
+    template<class S>
+    void load(S &s, const unsigned version) {
+        s & boost::serialization::base_object<Buffer<A, T> >(*this);
+        s & params_.path & params_.flags & params_.mode & params_.offset & params_.length & params_.new_file_size;
+
+        boost::uint64_t hint;
+        BOOST_STATIC_ASSERT(sizeof hint >= sizeof params_.hint);
+        s & hint;
+        params_.hint = (const char*)hint;
+
+        device_.open(params_);
+    }
+
+    BOOST_SERIALIZATION_SPLIT_MEMBER();
+
 protected:
+    MappedBuffer() {}                                   // needed for de-serialization
     MappedBuffer(const boost::iostreams::mapped_file_params &params): params_(params), device_(params) {}
 
 public:

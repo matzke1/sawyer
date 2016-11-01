@@ -3,6 +3,7 @@
 
 #include <Sawyer/Sawyer.h>
 #include <Sawyer/SharedPointer.h>
+#include <boost/serialization/access.hpp>
 #include <string>
 
 namespace Sawyer {
@@ -16,8 +17,18 @@ template<class A, class T>
 class Buffer: public SharedObject {
     std::string name_;
     bool copyOnWrite_;
+
 protected:
     Buffer(): name_(generateSequentialName()), copyOnWrite_(false) {}
+
+private:
+    friend class boost::serialization::access;
+
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & name_ & copyOnWrite_;
+    }
+
 public:
     /** Reference counting smart pointer.
      *
