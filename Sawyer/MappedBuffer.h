@@ -37,8 +37,9 @@ class MappedBuffer: public Buffer<A, T> {
     boost::iostreams::mapped_file device_;
 
 public:
-    typedef A Address;
-    typedef T Value;
+    typedef A Address;                                  /**< Type of addresses. */
+    typedef T Value;                                    /**< Type of values. */
+    typedef Buffer<A, T> Super;                         /**< Type of base class. */
 
 private:
     friend class boost::serialization::access;
@@ -47,7 +48,7 @@ private:
     // BOOST_CLASS_REGISTER(Sawyer::Container::MappedBuffer<size_t,uint8_t>);
     template<class S>
     void save(S &s, const unsigned version) const {
-        s & boost::serialization::base_object<Buffer<A, T> >(*this);
+        s & boost::serialization::base_object<Super>(*this);
         s & params_.path & params_.flags & params_.mode & params_.offset & params_.length & params_.new_file_size;
 
         boost::uint64_t hint;
@@ -60,7 +61,7 @@ private:
     // BOOST_CLASS_REGISTER(Sawyer::Container::MappedBuffer<size_t,uint8_t>);
     template<class S>
     void load(S &s, const unsigned version) {
-        s & boost::serialization::base_object<Buffer<A, T> >(*this);
+        s & boost::serialization::base_object<Super>(*this);
         s & params_.path & params_.flags & params_.mode & params_.offset & params_.length & params_.new_file_size;
 
         boost::uint64_t hint;
@@ -74,8 +75,10 @@ private:
     BOOST_SERIALIZATION_SPLIT_MEMBER();
 
 protected:
-    MappedBuffer() {}                                   // needed for de-serialization
-    MappedBuffer(const boost::iostreams::mapped_file_params &params): params_(params), device_(params) {}
+    MappedBuffer()
+        : Super(".MappedBuffer") {}           // needed for de-serialization
+    explicit MappedBuffer(const boost::iostreams::mapped_file_params &params)
+        : Super(".MappedBuffer"), params_(params), device_(params) {}
 
 public:
     /** Map a file according to boost parameters.

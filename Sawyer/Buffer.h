@@ -19,7 +19,7 @@ class Buffer: public SharedObject {
     bool copyOnWrite_;
 
 protected:
-    Buffer(): name_(generateSequentialName()), copyOnWrite_(false) {}
+    explicit Buffer(const std::string &name = ""): name_(generateSequentialName()+name), copyOnWrite_(false) {}
 
 private:
     friend class boost::serialization::access;

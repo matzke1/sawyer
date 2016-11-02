@@ -21,8 +21,9 @@ namespace Container {
 template<class A, class T>
 class AllocatingBuffer: public Buffer<A, T> {
 public:
-    typedef A Address;                                  /** Type of addresses used to index the stored data. */
-    typedef T Value;                                    /** Type of data that is stored. */
+    typedef A Address;                                  /**< Type of addresses used to index the stored data. */
+    typedef T Value;                                    /**< Type of data that is stored. */
+    typedef Buffer<A, T> Super;                         /**< Type of base class. */
 
 private:
     Address size_;
@@ -35,12 +36,12 @@ private:
     // BOOST_CLASS_REGISTER(Sawyer::Container::AllocatingBuffer<size_t,uint8_t>);
     template<class S>
     void serialize(S &s, const unsigned version) {
-        s & boost::serialization::base_object<Buffer<A, T> >(*this);
+        s & boost::serialization::base_object<Super>(*this);
         s & size_ & values_;
     }
 
 protected:
-    explicit AllocatingBuffer(Address size = 0): size_(size), values_(size) {}
+    explicit AllocatingBuffer(Address size = 0): Super(".AllocatingBuffer"), size_(size), values_(size) {}
 
 public:
     /** Allocating constructor.
