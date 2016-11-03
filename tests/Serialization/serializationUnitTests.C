@@ -423,6 +423,190 @@ test10() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Stack temporaries
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void
+test11() {
+    std::cerr <<"Restoring into stack\n";
+
+    std::vector<std::string> vs_out;
+    vs_out.push_back("abcde");
+    vs_out.push_back("fghij");
+    vs_out.push_back("klmno");
+    vs_out.push_back("pqrst");
+    vs_out.push_back("uvwxy");
+
+    // Save some strings
+    std::ostringstream oss;
+    boost::archive::text_oarchive out(oss);
+    for (size_t i=0; i<vs_out.size(); ++i)
+        out <<vs_out[i];
+
+    // Restore the normal way, by pre-allocating the locations
+    std::istringstream iss1(oss.str());
+    boost::archive::text_iarchive in1(iss1);
+    std::vector<std::string> vs_in1;
+    vs_in1.resize(vs_out.size());
+    for (size_t i=0; i<vs_out.size(); ++i) {
+        in1 >>vs_in1[i];
+        ASSERT_always_require(vs_in1[i] == vs_out[i]);
+    }
+
+    // Restore via temporary stack variable to make sure that boost::serialize does not think that the local var is always a
+    // reference to the same string every time.
+    std::istringstream iss2(oss.str());
+    boost::archive::text_iarchive in2(iss2);
+    std::vector<std::string> vs_in2;
+    for (size_t i=0; i<vs_out.size(); ++i) {
+        std::string s;
+        in2 >>s;
+        ASSERT_always_require(s == vs_out[i]);
+        vs_in2.push_back(s);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Polymorphic class with mutable members
+// Trying to reproduce a bug found in ROSE.
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+class T12_SgAsmExpression {
+private:
+    friend class boost::serialization::access;
+
+    template<class S>
+    void serialize(S &s, const unsigned version) {}
+
+public:
+    virtual ~T12_SgAsmExpression() {}
+    virtual double get_double() const { ASSERT_not_reachable("simulated virtual function"); }
+};
+
+
+class T12_SgAsmValueExpressionStorageClass {};
+
+class T12_SgSymbol {};
+
+class T12_SgAsmValueExpression: public T12_SgAsmExpression {
+private:
+    friend class boost::serialization::access;
+
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & boost::serialization::base_object<T12_SgAsmExpression>(*this);
+        s & unfolded_expression_tree & bit_offset & bit_size;
+        ASSERT_require(symbol == NULL);
+        // s & symbol;
+    }
+
+public:
+    T12_SgAsmValueExpression(const T12_SgAsmValueExpressionStorageClass&) {
+        ASSERT_not_reachable("shouldn't get here");
+    }
+
+    virtual ~T12_SgAsmValueExpression() {}
+
+    T12_SgAsmValueExpression()
+        : unfolded_expression_tree(NULL), bit_offset(0), bit_size(0), symbol(NULL) {}
+    
+protected:
+    T12_SgAsmValueExpression *unfolded_expression_tree;
+    unsigned short bit_offset;
+    unsigned short bit_size;
+    T12_SgSymbol *symbol;
+};
+
+class T12_SgAsmConstantExpressionStorageClass {};
+
+class T12_SgAsmConstantExpression: public T12_SgAsmValueExpression {
+private:
+    friend class boost::serialization::access;
+
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & boost::serialization::base_object<T12_SgAsmValueExpression>(*this);
+        s & bitVector;
+    }
+
+public:
+    T12_SgAsmConstantExpression(const T12_SgAsmConstantExpressionStorageClass&) {
+        ASSERT_not_reachable("shouldn't get here");
+    }
+
+    virtual ~T12_SgAsmConstantExpression() {}
+
+    T12_SgAsmConstantExpression() {}
+
+protected:
+    Sawyer::Container::BitVector bitVector;
+};
+
+class T12_SgAsmType {};
+
+class T12_SgAsmFloatValueExpressionStorageClass {};
+
+class T12_SgAsmFloatValueExpression: public T12_SgAsmConstantExpression {
+private:
+    mutable double nativeValue;
+    mutable bool nativeValueIsValid;
+
+    friend class boost::serialization::access;
+
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & boost::serialization::base_object<T12_SgAsmConstantExpression>(*this);
+        s & nativeValue & nativeValueIsValid;
+    }
+
+public:
+    T12_SgAsmFloatValueExpression()
+        : nativeValue(0.0), nativeValueIsValid(false) {}
+    T12_SgAsmFloatValueExpression(double x, T12_SgAsmType*)
+        : nativeValue(x), nativeValueIsValid(true) {}
+    T12_SgAsmFloatValueExpression(const Sawyer::Container::BitVector &bv, T12_SgAsmType*)
+        : nativeValue(0), nativeValueIsValid(false) {
+        bitVector = bv;
+    }
+    T12_SgAsmFloatValueExpression(const T12_SgAsmFloatValueExpressionStorageClass&) {
+        ASSERT_not_reachable("shouldn't get here");
+    }
+    virtual ~T12_SgAsmFloatValueExpression() {}
+
+    virtual double get_double() const {
+        return nativeValue;
+    }
+};
+
+template<class S>
+static void
+test12_register(S &s) {
+    s.template register_type<T12_SgAsmExpression>();
+    s.template register_type<T12_SgAsmValueExpression>();
+    s.template register_type<T12_SgAsmConstantExpression>();
+    s.template register_type<T12_SgAsmFloatValueExpression>();
+}
+
+static void
+test12() {
+    std::cerr <<"Polymorphic class with mutable members\n";
+
+    T12_SgAsmExpression *a = new T12_SgAsmFloatValueExpression(3.14, NULL);
+    std::ostringstream oss;
+    boost::archive::text_oarchive out(oss);
+    test12_register(out);
+    out <<a;
+
+    T12_SgAsmExpression *b = NULL;
+    std::istringstream iss(oss.str());
+    boost::archive::text_iarchive in(iss);
+    test12_register(in);
+    in >>b;
+
+    ASSERT_always_require(b->get_double() == a->get_double());
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int
 main() {
@@ -437,4 +621,6 @@ main() {
     test08();
     test09();
     test10();
+    test11();
+    test12();
 }
