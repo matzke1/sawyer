@@ -3,6 +3,8 @@
 #include <Sawyer/AllocatingBuffer.h>
 #include <Sawyer/BitVector.h>
 #include <Sawyer/FileSystem.h>
+#include <Sawyer/Graph.h>
+#include <Sawyer/IndexedList.h>
 #include <Sawyer/Interval.h>
 #include <Sawyer/IntervalMap.h>
 #include <Sawyer/Map.h>
@@ -607,6 +609,170 @@ test12() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IndexedList
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct T13_value {
+    int a, b;
+
+    T13_value(): a(0), b(0) {}
+    T13_value(int a, int b): a(a), b(b) {}
+
+    bool operator==(const T13_value &other) const {
+        return a == other.a && b == other.b;
+    }
+
+private:
+    friend class boost::serialization::access;
+
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & a & b;
+    }
+};
+
+static void
+test13() {
+    typedef Sawyer::Container::IndexedList<T13_value> T13;
+
+    std::cerr <<"IndexedList empty\n";
+    T13 empty_out, empty_in;
+    empty_in.pushBack(T13_value(1, 2));
+    serunser(empty_out, empty_in);
+    ASSERT_always_require(empty_in.isEmpty());
+
+    std::cerr <<"IndexedList non-empty\n";
+    T13 nonempty_out, nonempty_in;
+    nonempty_out.pushBack(T13_value(10, 0));
+    nonempty_out.pushBack(T13_value(11, 1));
+    nonempty_out.pushFront(T13_value(9, 2));
+    nonempty_out.pushBack(T13_value(12, 3));
+    nonempty_out.pushFront(T13_value(8, 4));
+    serunser(nonempty_out, nonempty_in);
+
+    T13::ConstNodeIterator iter = nonempty_in.nodes().begin();
+    ASSERT_always_require(iter->value() == T13_value(8, 4));
+    ASSERT_always_require(iter->id() == 4);
+    ++iter;
+    ASSERT_always_require(iter->value() == T13_value(9, 2));
+    ASSERT_always_require(iter->id() == 2);
+    ++iter;
+    ASSERT_always_require(iter->value() == T13_value(10, 0));
+    ASSERT_always_require(iter->id() == 0);
+    ++iter;
+    ASSERT_always_require(iter->value() == T13_value(11, 1));
+    ASSERT_always_require(iter->id() == 1);
+    ++iter;
+    ASSERT_always_require(iter->value() == T13_value(12, 3));
+    ASSERT_always_require(iter->id() == 3);
+    ++iter;
+    ASSERT_always_require(iter == nonempty_in.nodes().end());
+
+    ASSERT_always_require(nonempty_in[0] == T13_value(10, 0));
+    ASSERT_always_require(nonempty_in[1] == T13_value(11, 1));
+    ASSERT_always_require(nonempty_in[2] == T13_value(9, 2));
+    ASSERT_always_require(nonempty_in[3] == T13_value(12, 3));
+    ASSERT_always_require(nonempty_in[4] == T13_value(8, 4));
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Graph
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct T14_vertex {
+    int a;
+
+    explicit T14_vertex(int a = 0): a(a) {}
+
+    bool operator==(const T14_vertex &other) const {
+        return a == other.a;
+    }
+    
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & a;
+    }
+};
+
+struct T14_edge {
+    int b;
+
+    explicit T14_edge(int b = 0): b(b) {}
+
+    bool operator==(const T14_edge &other) const {
+        return b == other.b;
+    }
+    
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & b;
+    }
+};
+
+typedef Sawyer::Container::Graph<T14_vertex, T14_edge> T14;
+
+static void
+test14() {
+    T14 init;
+    T14::ConstVertexIterator v1 = init.insertVertex(T14_vertex(1));
+    T14::ConstVertexIterator v2 = init.insertVertex(T14_vertex(2));
+    init.insertEdge(v1, v2, T14_edge(100));
+    init.insertEdge(v1, v1, T14_edge(101));
+
+    std::cerr <<"Graph empty\n";
+    T14 empty_out, empty_in = init;
+    serunser(empty_out, empty_in);
+    ASSERT_always_require(empty_in.isEmpty());
+
+    std::cerr <<"Graph non-empty\n";
+    T14 nonempty_out = init, nonempty_in;
+    serunser(nonempty_out, nonempty_in);
+    ASSERT_always_require(nonempty_in.nVertices() == nonempty_out.nVertices());
+    ASSERT_always_require(nonempty_in.nEdges() == nonempty_in.nEdges());
+    for (size_t i=0; i<nonempty_in.nVertices(); ++i)
+        ASSERT_always_require(nonempty_in.findVertex(i)->value() == nonempty_out.findVertex(i)->value());
+    for (size_t i=0; i<nonempty_in.nEdges(); ++i) {
+        ASSERT_always_require(nonempty_in.findEdge(i)->value() == nonempty_out.findEdge(i)->value());
+        ASSERT_always_require(nonempty_in.findEdge(i)->source()->id() == nonempty_out.findEdge(i)->source()->id());
+        ASSERT_always_require(nonempty_in.findEdge(i)->target()->id() == nonempty_out.findEdge(i)->target()->id());
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Graph with index
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef Sawyer::Container::Graph<std::string, int, std::string, int> T15;
+
+static void
+test15() {
+    T15 init;
+    T15::ConstVertexIterator v1 = init.insertVertex("foo");
+    T15::ConstVertexIterator v2 = init.insertVertex("bar");
+    init.insertEdge(v1, v2, 100);
+    init.insertEdge(v1, v2, 101);
+    init.insertEdge(v2, v2, 102);
+
+    std::cerr <<"Graph indexed empty\n";
+    T15 empty_out, empty_in = init;
+    serunser(empty_out, empty_in);
+    ASSERT_always_require(empty_in.isEmpty());
+
+    std::cerr <<"Graph indexed non-empty\n";
+    T15 nonempty_out = init, nonempty_in;
+    serunser(nonempty_out, nonempty_in);
+    ASSERT_always_require(nonempty_in.nVertices() == nonempty_out.nVertices());
+    ASSERT_always_require(nonempty_in.nEdges() == nonempty_in.nEdges());
+    for (size_t i=0; i<nonempty_in.nVertices(); ++i)
+        ASSERT_always_require(nonempty_in.findVertex(i)->value() == nonempty_out.findVertex(i)->value());
+    for (size_t i=0; i<nonempty_in.nEdges(); ++i) {
+        ASSERT_always_require(nonempty_in.findEdge(i)->value() == nonempty_out.findEdge(i)->value());
+        ASSERT_always_require(nonempty_in.findEdge(i)->source()->id() == nonempty_out.findEdge(i)->source()->id());
+        ASSERT_always_require(nonempty_in.findEdge(i)->target()->id() == nonempty_out.findEdge(i)->target()->id());
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int
 main() {
@@ -623,4 +789,7 @@ main() {
     test10();
     test11();
     test12();
+    test13();
+    test14();
+    test15();
 }
