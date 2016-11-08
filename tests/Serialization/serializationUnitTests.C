@@ -11,6 +11,7 @@
 #include <Sawyer/MappedBuffer.h>
 #include <Sawyer/NullBuffer.h>
 #include <Sawyer/Optional.h>
+#include <Sawyer/Set.h>
 #include <Sawyer/SharedObject.h>
 #include <Sawyer/SharedPointer.h>
 
@@ -807,6 +808,31 @@ test16() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Set
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef Sawyer::Container::Set<int> T17;
+
+static void
+test17() {
+    std::cerr <<"Set empty\n";
+    T17 empty_out, empty_in;
+    empty_in.insert(1);
+    empty_in.insert(2);
+    serunser(empty_out, empty_in);
+    ASSERT_always_require(empty_in.isEmpty());
+
+    std::cerr <<"Set non-empty\n";
+    T17 nonempty_out, nonempty_in;
+    nonempty_out.insert(3);
+    nonempty_out.insert(4);
+    serunser(nonempty_out, nonempty_in);
+    ASSERT_always_require(nonempty_in.size() == nonempty_out.size());
+    ASSERT_always_require(nonempty_in.least() == nonempty_out.least());
+    ASSERT_always_require(nonempty_in.greatest() == nonempty_out.greatest());
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int
 main() {
@@ -827,4 +853,5 @@ main() {
     test14();
     test15();
     test16();
+    test17();
 }
