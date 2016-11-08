@@ -7,6 +7,7 @@
 #include <Sawyer/IndexedList.h>
 #include <Sawyer/Interval.h>
 #include <Sawyer/IntervalMap.h>
+#include <Sawyer/IntervalSet.h>
 #include <Sawyer/Map.h>
 #include <Sawyer/MappedBuffer.h>
 #include <Sawyer/NullBuffer.h>
@@ -833,6 +834,33 @@ test17() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IntervalSet<unsigned>
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef Sawyer::Container::Interval<unsigned> T18_interval;
+typedef Sawyer::Container::IntervalSet<T18_interval> T18;
+
+static void
+test18() {
+    std::cerr <<"IntervalSet<unsigned> empty\n";
+    T18 empty_out, empty_in;
+    empty_in.insert(1);
+    serunser(empty_out, empty_in);
+    ASSERT_always_require(empty_in.isEmpty());
+
+    std::cerr <<"IntervalSet<unsigned> non-empty\n";
+    T18 nonempty_out, nonempty_in;
+    nonempty_out.insert(999);
+    nonempty_out.insert(T18_interval::hull(5, 7));
+    serunser(nonempty_out, nonempty_in);
+    ASSERT_always_require(nonempty_in.size() == nonempty_out.size());
+    ASSERT_always_require(nonempty_in.exists(999));
+    ASSERT_always_require(nonempty_in.exists(5));
+    ASSERT_always_require(nonempty_in.exists(6));
+    ASSERT_always_require(nonempty_in.exists(7));
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int
 main() {
@@ -854,4 +882,5 @@ main() {
     test15();
     test16();
     test17();
+    test18();
 }
