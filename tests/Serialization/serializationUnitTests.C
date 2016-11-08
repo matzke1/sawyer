@@ -10,6 +10,7 @@
 #include <Sawyer/Map.h>
 #include <Sawyer/MappedBuffer.h>
 #include <Sawyer/NullBuffer.h>
+#include <Sawyer/Optional.h>
 #include <Sawyer/SharedObject.h>
 #include <Sawyer/SharedPointer.h>
 
@@ -773,6 +774,39 @@ test15() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Optional
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct T16 {
+    int a;
+
+    explicit T16(int a = 0): a(a) {}
+
+    bool operator==(const T16 &other) const {
+        return a == other.a;
+    }
+    
+    template<class S>
+    void serialize(S &s, const unsigned version) {
+        s & a;
+    }
+};
+
+static void
+test16() {
+    std::cerr <<"Optional empty\n";
+    Sawyer::Optional<T16> empty_out, empty_in;
+    empty_in = T16(1);
+    serunser(empty_out, empty_in);
+    ASSERT_always_require(empty_in.orDefault() == T16());
+
+    std::cerr <<"Optional non-empty\n";
+    Sawyer::Optional<T16> nonempty_out = T16(2), nonempty_in;
+    serunser(nonempty_out, nonempty_in);
+    ASSERT_always_require(nonempty_in.orDefault() == T16(2));
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int
 main() {
@@ -792,4 +826,5 @@ main() {
     test13();
     test14();
     test15();
+    test16();
 }
