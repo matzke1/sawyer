@@ -3,14 +3,18 @@
 
 namespace Sawyer {
 
+#if SAWYER_MULTI_THREADED
 static void startEviction(ObjectCache *cache) {
     cache->evictContinuously();
 }
+#endif
 
 void
 ObjectCache::init(bool useEvictionThread) {
+#if SAWYER_MULTI_THREADED
     if (useEvictionThread)
         evictionThread_ = boost::thread(startEviction, this);
+#endif
 }
 
 ObjectCache::~ObjectCache() {
@@ -20,8 +24,10 @@ ObjectCache::~ObjectCache() {
         SAWYER_THREAD_TRAITS::LockGuard guard(mutex_);
         pleaseExit_ = true;
     }
+#if SAWYER_MULTI_THREADED
     objectListChanged_.notify_all();
     evictionThread_.join();
+#endif
 }
 
 void
@@ -102,11 +108,13 @@ ObjectCache::exists(const CachableObject *obj) const {
 
 void
 ObjectCache::evictionWakeup(boost::posix_time::milliseconds duration) {
+#if SAWYER_MULTI_THREADED
     SAWYER_THREAD_TRAITS::LockGuard guard(mutex_);
     bool changed = evictionWakeup_ != duration;
     evictionWakeup_ = duration;
     if (changed)
         objectListChanged_.notify_one();
+#endif
 }
 
 boost::posix_time::milliseconds
@@ -157,7 +165,7 @@ ObjectCache::runEvictionNS(SAWYER_THREAD_TRAITS::UniqueLock &lock) {
 
 void
 ObjectCache::evictContinuously() {
-#ifdef SAWYER_MULTI_THREADED
+#if SAWYER_MULTI_THREADED
     SAWYER_THREAD_TRAITS::UniqueLock lock(mutex_);
     while (1) {
         if (!pleaseExit_)

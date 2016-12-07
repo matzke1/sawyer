@@ -22,7 +22,7 @@ class SAWYER_EXPORT ObjectCache {
     mutable SAWYER_THREAD_TRAITS::Mutex mutex_;         // Protects the circular list, hand_
     CachableObject *hand_;                              // Circular list of owned objects
     size_t nObjects_;                                   // Number of objects in circular list
-#ifdef SAWYER_MULTI_THREADED
+#if SAWYER_MULTI_THREADED
     boost::thread evictionThread_;                      // the thread that calls the objects' evict method
     boost::condition_variable objectListChanged_;       // signaled whenever the eviction thread should immediately wake up.
 #endif
