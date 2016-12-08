@@ -1135,7 +1135,7 @@ StreamBuf::overflow(int_type c) {
 
 SAWYER_EXPORT
 Stream::Stream(const std::string facilityName, Importance imp, const DestinationPtr &destination)
-    : std::ostream(new StreamBuf(this)), nrefs_(0), streambuf_(NULL) {
+    : std::ios(new StreamBuf(this)), std::ostream(std::ios::rdbuf()), nrefs_(0), streambuf_(NULL) {
     streambuf_ = dynamic_cast<StreamBuf*>(rdbuf());
     assert(streambuf_!=NULL);
     streambuf_->owner(this);
@@ -1148,7 +1148,7 @@ Stream::Stream(const std::string facilityName, Importance imp, const Destination
 
 SAWYER_EXPORT
 Stream::Stream(const MesgProps &props, const DestinationPtr &destination)
-    : std::ostream(new StreamBuf(this)), nrefs_(0), streambuf_(NULL) {
+    : std::ios(new StreamBuf(this)), std::ostream(std::ios::rdbuf()), nrefs_(0), streambuf_(NULL) {
     streambuf_ = dynamic_cast<StreamBuf*>(rdbuf());
     assert(streambuf_!=NULL);
     streambuf_->owner(this);
@@ -1161,7 +1161,8 @@ Stream::Stream(const MesgProps &props, const DestinationPtr &destination)
 // thread-safe: locks other, but no need to lock this
 SAWYER_EXPORT
 Stream::Stream(const Stream &other)
-    : std::ostream(new StreamBuf(this)), nrefs_(0), streambuf_(NULL) {
+    : std::ios(new StreamBuf(this)), std::ostream(std::ios::rdbuf()), nrefs_(0), streambuf_(NULL)
+{
     SAWYER_THREAD_TRAITS::LockGuard lock(other.mutex_);
     initFromNS(other);
 }
@@ -1177,7 +1178,7 @@ Stream::operator=(const Stream &other) {
 // thread-safe: locks other, but no need to lock this
 SAWYER_EXPORT
 Stream::Stream(const std::ostream &other_)
-    : std::ostream(rdbuf()), nrefs_(0), streambuf_(NULL) {
+    : std::ios(rdbuf()), std::ostream(rdbuf()), nrefs_(0), streambuf_(NULL) {
     const Stream *other = dynamic_cast<const Stream*>(&other_);
     if (!other)
         throw "Sawyer::Message::Stream initializer is not a Sawyer::Message::Stream (only a std::ostream)";
