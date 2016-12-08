@@ -242,7 +242,7 @@ public:
 };
 
 // alternative sink
-void test12(const DestinationPtr &sink) 
+void test12(const DestinationPtr &/*sink*/) 
 {
     banner("test12 - user-defined sink");
     Facility log("test12", MySink::instance(std::cerr));

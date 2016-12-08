@@ -18,7 +18,7 @@ struct SystemAllocator {
     void *allocate(size_t size) {
         return ::operator new(size);
     }
-    void deallocate(void *addr, size_t size) {
+    void deallocate(void *addr, size_t /*size*/) {
         return ::operator delete(addr);
     }
 };

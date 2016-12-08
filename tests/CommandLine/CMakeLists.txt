@@ -10,5 +10,5 @@ target_link_libraries(cmdUnitTests libsawyer)
 add_executable(cmdline_grepExample grepExample.C)
 target_link_libraries(cmdline_grepExample libsawyer)
 
-add_executable(cmdline_codethorn codethorn.C codethorn_CommandLineOptions.C)
-target_link_libraries(cmdline_codethorn libsawyer)
+#add_executable(cmdline_codethorn codethorn.C codethorn_CommandLineOptions.C)
+#target_link_libraries(cmdline_codethorn libsawyer)

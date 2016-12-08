@@ -13,7 +13,7 @@ static const size_t MAX_THREADS = 8;
 struct Fast: Sawyer::SmallObject {
     size_t x;
     Fast(): x(0) {}
-    void work(size_t n) {}
+    void work(size_t /*n*/) {}
 };
 
 // Some small object that does some work

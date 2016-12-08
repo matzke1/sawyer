@@ -518,7 +518,7 @@ private:
     friend class boost::serialization::access;
 
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S&, const unsigned /*version*/) {
         // no data to serialize here
     }
 
@@ -542,7 +542,7 @@ public:
         return right;
     }
 
-    void truncate(const Sawyer::Container::Interval<Address> &interval, Segment &segment, Address splitPoint) {
+    void truncate(const Sawyer::Container::Interval<Address> &interval, Segment &/*segment*/, Address splitPoint) {
         ASSERT_forbid(interval.isEmpty());
         ASSERT_require(interval.isContaining(splitPoint));
     }
@@ -980,7 +980,7 @@ private:
     friend class boost::serialization::access;
 
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & boost::serialization::base_object<Super>(*this);
     }
 

@@ -68,7 +68,7 @@ public:
     virtual std::string name() const = 0;
 
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & i;
     }
 };
@@ -85,7 +85,7 @@ public:
     }
 
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & boost::serialization::base_object<T0_base>(*this);
         s & j;
     }
@@ -103,7 +103,7 @@ public:
     }
 
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & boost::serialization::base_object<T0_base>(*this);
         s & j;
     }
@@ -158,7 +158,7 @@ private:
 private:
     friend class boost::serialization::access;
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & i_;
     }
 protected:
@@ -481,7 +481,7 @@ private:
     friend class boost::serialization::access;
 
     template<class S>
-    void serialize(S &s, const unsigned version) {}
+    void serialize(S&, const unsigned /*version*/) {}
 
 public:
     virtual ~T12_SgAsmExpression() {}
@@ -498,7 +498,7 @@ private:
     friend class boost::serialization::access;
 
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & boost::serialization::base_object<T12_SgAsmExpression>(*this);
         s & unfolded_expression_tree & bit_offset & bit_size;
         ASSERT_require(symbol == NULL);
@@ -529,7 +529,7 @@ private:
     friend class boost::serialization::access;
 
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & boost::serialization::base_object<T12_SgAsmValueExpression>(*this);
         s & bitVector;
     }
@@ -559,7 +559,7 @@ private:
     friend class boost::serialization::access;
 
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & boost::serialization::base_object<T12_SgAsmConstantExpression>(*this);
         s & nativeValue & nativeValueIsValid;
     }
@@ -629,7 +629,7 @@ private:
     friend class boost::serialization::access;
 
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & a & b;
     }
 };
@@ -692,7 +692,7 @@ struct T14_vertex {
     }
     
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & a;
     }
 };
@@ -707,7 +707,7 @@ struct T14_edge {
     }
     
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & b;
     }
 };
@@ -789,7 +789,7 @@ struct T16 {
     }
     
     template<class S>
-    void serialize(S &s, const unsigned version) {
+    void serialize(S &s, const unsigned /*version*/) {
         s & a;
     }
 };

@@ -1542,7 +1542,7 @@ static void test33() {
     ASSERT_always_require(x=="x");
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     test01();
     test02();
     test03();

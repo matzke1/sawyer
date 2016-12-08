@@ -288,7 +288,7 @@ testPodMarkup() {
                        "@section{See Also}{Another section.}");
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     Sawyer::initializeLibrary();
     testMarkup();
     testPodMarkup();

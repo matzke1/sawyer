@@ -52,7 +52,7 @@ public:
 Definer definer __attribute__((init_priority(2001)));
 User user __attribute__((init_priority(2000))) (definer);
 
-int main(int argc, char *argv[]) {
+int main() {
     definer.facility[INFO] <<"made it to main()\n";
 
     // Now try changing the destinations to what we really want: buffered I/O.  We'll use stdout so we can distinguish the

@@ -312,7 +312,7 @@ Multiplexer::bakeDestinations(const MesgProps &props, BakedDestinations &baked) 
 // Multiplexors are never included in baked results (they control baking instead), so messages should never be posted directly
 // to multiplexers.
 SAWYER_EXPORT void
-Multiplexer::post(const Mesg &mesg, const MesgProps &props) {
+Multiplexer::post(const Mesg &/*mesg*/, const MesgProps &/*props*/) {
     assert(!"messages should not be posted to multiplexers");
 }
 
@@ -691,7 +691,7 @@ Prefix::initFromSystem() {
 }
 
 SAWYER_EXPORT std::string
-Prefix::toString(const Mesg &mesg, const MesgProps &props) const {
+Prefix::toString(const Mesg &/*mesg*/, const MesgProps &props) const {
     std::ostringstream retval;
     std::string separator = "";
 
@@ -823,7 +823,7 @@ UnformattedSink::prefix(const PrefixPtr &p) {
 
 // not thread-safe
 SAWYER_EXPORT std::string
-UnformattedSink::maybeTerminatePrior(const Mesg &mesg, const MesgProps &props) {
+UnformattedSink::maybeTerminatePrior(const Mesg &mesg, const MesgProps &/*props*/) {
     std::string retval;
     if (!mesg.isEmpty()) {
         if (gang()->isValid() && gang()->id() != mesg.id()) {
@@ -846,7 +846,7 @@ UnformattedSink::maybePrefix(const Mesg &mesg, const MesgProps &props) {
 
 // not thread-safe
 SAWYER_EXPORT std::string
-UnformattedSink::maybeBody(const Mesg &mesg, const MesgProps &props) {
+UnformattedSink::maybeBody(const Mesg &mesg, const MesgProps &/*props*/) {
     std::string retval;
     if (!mesg.isEmpty())
         retval = mesg.text().substr(gang()->ntext());
