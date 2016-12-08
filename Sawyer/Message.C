@@ -608,11 +608,15 @@ Gang::GangMap *Gang::gangs_ = NULL;
 
 // class method; thread-safe
 GangPtr
+Gang::instance() {
+    return GangPtr(new Gang);
+}
+
+// class method; thread-safe
+GangPtr
 Gang::instanceForId(int id) {
     SAWYER_THREAD_TRAITS::LockGuard lock(classMutex_);
-    if (!gangs_)
-        gangs_ = new GangMap;
-    return gangs_->insertMaybe(id, Gang::instance());
+    return intentionally_leaked_NS(id);
 }
 
 // class method; thread-safe
@@ -621,13 +625,18 @@ Gang::instanceForTty() {
     return instanceForId(TTY_GANG);
 }
 
-// class method; thread-safe
-void
-Gang::removeInstance(int id) {
-    SAWYER_THREAD_TRAITS::LockGuard lock(classMutex_);
+// class method; not synchronized
+GangPtr
+Gang::intentionally_leaked_NS(int id) {
+    ASSERT_require(id != NO_GANG_ID);
     if (!gangs_)
         gangs_ = new GangMap;
-    gangs_->erase(id);
+    GangPtr gang = gangs_->getOrDefault(id);
+    if (!gang) {
+        gang = GangPtr(new Gang(id));                   // intentional leak; seek class declaration for details
+        gangs_->insert(id, gang);
+    }
+    return gang;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
