@@ -2179,7 +2179,7 @@ public:
         seeAlso_.insert(name, content);
     }
     std::string eval(const Document::Markup::Grammar&, const std::vector<std::string> &args) /*override*/ {
-        ASSERT_require(args.empty());
+        ASSERT_always_require(args.empty()); // so args is always used
         std::vector<std::string> pages(seeAlso_.values().begin(), seeAlso_.values().end());
         return boost::join(pages, ", ");
     }

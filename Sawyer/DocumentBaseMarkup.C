@@ -22,8 +22,8 @@ public:
     static Ptr instance(const std::string &name) {
         return Ptr(new Fr1(name))->arg("arg1");
     }
-    std::string eval(const BaseMarkup::Grammar &/*grammar*/, const std::vector<std::string> &/*args*/) {
-        ASSERT_require(args.size() == 1);
+    std::string eval(const BaseMarkup::Grammar &/*grammar*/, const std::vector<std::string> &args) {
+        ASSERT_always_require(args.size() == 1);        // so args is always used
         throw Markup::SyntaxError("function \"" + name() + "\" defined in Sawyer::Document::BaseMarkup "
                                   "should have been implemented in a subclass");
     }
@@ -37,8 +37,8 @@ public:
     static Ptr instance(const std::string &name) {
         return Ptr(new Fr2(name))->arg("arg1")->arg("arg2");
     }
-    std::string eval(const BaseMarkup::Grammar &/*grammar*/, const std::vector<std::string> &/*args*/) {
-        ASSERT_require(args.size() == 2);
+    std::string eval(const BaseMarkup::Grammar &/*grammar*/, const std::vector<std::string> &args) {
+        ASSERT_always_require(args.size() == 2);        // so args is always used
         throw Markup::SyntaxError("function \"" + name() + "\" defined in Sawyer::Document::BaseMarkup "
                                   "should have been implemented in a subclass");
     }
@@ -52,8 +52,8 @@ public:
     static Ptr instance(const std::string &name) {
         return Ptr(new Fr1o1(name))->arg("arg1")->arg("arg2", "");
     }
-    std::string eval(const BaseMarkup::Grammar &/*grammar*/, const std::vector<std::string> &/*args*/) {
-        ASSERT_require(args.size() == 2);
+    std::string eval(const BaseMarkup::Grammar &/*grammar*/, const std::vector<std::string> &args) {
+        ASSERT_always_require(args.size() == 2);        // so args is always used
         throw Markup::SyntaxError("function \"" + name() + "\" defined in Sawyer::Document::BaseMarkup "
                                   "should have been implemented in a subclass");
     }

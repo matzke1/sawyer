@@ -206,7 +206,7 @@ Function::validateArgs(std::vector<std::string> &actuals /*in,out*/, TokenStream
 
 SAWYER_EXPORT std::string
 StaticContent::eval(const Grammar&, const std::vector<std::string> &args) {
-    ASSERT_require(args.empty());
+    ASSERT_always_require(args.empty());                // so args is always used
     return resultString_;
 }
 

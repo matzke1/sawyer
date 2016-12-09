@@ -40,9 +40,9 @@ int main(int argc, char *argv[])
     Sawyer::initializeLibrary();
 
     // Poor man's argument checking. Normally you'd want to recover gracefully from user errors.
-    ASSERT_require2(argc>=2, "wrong number of program arguments");
-    ASSERT_require(strlen(argv[1])>0);
-    ASSERT_forbid2(argv[1][0]=='/', "absolute path names prohibited");
+    ASSERT_always_require2(argc>=2, "wrong number of program arguments");
+    ASSERT_always_require(strlen(argv[1])>0);
+    ASSERT_always_forbid2(argv[1][0]=='/', "absolute path names prohibited");
 
     // Emit a log message with a possible error right in the middle of the "color is" message
     Color c = (Color)strtol(argv[1], NULL, 0);

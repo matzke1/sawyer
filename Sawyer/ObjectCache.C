@@ -137,7 +137,7 @@ ObjectCache::evictionListRatio() const {
 
 void
 ObjectCache::verifyObjectNS(const CachableObject *obj) {
-    ASSERT_not_null(obj);
+    ASSERT_always_not_null(obj);                        // so obj is used
     ASSERT_require(obj->cache_ == this);
     ASSERT_not_null(obj->cacheNext_);                   // this is a circular list, so the object at least points to
     ASSERT_not_null(obj->cachePrev_);                   // itself when it belongs to an object cache.
