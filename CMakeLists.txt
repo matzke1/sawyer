@@ -35,8 +35,8 @@ else()
   else()
     message(STATUS "not adding -pthread")
   endif()
+  find_package(Boost 1.45.0 COMPONENTS serialization) # Optional stuff must be first
   find_package(Boost 1.45.0 REQUIRED COMPONENTS iostreams system filesystem regex thread)
-  find_package(Boost 1.45.0 COMPONENTS serialization)
 endif()
 
 message(STATUS "Boost version number:       ${Boost_LIB_VERSION}")
