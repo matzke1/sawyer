@@ -45,3 +45,6 @@ target_link_libraries(denseIntegerSetUnitTests libsawyer)
 
 add_executable(attributeUnitTests attributeUnitTests.C)
 target_link_libraries(attributeUnitTests libsawyer)
+
+add_executable(traceUnitTests traceUnitTests.C)
+target_link_libraries(traceUnitTests libsawyer)
