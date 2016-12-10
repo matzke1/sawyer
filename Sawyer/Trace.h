@@ -99,8 +99,8 @@ public:
 
 /** Traits for a Trace label index.
  *
- *  The @p IndexType argument is used to select the index implementation used to associate some data with each label. %Sawyer
- *  defines two kinds of indexes: the @c TraceMapIndexTag selects an index based on @c std::map while the @c
+ *  The @p IndexTypeTag argument is used to select the index implementation used to associate some data with each
+ *  label. %Sawyer defines two kinds of indexes: the @ref TraceMapIndexTag selects an index based on @c std::map while the @ref
  *  TraceVectorIndexTag selects an index based on @c std::vector. The vector-based index is suitable for labels that can be
  *  used as vector indexes. The map-based index should be used for all other cases, including integer labels that would result
  *  in very sparse vectors.
@@ -110,7 +110,7 @@ public:
  *  @li The index must be able to store labels of type @p Label. Each label will have a default constructor, a copy
  *      constructor, an assignment operator, and be comparable as equal or not-equal. Additional requirements can be imposed by
  *      the index.
- *  @li The index needs to be able to store arbitrary data of type @p V per label. These values will always have a default
+ *  @li The index needs to be able to store arbitrary data of type @p Value per label. These values will always have a default
  *      constructor, a copy constructor, and an assignment operator. The index cannot impose additional requirements.
  *  @li The index must have a @c clear method that takes no arguments and resets the index to its default constructed state.
  *  @li The index must have two array operators whose argument is a @p Label and whose signature differes only in whether the
@@ -120,13 +120,13 @@ public:
  *      default-constructed value if no value was previously stored for the specified label.
  *  @li The index must be able to return a @c boost::iterator_range pair of iterators that will index over its labels.  These
  *      range is permitted to iterate over labels that are not part of a trace, as long as the iteration also visits each
- *      defined label exactly once.  Dereferencing an non-end iterator must result in a valid @c Label object (or reference to
- *      such).
- *  @li The index must define a @c reserve method that takes a @c size_t argument. It's purpose is to give the index a chance
+ *      defined label exactly once.  Dereferencing an non-end iterator must result in a valid @c Label object (or const
+ *      reference to such).
+ *  @li The index must define a @c reserve method that takes a @c size_t argument. Its purpose is to give the index a chance
  *      to pre-allocate space. The argument is only a hint for the number of distinct labels that the trace might eventually
  *      contain.
  *
- *  To use an user-defined index, the user should define their index class, define a tag for their class, and specialize @c
+ *  To use a user-defined index, the user should define their index class, define a tag for their class, and specialize @c
  *  TraceIndexTraits.  Here's a simple example where the user has a custom index for a specific user-defined label type:
  *
  *  @code
@@ -254,10 +254,12 @@ public:
      *  Labels must have an ordering defined by a less-than operator. */
     typedef T Label;
 
-    /** Compressed next-label list. */
+    /** Compressed next-label list.
+     *
+     *  See @ref successors. */
     struct Successor {
-        size_t end;                                     // label visitation sequence number (starts at zero for each label)
-        Label next;                                     // next label
+        size_t end;                                     /**< Label visitation sequence number. Starts at zero for each label. */
+        Label next;                                     /**< Next label. */
 
         Successor(): end(0) {}
         Successor(size_t end, const Label &next): end(end), next(next) {}
@@ -470,7 +472,7 @@ public:
         return visitor.vector;
     }
 
-    /** Set of labels which are successors for the specified label.
+    /** %Set of labels which are successors for the specified label.
      *
      *  Time complexity: The set must be constructed by traversing successor sequence. The length of the successor sequence is
      *  the number of maximal subsequences where the members of a subsequence are all the same. Insertion of each label into
