@@ -256,8 +256,12 @@ public:
      *
      *  Given a pair of vertices, one from each of two graphs, return true if the vertices could be an isomorphic pair in
      *  common subgraph isomorphism algorithms.  This default implementation always returns true. */
-    bool mu(const Graph &/*g1*/, const typename Graph::ConstVertexIterator &/*v1*/,
-            const Graph &/*g2*/, const typename Graph::ConstVertexIterator &/*v2*/) const {
+    bool mu(const Graph &g1, const typename Graph::ConstVertexIterator &v1,
+            const Graph &g2, const typename Graph::ConstVertexIterator &v2) const {
+        SAWYER_ARGUSED(g1);                             // Leave formal arg names in declaration because they're important
+        SAWYER_ARGUSED(v1);                             // documentation for this function.
+        SAWYER_ARGUSED(g2);
+        SAWYER_ARGUSED(v2);
         return true;
     }
 
@@ -270,10 +274,18 @@ public:
      *  into the solution.
      *
      *  This default implementation always returns true. */
-    bool nu(const Graph &/*g1*/, typename Graph::ConstVertexIterator /*i1*/, typename Graph::ConstVertexIterator /*i2*/,
-            const std::vector<typename Graph::ConstEdgeIterator> &/*edges1*/,
-            const Graph &/*g2*/, typename Graph::ConstVertexIterator /*j1*/, typename Graph::ConstVertexIterator /*j2*/,
-            const std::vector<typename Graph::ConstEdgeIterator> &/*edges2*/) const {
+    bool nu(const Graph &g1, typename Graph::ConstVertexIterator i1, typename Graph::ConstVertexIterator i2,
+            const std::vector<typename Graph::ConstEdgeIterator> &edges1,
+            const Graph &g2, typename Graph::ConstVertexIterator j1, typename Graph::ConstVertexIterator j2,
+            const std::vector<typename Graph::ConstEdgeIterator> &edges2) const {
+        SAWYER_ARGUSED(g1);                             // Leave formal argument names in declaration because they're
+        SAWYER_ARGUSED(i1);                             // important documentation for this function.
+        SAWYER_ARGUSED(i2);
+        SAWYER_ARGUSED(edges1);
+        SAWYER_ARGUSED(g2);
+        SAWYER_ARGUSED(j1);
+        SAWYER_ARGUSED(j2);
+        SAWYER_ARGUSED(edges2);
         return true;
     }
 

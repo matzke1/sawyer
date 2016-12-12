@@ -26,7 +26,8 @@ public:
      *  Deallocates a block of memory that was allocated by the @ref allocate method and which has not been deallocated in the
      *  mean time.  The @p addr and @p size must be the address returned by @ref allocate and the size that was used to request
      *  that block. */
-    void deallocate(void *addr, size_t /*size*/) {      // hot
+    void deallocate(void *addr, size_t size) {          // hot
+        SAWYER_ARGUSED(size);
         ::operator delete(addr);
     }
 };
