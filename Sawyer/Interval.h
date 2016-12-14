@@ -340,8 +340,6 @@ public:
     // These types are needed for BOOST_FOREACH but are not advertised as part of this interface.
     typedef ConstIterator const_iterator;
     typedef ConstIterator iterator;
-    typedef ConstIterator const_reverse_iterator;
-    typedef ConstIterator reverse_iterator;
 
     /** Iterator positioned at the least value.
      *
@@ -363,13 +361,6 @@ public:
      *  greatest value representable by type T. See @ref ConstIterator for details. */
     ConstIterator end() const {
         return isEmpty() ? ConstIterator() : ++ConstIterator(least(), greatest(), greatest());
-    }
-
-    ConstIterator rbegin() const {
-        return isEmpty() ? ConstIterator() : ConstIterator(least(), greatest(), greatest());
-    }
-    ConstIterator rend() const {
-        return isEmpty() ? ConstIterator() : --ConstIterator(least(), greatest(), least());
     }
     
     /** Iterator range for values. */
