@@ -50,7 +50,8 @@ public:
      *  one prior to the interval's least end.  On the other hand, decrementing an iterator positioned one past the interval's
      *  greatest end positions the iterator at greatest and clears its @ref atEnd property; similarly, incrementing an iterator
      *  positioned one prior to the interval's least end positions the iterator at the least value. */
-    class ConstIterator: public boost::iterator_facade<ConstIterator, const Value, boost::bidirectional_traversal_tag> {
+    class ConstIterator: public boost::iterator_facade<ConstIterator, const Value, boost::bidirectional_traversal_tag,
+                                                       Value> {
         friend class Interval;
         friend class boost::iterator_core_access;
 
@@ -76,7 +77,7 @@ public:
         }
 
     private:
-        const Value& dereference() const {
+        Value dereference() const {
             ASSERT_forbid(atEnd());
             return cur_;
         }
