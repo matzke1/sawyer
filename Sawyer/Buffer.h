@@ -4,6 +4,7 @@
 #include <Sawyer/Sawyer.h>
 #include <Sawyer/SharedPointer.h>
 #include <boost/serialization/access.hpp>
+#include <boost/serialization/nvp.hpp>
 #include <string>
 
 namespace Sawyer {
@@ -26,7 +27,8 @@ private:
 
     template<class S>
     void serialize(S &s, const unsigned /*version*/) {
-        s & name_ & copyOnWrite_;
+        s & BOOST_SERIALIZATION_NVP(name_);
+        s & BOOST_SERIALIZATION_NVP(copyOnWrite_);
     }
 
 public:
