@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 project(Sawyer)
+set(Sawyer_VERSION 0.9.0)
 
 # Set either the build type or the G++ flags (i.e., cmake -DCMAKE_BUILD_TYPE=Debug ...) or else choose a default here
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
@@ -21,8 +22,7 @@ endif()
 option(MULTI_THREADED "Should library be multi-thread aware?" YES)
 if(NOT "${MULTI_THREADED}")
   message(STATUS "Multi-thread support is disabled")
-  find_package(Boost 1.45.0 REQUIRED COMPONENTS iostreams system filesystem regex)
-  find_package(Boost 1.45.0 COMPONENTS serialization)
+  find_package(Boost 1.45.0 REQUIRED COMPONENTS iostreams system filesystem regex serialization)
 else()
   message(STATUS "Multi-thread support is enabled")
   find_package(Threads)
@@ -35,8 +35,7 @@ else()
   else()
     message(STATUS "not adding -pthread")
   endif()
-  find_package(Boost 1.45.0 COMPONENTS serialization) # Optional stuff must be first
-  find_package(Boost 1.45.0 REQUIRED COMPONENTS iostreams system filesystem regex thread)
+  find_package(Boost 1.45.0 REQUIRED COMPONENTS iostreams system filesystem regex thread serialization)
 endif()
 
 message(STATUS "Boost version number:       ${Boost_LIB_VERSION}")
@@ -142,8 +141,25 @@ add_subdirectory(tools)
 install(TARGETS libsawyer
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib)
+  ARCHIVE DESTINATION lib
+  INCLUDES DESTINATION include
+)
 
 # Install all header files
 file(GLOB header_files "${CMAKE_CURRENT_SOURCE_DIR}/Sawyer/*.h")
 install(FILES ${header_files} DESTINATION include/Sawyer)
+
+# Build cmake configuration files for downstream use
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/SawyerConfigVersion.cmake"
+  VERSION ${Sawyer_VERSION}
+  COMPATIBILITY AnyNewerVersion
+  )
+
+configure_file(cmake/SawyerConfig.cmake cmake/SawyerConfig.cmake)
+
+
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/cmake/SawyerConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/SawyerConfigVersion.cmake"
+  DESTINATION lib/cmake/Sawyer)
