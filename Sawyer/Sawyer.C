@@ -35,6 +35,9 @@ initializeLibrary(size_t vmajor, size_t vminor, size_t vpatch, bool withThreads)
         initialized = true;
     }
 #endif
+
+    atexit(Sawyer::Message::shutdown);
+
     return true;
 }
 
