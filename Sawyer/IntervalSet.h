@@ -8,6 +8,7 @@
 #include <boost/integer_traits.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/serialization/access.hpp>
+#include <boost/serialization/nvp.hpp>
 
 namespace Sawyer {
 namespace Container {
@@ -54,7 +55,7 @@ private:
 
     template<class S>
     void serialize(S &s, const unsigned /*version*/) {
-        s & map_;
+        s & BOOST_SERIALIZATION_NVP(map_);
     }
 
 public:

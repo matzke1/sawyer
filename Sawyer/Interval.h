@@ -7,6 +7,7 @@
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/range/iterator_range.hpp>
 #include <boost/serialization/access.hpp>
+#include <boost/serialization/nvp.hpp>
 
 namespace Sawyer {
 namespace Container {
@@ -33,7 +34,8 @@ private:
 
     template<class S>
     void serialize(S &s, const unsigned /*version*/) {
-        s & lo_ & hi_;
+        s & BOOST_SERIALIZATION_NVP(lo_);
+        s & BOOST_SERIALIZATION_NVP(hi_);
     }
 
 public:
