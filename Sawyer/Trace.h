@@ -330,7 +330,7 @@ public:
     }
     size_t size(const Label &label) const {
         const Successors &successors = index_[label];
-        return successors.empty() ? 0 : successors.back().n;
+        return successors.empty() ? 0 : successors.back().end;
     }
     /** @} */
 
