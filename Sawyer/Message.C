@@ -2017,7 +2017,19 @@ Facilities::facilityNames() const {
 }
 
 SAWYER_EXPORT void
+Facilities::eraseDestroyed() {
+    for (FacilityMap::ValueIterator iter = facilities_.values().begin(); iter != facilities_.values().end(); /*void*/) {
+        if (!(*iter)->isConstructed()) {
+            facilities_.eraseAt(iter++);
+        } else {
+            ++iter;
+        }
+    }
+}
+
+SAWYER_EXPORT void
 Facilities::shutdown() {
+    eraseDestroyed();
     BOOST_FOREACH (Facility *f, facilities_.values()) {
         if (f != NULL)
             *f = Facility();
