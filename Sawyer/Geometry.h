@@ -3,6 +3,9 @@
 
 #include <Sawyer/Assert.h>
 #include <cmath>
+#if __cplusplus < 201103L && defined(_MSC_VER)
+#include <float.h> // for _isnan
+#endif
 
 namespace Sawyer {
 
@@ -18,7 +21,13 @@ struct NumberTraits {
 template<>
 struct NumberTraits<double> {
     static double initialValue() { return NAN; }
+#if __cplusplus >= 201103L
+    static bool isValid(double n) { return !std::isnan(n); }
+#elif defined(_MSC_VER)
+    static bool isValid(double n) { return _isnan(n); }
+#else
     static bool isValid(double n) { return !isnan(n); }
+#endif
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
