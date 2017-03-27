@@ -633,7 +633,7 @@ Gang::createNS(int id) {
         gangs_ = new GangMap;
     GangPtr gang = gangs_->getOrDefault(id);
     if (!gang) {
-        gang = GangPtr(new Gang(id));                   // intentional leak; seek class declaration for details
+        gang = GangPtr(new Gang);
         gangs_->insert(id, gang);
     }
     return gang;
