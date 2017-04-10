@@ -1049,7 +1049,7 @@ public:
     bool anyUnbuffered_;                                // True if any baked destinations are unbuffered.
 
     StreamBuf(Stream *owner): stream_(owner), enabled_(true), isBaked_(false), anyUnbuffered_(false) {}
-    ~StreamBuf() { cancelMessage(); }
+    virtual ~StreamBuf() { cancelMessage(); }
     void owner(Stream *s) {
         assert(stream_==NULL || stream_==s);
         stream_ = s;
