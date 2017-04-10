@@ -633,7 +633,7 @@ Gang::createNS(int id) {
         gangs_ = new GangMap;
     GangPtr gang = gangs_->getOrDefault(id);
     if (!gang) {
-        gang = GangPtr(new Gang(id));                   // intentional leak; seek class declaration for details
+        gang = GangPtr(new Gang);
         gangs_->insert(id, gang);
     }
     return gang;
@@ -2104,7 +2104,7 @@ Facilities::print(std::ostream &log) const {
 void
 FacilitiesGuard::save() {
     BOOST_FOREACH (const std::string &facilityName, facilities_.facilityNames()) {
-        std::vector<bool> facilityState = state_.insertMaybeDefault(facilityName);
+        std::vector<bool> &facilityState = state_.insertMaybeDefault(facilityName);
         facilityState.resize(N_IMPORTANCE, false);
         Facility &facility = facilities_.facility(facilityName);
         for (int i=0; i<N_IMPORTANCE; ++i)
@@ -2115,6 +2115,7 @@ FacilitiesGuard::save() {
 void
 FacilitiesGuard::restore() {
     BOOST_FOREACH (const State::Node &saved, state_.nodes()) {
+        ASSERT_require(saved.size() == N_IMPORTANCE);
         try {
             Facility &facility = facilities_.facility(saved.key());
             for (int i=0; i<N_IMPORTANCE; ++i)
