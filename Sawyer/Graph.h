@@ -1288,6 +1288,24 @@ private:
 private:
     friend class boost::serialization::access;
 
+    struct SerializableEdge {
+        size_t srcId, tgtId;
+        EdgeValue value;
+
+        SerializableEdge()
+            : srcId(-1), tgtId(-1) {}
+
+        SerializableEdge(size_t srcId, size_t tgtId, const EdgeValue &value)
+            : srcId(srcId), tgtId(tgtId), value(value) {}
+
+        template<class S>
+        void serialize(S &s, const unsigned /*version*/) {
+            s & BOOST_SERIALIZATION_NVP(srcId);
+            s & BOOST_SERIALIZATION_NVP(tgtId);
+            s & BOOST_SERIALIZATION_NVP(value);
+        }
+    };
+
     template<class S>
     void save(S &s, const unsigned /*version*/) const {
         size_t nv = nVertices();
@@ -1299,9 +1317,8 @@ private:
         s <<BOOST_SERIALIZATION_NVP(ne);
         for (size_t i=0; i<ne; ++i) {
             ConstEdgeIterator edge = findEdge(i);
-            size_t srcId = edge->source()->id(), tgtId = edge->target()->id();
-            s <<boost::serialization::make_nvp("edge", findEdge(i)->value());
-            s <<BOOST_SERIALIZATION_NVP(srcId) <<BOOST_SERIALIZATION_NVP(tgtId);
+            SerializableEdge se(edge->source()->id(), edge->target()->id(), edge->value());
+            s <<BOOST_SERIALIZATION_NVP(se);
         }
     }
 
@@ -1319,12 +1336,10 @@ private:
         size_t ne = 0;
         s >>BOOST_SERIALIZATION_NVP(ne);
         for (size_t i=0; i<ne; ++i) {
-            EdgeValue ev;
-            size_t srcId = 0, tgtId = 0;
-            s >>boost::serialization::make_nvp("edge", ev);
-            s >>BOOST_SERIALIZATION_NVP(srcId) >>BOOST_SERIALIZATION_NVP(tgtId);
-            ASSERT_require(srcId < nv && tgtId < nv);
-            insertEdge(findVertex(srcId), findVertex(tgtId), ev);
+            SerializableEdge se;
+            s >>BOOST_SERIALIZATION_NVP(se);
+            ASSERT_require(se.srcId < nv && se.tgtId < nv);
+            insertEdge(findVertex(se.srcId), findVertex(se.tgtId), se.value);
         }
     }
 
