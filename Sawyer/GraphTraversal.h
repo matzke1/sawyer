@@ -649,7 +649,9 @@ public:
 
     /** Call the specified functor for each vertex.
      *
-     *  Iterates over the traversal invoking the functor on the current vertex at each step. */
+     *  Iterates over the traversal invoking the functor on the current vertex at each step.
+     *
+     * @{ */
     template<class Functor>
     void mapVertices(Functor &f) {
         while (!isAtEnd()) {
@@ -664,10 +666,13 @@ public:
             advance();
         }
     }
+    /** @} */
 
     /** Call the specified functor for each edge.
      *
-     *  Iterates over the invoking the functor on the current edge at each step. */
+     *  Iterates over the invoking the functor on the current edge at each step.
+     *
+     * @{ */
     template<class Functor>
     void mapEdges(Functor &f) {
         while (!isAtEnd()) {
@@ -682,6 +687,7 @@ public:
             advance();
         }
     }
+    /** @} */
     
     // The following trickery is to allow things like "if (x)" to work but without having an implicit
     // conversion to bool which would cause no end of other problems. This is fixed in C++11.
