@@ -40,9 +40,17 @@ summary:
     $ mkdir $SAWYER_BLD
     $ cd $SAWYER_BLD
     $ cmake $SAWYER_SRC -DCMAKE_INSTALL_PREFIX:PATH="/some/directory"
-    $ make
     $ make install
 
 One commonly also needs
 "-DBOOST_ROOT=/the/boost/installation/directory", and
 "-DCMAKE_BUILD_TYPE=Debug" is useful during development.
+
+If you have Spock installed, you don't need to download or compile boost yourself. Just give these commands:
+
+    $ spock-shell --with gnu-system-compilers,c++11-compiler,boost-1.63 --install=yes
+    $ mkdir _build && cd _build
+    $ cmake .. -DBOOST_ROOT=$BOOST_ROOT
+    $ make install
+    $ exit
+    
