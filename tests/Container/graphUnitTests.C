@@ -1090,8 +1090,8 @@ vertexPrinter(Sawyer::Container::Graph<std::string, std::string>::VertexIterator
 }
 
 static void
-vertexPrinter2(Sawyer::Container::Graph<std::string, std::string>::VertexIterator root,
-                           Sawyer::Container::Graph<std::string, std::string>::VertexIterator vertex) {
+vertexPrinter2(Sawyer::Container::Graph<std::string, std::string>::VertexIterator vertex,
+                           Sawyer::Container::Graph<std::string, std::string>::VertexIterator root) {
     std::cout <<"      visited vertex " <<vertex->value() <<" (root=" <<root->value() <<")\n";
 }
 
@@ -1101,8 +1101,8 @@ edgePrinter(Sawyer::Container::Graph<std::string, std::string>::EdgeIterator edg
 }
 
 static void
-edgePrinter2(Sawyer::Container::Graph<std::string, std::string>::EdgeIterator root,
-             Sawyer::Container::Graph<std::string, std::string>::EdgeIterator edge) {
+edgePrinter2(Sawyer::Container::Graph<std::string, std::string>::EdgeIterator edge,
+             Sawyer::Container::Graph<std::string, std::string>::EdgeIterator root) {
     std::cout <<"      visited edge " <<edge->value() <<" (root=" <<root->value() <<")\n";
 }
 
@@ -1112,8 +1112,8 @@ public:
     void operator()(Sawyer::Container::Graph<std::string, std::string>::VertexIterator vertex) {
         hits += vertex->value();
     }
-    void operator()(Sawyer::Container::Graph<std::string, std::string>::VertexIterator /*root*/,
-                    Sawyer::Container::Graph<std::string, std::string>::VertexIterator vertex) {
+    void operator()(Sawyer::Container::Graph<std::string, std::string>::VertexIterator vertex,
+                    Sawyer::Container::Graph<std::string, std::string>::VertexIterator /*root*/) {
         hits += vertex->value();
     }
 };
@@ -1124,8 +1124,8 @@ public:
     void operator()(Sawyer::Container::Graph<std::string, std::string>::EdgeIterator edge) {
         hits += edge->value();
     }
-    void operator()(Sawyer::Container::Graph<std::string, std::string>::EdgeIterator /*root*/,
-                    Sawyer::Container::Graph<std::string, std::string>::EdgeIterator edge) {
+    void operator()(Sawyer::Container::Graph<std::string, std::string>::EdgeIterator edge,
+                    Sawyer::Container::Graph<std::string, std::string>::EdgeIterator /*root*/) {
         hits += edge->value();
     }
 };
@@ -1142,28 +1142,29 @@ testVertices(const std::string &traversalName,
 
     // Test using a global function as a functor
     std::cout <<"    reachable vertices:\n";
-    graphTraverseReachableVertices<VertexTraversal>(g, root, vertexPrinter);
+    VertexTraversal(g, root).mapVertices(vertexPrinter);
+
     std::cout <<"    all vertices:\n";
-    graphTraverseAllVertices<VertexTraversal>(g, vertexPrinter2);
+    graphTraverseAllVertices(VertexTraversal(g), vertexPrinter2);
 
     // Test reachability using a non-const class as a functor
     VertexVisitor v1;
-    graphTraverseReachableVertices<VertexTraversal>(g, root, v1);
+    VertexTraversal(g, root).mapVertices(v1);
     ASSERT_always_require2(v1.hits == reachableAnswer, "v1.hits="+v1.hits+"\n  reachableAnswer="+reachableAnswer);
 
     VertexVisitor v2;
-    graphTraverseAllVertices<VertexTraversal>(g, v2);
+    graphTraverseAllVertices(VertexTraversal(g), v2);
     ASSERT_always_require2(v2.hits == allAnswer, "v2.hits="+v2.hits+"\n  allAnswer="+allAnswer);
 
     // Test reachability using a lambda function. This doesn't actually have to do anything but compile.
 #if __cplusplus == 201103L
-    graphTraverseReachableVertices<VertexTraversal>(g, root, [](typename GraphTraits<Graph>::VertexIterator) {});
-    graphTraverseAllVertices<VertexTraversal>(g, [](typename GraphTraits<Graph>::VertexIterator,
+    VertexTraversal(g, root).mapVertices([](typename GraphTraits<Graph>::VertexIterator) {});
+    graphTraverseAllVertices(VertexTraversal(g), [](typename GraphTraits<Graph>::VertexIterator,
                                                     typename GraphTraits<Graph>::VertexIterator) {});
 #endif
 
     // Test that ID numbers are returned
-    std::vector<size_t> ids = graphReachableVertices<VertexTraversal>(g, root);
+    std::vector<size_t> ids = graphReachableVertices(VertexTraversal(g, root));
     std::string got;
     BOOST_FOREACH (size_t id, ids)
         got += g.findVertex(id)->value();
@@ -1188,28 +1189,28 @@ testEdges(const std::string &traversalName,
 
     // Test using a global function as a functor
     std::cout <<"    reachable edges:\n";
-    graphTraverseReachableEdges<EdgeTraversal>(g, root, edgePrinter);
+    EdgeTraversal(g, root).mapEdges(edgePrinter);
     std::cout <<"    all edges:\n";
-    graphTraverseAllEdges<EdgeTraversal>(g, edgePrinter2);
+    graphTraverseAllEdges(EdgeTraversal(g), edgePrinter2);
 
     // Test reachability using a non-const class as a functor
     EdgeVisitor v1;
-    graphTraverseReachableEdges<EdgeTraversal>(g, root, v1);
+    EdgeTraversal(g, root).mapEdges(v1);
     ASSERT_always_require2(v1.hits == reachableAnswer, "v1.hits="+v1.hits+"\n  reachableAnswer="+reachableAnswer);
 
     EdgeVisitor v2;
-    graphTraverseAllEdges<EdgeTraversal>(g, v2);
+    graphTraverseAllEdges(EdgeTraversal(g), v2);
     ASSERT_always_require2(v2.hits == allAnswer, "v2.hits="+v2.hits+"\n  allAnswer="+allAnswer);
 
     // Test reachability using a lambda function. This doesn't actually have to do anything but compile.
 #if __cplusplus == 201103L
-    graphTraverseReachableEdges<EdgeTraversal>(g, root, [](typename GraphTraits<Graph>::EdgeIterator) {});
-    graphTraverseAllEdges<EdgeTraversal>(g, [](typename GraphTraits<Graph>::EdgeIterator,
-                                               typename GraphTraits<Graph>::EdgeIterator) {});
+    EdgeTraversal(g, root).mapEdges([](typename GraphTraits<Graph>::EdgeIterator) {});
+    graphTraverseAllEdges(EdgeTraversal(g),  [](typename GraphTraits<Graph>::EdgeIterator,
+                                                typename GraphTraits<Graph>::EdgeIterator) {});
 #endif
 
     // Test that ID numbers are returned
-    std::vector<size_t> ids = graphReachableEdges<EdgeTraversal>(g, root);
+    std::vector<size_t> ids = graphReachableEdges(EdgeTraversal(g, root));
     std::string got;
     BOOST_FOREACH (size_t id, ids)
         got += g.findEdge(id)->value();

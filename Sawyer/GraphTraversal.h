@@ -301,9 +301,11 @@ class BreadthFirstTraversalTag {};
  *       }
  *   }
  * @endcode */
-template<class Graph, class Order=DepthFirstTraversalTag, class Direction=ForwardTraversalTag>
+template<class G, class Order=DepthFirstTraversalTag, class Direction=ForwardTraversalTag>
 class GraphTraversal {
 public:
+    typedef G Graph;
+
     /** Const or non-const vertex node iterator. */
     typedef typename GraphTraits<Graph>::VertexIterator VertexIterator;
 
@@ -378,7 +380,8 @@ protected:
         workList_.clear();
     }
 
-    // Initialize traversal to start at the specified vertex.
+public:
+    /** Restart the traversal at the specified vertex. */
     void start(VertexIterator startVertex) {
         ASSERT_forbid(startVertex == graph_.vertices().end());
         clear();
@@ -390,7 +393,7 @@ protected:
             advance();
     }
 
-    // Initialize traversal to start at the specified edge.
+    /** Restart the traversal at the specified edge. */
     void start(EdgeIterator startEdge) {
         ASSERT_forbid(startEdge == graph_.edges().end());
         clear();
@@ -404,7 +407,6 @@ protected:
             advance();
     }
 
-public:
     /** The graph over which iteration occurs.
      *
      *  The connectivity of this graph should not be modified while the traversal is in progress. */
@@ -494,7 +496,7 @@ public:
         return !isAtEnd();
     }
 
-    /** Advance traversl to next interesting event.
+    /** Advance traversal to next interesting event.
      *
      *  The traversal advances until it reaches a state that is deemed to be interesting to the user according to the list of
      *  event types supplied when the traversal was created.  It then returns the event that was reached.  Most subclasses
@@ -645,6 +647,42 @@ public:
         return edgesVisited_.get(edge->id());
     }
 
+    /** Call the specified functor for each vertex.
+     *
+     *  Iterates over the traversal invoking the functor on the current vertex at each step. */
+    template<class Functor>
+    void mapVertices(Functor &f) {
+        while (!isAtEnd()) {
+            f(vertex());
+            advance();
+        }
+    }
+    template<class Functor>
+    void mapVertices(const Functor &f) {
+        while (!isAtEnd()) {
+            f(vertex());
+            advance();
+        }
+    }
+
+    /** Call the specified functor for each edge.
+     *
+     *  Iterates over the invoking the functor on the current edge at each step. */
+    template<class Functor>
+    void mapEdges(Functor &f) {
+        while (!isAtEnd()) {
+            f(edge());
+            advance();
+        }
+    }
+    template<class Functor>
+    void mapEdges(const Functor &f) {
+        while (!isAtEnd()) {
+            f(edge());
+            advance();
+        }
+    }
+    
     // The following trickery is to allow things like "if (x)" to work but without having an implicit
     // conversion to bool which would cause no end of other problems. This is fixed in C++11.
 private:
@@ -867,6 +905,12 @@ public:
         this->start(startEdge);
     }
 
+    /** Start traversal at vertex number zero. */
+    DepthFirstForwardVertexTraversal(Graph &graph)
+        : GraphVertexTraversal<Graph, DepthFirstTraversalTag, ForwardTraversalTag>(graph) {
+        this->start(graph.vertices().begin());
+    }
+
     /** Advance traversal to next event. */
     DepthFirstForwardVertexTraversal& operator++() {
         this->advance();
@@ -892,6 +936,12 @@ public:
     DepthFirstReverseVertexTraversal(Graph &graph, typename GraphTraits<Graph>::EdgeIterator startEdge)
         : GraphVertexTraversal<Graph, DepthFirstTraversalTag, ReverseTraversalTag>(graph) {
         this->start(startEdge);
+    }
+
+    /** Start traversal at vertex number zero. */
+    DepthFirstReverseVertexTraversal(Graph &graph)
+        : GraphVertexTraversal<Graph, DepthFirstTraversalTag, ReverseTraversalTag>(graph) {
+        this->start(graph.vertices().begin());
     }
 
     /** Advance traversal to next event. */
@@ -921,6 +971,12 @@ public:
         this->start(startEdge);
     }
 
+    /** Start traversal at vertex number zero. */
+    BreadthFirstForwardVertexTraversal(Graph &graph)
+        : GraphVertexTraversal<Graph, BreadthFirstTraversalTag, ForwardTraversalTag>(graph) {
+        this->start(graph.vertices().begin());
+    }
+
     /** Advance traversal to next event. */
     BreadthFirstForwardVertexTraversal& operator++() {
         this->advance();
@@ -946,6 +1002,12 @@ public:
     BreadthFirstReverseVertexTraversal(Graph &graph, typename GraphTraits<Graph>::EdgeIterator startEdge)
         : GraphVertexTraversal<Graph, BreadthFirstTraversalTag, ReverseTraversalTag>(graph) {
         this->start(startEdge);
+    }
+
+    /** Start traversal at vertex number zero. */
+    BreadthFirstReverseVertexTraversal(Graph &graph)
+        : GraphVertexTraversal<Graph, BreadthFirstTraversalTag, ReverseTraversalTag>(graph) {
+        this->start(graph.vertices().begin());
     }
 
     /** Advance traversal to next event. */
@@ -1009,6 +1071,12 @@ public:
         this->start(startEdge);
     }
 
+    /** Start traversal at edge number zero. */
+    DepthFirstForwardEdgeTraversal(Graph &graph)
+        : GraphEdgeTraversal<Graph, DepthFirstTraversalTag, ForwardTraversalTag>(graph) {
+        this->start(graph.edges().begin());
+    }
+
     /** Advance traversal to next event. */
     DepthFirstForwardEdgeTraversal& operator++() {
         this->advance();
@@ -1034,6 +1102,12 @@ public:
     DepthFirstReverseEdgeTraversal(Graph &graph, typename GraphTraits<Graph>::EdgeIterator startEdge)
         : GraphEdgeTraversal<Graph, DepthFirstTraversalTag, ReverseTraversalTag>(graph) {
         this->start(startEdge);
+    }
+
+    /** Start traversal at edge number zero. */
+    DepthFirstReverseEdgeTraversal(Graph &graph)
+        : GraphEdgeTraversal<Graph, DepthFirstTraversalTag, ReverseTraversalTag>(graph) {
+        this->start(graph.edges().begin());
     }
 
     /** Advance traversal to next event. */
@@ -1063,6 +1137,12 @@ public:
         this->start(startEdge);
     }
 
+    /** Start traversal at edge number zero. */
+    BreadthFirstForwardEdgeTraversal(Graph &graph)
+        : GraphEdgeTraversal<Graph, BreadthFirstTraversalTag, ForwardTraversalTag>(graph) {
+        this->start(graph.edges().begin());
+    }
+    
     /** Advance traversal to next event. */
     BreadthFirstForwardEdgeTraversal& operator++() {
         this->advance();
@@ -1090,6 +1170,12 @@ public:
         this->start(startEdge);
     }
 
+    /** Start traversal at edge number zero. */
+    BreadthFirstReverseEdgeTraversal(Graph &graph)
+        : GraphEdgeTraversal<Graph, BreadthFirstTraversalTag, ReverseTraversalTag>(graph) {
+        this->start(graph.edges().begin());
+    }
+    
     /** Advance traversal to next event. */
     BreadthFirstReverseEdgeTraversal& operator++() {
         this->advance();
@@ -1105,140 +1191,120 @@ public:
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Visit all vertices reachable from a given root vertex.
- *
- *  The functor @p f is invoked with a vertex iterator argument at most once per vertex. The vertices are visited starting at
- *  @p root and continuing in the order of the specified @p VertexTraversal until all vertices reachable from the @p root
- *  according to the traversal have been visited.
- *
- * @{ */
-template<class VertexTraversal, class Graph, class Functor>
-void graphTraverseReachableVertices(Graph &graph, typename GraphTraits<Graph>::VertexIterator root, Functor &f) {
-    if (graph.isValidVertex(root)) {
-        for (VertexTraversal t(graph, root); t; ++t)
-            f(t.vertex());
-    }
-}
-template<class VertexTraversal, class Graph, class Functor> // when f is a lambda
-void graphTraverseReachableVertices(Graph &graph, typename GraphTraits<Graph>::VertexIterator root, const Functor &f) {
-    if (graph.isValidVertex(root)) {
-        for (VertexTraversal t(graph, root); t; ++t)
-            f(t.vertex());
-    }
-}
-/** @} */
-
-/** Visit all edges reachable from a given root edge.
- *
- *  The functor @p f is invoked with an edge iterator argument at most once per edge. The edges are visited starting at
- *  @p root and continuing in the order of the specified @p EdgeTraversal until all edges reachable from the @p root
- *  according to the traversal have been visited.
- *
- * @{ */
-template<class EdgeTraversal, class Graph, class Functor>
-void graphTraverseReachableEdges(Graph &graph, typename GraphTraits<Graph>::EdgeIterator root, Functor &f) {
-    if (graph.isValidEdge(root)) {
-        for (EdgeTraversal t(graph, root); t; ++t)
-            f(t.edge());
-    }
-}
-template<class EdgeTraversal, class Graph, class Functor> // when f is a lambda
-void graphTraverseReachableEdges(Graph &graph, typename GraphTraits<Graph>::EdgeIterator root, const Functor &f) {
-    if (graph.isValidEdge(root)) {
-        for (EdgeTraversal t(graph, root); t; ++t)
-            f(t.edge());
-    }
-}
-/** @} */
-
 /** Visit all vertices of a graph.
  *
- *  This function operates as follows: for each vertex of the specified graph in order of their ID numbers, if the vertex has
- *  not been visited yet then run the specified traversal with that vertex as the root. At each step of the traversal, mark the
- *  vertex as visited and invoke the supplied functor. The functor takes two arguments: the iterator for the vertex that served
- *  as the root of this traversal, and the iterator for the vertex being visited.
+ *  This function operates as follows: First it uses the specified traversal and at each step determines if the current vertex
+ *  has already been processed. If not, then the functor is called with two arguments (described below) and the vertex is
+ *  marked as having been processed. If it was already processed, and the traversal is in an @c ENTER_VERTEX or @c ENTER_EDGE
+ *  state, then its @ref GraphTraversal::skipChildren "skipChildren" method is invoked.  When the traversal has been exhausted,
+ *  the graph vertices are scanned in order of increasing IDs to find one that hasn't been processed, and the traversal is
+ *  restarted at that vertex.
+ *
+ *  The functor is always invoked with two arguments: the current vertex, and the root of the traversal. Both are passed as
+ *  vertex iterators.
  *
  * @{ */
-template<class VertexTraversal, class Graph, class Functor>
-void graphTraverseAllVertices(Graph &graph, Functor &f) {
-    std::vector<bool> visited(graph.nVertices(), false);
-    for (size_t root = 0; root < graph.nVertices(); ++root) {
-        if (!visited[root]) {
-            typename GraphTraits<Graph>::VertexIterator rootIter = graph.findVertex(root);
-            for (VertexTraversal t(graph, rootIter); t; ++t) {
-                typename GraphTraits<Graph>::VertexIterator vertex = t.vertex();
-                if (visited[vertex->id()]) {
+template<class Traversal, class Functor>
+void graphTraverseAllVertices(Traversal t, Functor &f) {
+    std::vector<bool> visited(t.graph().nVertices(), false);
+    size_t rootId = 0;
+    while (true) {
+        for (typename Traversal::VertexIterator root=t.vertex(); t; ++t) {
+            typename Traversal::VertexIterator vertex = t.vertex();
+            if (visited[vertex->id()]) {
+                if (t.event()==ENTER_VERTEX || t.event()==ENTER_EDGE)
                     t.skipChildren();
-                } else {
-                    visited[vertex->id()] = true;
-                    f(rootIter, vertex);
-                }
+            } else {
+                visited[vertex->id()] = true;
+                f(vertex, root);
             }
         }
+        while (rootId < visited.size() && visited[rootId])
+            ++rootId;
+        if (rootId >= visited.size())
+            return;
+        t.start(t.graph().findVertex(rootId));
     }
 }
-template<class VertexTraversal, class Graph, class Functor> // when f is a lambda
-void graphTraverseAllVertices(Graph &graph, const Functor &f) {
-    std::vector<bool> visited(graph.nVertices(), false);
-    for (size_t root = 0; root < graph.nVertices(); ++root) {
-        if (!visited[root]) {
-            typename GraphTraits<Graph>::VertexIterator rootIter = graph.findVertex(root);
-            for (VertexTraversal t(graph, rootIter); t; ++t) {
-                typename GraphTraits<Graph>::VertexIterator vertex = t.vertex();
-                if (visited[vertex->id()]) {
+template<class Traversal, class Functor>
+void graphTraverseAllVertices(Traversal t, const Functor &f) { // identical, other than const functor
+    std::vector<bool> visited(t.graph().nVertices(), false);
+    size_t rootId = 0;
+    while (true) {
+        for (typename Traversal::VertexIterator root=t.vertex(); t; ++t) {
+            typename Traversal::VertexIterator vertex = t.vertex();
+            if (visited[vertex->id()]) {
+                if (t.event()==ENTER_VERTEX || t.event()==ENTER_EDGE)
                     t.skipChildren();
-                } else {
-                    visited[vertex->id()] = true;
-                    f(rootIter, vertex);
-                }
+            } else {
+                visited[vertex->id()] = true;
+                f(vertex, root);
             }
         }
+        while (rootId < visited.size() && visited[rootId])
+            ++rootId;
+        if (rootId >= visited.size())
+            return;
+        t.start(t.graph().findVertex(rootId));
     }
 }
 /** @} */
 
 /** Visit all edges of a graph.
  *
- *  This function operates as follows: for each edge of the specified graph in order of their ID numbers, if the edge has
- *  not been visited yet then run the specified traversal with that edge as the root. At each step of the traversal, mark the
- *  edge as visited and invoke the supplied functor. The functor takes two arguments: the iterator for the edge that served
- *  as the root of this traversal, and the iterator for the edge being visited.
+ *  This function operates as follows: First it uses the specified traversal and at each step determines if the current edge
+ *  has already been processed. If not, then the functor is called with two arguments (described below) and the edge is
+ *  marked as having been processed. If it was already processed, and the traversal is in an @c ENTER_VERTEX or @c ENTER_EDGE
+ *  state, then its @ref GraphTraversal::skipChildren "skipChildren" method is invoked.  When the traversal has been exhausted,
+ *  the graph edges are scanned in order of increasing IDs to find one that hasn't been processed, and the traversal is
+ *  restarted at that edge.
+ *
+ *  The functor is always invoked with two arguments: the current edge, and the root of the traversal. Both are passed as
+ *  edge iterators.
  *
  * @{ */
-template<class EdgeTraversal, class Graph, class Functor>
-void graphTraverseAllEdges(Graph &graph, Functor &f) {
-    std::vector<bool> visited(graph.nEdges(), false);
-    for (size_t root = 0; root < graph.nEdges(); ++root) {
-        if (!visited[root]) {
-            typename GraphTraits<Graph>::EdgeIterator rootIter = graph.findEdge(root);
-            for (EdgeTraversal t(graph, rootIter); t; ++t) {
-                typename GraphTraits<Graph>::EdgeIterator edge = t.edge();
-                if (visited[edge->id()]) {
+template<class Traversal, class Functor>
+void graphTraverseAllEdges(Traversal t, Functor &f) {
+    std::vector<bool> visited(t.graph().nEdges(), false);
+    size_t rootId = 0;
+    while (true) {
+        for (typename Traversal::EdgeIterator root=t.edge(); t; ++t) {
+            typename Traversal::EdgeIterator edge = t.edge();
+            if (visited[edge->id()]) {
+                if (t.event()==ENTER_VERTEX || t.event()==ENTER_EDGE)
                     t.skipChildren();
-                } else {
-                    visited[edge->id()] = true;
-                    f(rootIter, edge);
-                }
+            } else {
+                visited[edge->id()] = true;
+                f(edge, root);
             }
         }
+        while (rootId < visited.size() && visited[rootId])
+            ++rootId;
+        if (rootId >= visited.size())
+            return;
+        t.start(t.graph().findEdge(rootId));
     }
 }
-template<class EdgeTraversal, class Graph, class Functor> // when f is a lambda
-void graphTraverseAllEdges(Graph &graph, const Functor &f) {
-    std::vector<bool> visited(graph.nEdges(), false);
-    for (size_t root = 0; root < graph.nEdges(); ++root) {
-        if (!visited[root]) {
-            typename GraphTraits<Graph>::EdgeIterator rootIter = graph.findEdge(root);
-            for (EdgeTraversal t(graph, rootIter); t; ++t) {
-                typename GraphTraits<Graph>::EdgeIterator edge = t.edge();
-                if (visited[edge->id()]) {
+template<class Traversal, class Functor>
+void graphTraverseAllEdges(Traversal t, const Functor &f) {   // identical, other than const functor
+    std::vector<bool> visited(t.graph().nEdges(), false);
+    size_t rootId = 0;
+    while (true) {
+        for (typename Traversal::EdgeIterator root=t.edge(); t; ++t) {
+            typename Traversal::EdgeIterator edge = t.edge();
+            if (visited[edge->id()]) {
+                if (t.event()==ENTER_VERTEX || t.event()==ENTER_EDGE)
                     t.skipChildren();
-                } else {
-                    visited[edge->id()] = true;
-                    f(rootIter, edge);
-                }
+            } else {
+                visited[edge->id()] = true;
+                f(edge, root);
             }
         }
+        while (rootId < visited.size() && visited[rootId])
+            ++rootId;
+        if (rootId >= visited.size())
+            return;
+        t.start(t.graph().findEdge(rootId));
     }
 }
 /** @} */
@@ -1257,13 +1323,13 @@ public:
     void operator()(typename GraphTraits<Graph>::VertexIterator v) {
         ids.push_back(v->id());
     }
-    void operator()(typename GraphTraits<Graph>::VertexIterator /*root*/, typename GraphTraits<Graph>::VertexIterator v) {
+    void operator()(typename GraphTraits<Graph>::VertexIterator v, typename GraphTraits<Graph>::VertexIterator /*root*/) {
         ids.push_back(v->id());
     }
     void operator()(typename GraphTraits<Graph>::EdgeIterator e) {
         ids.push_back(e->id());
     }
-    void operator()(typename GraphTraits<Graph>::EdgeIterator /*root*/, typename GraphTraits<Graph>::EdgeIterator e) {
+    void operator()(typename GraphTraits<Graph>::EdgeIterator e, typename GraphTraits<Graph>::EdgeIterator /*root*/) {
         ids.push_back(e->id());
     }
 };
@@ -1272,20 +1338,20 @@ public:
  *
  *  Returns a vector of vertex IDs that are reachable from @p root in the order specified by the traversal template
  *  argument. */
-template<class VertexTraversal, class Graph>
-std::vector<size_t> graphReachableVertices(Graph &graph, typename GraphTraits<Graph>::VertexIterator root) {
-    IdAccumulator<Graph> accum(graph.nVertices());
-    graphTraverseReachableVertices<VertexTraversal>(graph, root, accum);
+template<class Traversal>
+std::vector<size_t> graphReachableVertices(Traversal t) {
+    IdAccumulator<typename Traversal::Graph> accum(t.graph().nVertices());
+    t.mapVertices(accum);
     return accum.ids;
 }
 
 /** IDs of edges reachable from root.
  *
  *  Returns a vector of edge IDs that are reachable from @p root in the order specified by the traversal template argument. */
-template<class EdgeTraversal, class Graph>
-std::vector<size_t> graphReachableEdges(Graph &graph, typename GraphTraits<Graph>::EdgeIterator root) {
-    IdAccumulator<Graph> accum(graph.nEdges());
-    graphTraverseReachableEdges<EdgeTraversal>(graph, root, accum);
+template<class Traversal>
+std::vector<size_t> graphReachableEdges(Traversal t) {
+    IdAccumulator<typename Traversal::Graph> accum(t.graph().nEdges());
+    t.mapEdges(accum);
     return accum.ids;
 }
 
@@ -1294,10 +1360,10 @@ std::vector<size_t> graphReachableEdges(Graph &graph, typename GraphTraits<Graph
  *  Returns the IDs for all vertices in the order specified by the traversal.  All IDs appear in the returned vector, which is
  *  created by choosing the lowest ID that isn't in the vector and running the specified traversal with that ID as the root,
  *  and repeating until all vertices are processed. */
-template<class VertexTraversal, class Graph>
+template<class Traversal, class Graph>
 std::vector<size_t> graphAllVertices(Graph &graph) {
     IdAccumulator<Graph> accum(graph.nVertices());
-    graphTraverseAllVertices<VertexTraversal>(graph, accum);
+    graphTraverseAllVertices(Traversal(graph, graph.vertices().begin()), accum);
     return accum.ids;
 }
 
@@ -1306,10 +1372,10 @@ std::vector<size_t> graphAllVertices(Graph &graph) {
  *  Returns the IDs for all edges in the order specified by the traversal.  All IDs appear in the returned vector, which is
  *  created by choosing the lowest ID that isn't in the vector and running the specified traversal with that ID as the root,
  *  and repeating until all edges are processed. */
-template<class EdgeTraversal, class Graph>
+template<class Traversal, class Graph>
 std::vector<size_t> graphAllEdges(Graph &graph) {
     IdAccumulator<Graph> accum(graph.nEdges());
-    graphTraverseAllEdges<EdgeTraversal>(graph, accum);
+    graphTraverseAllEdges(Traversal(graph, graph.edges().begin()), accum);
     return accum.ids;
 }
 
