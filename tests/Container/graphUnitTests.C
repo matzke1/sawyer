@@ -214,7 +214,7 @@ template<class Graph>
 void find_vertex() {
     std::cout <<"find vertex by ID:\n";
     typedef typename Graph::VertexIterator VertexDesc;
-    
+
     Graph graph;
     VertexDesc v0 = graph.insertVertex("vine");
     VertexDesc v1 = graph.insertVertex("vinegar");
@@ -259,19 +259,19 @@ void insert_edge() {
     ASSERT_always_require(e1->target() == v1);
     ASSERT_always_require(e1 != e0);
     ASSERT_always_require(e1 < e0 || e0 < e1);
-    
+
     ASSERT_always_require(e2->value() == "vine-visa");
     ASSERT_always_require(e2->source() == v0);
     ASSERT_always_require(e2->target() == v3);
     ASSERT_always_require(e2 != e1);
     ASSERT_always_require(e2 < e1 || e1 < e2);
-    
+
     ASSERT_always_require(e3->value() == "visa-vine");
     ASSERT_always_require(e3->source() == v3);
     ASSERT_always_require(e3->target() == v0);
     ASSERT_always_require(e3 != e2);
     ASSERT_always_require(e3 < e2 || e2 < e3);
-    
+
     ASSERT_always_require(e4->value() == "visa-visa");
     ASSERT_always_require(e4->source() == v3);
     ASSERT_always_require(e4->target() == v3);
@@ -286,7 +286,7 @@ void insert_edge() {
     ASSERT_always_require(v2->nOutEdges() == 1);
     ASSERT_always_require(v3->nInEdges() == 2);
     ASSERT_always_require(v3->nOutEdges() == 2);
-    
+
     std::cout <<graph;
 }
 
@@ -295,7 +295,7 @@ void erase_edge() {
     std::cout <<"edge erasure:\n";
     typedef typename Graph::VertexIterator Vertex;
     typedef typename Graph::EdgeIterator Edge;
-    
+
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
     Vertex v1 = graph.insertVertex("vinegar");
@@ -354,7 +354,7 @@ void erase_vertex() {
     std::cout <<"erase vertices with edges:\n";
     typedef typename Graph::VertexIterator Vertex;
     typedef typename Graph::EdgeIterator Edge;
-    
+
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
     Vertex v1 = graph.insertVertex("vinegar");
@@ -390,7 +390,7 @@ void iterator_conversion() {
     std::cout <<"iterator implicit conversions:\n";
     typedef typename Graph::VertexIterator Vertex;
     typedef typename Graph::EdgeIterator Edge;
-    
+
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
     Vertex v1 = graph.insertVertex("vinegar");
@@ -406,7 +406,7 @@ void iterator_conversion() {
 #if 0 // [Robb Matzke 2014-04-21]: going the other way is not indended to work (compile error)
     typename Graph::EdgeIterator e0fail = eval;
 #endif
-    
+
 }
 
 template<class Graph>
@@ -414,7 +414,7 @@ void copy_ctor() {
     std::cout <<"copy constructor:\n";
     typedef typename Graph::VertexIterator Vertex;
     typedef typename Graph::EdgeIterator Edge;
-    
+
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
     Vertex v1 = graph.insertVertex("vinegar");
@@ -525,7 +525,7 @@ void conversion() {
     std::cout <<"conversion constructor:\n";
     typedef typename Graph::VertexIterator Vertex;
     typedef typename Graph::EdgeIterator Edge;
-    
+
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
     Vertex v1 = graph.insertVertex("vinegar");
@@ -566,7 +566,7 @@ void assignment_conversion() {
     std::cout <<"assignment operator conversion:\n";
     typedef typename Graph::VertexIterator Vertex;
     typedef typename Graph::EdgeIterator Edge;
-    
+
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
     Vertex v1 = graph.insertVertex("vinegar");
@@ -651,7 +651,7 @@ static void dfltGraph() {
 
     ASSERT_always_require(v1->value() == Sawyer::Nothing());
     ASSERT_always_require(e1->value() == Sawyer::Nothing());
-    
+
     BOOST_FOREACH (const Sawyer::Nothing &v, graph.vertexValues()) {
         ASSERT_always_require(v == Sawyer::Nothing());
     }
@@ -726,7 +726,7 @@ public:
         current_ = 0;
         isGood_ = true;
     }
-    
+
     void operator()(Sawyer::Container::Algorithm::TraversalEvent event,
                     typename Sawyer::Container::GraphTraits<Graph>::VertexIterator vertex,
                     typename Sawyer::Container::GraphTraits<Graph>::EdgeIterator edge) {
@@ -748,7 +748,7 @@ public:
         }
         return ss.str();
     }
-    
+
     template<class Traversal>
     void check(Traversal &t) {
         Ans got(t.event(), t.vertex(), t.edge());
@@ -992,7 +992,7 @@ static void traversals() {
     for (BreadthFirstReverseGraphTraversal<Graph> t(g, va); t; ++t)
         ans.check(t);
     ASSERT_always_require(ans.isGood());
-    
+
     std::cout <<"Breadth-first reverse traversal starting at edge E0\n";
     ans.clear();
     ans(ENTER_EDGE,             no_vert,e0);
@@ -1260,6 +1260,158 @@ functorTraversals() {
     testEdges<BreadthFirstReverseEdgeTraversal<Graph> >("BreadthFirstReverseEdgeTraversal", g, ea, "aecdb", "aecdbfg");
 }
 
+template<class Graph>
+static void
+checkDominators(Graph &g, typename Sawyer::Container::GraphTraits<Graph>::VertexIterator root,
+                const std::map<std::string, std::string> &ans) {
+    typedef typename Sawyer::Container::GraphTraits<Graph>::VertexIterator VertexIterator;
+    std::vector<VertexIterator> idoms = Sawyer::Container::Algorithm::graphDominators(g, root);
+    ASSERT_always_require(idoms.size() == g.nVertices());
+    for (size_t i=0; i<idoms.size(); ++i) {
+        VertexIterator vertex = g.findVertex(i);
+        std::string idom = g.isValidVertex(idoms[i]) ? idoms[i]->value() : "none";
+        std::cout <<"  idom(" <<vertex->value() <<") = " <<idom <<"\n";
+        std::map<std::string, std::string>::const_iterator found = ans.find(vertex->value());
+        ASSERT_always_require2(found != ans.end(), "FIXME[Robb P Matzke 2017-06-23]: answer is incomplete");
+        ASSERT_always_require2(found->second == idom, "ans=" + found->second);
+    }
+}
+
+static void
+graphDominators01() {
+    std::cout <<"graph dominators (back edges 1)\n";
+
+    typedef Sawyer::Container::Graph<std::string> Graph;
+    typedef Graph::VertexIterator Vertex;
+
+    Graph g;                                            //////////////////////////
+    Vertex va = g.insertVertex("A");                    //        A             //
+    Vertex vb = g.insertVertex("B");                    //      /  \            //
+    Vertex vc = g.insertVertex("C");                    //     B -> C           //
+    g.insertEdge(va, vb);                               //////////////////////////
+    g.insertEdge(va, vc);
+    g.insertEdge(vb, vc);
+
+    std::map<std::string, std::string> answer;
+    answer["A"] = "none";
+    answer["B"] = "A";
+    answer["C"] = "A";
+
+    checkDominators(g, va, answer);
+
+    // Now flip the edge, changing which one is the back edge
+    std::cout <<"graph dominators (back edges 2)\n";
+    g.clear();                                          //////////////////////////
+    va = g.insertVertex("A");                           //        A             //
+    vb = g.insertVertex("B");                           //      /  \            //
+    vc = g.insertVertex("C");                           //     B <- C           //
+    g.insertEdge(va, vb);                               //////////////////////////
+    g.insertEdge(va, vc);
+    g.insertEdge(vc, vb);
+
+    checkDominators(g, va, answer);
+};
+
+static void
+graphDominators02() {
+    std::cout <<"graph dominators (full)\n";
+
+    typedef Sawyer::Container::Graph<std::string> Graph;
+    typedef Graph::VertexIterator Vertex;
+
+    Graph g;                                            ///////////////////////////////////////////////////
+    Vertex va = g.insertVertex("A");                    //           A                                   //
+    Vertex vb = g.insertVertex("B");                    //           |                                   //
+    Vertex vc = g.insertVertex("C");                    //           B                                   //
+    Vertex vd = g.insertVertex("D");                    //         /  \                                  //
+    Vertex ve = g.insertVertex("E");                    //        /    \                                 //
+    /*vf*/      g.insertVertex("F");                    //       /      \                                //
+    Vertex vg = g.insertVertex("G");                    //      C    D   E   F     (F is not connected)  //
+    Vertex vh = g.insertVertex("H");                    //     / \  | \ / \                              //
+    Vertex vi = g.insertVertex("I");                    //    G  H  |  I  J <.     (J has a self edge)   //
+    Vertex vj = g.insertVertex("J");                    //    \ /   |      \_/                           //
+    Vertex vk = g.insertVertex("K");                    //     K    L                                    //
+    Vertex vl = g.insertVertex("L");                    ///////////////////////////////////////////////////
+
+    g.insertEdge(va, vb);
+    g.insertEdge(vb, vc);
+    g.insertEdge(vb, ve);
+    g.insertEdge(vc, vg);
+    g.insertEdge(vc, vh);
+    g.insertEdge(vd, vl);
+    g.insertEdge(vd, vi);
+    g.insertEdge(ve, vi);
+    g.insertEdge(ve, vj);
+    g.insertEdge(vg, vk);
+    g.insertEdge(vh, vk);
+    g.insertEdge(vj, vj);
+
+    std::map<std::string, std::string> answer;
+    answer["A"] = "none";
+    answer["B"] = "A";
+    answer["C"] = "B";
+    answer["D"] = "none";
+    answer["E"] = "B";
+    answer["F"] = "none";
+    answer["G"] = "C";
+    answer["H"] = "C";
+    answer["I"] = "E";
+    answer["J"] = "E";
+    answer["K"] = "C";
+    answer["L"] = "none";
+
+    checkDominators(g, va, answer);
+}
+
+static void
+graphDominators03() {
+    std::cout <<"graph dominators (complete)\n";
+
+    typedef Sawyer::Container::Graph<std::string> Graph;
+    typedef Graph::VertexIterator Vertex;
+
+    Graph g;
+    Vertex va = g.insertVertex("A");
+    Vertex vb = g.insertVertex("B");
+    Vertex vc = g.insertVertex("C");
+    Vertex vd = g.insertVertex("D");
+    Vertex ve = g.insertVertex("E");
+
+    g.insertEdge(va, vb);
+    g.insertEdge(va, vc);
+    g.insertEdge(va, vd);
+    g.insertEdge(va, ve);
+
+    g.insertEdge(vb, va);
+    g.insertEdge(vb, vc);
+    g.insertEdge(vb, vd);
+    g.insertEdge(vb, ve);
+
+    g.insertEdge(vc, va);
+    g.insertEdge(vc, vb);
+    g.insertEdge(vc, vd);
+    g.insertEdge(vc, ve);
+
+    g.insertEdge(vd, va);
+    g.insertEdge(vd, vb);
+    g.insertEdge(vd, vc);
+    g.insertEdge(vd, ve);
+
+    g.insertEdge(ve, va);
+    g.insertEdge(ve, vb);
+    g.insertEdge(ve, vc);
+    g.insertEdge(ve, vd);
+
+    std::map<std::string, std::string> answer;
+    answer["A"] = "none";
+    answer["B"] = "A";
+    answer["C"] = "A";
+    answer["D"] = "A";
+    answer["E"] = "A";
+
+    checkDominators(g, va, answer);
+}
+
 int main() {
     Sawyer::initializeLibrary();
     typedef Sawyer::Container::Graph<std::string, std::string> G1;
@@ -1282,4 +1434,7 @@ int main() {
     traversals();
     breakCycles();
     functorTraversals();
+    graphDominators01();
+    graphDominators02();
+    graphDominators03();
 }
