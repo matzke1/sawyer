@@ -1264,13 +1264,32 @@ template<class Graph>
 static void
 checkDominators(Graph &g, typename Sawyer::Container::GraphTraits<Graph>::VertexIterator root,
                 const std::map<std::string, std::string> &ans) {
+    std::cout <<"  pre-dominators\n";
     typedef typename Sawyer::Container::GraphTraits<Graph>::VertexIterator VertexIterator;
     std::vector<VertexIterator> idoms = Sawyer::Container::Algorithm::graphDominators(g, root);
     ASSERT_always_require(idoms.size() == g.nVertices());
     for (size_t i=0; i<idoms.size(); ++i) {
         VertexIterator vertex = g.findVertex(i);
         std::string idom = g.isValidVertex(idoms[i]) ? idoms[i]->value() : "none";
-        std::cout <<"  idom(" <<vertex->value() <<") = " <<idom <<"\n";
+        std::cout <<"    idom(" <<vertex->value() <<") = " <<idom <<"\n";
+        std::map<std::string, std::string>::const_iterator found = ans.find(vertex->value());
+        ASSERT_always_require2(found != ans.end(), "FIXME[Robb P Matzke 2017-06-23]: answer is incomplete");
+        ASSERT_always_require2(found->second == idom, "ans=" + found->second);
+    }
+}
+
+template<class Graph>
+static void
+checkPostDominators(Graph &g, typename Sawyer::Container::GraphTraits<Graph>::VertexIterator exit,
+                    const std::map<std::string, std::string> &ans) {
+    std::cout <<"  post-dominators\n";
+    typedef typename Sawyer::Container::GraphTraits<Graph>::VertexIterator VertexIterator;
+    std::vector<VertexIterator> idoms = Sawyer::Container::Algorithm::graphPostDominators(g, exit);
+    ASSERT_always_require(idoms.size() == g.nVertices());
+    for (size_t i=0; i<idoms.size(); ++i) {
+        VertexIterator vertex = g.findVertex(i);
+        std::string idom = g.isValidVertex(idoms[i]) ? idoms[i]->value() : "none";
+        std::cout <<"    idom(" <<vertex->value() <<") = " <<idom <<"\n";
         std::map<std::string, std::string>::const_iterator found = ans.find(vertex->value());
         ASSERT_always_require2(found != ans.end(), "FIXME[Robb P Matzke 2017-06-23]: answer is incomplete");
         ASSERT_always_require2(found->second == idom, "ans=" + found->second);
@@ -1296,8 +1315,13 @@ graphDominators01() {
     answer["A"] = "none";
     answer["B"] = "A";
     answer["C"] = "A";
-
     checkDominators(g, va, answer);
+
+    answer.clear();
+    answer["A"] = "C";
+    answer["B"] = "C";
+    answer["C"] = "none";
+    checkPostDominators(g, vc, answer);
 
     // Now flip the edge, changing which one is the back edge
     std::cout <<"graph dominators (back edges 2)\n";
@@ -1309,7 +1333,17 @@ graphDominators01() {
     g.insertEdge(va, vc);
     g.insertEdge(vc, vb);
 
+    answer.clear();
+    answer["A"] = "none";
+    answer["B"] = "A";
+    answer["C"] = "A";
     checkDominators(g, va, answer);
+
+    answer.clear();
+    answer["A"] = "C";
+    answer["B"] = "none";
+    answer["C"] = "none";
+    checkPostDominators(g, vc, answer);
 };
 
 static void
@@ -1319,22 +1353,23 @@ graphDominators02() {
     typedef Sawyer::Container::Graph<std::string> Graph;
     typedef Graph::VertexIterator Vertex;
 
-    Graph g;                                            ///////////////////////////////////////////////////
-    Vertex va = g.insertVertex("A");                    //           A                                   //
-    Vertex vb = g.insertVertex("B");                    //           |                                   //
-    Vertex vc = g.insertVertex("C");                    //           B                                   //
-    Vertex vd = g.insertVertex("D");                    //         /  \                                  //
-    Vertex ve = g.insertVertex("E");                    //        /    \                                 //
-    /*vf*/      g.insertVertex("F");                    //       /      \                                //
-    Vertex vg = g.insertVertex("G");                    //      C    D   E   F     (F is not connected)  //
-    Vertex vh = g.insertVertex("H");                    //     / \  | \ / \                              //
-    Vertex vi = g.insertVertex("I");                    //    G  H  |  I  J <.     (J has a self edge)   //
-    Vertex vj = g.insertVertex("J");                    //    \ /   |      \_/                           //
-    Vertex vk = g.insertVertex("K");                    //     K    L                                    //
-    Vertex vl = g.insertVertex("L");                    ///////////////////////////////////////////////////
-
-    g.insertEdge(va, vb);
-    g.insertEdge(vb, vc);
+    Graph g;                                            //////////////////////////////////////////////////
+    Vertex va = g.insertVertex("A");                    //           A                                  //
+    Vertex vb = g.insertVertex("B");                    //           |                                  //
+    Vertex vc = g.insertVertex("C");                    //           B                                  //
+    Vertex vd = g.insertVertex("D");                    //         /  \                                 //
+    Vertex ve = g.insertVertex("E");                    //        /    \                                //
+    /*vf*/      g.insertVertex("F");                    //       /      \                               //
+    Vertex vg = g.insertVertex("G");                    //      C    D   E   F     (F is not connected) //
+    Vertex vh = g.insertVertex("H");                    //     / \  | \ / \                             //
+    Vertex vi = g.insertVertex("I");                    //    G  H  |  I  J <.     (J has a self edge)  //
+    Vertex vj = g.insertVertex("J");                    //    \ /   |    / \_/                          //
+    Vertex vk = g.insertVertex("K");                    //     K    L   |                               //
+    Vertex vl = g.insertVertex("L");                    //      \   |   /                               //
+    Vertex vm = g.insertVertex("M");                    //       \  |  /                                //
+                                                        //        \ | /                                 //
+    g.insertEdge(va, vb);                               //          M                                   //
+    g.insertEdge(vb, vc);                               //////////////////////////////////////////////////
     g.insertEdge(vb, ve);
     g.insertEdge(vc, vg);
     g.insertEdge(vc, vh);
@@ -1345,6 +1380,9 @@ graphDominators02() {
     g.insertEdge(vg, vk);
     g.insertEdge(vh, vk);
     g.insertEdge(vj, vj);
+    g.insertEdge(vk, vm);
+    g.insertEdge(vl, vm);
+    g.insertEdge(vj, vm);
 
     std::map<std::string, std::string> answer;
     answer["A"] = "none";
@@ -1359,8 +1397,26 @@ graphDominators02() {
     answer["J"] = "E";
     answer["K"] = "C";
     answer["L"] = "none";
+    answer["M"] = "B";
 
     checkDominators(g, va, answer);
+
+    answer.clear();
+    answer["A"] = "B";
+    answer["B"] = "M";
+    answer["C"] = "K";
+    answer["D"] = "L";
+    answer["E"] = "J";
+    answer["F"] = "none";
+    answer["G"] = "K";
+    answer["H"] = "K";
+    answer["I"] = "none";
+    answer["J"] = "M";
+    answer["K"] = "M";
+    answer["L"] = "M";
+    answer["M"] = "none";
+
+    checkPostDominators(g, vm, answer);
 }
 
 static void

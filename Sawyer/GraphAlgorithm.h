@@ -1065,11 +1065,11 @@ findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, Equivalen
 }
 /** @} */
 
-/** Find immediate dominators.
+/** Find immediate pre- or post-dominators.
  *
- *  Given a graph, find the immediate dominator of each vertex, if any, and return them as a vector. The vector, indexed by
- *  vertex ID, contains either a pointer (vertex iterator) to the dominator vertex, or no pointer (end vertex iterator) if the
- *  vertex has no dominator.
+ *  Given a graph, find the immediate pre- or post-dominator of each vertex, if any, and return them as a vector. The vector,
+ *  indexed by vertex ID, contains either a pointer (vertex iterator) to the dominator vertex, or no pointer (end vertex
+ *  iterator) if the vertex has no dominator.
  *
  *  The algorithm employed here is loosely based on an algorithm from Rice University known to be O(n^2) where n is the number
  *  of vertices in the control flow subgraph connected to the start vertex.  According to the Rice paper, their algorithm
@@ -1106,19 +1106,22 @@ findMaximumCommonIsomorphicSubgraphs(const Graph &g1, const Graph &g2, Equivalen
  * allows us to perform intersection by simply walking the two sorted lists until we find an element in common, and including
  * that element an all subsequent elements in the intersection result.  The @c idom array uses the flow-list vertex numbering
  * produced by a post-order visitor of a depth-first search, and the nodes are processed from highest to lowest. */
-template<class Graph>
+template<class Direction, class Graph>
 std::vector<typename GraphTraits<Graph>::VertexIterator>
-graphDominators(Graph &g, typename GraphTraits<Graph>::VertexIterator root) {
+graphDirectedDominators(Graph &g, typename GraphTraits<Graph>::VertexIterator root) {
     typedef typename GraphTraits<Graph>::VertexIterator VertexIterator;
+    typedef typename GraphTraits<Graph>::EdgeIterator EdgeIterator;
     typedef typename GraphTraits<Graph>::Edge Edge;
     static const size_t NO_ID = (size_t)(-1);
 
     ASSERT_require(g.isValidVertex(root));
 
-    // List of vertex IDs in the best order for data-flow. I.e., the reverse of the post-fix, depth-first traversal.  A useful
-    // fact is that disregarding back edges, the predecessors of the vertex represented by flowlist[i] all appear earlier in
-    // flowlist.
-    std::vector<size_t> flowlist = graphReachableVertices(DepthFirstForwardGraphTraversal<Graph>(g, root, LEAVE_VERTEX));
+    // List of vertex IDs in the best order for data-flow. I.e., the reverse of the post-fix, depth-first traversal following
+    // forwared or reverse edges (depending on the Direction template argument).  A useful fact is that disregarding back
+    // edges, the predecessors of the vertex represented by flowlist[i] all appear earlier in flowlist.
+    GraphTraversal<Graph, DepthFirstTraversalTag, Direction> traversal(g, LEAVE_VERTEX);
+    traversal.start(root);
+    std::vector<size_t> flowlist = graphReachableVertices(traversal);
     std::reverse(flowlist.begin(), flowlist.end());
 
     // The inverse mapping of the flowlist. I.e.., since flowlist maps an index to a vertex ID, rflowlist maps a vertex ID back
@@ -1152,8 +1155,10 @@ graphDominators(Graph &g, typename GraphTraits<Graph>::VertexIterator root) {
             // Try to choose a new idom for this vertex by processing each of its predecessors. The dominator of the current
             // vertex is a function of the dominators of its predecessors.
             size_t newIdom = idom[vertex_i];
-            BOOST_FOREACH (Edge &edge, vertex->inEdges()) {
-                VertexIterator predecessor = edge.source();
+
+            boost::iterator_range<EdgeIterator> edges = previousEdges<EdgeIterator>(vertex, Direction());
+            for (EdgeIterator edge=edges.begin(); edge!=edges.end(); ++edge) {
+                VertexIterator predecessor = previousVertex<VertexIterator>(edge, Direction());
                 size_t predecessor_i = rflowlist[predecessor->id()];
                 if (NO_ID == predecessor_i)
                     continue;                           // predecessor is not reachable from root, so does't contribute
@@ -1191,6 +1196,32 @@ graphDominators(Graph &g, typename GraphTraits<Graph>::VertexIterator root) {
             retval[flowlist[i]] = g.findVertex(flowlist[idom[i]]);
     }
     return retval;
+}
+
+/** Find immediate pre-dominators.
+ *
+ *  Given a graph, find the immediate pre-dominator of each vertex, if any, and return them as a vector. The vector,
+ *  indexed by vertex ID, contains either a pointer (vertex iterator) to the dominator vertex, or no pointer (end vertex
+ *  iterator) if the vertex has no dominator.
+ *
+ *  See also, @ref graphPostDominators and @ref graphDirectedDominators. */
+template<class Graph>
+std::vector<typename GraphTraits<Graph>::VertexIterator>
+graphDominators(Graph &g, typename GraphTraits<Graph>::VertexIterator root) {
+    return graphDirectedDominators<ForwardTraversalTag>(g, root);
+}
+
+/** Find immediate post-dominators.
+ *
+ *  Given a graph, find the immediate post-dominator of each vertex, if any, and return them as a vector. The vector,
+ *  indexed by vertex ID, contains either a pointer (vertex iterator) to the dominator vertex, or no pointer (end vertex
+ *  iterator) if the vertex has no dominator.
+ *
+ *  See also, @ref graphDominators and @ref graphDirectedDominators. */
+template<class Graph>
+std::vector<typename GraphTraits<Graph>::VertexIterator>
+graphPostDominators(Graph &g, typename GraphTraits<Graph>::VertexIterator root) {
+    return graphDirectedDominators<ReverseTraversalTag>(g, root);
 }
 
 } // namespace

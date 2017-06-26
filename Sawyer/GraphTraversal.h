@@ -82,6 +82,82 @@ class DepthFirstTraversalTag {};
 /** Order tag for breadth-first traversals. */
 class BreadthFirstTraversalTag {};
 
+/** Next vertex in traversal order.
+ *
+ * Returns the next vertex in traversal order when given an edge.  Forward-flowing traversal will return
+ * <code>edge->target()</code> and reverse-flowing traversals will return <code>edge->source()</code>.
+ *
+ * @{ */
+template<class VertexIterator, class EdgeIterator>
+VertexIterator
+nextVertex(EdgeIterator edge, ForwardTraversalTag) {
+    return edge->target();
+}
+
+template<class VertexIterator, class EdgeIterator>
+VertexIterator
+nextVertex(EdgeIterator edge, ReverseTraversalTag) {
+    return edge->source();
+}
+/** @} */
+
+/** Previous vertex in traversal order.
+ *
+ *  Returns the previous vertex in traversal order when given an edge.  Forward-flowing traversals will return
+ *  <code>edge->source()</code> and reverse-flowing traversals will return <code>edge->target()</code>.
+ *
+ * @{ */
+template<class VertexIterator, class EdgeIterator>
+VertexIterator
+previousVertex(EdgeIterator edge, ForwardTraversalTag) {
+    return edge->source();
+}
+
+template<class VertexIterator, class EdgeIterator>
+VertexIterator
+previousVertex(EdgeIterator edge, ReverseTraversalTag) {
+    return edge->target();
+}
+/** @} */
+
+/** Next edges in traversal order.
+ *
+ *  Returns edges that leave a vertex for the purpose of traversal.  Forward-flowing traversals will return
+ *  <code>vertex->outEdges()</code> and reverse-flowing traversals will return <code>vertex->inEdges()</code>.
+ *
+ * @{ */
+template<class EdgeIterator, class VertexIterator>
+boost::iterator_range<EdgeIterator>
+nextEdges(VertexIterator vertex, ForwardTraversalTag) {
+    return vertex->outEdges();
+}
+
+template<class EdgeIterator, class VertexIterator>
+boost::iterator_range<EdgeIterator>
+nextEdges(VertexIterator vertex, ReverseTraversalTag) {
+    return vertex->inEdges();
+}
+/** @} */
+
+/** Previous edges in traversal order.
+ *
+ *  Returns edges that enter a vertex for the purpose of traversal.  Forward-flowing traversals will return
+ *  <code>vertex->inEdges()</code> and reverse-flowing traversals will return <code>vertex->outEdges()</code>.
+ *
+ * @{ */
+template<class EdgeIterator, class VertexIterator>
+boost::iterator_range<EdgeIterator>
+previousEdges(VertexIterator vertex, ForwardTraversalTag) {
+    return vertex->inEdges();
+}
+
+template<class EdgeIterator, class VertexIterator>
+boost::iterator_range<EdgeIterator>
+previousEdges(VertexIterator vertex, ReverseTraversalTag) {
+    return vertex->outEdges();
+}
+/** @} */
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** Base class for graph traversals.
@@ -339,11 +415,16 @@ private:
     BitVector edgesVisited_;                            // edges that have been visited
     Optional<Work> latestDiscovered_;                   // most recent work discovered
 
-protected:
+public:
+    /** Construct traversal for graph.
+     *
+     *  This traversal will stop at the specified events. You must call the @ref start method before using the traversal. This
+     *  constructor is normally called from subclasses that call @ref start as part of their constructors. */
     GraphTraversal(Graph &graph, unsigned significantEvents)
         : graph_(graph), significantEvents_(significantEvents),
           verticesDiscovered_(graph.nVertices()), edgesVisited_(graph.nEdges()) {}
         
+protected:
     // Current work item.
     Work& current() {
         ASSERT_forbid(workList_.empty());
@@ -385,7 +466,7 @@ public:
     void start(VertexIterator startVertex) {
         ASSERT_forbid(startVertex == graph_.vertices().end());
         clear();
-        Work newWork(graph_.edges().end(), startVertex, nextEdges(startVertex, Direction()));
+        Work newWork(graph_.edges().end(), startVertex, nextEdges<EdgeIterator>(startVertex, Direction()));
         enqueue(newWork, Order());
         setDiscovered(startVertex);
         latestDiscovered_ = newWork;
@@ -563,9 +644,9 @@ public:
             if (current().event == ENTER_EDGE) {
                 current().event = FOLLOW_EDGE; // never escapes to the user
                 if (current().followEdge) {
-                    VertexIterator neighbor = nextVertex(workList_.front().edge, Direction());
+                    VertexIterator neighbor = nextVertex<VertexIterator>(workList_.front().edge, Direction());
                     if (!isDiscovered(neighbor)) {
-                        Work newWork(workList_.front().edge, neighbor, nextEdges(neighbor, Direction()));
+                        Work newWork(workList_.front().edge, neighbor, nextEdges<EdgeIterator>(neighbor, Direction()));
                         enqueue(newWork, Order());
                         setDiscovered(neighbor);
                         latestDiscovered_ = newWork;
@@ -621,7 +702,7 @@ public:
     void allowRediscovery(VertexIterator vertex) {
         if (vertex != graph_.vertices().end()) {
             setDiscovered(vertex, false);
-            boost::iterator_range<EdgeIterator> edges = nextEdges(vertex, Direction());
+            boost::iterator_range<EdgeIterator> edges = nextEdges<EdgeIterator>(vertex, Direction());
             for (EdgeIterator iter=edges.begin(); iter!=edges.end(); ++iter)
                 setVisited(iter, false);
         }
@@ -688,7 +769,7 @@ public:
         }
     }
     /** @} */
-    
+
     // The following trickery is to allow things like "if (x)" to work but without having an implicit
     // conversion to bool which would cause no end of other problems. This is fixed in C++11.
 private:
@@ -710,16 +791,6 @@ public:
     }
 
 private:
-    // Returns the next vertex in traversal order when given an edge.  Forward-flowing subclasses will return edge->target()
-    // and reverse-flowing subclasses will return edge->source().
-    VertexIterator nextVertex(EdgeIterator edge, ForwardTraversalTag) { return edge->target(); }
-    VertexIterator nextVertex(EdgeIterator edge, ReverseTraversalTag) { return edge->source(); }
-
-    // Returns edges that leave a vertex for the purpose of traversal.  Forward-flowing subclasses will return
-    // vertex->outEdges() and reverse-flowing subclasses will return vertex->inEdges().
-    boost::iterator_range<EdgeIterator> nextEdges(VertexIterator vertex, ForwardTraversalTag) { return vertex->outEdges(); }
-    boost::iterator_range<EdgeIterator> nextEdges(VertexIterator vertex, ReverseTraversalTag) { return vertex->inEdges(); }
-
     // Adds new work to the list.  Depth-first subclasses will push work onto the front of the list and breadth-first
     // subclasses will push it onto the end.
     void enqueue(const Work &work, DepthFirstTraversalTag) { workList_.push_front(work); }
