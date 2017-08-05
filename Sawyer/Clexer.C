@@ -2,6 +2,7 @@
 #include <Sawyer/Clexer.h>
 
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/lexical_cast.hpp>
 #include <iostream>
 
 namespace Sawyer {
@@ -76,15 +77,84 @@ TokenStream::matches(const Token &token, const char *s2) const {
 }
 
 void
-TokenStream::emit(const std::string &fileName, const Token &token, const std::string &message) const {
-    std::pair<size_t, size_t> loc = content_.location(token.begin_);
-    std::cerr <<fileName <<":" <<(loc.first+1) <<":" <<(loc.second+1) <<": " <<message <<"\n";
-    const char *line = content_.lineChars(loc.first);
-    if (line) {
-        std::string str(line, content_.nCharacters(loc.first));
-        boost::trim_right(str);
-        std::cerr <<"        |" <<str <<"|\n";
-        std::cerr <<"         " <<std::string(loc.second, ' ') <<"^\n";
+TokenStream::emit(std::ostream &out, const std::string &fileName, const Token &token, const std::string &message) const {
+    emit(out, fileName, token, token, token, message);
+}
+
+void
+TokenStream::emit(std::ostream &out, const std::string &fileName, const Token &begin, const Token &locus, const Token &end,
+                  const std::string &message) const {
+
+    std::pair<size_t, size_t> loc1 = content_.location(begin.begin_);
+    std::pair<size_t, size_t> loc2 = content_.location(locus.begin_);
+    //std::pair<size_t, size_t> loc3 = content_.location(locus.end_);
+    std::pair<size_t, size_t> loc4 = content_.location(end.end_);
+
+    // Emit "NAME:LINE:COL: MESG" to show the beginning of the locus
+    out <<fileName <<":" <<(loc2.first+1) <<":" <<(loc2.second+1) <<": " <<message <<"\n";
+
+    // Emit context matched lines
+    for (size_t lineIdx = loc1.first; lineIdx <= loc4.first; ++lineIdx) {
+        const char *line = content_.lineChars(lineIdx);
+        if (line) {
+            // Line number right justified in a field of 7 characters
+            std::string lineNumStr = boost::lexical_cast<std::string>(lineIdx+1);
+            if (lineNumStr.size() > 7)
+                lineNumStr = "+" + boost::lexical_cast<std::string>(lineIdx-loc1.first);
+            if (lineNumStr.size() < 7)
+                lineNumStr = std::string(7 - lineNumStr.size(), ' ') + lineNumStr;
+
+            // The line from the source file
+            std::string str(line, content_.nCharacters(lineIdx));
+            boost::trim_right(str);
+            out <<lineNumStr <<"|" <<str <<"\n";        // indentation preserves TABS when traditional stops are assumed
+
+            // The matching part of the line is underlined with "~" characters except "^" is used at the start of the locus.
+            out <<"       |";
+            size_t col0 = content_.characterIndex(lineIdx);
+            size_t colN = col0 + str.size();
+            size_t cur = col0;
+
+            // white space before first '~'
+            if (col0 < begin.begin_) {
+                size_t n = begin.begin_ - col0;
+                out <<std::string(n, ' ');
+                cur += n;
+            }
+            
+            // '~' characters, up to '^' or EOL
+            if (lineIdx < loc2.first) {
+                size_t n = colN - cur;
+                out <<std::string(n, '~');              // '~' to eol
+                cur += n;
+            } else if (lineIdx == loc2.first) {
+                ASSERT_require(locus.begin_ >= cur);
+                size_t n = locus.begin_ - cur;
+                out <<std::string(n, '~');              // '~' to '^'
+                cur += n;
+            }
+
+            // '^' at beginning of locus
+            if (lineIdx == loc2.first) {
+                out <<"^";
+                ++cur;
+            }
+            
+            // '~' characters, up to end of match or EOL
+            if (lineIdx < loc4.first) {
+                size_t n = colN - cur;
+                out <<std::string(n, '~');              // '~' to eol
+                cur += n;
+            } else {
+                ASSERT_require(lineIdx == loc4.first);
+                ASSERT_require(end.end_ >= cur);
+                size_t n = end.end_ - cur;
+                out <<std::string(n, '~');              // '~' to end of match
+                cur += n;
+            }
+
+            out <<"\n";
+        }
     }
 }
 
@@ -100,10 +170,10 @@ TokenStream::scanString() {
     int c = content_.character(++at_);
     while (EOF != c && c != q) {
         if ('\\' == c)
-            ++at_;                                  // skipping next char is sufficient
+            ++at_;                                      // skipping next char is sufficient
         c = content_.character(++at_);
     }
-    ++at_;                                          // skip closing quote
+    ++at_;                                              // skip closing quote
 }
 
 void

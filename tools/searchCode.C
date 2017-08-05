@@ -14,8 +14,9 @@ using namespace Sawyer::Message::Common;
 using namespace Sawyer::Language;
 
 static Sawyer::Message::Facility mlog;
+static bool beQuiet = false;
 
-std::vector<std::string>
+static std::vector<std::string>
 parseCommandLine(int argc, char *argv[]) {
     using namespace Sawyer::CommandLine;
     Parser parser;
@@ -34,6 +35,10 @@ parseCommandLine(int argc, char *argv[]) {
     parser.with(Switch("help", 'h')
                 .action(showHelpAndExit(0))
                 .doc("Show this documentation."));
+
+    parser.with(Switch("quiet", 'q')
+                .intrinsicValue(true, beQuiet)
+                .doc("Don't show the individual matches, just the final total."));
 
     std::vector<std::string> args = parser.parse(argc, argv).apply().unreachedArgs();
     if (args.empty()) {
@@ -66,10 +71,14 @@ main(int argc, char *argv[]) {
     std::vector<std::string> needle = toTokens("needle", args[0]);
     args.erase(args.begin());
 
-    bool anyFound = false;
+    size_t nMatches = 0;
     BOOST_FOREACH (const std::string &fileName, args) {
         if (!boost::filesystem::exists(fileName)) {
             mlog[ERROR] <<fileName <<": no such file\n";
+            continue;
+        }
+        if (!boost::filesystem::is_regular_file(fileName)) {
+            mlog[ERROR] <<fileName <<": not a regular file\n";
             continue;
         }
         if (boost::filesystem::file_size(fileName) == 0)
@@ -81,12 +90,15 @@ main(int argc, char *argv[]) {
             for (size_t i=0; doesMatch && i<needle.size(); ++i)
                 doesMatch = haystack.matches(haystack[i], needle[i].c_str());
             if (doesMatch) {
-                haystack.emit(fileName, haystack[0], "found here");
-                anyFound = true;
+                if (!beQuiet)
+                    haystack.emit(std::cout, fileName, haystack[0], haystack[0], haystack[needle.size()-1], "found here");
+                ++nMatches;
             }
             haystack.consume();
         }
     }
+
+    std::cout <<nMatches <<(1==nMatches ? " match" : " matches") <<"\n";
     
-    return anyFound ? 0 : 1;
+    return nMatches>0 ? 0 : 1;
 }

@@ -77,8 +77,11 @@ public:
     std::string line(const Token &t) const;
     
     bool matches(const Token &token, const char *s2) const;
-    
-    void emit(const std::string &fileName, const Token &token, const std::string &message) const;
+
+    void emit(std::ostream &out, const std::string &fileName, const Token &token, const std::string &message) const;
+
+    void emit(std::ostream &out, const std::string &fileName, const Token &begin, const Token &locus, const Token &end,
+              const std::string &message) const;
 
     std::pair<size_t, size_t> location(const Token &token) const;
     
