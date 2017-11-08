@@ -7,6 +7,7 @@
 #include <Sawyer/Set.h>
 
 #include <boost/regex.hpp>
+#include <iostream>
 
 using namespace Sawyer::Message::Common;
 using namespace Sawyer::Language;

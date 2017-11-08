@@ -7,6 +7,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
+#include <iostream>
 #include <string>
 #include <vector>
 
