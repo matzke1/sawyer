@@ -2,6 +2,7 @@
 #define Sawyer_Container_LineVector_H
 
 #include <Sawyer/Buffer.h>
+#include <Sawyer/Sawyer.h>
 
 #include <algorithm>
 #include <boost/filesystem.hpp>

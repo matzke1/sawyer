@@ -1,6 +1,8 @@
 #ifndef Sawyer_ObjectCache_H
 #define Sawyer_ObjectCache_H
 
+#include <Sawyer/Sawyer.h>
+
 #ifdef SAWYER_MULTI_THREADED
 #include <boost/thread/condition_variable.hpp>
 #endif

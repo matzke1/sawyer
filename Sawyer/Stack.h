@@ -2,6 +2,7 @@
 #define Sawyer_Stack_H
 
 #include <Sawyer/Assert.h>
+#include <Sawyer/Sawyer.h>
 #include <vector>
 
 namespace Sawyer {

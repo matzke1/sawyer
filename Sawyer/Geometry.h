@@ -2,6 +2,7 @@
 #define Sawyer_Coord_H
 
 #include <Sawyer/Assert.h>
+#include <Sawyer/Sawyer.h>
 #include <cmath>
 #if __cplusplus < 201103L && defined(_MSC_VER)
 #include <float.h> // for _isnan

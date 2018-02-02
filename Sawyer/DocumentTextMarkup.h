@@ -2,6 +2,7 @@
 #define Sawyer_Document_TextMarkup_H
 
 #include <Sawyer/DocumentBaseMarkup.h>
+#include <Sawyer/Sawyer.h>
 
 namespace Sawyer {
 namespace Document {
