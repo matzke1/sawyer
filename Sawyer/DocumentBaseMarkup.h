@@ -89,7 +89,7 @@ public:
     virtual std::string operator()(const std::string&) /*override*/;
 
     /** Emit documentation to output */
-    virtual void emit(const std::string &doc) = 0;
+    virtual bool emit(const std::string &doc) = 0;
 
     /** True if this string contains any non-blank characters. */
     static bool hasNonSpace(const std::string&);

@@ -11,7 +11,7 @@ class SAWYER_EXPORT PodMarkup: public BaseMarkup {
 public:
     PodMarkup() { init(); }
 
-    virtual void emit(const std::string &doc) /*override*/;
+    virtual bool emit(const std::string &doc) /*override*/;
 
 private:
     void init();

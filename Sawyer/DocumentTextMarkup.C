@@ -141,7 +141,7 @@ public:
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-SAWYER_EXPORT void
+SAWYER_EXPORT bool
 TextMarkup::emit(const std::string &doc) {
     std::string rendered = (*this)(doc);
 
@@ -149,10 +149,9 @@ TextMarkup::emit(const std::string &doc) {
     tmpFile.stream() <<rendered;
     tmpFile.stream().close();
     std::string cmd = "${PAGER-less} '" + escapeSingleQuoted(tmpFile.name().string()) + "'";
-    if (system(cmd.c_str()) ==0)
-        return;
-
-    std::cout <<rendered;
+    if (system(cmd.c_str()) != 0)
+        std::cout <<rendered;
+    return true;
 }
 
 SAWYER_EXPORT void

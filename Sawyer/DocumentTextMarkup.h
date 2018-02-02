@@ -19,7 +19,7 @@ public:
         init();
     }
 
-    virtual void emit(const std::string &doc) /*override*/;
+    virtual bool emit(const std::string &doc) /*override*/;
 
     /** Property: Whether to create a page header.
      *
