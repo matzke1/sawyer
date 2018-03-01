@@ -360,11 +360,11 @@ void erase_vertex() {
     Vertex v1 = graph.insertVertex("vinegar");
     Vertex v2 = graph.insertVertex("violin");
     Vertex v3 = graph.insertVertex("visa");
-    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
-    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
-    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
-    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
-    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
+    /*Edge e0 =*/ graph.insertEdge(v0, v1, "vine-vinegar");
+    /*Edge e1 =*/ graph.insertEdge(v2, v1, "violin-vinegar");
+    /*Edge e2 =*/ graph.insertEdge(v0, v3, "vine-visa");
+    /*Edge e3 =*/ graph.insertEdge(v3, v0, "visa-vine");
+    /*Edge e4 =*/ graph.insertEdge(v3, v3, "visa-visa");
     std::cout <<"  initial graph:\n" <<graph;
 
     graph.eraseVertex(v2);
@@ -420,11 +420,11 @@ void copy_ctor() {
     Vertex v1 = graph.insertVertex("vinegar");
     Vertex v2 = graph.insertVertex("violin");
     Vertex v3 = graph.insertVertex("visa");
-    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
-    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
-    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
-    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
-    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
+    /*Edge e0 =*/ graph.insertEdge(v0, v1, "vine-vinegar");
+    /*Edge e1 =*/ graph.insertEdge(v2, v1, "violin-vinegar");
+    /*Edge e2 =*/ graph.insertEdge(v0, v3, "vine-visa");
+    /*Edge e3 =*/ graph.insertEdge(v3, v0, "visa-vine");
+    /*Edge e4 =*/ graph.insertEdge(v3, v3, "visa-visa");
     std::cout <<"  initial graph:\n" <<graph;
 
     Graph g2(graph);
@@ -463,11 +463,11 @@ void assignment() {
         Vertex v1 = graph.insertVertex("vinegar");
         Vertex v2 = graph.insertVertex("violin");
         Vertex v3 = graph.insertVertex("visa");
-        Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
-        Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
-        Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
-        Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
-        Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
+        /*Edge e0 =*/ graph.insertEdge(v0, v1, "vine-vinegar");
+        /*Edge e1 =*/ graph.insertEdge(v2, v1, "violin-vinegar");
+        /*Edge e2 =*/ graph.insertEdge(v0, v3, "vine-visa");
+        /*Edge e3 =*/ graph.insertEdge(v3, v0, "visa-vine");
+        /*Edge e4 =*/ graph.insertEdge(v3, v3, "visa-visa");
         std::cout <<"  initial graph:\n" <<graph;
         g2 = graph;
 
@@ -531,11 +531,11 @@ void conversion() {
     Vertex v1 = graph.insertVertex("vinegar");
     Vertex v2 = graph.insertVertex("violin");
     Vertex v3 = graph.insertVertex("visa");
-    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
-    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
-    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
-    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
-    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
+    /*Edge e0 =*/ graph.insertEdge(v0, v1, "vine-vinegar");
+    /*Edge e1 =*/ graph.insertEdge(v2, v1, "violin-vinegar");
+    /*Edge e2 =*/ graph.insertEdge(v0, v3, "vine-visa");
+    /*Edge e3 =*/ graph.insertEdge(v3, v0, "visa-vine");
+    /*Edge e4 =*/ graph.insertEdge(v3, v3, "visa-visa");
     std::cout <<"  initial graph:\n" <<graph;
 
     typedef Sawyer::Container::Graph<String, String> Graph2;
@@ -572,11 +572,11 @@ void assignment_conversion() {
     Vertex v1 = graph.insertVertex("vinegar");
     Vertex v2 = graph.insertVertex("violin");
     Vertex v3 = graph.insertVertex("visa");
-    Edge e0 = graph.insertEdge(v0, v1, "vine-vinegar");
-    Edge e1 = graph.insertEdge(v2, v1, "violin-vinegar");
-    Edge e2 = graph.insertEdge(v0, v3, "vine-visa");
-    Edge e3 = graph.insertEdge(v3, v0, "visa-vine");
-    Edge e4 = graph.insertEdge(v3, v3, "visa-visa");
+    /*Edge e0 =*/ graph.insertEdge(v0, v1, "vine-vinegar");
+    /*Edge e1 =*/ graph.insertEdge(v2, v1, "violin-vinegar");
+    /*Edge e2 =*/ graph.insertEdge(v0, v3, "vine-visa");
+    /*Edge e3 =*/ graph.insertEdge(v3, v0, "visa-vine");
+    /*Edge e4 =*/ graph.insertEdge(v3, v3, "visa-visa");
     std::cout <<"  initial graph:\n" <<graph;
 
     typedef Sawyer::Container::Graph<String, String> Graph2;

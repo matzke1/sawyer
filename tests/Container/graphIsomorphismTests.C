@@ -152,7 +152,7 @@ testEmptyGraphs() {
     heading("empty graphs");
     Graph g1, g2;
 
-    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    CommonSubgraphIsomorphism<Graph, Graph, SolutionChecker> csi(g1, g2);
     SolutionChecker &s = csi.solutionProcessor();
 
     csi.run();
@@ -173,7 +173,7 @@ testVertexGraphs(bool allowDisconnectedSubgraphs) {
     g2.insertVertex("w0");
     g2.insertVertex("w1");
 
-    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    CommonSubgraphIsomorphism<Graph, Graph, SolutionChecker> csi(g1, g2);
     SolutionChecker &s = csi.solutionProcessor();
     s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
@@ -221,7 +221,7 @@ testOneEdge(bool allowDisconnectedSubgraphs) {
     Graph::ConstVertexIterator w1 = g2.insertVertex("w1");
     g2.insertEdge(w0, w1, "f01");
 
-    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    CommonSubgraphIsomorphism<Graph, Graph, SolutionChecker> csi(g1, g2);
     SolutionChecker &s = csi.solutionProcessor();
     s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
@@ -267,7 +267,7 @@ testTwoLinearEdges(bool allowDisconnectedSubgraphs) {
     g2.insertEdge(w0, w1, "f01");
     g2.insertEdge(w1, w2, "f12");
 
-    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    CommonSubgraphIsomorphism<Graph, Graph, SolutionChecker> csi(g1, g2);
     SolutionChecker &s = csi.solutionProcessor();
     s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
@@ -357,7 +357,7 @@ testTwoCircularEdges(bool allowDisconnectedSubgraphs) {
     g2.insertEdge(w0, w1, "f01");
     g2.insertEdge(w1, w0, "f10");
 
-    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    CommonSubgraphIsomorphism<Graph, Graph, SolutionChecker> csi(g1, g2);
     SolutionChecker &s = csi.solutionProcessor();
     s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
@@ -408,7 +408,7 @@ testParallelEdges(bool allowDisconnectedSubgraphs) {
     Graph::ConstVertexIterator w1 = g2.insertVertex("w1");
     g2.insertEdge(w0, w1, "f01");
 
-    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    CommonSubgraphIsomorphism<Graph, Graph, SolutionChecker> csi(g1, g2);
     SolutionChecker &s = csi.solutionProcessor();
     s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
@@ -448,7 +448,7 @@ testSelfEdges(bool allowDisconnectedSubgraphs) {
     g2.insertVertex("w1");
     g2.insertEdge(w0, w0, "f00");
 
-    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    CommonSubgraphIsomorphism<Graph, Graph, SolutionChecker> csi(g1, g2);
     SolutionChecker &s = csi.solutionProcessor();
     s.allowDisconnectedSubgraphs(allowDisconnectedSubgraphs);
 
@@ -523,7 +523,7 @@ testLarger() {
     g2.insertEdge(w4, w6, "f46");
     g2.insertEdge(w6, w5, "f65");
 
-    CommonSubgraphIsomorphism<Graph, SolutionChecker> csi(g1, g2);
+    CommonSubgraphIsomorphism<Graph, Graph, SolutionChecker> csi(g1, g2);
     SolutionChecker &s = csi.solutionProcessor();
     s.allowDisconnectedSubgraphs(false);                // keeps our solution list a lot smaller
 
@@ -670,7 +670,7 @@ struct SolutionCounter {
 };
 
 // Just some stupid way of saying which vertices of g1 can be equivalent to g2
-class Equivalence: public CsiEquivalence<Graph> {
+class Equivalence: public CsiEquivalence<Graph, Graph> {
 public:
     bool mu(const Graph &g1, const Graph::ConstVertexIterator &v1,
             const Graph &g2, const Graph::ConstVertexIterator &v2) const {
@@ -697,7 +697,7 @@ testRandomGraphs(size_t maxVerts, size_t vertDelta, double edgeRatio) {
         }
         std::cerr <<"|V| = " <<nVertices <<", |E| = " <<nEdges <<"\n";
         
-        CommonSubgraphIsomorphism<Graph, SolutionCounter, Equivalence> csi(g, g);
+        CommonSubgraphIsomorphism<Graph, Graph, SolutionCounter, Equivalence> csi(g, g);
 #if 0 // [Robb Matzke 2016-03-24]
         csi.minimumSolutionSize(nVertices-2);
 #else
