@@ -70,7 +70,7 @@ private:
         s & BOOST_SERIALIZATION_NVP(size_);
         s & BOOST_SERIALIZATION_NVP(words_);
     }
-    
+
 public:
     /** Default construct an empty vector. */
     BitVector(): size_(0) {}
@@ -159,7 +159,7 @@ public:
         }
         return result;
     }
-    
+
     /** Assignment.
      *
      *  Makes this bit vector an exact copy of the @p other vector.
@@ -233,7 +233,7 @@ public:
     static BitRange hull(size_t minOffset, size_t maxOffset) {
         return BitRange::hull(minOffset, maxOffset);
     }
-    
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                  Value access
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -303,7 +303,7 @@ public:
         BitVectorSupport::setValue(data(), hull(), value);
         return *this;
     }
-    
+
     /** Copy some bits.
      *
      *  Copies bits from @p other specified by @p from into this vector specified by @p to.  The ranges must be the same size
@@ -392,7 +392,7 @@ public:
     Optional<size_t> leastSignificantClearBit() const {
         return BitVectorSupport::leastSignificantClearBit(data(), hull());
     }
-    
+
     /** Find the most significant set bit.
      *
      *  Returns the index for the most significant bit that has the value true in the specified range.  The range must be
@@ -437,14 +437,14 @@ public:
         checkRange(range);
         return BitVectorSupport::isAllSet(data(), range);
     }
-    
+
     /** True if all bits are set.
      *
      *  Returns true if all bits are set, or if the vector is empty. */
     bool isAllSet() const {
         return BitVectorSupport::isAllSet(data(), hull());
     }
-    
+
     /** True if all bits are clear.
      *
      *  Returns true if all bits are clear within the specified range, or if the range is empty. The range must be valid for
@@ -455,7 +455,7 @@ public:
         checkRange(range);
         return BitVectorSupport::isAllClear(data(), range);
     }
-    
+
     /** True if all bits are clear.
      *
      *  Returns true if all bits are clear, or if the vector is empty.
@@ -511,7 +511,7 @@ public:
         other.checkRange(range2);
         return BitVectorSupport::mostSignificantDifference(data(), range1, other.data(), range2);
     }
-    
+
     /** Find most significant difference.
      *
      *  Finds the most significant bit that differs between the two specified ranges of this vector and returns its offset from
@@ -525,7 +525,7 @@ public:
         checkRange(range2);
         return BitVectorSupport::mostSignificantDifference(data(), range1, data(), range2);
     }
-    
+
     /** Find most significant difference.
      *
      *  Finds the most significant bit that differs between this vector and the @p other vector and return its index.  Both
@@ -534,7 +534,7 @@ public:
     Optional<size_t> mostSignificantDifference(const BitVector &other) const {
         return BitVectorSupport::mostSignificantDifference(data(), hull(), other.data(), other.hull());
     }
-        
+
     /** Find least significant difference.
      *
      *  Finds the least significant bit that differs between @p range1 of this vector and @p range2 of the @p other vector and
@@ -551,7 +551,7 @@ public:
         other.checkRange(range2);
         return BitVectorSupport::leastSignificantDifference(data(), range1, other.data(), range2);
     }
-    
+
     /** Find least significant difference.
      *
      *  Finds the least significant bit that differs between the two specified ranges of this vector and returns its offset from
@@ -565,7 +565,7 @@ public:
         checkRange(range2);
         return BitVectorSupport::leastSignificantDifference(data(), range1, data(), range2);
     }
-    
+
     /** Find least significant difference.
      *
      *  Finds the least significant bit that differs between this vector and the @p other vector and return its index.  Both
@@ -574,7 +574,7 @@ public:
     Optional<size_t> leastSignificantDifference(const BitVector &other) const {
         return BitVectorSupport::leastSignificantDifference(data(), hull(), other.data(), other.hull());
     }
-    
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                  Shift/rotate
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -676,7 +676,7 @@ public:
         BitVectorSupport::rotateRight(data(), hull(), nShift);
         return *this;
     }
-    
+
     /** Rotate bits left.
      *
      *  Rotates the bits in the specified range to the left (to more significant positions) by shifting left and
@@ -711,7 +711,7 @@ public:
         BitVectorSupport::negate(data(), range1);
         return *this;
     }
-    
+
     /** Negates bits as integer.
      *
      *  Treats all bits of this vector as a two's complement integer and negates it, storing the result back into this
@@ -756,7 +756,7 @@ public:
     bool decrement() {
         return BitVectorSupport::decrement(data(), hull());
     }
-    
+
     /** Add bits as integers.
      *
      *  Treats @p range1 of this vector and @p range2 of the @p other vector as integers, sums them, and stores the result in
@@ -791,7 +791,7 @@ public:
     }
 
     /** Subtract bits as integers.
-     *  
+     *
      *  Treats @p range1 of this vector and @p range2 of the @p other vector as integers, subtracts @p other from @p this, and
      *  stores the result in @p range1 of this vector.  The ranges must be valid for their respective vectors, and both ranges
      *  must be the same size.  The @p other vector is permitted to be the same vector as <code>this</code>, in which case the
@@ -806,7 +806,7 @@ public:
     }
 
     /** Subtract bits as integers.
-     *  
+     *
      *  Treats @p range1 and @p range2 of this vector as integers, subtracts the integer in @p range2 from the integer in @p
      *  range1, and stores the result in @p range1 of this vector.  The ranges must be valid for this vector, and both ranges
      *  must be the same size.  The ranges are permitted to overlap.  Returns false only when an overflow occurs (i.e., the
@@ -862,9 +862,28 @@ public:
         return *this;
     }
 
+    /** Multiply by 10.
+     *
+     *  Threats this vector as an unsigned integer and multiplies it by 10.  If the product doesn't fit in the same vector then
+     *  the high order bits of the product are truncated. */
+    BitVector& multiply10() {
+        BitVectorSupport::multiply10(data(), hull());
+        return *this;
+    }
+
+    /** Multiply by 10.
+     *
+     *  Treats @p range of this vector as an unsigned integer and multiplies it by 10, storing the result back into the same
+     *  range, possibly truncating the result in the process. */
+    BitVector& multiply10(const BitRange &range) {
+        BitVectorSupport::multiply10(data(), range);
+        return *this;
+    }
+
+
     // FIXME[Robb Matzke 2014-05-01]: we should also have zeroExtend, which is like copy but allows the source and destination
     // to be different sizes.
-    
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                  Bit-wise Boolean logic
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -917,7 +936,7 @@ public:
         BitVectorSupport::bitwiseAnd(other.data(), other.hull(), data(), hull());
         return *this;
     }
-    
+
     /** Bit-wise OR.
      *
      *  Computes the bit-wise OR of @p range1 from this vector and @p range2 of the @p other vector, storing the result in @p
@@ -1043,7 +1062,7 @@ public:
     int compare(const BitVector &other) const {
         return BitVectorSupport::compare(data(), hull(), other.data(), other.hull());
     }
-    
+
     /** Compare bits as signed integers.
      *
      *  Compares @p range1 from this vector with @p range2 from the @p other vector as signed, two's complement integers and
@@ -1096,7 +1115,7 @@ public:
         checkRange(range);
         return BitVectorSupport::toInteger(data(), range);
     }
-    
+
     /** Interpret bits as an unsigned integer.
      *
      *  Returns the bits of this vector by interpreting them as an unsigned integer.  If this vector contains more than 64 bits
@@ -1116,7 +1135,7 @@ public:
     std::string toHex(const BitRange &range) const {
         return BitVectorSupport::toHex(data(), range);
     }
-    
+
     /** Convert to a hexadecimal string.
      *
      *  Returns a string which is the hexadecimal representation of the bits in this vector.  No prefix or suffix is added
@@ -1136,7 +1155,7 @@ public:
     std::string toOctal(const BitRange &range) const {
         return BitVectorSupport::toOctal(data(), range);
     }
-    
+
     /** Convert to an octal string.
      *
      *  Returns a string which is the octal representation of the bits in this vector.  No prefix or suffix is added
@@ -1155,7 +1174,7 @@ public:
     std::string toBinary(const BitRange &range) const {
         return BitVectorSupport::toBinary(data(), range);
     }
-    
+
     /** Convert to an binary string.
      *
      *  Returns a string which is the binary representation of the bits in this vector.  No prefix or suffix is added
@@ -1190,7 +1209,7 @@ public:
 
     /** Obtains bits from a decimal representation.
      *
-     *  
+     *
      *  Assigns the specified value, represented in decimal, to the specified range of this vector. The @p input string must
      *  contain only valid decimal digits '0' through '9' or the underscore character (to make long strings more readable), or
      *  else an <code>std::runtime_error</code> is thrown. The range must be valid for this vector. If the number of supplied
