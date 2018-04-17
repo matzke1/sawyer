@@ -2,6 +2,10 @@
 #include <Sawyer/Message.h>
 #include <Sawyer/Synchronization.h>
 
+#if defined(__APPLE__) && defined(__MACH__)
+    #include <crt_externs.h>
+#endif
+
 namespace Sawyer {
 
 class Initializer {
@@ -128,7 +132,8 @@ thisExecutableName() {
     }
 # endif
 #elif defined(__APPLE__) && defined(__MACH__)
-    // unknown
+    char **argv = *_NSGetArgv();
+    retval = argv[0];
 #else
     // no synchronization necessary for this global state
     if (FILE *f = fopen("/proc/self/cmdline", "r")) {
