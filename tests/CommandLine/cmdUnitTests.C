@@ -170,9 +170,9 @@ static void test06() {
 // Saving intrinsic values using a parser
 static void test07a() {
     std::cerr <<"test07a: saving intrinsic values using a parser\n";
-    bool b;
-    int i;
-    double d;
+    bool b = false;
+    int i = 0;
+    double d = 0.0;
     Parser p;
     p.with(Switch("bool")
            .intrinsicValue("true", booleanParser(b)));
@@ -209,9 +209,9 @@ static void test07a() {
 // Saving intrinsic values without a parser
 static void test07b() {
     std::cerr <<"test07b: saving intrinsic values without a parser\n";
-    bool b;
-    int i;
-    double d;
+    bool b = false;
+    int i = 0;
+    double d = 0.0;
     std::string s;
     Parser p;
     p.with(Switch("bool")
@@ -293,10 +293,10 @@ static void test09() {
 // Integer parser
 static void test10() {
     std::cerr <<"test10: integer parser\n";
-    int si;
-    short ss;
-    unsigned int ui;
-    unsigned short us;
+    int si = 0;
+    short ss = 0;
+    unsigned int ui = 0;
+    unsigned short us = 0;
     Parser p;
     p.with(Switch("si", 'a')
            .argument("arg", integerParser(si)));
@@ -418,10 +418,10 @@ static void test10() {
 // non-negative integer parser
 static void test11() {
     std::cerr <<"test11: non-negative integer parser\n";
-    int si;
-    short ss;
-    unsigned int ui;
-    unsigned short us;
+    int si = 0;
+    short ss = 0;
+    unsigned int ui = 0;
+    unsigned short us = 0;
     Sawyer::Optional<int> oss;
     Parser p;
     p.with(Switch("si", 'a')
@@ -621,7 +621,7 @@ static void test13() {
 enum TestColor { RED, REDDISH, ISH };
 static void test14() {
     std::cerr <<"test14: enum parser\n";
-    TestColor s;
+    TestColor s = RED;
     Parser p;
     p.with(Switch("bkg", 'd')
            .argument("color",
@@ -648,7 +648,7 @@ static void test14() {
 // List parser
 static void test15() {
     std::cerr <<"test15: list parser\n";
-    int v1, v2;
+    int v1 = 0, v2 = 0;
     std::string s1, s2;
     Parser p;
     p.with(Switch("ints", 'I')
