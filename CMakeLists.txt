@@ -91,6 +91,20 @@ else()
   set(Windows_LIBRARIES "")
 endif()
 
+# The executables in the build tree should have an RPATH that points
+# to the build tree, and when we install those exectables we need to
+# relink them to point to the library installation directory.
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE) # Don't use install path in builddir
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE) # auto add stuff to install path
+
+# the RPATH to be used when installing, but only if it's not a system directory
+list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
+if("${isSystemDir}" STREQUAL "-1")
+   set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+endif()
+
+
 # libsawyer
 set(lib_src
   Sawyer/Assert.C
