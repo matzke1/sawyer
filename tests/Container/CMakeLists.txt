@@ -4,6 +4,9 @@ target_link_libraries(optionalUnitTests libsawyer)
 add_executable(mapUnitTests mapUnitTests.C)
 target_link_libraries(mapUnitTests libsawyer)
 
+add_executable(hashMapUnitTests hashMapUnitTests.C)
+target_link_libraries(hashMapUnitTests libsawyer)
+
 add_executable(listUnitTests listUnitTests.C)
 target_link_libraries(listUnitTests libsawyer)
 
