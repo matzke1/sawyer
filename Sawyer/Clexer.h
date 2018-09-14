@@ -62,6 +62,8 @@ public:
     explicit TokenStream(const std::string &fileName, const Sawyer::Container::Buffer<size_t, char>::Ptr &buffer)
         : fileName_(fileName), content_(buffer), at_(0), skipPreprocessorTokens_(true) {}
 
+    const std::string fileName() const { return fileName_; }
+    
     bool skipPreprocessorTokens() const { return skipPreprocessorTokens_; }
     void skipPreprocessorTokens(bool b) { skipPreprocessorTokens_ = b; }
 

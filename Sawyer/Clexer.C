@@ -221,6 +221,10 @@ TokenStream::makeNextToken() {
             at_ += 2;
             while (isxdigit(content_.character(at_)))
                 ++at_;
+        } else if ('0'==content_.character(at_) && 'b'==content_.character(at_+1)) {
+            at_ += 2;
+            while (strchr("01", content_.character(at_)))
+                ++at_;
         } else if ('0'==content_.character(at_)) {
             ++at_;
             while ((c=content_.character(at_)) >= '0' && c <= '7')
@@ -241,6 +245,24 @@ TokenStream::makeNextToken() {
         } else {
             tokens_.push_back(Token(TOK_CPP, begin, at_));
         }
+    } else if (('<' == c && content_.character(at_+1) == '<' && content_.character(at_+2) == '=') ||
+               ('>' == c && content_.character(at_+1) == '>' && content_.character(at_+2) == '=') ||
+               ('<' == c && content_.character(at_+1) == '=' && content_.character(at_+2) == '>') ||
+               ('-' == c && content_.character(at_+1) == '>' && content_.character(at_+2) == '*')) {
+        tokens_.push_back(Token(TOK_OTHER, at_, at_+3));
+        at_ += 3;
+    } else if ((content_.character(at_+1) == '=' && strchr("|&^*/%+-!<>=", c)) ||
+               ('|' == c && content_.character(at_+1) == '|') ||
+               ('&' == c && content_.character(at_+1) == '&') ||
+               ('<' == c && content_.character(at_+1) == '<') ||
+               ('>' == c && content_.character(at_+1) == '>') ||
+               ('.' == c && content_.character(at_+1) == '*') ||
+               ('+' == c && content_.character(at_+1) == '+') ||
+               ('-' == c && content_.character(at_+1) == '-') ||
+               ('-' == c && content_.character(at_+1) == '>') ||
+               (':' == c && content_.character(at_+1) == ':')) {
+        tokens_.push_back(Token(TOK_OTHER, at_, at_+2));
+        at_ += 2;
     } else {
         tokens_.push_back(Token(TOK_OTHER, at_, at_+1));
         ++at_;
