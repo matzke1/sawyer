@@ -11,7 +11,8 @@ public:
     int y[100];
     int initialized;
     Facility facility;
-    Definer(): x(NULL), initialized(123), facility("default") {
+    Definer(): x(NULL), initialized(123) {
+        facility.initialize("default");
         std::cerr <<"Definer constructor called\n";
     }
 };
@@ -27,14 +28,14 @@ public:
             throw std::runtime_error("Definer was initialized before user!");
 
         // A statically-constructed object should be initialized to zero before its constructor is called. This is because
-        // they exit in the BSS.
+        // they exist in the BSS.
         if (definer.x)
             throw std::runtime_error("in user: definer.x is not null");
         for (int i=0; i<100; ++i) {
             if (definer.y[i])
                 throw std::runtime_error("in user: definer.y[" + boost::lexical_cast<std::string>(i) + "] != 0");
         }
-
+        
         // Try using an uninitialized facility. This should throw a facility-not-initialized error, not a segfault.
         std::cerr <<"Segmentation fault indicates a logic error in Sawyer::Message...\n";
         try {

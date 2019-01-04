@@ -66,7 +66,7 @@ findIncludeFile(const std::string &includeName, IncludeMap &includeMap) {
 int
 main(int argc, char *argv[]) {
     Sawyer::initializeLibrary();
-    mlog = Sawyer::Message::Facility("tool");
+    mlog.initialize("tool");
     Sawyer::Message::mfacilities.insertAndAdjust(mlog);
 
     Sawyer::Container::DistinctList<std::string> topFiles = parseCommandLine(argc, argv);

@@ -63,7 +63,7 @@ toTokens(const std::string &name, const std::string &content) {
 int
 main(int argc, char *argv[]) {
     Sawyer::initializeLibrary();
-    mlog = Sawyer::Message::Facility("tool");
+    mlog.initialize("tool");
     Sawyer::Message::mfacilities.insertAndAdjust(mlog);
 
     std::vector<std::string> args = parseCommandLine(argc, argv);

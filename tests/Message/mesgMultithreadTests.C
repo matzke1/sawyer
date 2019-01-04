@@ -160,7 +160,7 @@ testStreamSlowOutput(bool buffered) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int
 main() {
-    mlog = Facility("test");
+    mlog.initialize("test");
     
     testStreamCreation();
     testStreamOutput1();

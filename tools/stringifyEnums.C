@@ -925,7 +925,7 @@ generateDocumentation() {
 int
 main(int argc, char *argv[]) {
     Sawyer::initializeLibrary();
-    mlog = Sawyer::Message::Facility("tool");
+    mlog.initialize("tool");
     Sawyer::Message::mfacilities.insertAndAdjust(mlog);
     mlog[INFO].enable();
     globalSymbols.insert("false", 0);
