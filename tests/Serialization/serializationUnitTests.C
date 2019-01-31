@@ -22,6 +22,7 @@
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/export.hpp>
 #include <boost/cstdint.hpp>
+#include <iostream>
 #include <sstream>
 
 // Serialize, then unserialize

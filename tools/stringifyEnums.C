@@ -10,6 +10,7 @@ static const char *description =
 #include <boost/algorithm/string/predicate.hpp>
 #include <ctype.h>
 #include <errno.h>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
