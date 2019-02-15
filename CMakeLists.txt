@@ -129,7 +129,8 @@ set(lib_src
   Sawyer/Sawyer.C
   Sawyer/SmallObject.C
   Sawyer/Stopwatch.C
-  Sawyer/Synchronization.C)
+  Sawyer/Synchronization.C
+  Sawyer/Tree.C)
 add_library(libsawyer SHARED ${lib_src})
 target_link_libraries(libsawyer ${Boost_LIBRARIES} ${Windows_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 set_target_properties(libsawyer PROPERTIES DEFINE_SYMBOL "SAWYER_DO_EXPORTS")
@@ -151,6 +152,7 @@ add_subdirectory(tests/Markup)
 add_subdirectory(tests/CommandLine)
 add_subdirectory(tests/Threads)
 add_subdirectory(tests/Serialization)
+add_subdirectory(tests/Tree)
 add_subdirectory(tools)
 
 #-------------------------------------------------------------------------------
