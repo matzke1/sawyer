@@ -16,6 +16,7 @@ namespace Sawyer {
 namespace Tree {
 
 class Node;
+class Children;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                   ____            _                 _   _
@@ -72,29 +73,16 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ChildEdgeBase declaration
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Non-template base class for parent-to-child edges in the tree.
-class ChildEdgeBase {
-protected:
-    Node *container_;                                   // non-null ptr to node that's the source of this edge
-    const size_t idx_;                                  // index of the child edge from the parent's perspective
-
-    explicit ChildEdgeBase(Node *container);
-    ChildEdgeBase(Node *container, const std::shared_ptr<Node> &child);
-
-    void assign(const std::shared_ptr<Node> &child);
-    std::shared_ptr<Node> get() const;
-};
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ChildEdge declaration
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** An edge from a parent to a child. */
 template<class T>
-class ChildEdge final: private ChildEdgeBase {
+class ChildEdge final {
+private:
+    Node *container_;                                   // non-null ptr to node that's the source of this edge
+    const size_t idx_;                                  // index of the child edge from the parent's perspective
+
 public:
     /** Points to no child. */
     explicit ChildEdge(Node *container);
@@ -106,13 +94,13 @@ public:
 
     /** Point to a child node. */
     ChildEdge& operator=(const std::shared_ptr<T> &child) {
-        this->assign(child);
+        assign(child);
         return *this;
     }
 
     /** Cause this edge to point to no child. */
     void reset() {
-        this->assign(nullptr);
+        assign(nullptr);
     }
 
     /** Obtain shared pointer. */
@@ -128,7 +116,7 @@ public:
 
     /** Conversion to bool. */
     explicit operator bool() const {
-        return this->get() != nullptr;
+        return child() != nullptr;
     }
 
     /** Pointer to the child. */
@@ -138,6 +126,10 @@ public:
     operator std::shared_ptr<T>() const {
         return child();
     }
+
+private:
+    // Assign a new child to this edge.
+    void assign(const std::shared_ptr<Node> &child);
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -163,7 +155,7 @@ public:
         ASSERT_not_null(parent_);
         return *parent();
     }
-    
+
     /** Conversion to bool. */
     explicit operator bool() const {
         return parent_ != nullptr;
@@ -180,16 +172,18 @@ public:
     bool operator>=(const ParentEdge &other) const { return parent_ >= other.parent_; }
     /** @} */
 
-public:
-    // internal
+    /** Return the parent as a shared-ownership pointer. */
     std::shared_ptr<Node> parent() const;
 
-    // internal
+private:
+    friend class Children;
+
+    // Set the parent
     void set(Node *parent) {
         parent_ = parent;
     }
 
-    // internal
+    // Clear the parent
     void reset() {
         parent_ = nullptr;
     }
@@ -307,7 +301,10 @@ public:
     //----------------------------------------
     //              Internal stuff
     //----------------------------------------
-public: // FIXME[Robb Matzke 2019-02-18]: These should be private
+private:
+    template<class T> friend class ListNode;
+    template<class T> friend class ChildEdge;
+
     // Check that the newChild is able to be inserted replacing the oldChild. If not, throw exception. Either or both of the
     // children may be null pointers, but 'parent' must be non-null.
     void checkInsertionConsistency(const std::shared_ptr<Node> &newChild, const std::shared_ptr<Node> &oldChild, Node *parent);
@@ -318,7 +315,7 @@ public: // FIXME[Robb Matzke 2019-02-18]: These should be private
 
     // Remove one of the child edges. If the edge pointed to a non-null child node, then that child's parent pointer is reset.
     void eraseAt(size_t idx);
-    
+
     // Add a new parent-child-edge and return its index
     size_t appendEdge(const std::shared_ptr<Node> &child);
 };
@@ -339,7 +336,7 @@ public:
 public:
     Node(): children(this) {}
     virtual ~Node() {}
-    
+
     // Nodes are not copyable since doing so would cause the children (which are not copied) to have two parents. Instead, we
     // will provide mechanisms for copying nodes without their children (shallow copy) or recursively copying an entire tree
     // (deep copy).
@@ -516,8 +513,8 @@ public:
         children.setAt(i, nullptr);
     }
     /** @} */
-    
-    
+
+
     /** Insert the node at the specified index.
      *
      *  The node must not already have a parent. The index must be greater than or equal to zero and less than or equal to the
@@ -525,7 +522,7 @@ public:
     void insertAt(size_t i, std::shared_ptr<T> &newChild) {
         children.insertAt(i, newChild);
     }
-    
+
     /** Erase node at specified index.
      *
      *  If the index is out of range then nothing happens. */
@@ -540,8 +537,6 @@ public:
      *  If a child was erased, then return the index of the erased child. */
     Optional<size_t> erase(const std::shared_ptr<T> &toErase, size_t startAt = 0);
 };
-
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                        ____      _       _   _
@@ -650,49 +645,32 @@ template<class T> bool operator>=(const ChildEdge<T> &lhs, const ParentEdge &rhs
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ChildEdgeBase implementation
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-ChildEdgeBase::ChildEdgeBase(Node *container)
-    : container_(container), idx_(container->children.appendEdge(nullptr)) {
-    ASSERT_not_null(container_);
-}
-
-ChildEdgeBase::ChildEdgeBase(Node *container, const std::shared_ptr<Node> &child)
-    : container_(container), idx_(container->children.appendEdge(child)) {
-    ASSERT_not_null(container_);
-}
-
-std::shared_ptr<Node>
-ChildEdgeBase::get() const {
-    return container_->children[idx_];
-}
-
-void
-ChildEdgeBase::assign(const std::shared_ptr<Node> &newChild) {
-    container_->children.setAt(idx_, newChild);
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ChildEdge implementation
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<class T>
 ChildEdge<T>::ChildEdge(Node *container)
-    : ChildEdgeBase(container) {
+    : container_(container), idx_(container->children.appendEdge(nullptr)) {
+    ASSERT_not_null(container_);
 }
 
 template<class T>
 ChildEdge<T>::ChildEdge(Node *container, const std::shared_ptr<T> &child)
-    : ChildEdgeBase(container, child) {
+    : container_(container), idx_(container->children.appendEdge(child)) {
+    ASSERT_not_null(container_);
 }
 
 template<class T>
 std::shared_ptr<T>
 ChildEdge<T>::child() const {
     return std::dynamic_pointer_cast<T>(container_->children[this->idx_]);
+}
+
+template<class T>
+void
+ChildEdge<T>::assign(const std::shared_ptr<Node> &newChild) {
+    container_->children.setAt(idx_, newChild);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
