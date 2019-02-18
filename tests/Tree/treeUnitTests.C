@@ -32,13 +32,15 @@ public:
 
 class PairOfLeaves: public Tree::Node {
 public:
-    // The pointers to the children are declared with a special pointer type. You can only use these types for data members
-    // of classes derived from Tree::Node.
+    // The pointers to the children are declared with a special pointer type. You can only use these types for data members,
+    // and only in classes derived from Tree::Node.
     Tree::ChildEdge<Leaf> first;
     Tree::ChildEdge<Leaf> second;
 
     // The child pointers don't have default constructors, therefore you must define a default constructor for PairOfLeaves.
-    // The order of their declarations (and thus initializations) defines the order of the traversals we'll see later.
+    // The order of their declarations (and thus initializations) defines the order of the traversals we'll see later. I.e.,
+    // when traversing a Tree and we get to a PairOfLeaves node, the traversal will follow 'first' and then 'second' since
+    // that's the order they're declared.
     PairOfLeaves()
         : first(this), second(this) {}
     
@@ -54,7 +56,13 @@ public:
 // TEST: Constructing a node with child pointers initializes the child pointers to null.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 static void test_childptr_init() {
+    // Like all good C++ programs, pointers should be wrapped in varous <memory> header file types. The Tree itself will use
+    // std::shared_ptr to link parents to children, and std::weak_ptr to link children to parents. From the user's perspective,
+    // if you use std::shared_ptr for all your nodes you'll be in good shape.
     auto node = std::make_shared<PairOfLeaves>();
+
+    // Pointers are always initialized in good C++ programming. We actually get this for free since Tree is using pointer types
+    // declared in the <memory> header file.
     ASSERT_always_require(node->first == nullptr);
     ASSERT_always_require(node->second == nullptr);
     ASSERT_always_require(node->parent == nullptr);
@@ -71,13 +79,13 @@ static void test_parent_adjustment() {
     // Assign a child to the parent
     pair->first = a;
     ASSERT_always_require(pair->first == a);
-    ASSERT_always_require(a->parent == pair);
+    ASSERT_always_require(a->parent == pair);           // parent was set automatically
     ASSERT_always_require(b->parent == nullptr);
 
     // Assign a different child adjusts the parent of the old and new child
     pair->first = b;
     ASSERT_always_require(pair->first == b);
-    ASSERT_always_require(a->parent == nullptr);
+    ASSERT_always_require(a->parent == nullptr);        // parent was cleared automatically
     ASSERT_always_require(b->parent == pair);
 
     // Assigning the same child has no effect
@@ -120,7 +128,9 @@ static void test_multi_parent() {
 
     pair->first = a;
 
-    // Attempting to attach "a" to some other point in a tree will throw an exception and not change anything.
+    // Attempting to attach "a" to some other point in a tree will throw an exception and not change anything.  If node "a"
+    // were allowed to be set as both pair->first and pair-second, then a traversal of the tree would reach node "a" two times,
+    // which is a violation of the definition of "tree".
     try {
         pair->second = a;
         ASSERT_always_require(!"should not get here");
@@ -129,10 +139,10 @@ static void test_multi_parent() {
         ASSERT_always_require(a->parent == pair);
         ASSERT_always_require(pair->second == nullptr);
         ASSERT_always_require(error.child == a);
-        //ASSERT_always_require(error.parent == pair);
     }
 
-    // A node cannot be attached to a different tree
+    // A node cannot be attached to a different tree. If node "a" were allowed to be attached to two different nodes, then it
+    // would need to parent pointers. Having two parent pointers violates the definition of "tree".
     auto otherTree = std::make_shared<PairOfLeaves>();
     try {
         otherTree->first = a;
@@ -142,7 +152,6 @@ static void test_multi_parent() {
         ASSERT_always_require(a->parent == pair);
         ASSERT_always_require(otherTree->first == nullptr);
         ASSERT_always_require(error.child == a);
-        //ASSERT_always_require(error.parent == otherTree);
     }
 }
 
@@ -173,8 +182,8 @@ static void test_child_vector() {
 
     // The number of children is determined by the declaration, not whether they are null pointers or not.
     ASSERT_always_require(pair->children.size() == 2);
-    ASSERT_always_require(pair->children[0] == nullptr);
-    ASSERT_always_require(pair->children[1] == nullptr);
+    ASSERT_always_require(pair->children[0] == nullptr); // pair->children[0], a.k.a. pair->first  (see below)
+    ASSERT_always_require(pair->children[1] == nullptr); // pair->children[1], a.k.a. pair->second (see below)
 
     // The order of the children are the same as the order they're declared in the class, not the order they're assigned.
     pair->second = b;
@@ -205,7 +214,7 @@ static void test_child_vector() {
     ASSERT_always_require(pair->children <= pair2->children || pair->children > pair2->children);
     ASSERT_always_require(pair->children < pair2->children || pair->children >= pair2->children);
     pair->children.shrink_to_fit();                     // permitted since it doesn't modify values
-    //ASSERT_always_require(pair->children.data() != nullptr);
+    //ASSERT_always_require(pair->children.data() != nullptr); -- not implemented
 
     // TODO: [Robb Matzke 2018-12-16]: iterators are not yet implemented
     std::cerr <<"Node::children iterators are not implemented yet\n";
@@ -258,7 +267,7 @@ static void test_cycle() {
     auto a = std::make_shared<PtrNode>();
     auto b = std::make_shared<PtrNode>();
 
-    // A node cannot be a child of itself
+    // A node cannot be a child of itself (singleton cycle) since this violates the definition of "tree".
     try {
         a->child = a;
         ASSERT_not_reachable("self-parent should have failed");
@@ -267,7 +276,7 @@ static void test_cycle() {
         ASSERT_always_require(a->parent == nullptr);
     }
 
-    // It is illegal to make a cycle
+    // It is also illegal to make a larger cycle.
     a->child = b;
     try {
         b->child = a;
@@ -399,8 +408,8 @@ static void test_ptr_logic() {
 // TEST: Node types can be derived from other node types.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// First, create a small class hiearchy for expression trees. It contains one class that's the base type for all expression
-// nodes, and two subtypes: one for variables and another for binary operations like "a+b" and "a-b".
+// Create a small class hiearchy for expression trees. It contains one class that's the base type for all expression nodes, and
+// two subtypes: one for variables and another for binary operations like "a+b" and "a-b".
 class ExprBase: public Tree::Node {
 public:
     Tree::ChildEdge<Leaf> leaf; // just something to demo that child ptrs can appear at multiple levels in the class hierarchy
@@ -446,7 +455,7 @@ static void test_derived_classes() {
     // Children of a super class are ordered before children of derived classes. This is just the order-of-initialization
     // rule applied across the class hierarchy.
     ASSERT_always_require(sum->children.size() == 3);
-    ASSERT_always_require(sum->children[0] == nullptr);                   // leaf
+    ASSERT_always_require(sum->children[0] == nullptr);                                 // data member "leaf"
     ASSERT_always_require(sum->children[1] == x);
     ASSERT_always_require(sum->children[2] == y);
 }
@@ -459,13 +468,13 @@ static void test_derived_ptr_assign() {
     auto add = std::make_shared<BinaryExpr>();
 
     // Derived pointer assigned to base pointer
-    add->lhs = derived;
+    add->lhs = derived;                                                                 // down cast
     ASSERT_always_require(add->lhs == derived);
     ASSERT_always_require(derived->parent == add);
 
-    // The smart base pointer is convertible to a raw base pointer
-    std::shared_ptr<ExprBase> raw1 = add->lhs;
-    ASSERT_always_require(raw1 == derived);
+    // The child edge 'add->lhs' is convertible to a shared pointer
+    std::shared_ptr<ExprBase> base = add->lhs;                                          // down cast
+    ASSERT_always_require(base == derived);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -474,9 +483,8 @@ static void test_derived_ptr_assign() {
 static void test_upcast() {
     auto add = std::make_shared<BinaryExpr>(BinaryExpr::PLUS, std::make_shared<Variable>("x"), std::make_shared<Variable>("y"));
 
-    // Obviously raw pointers work
-    std::shared_ptr<ExprBase> raw = add->lhs;
-    std::shared_ptr<Variable> derived = std::dynamic_pointer_cast<Variable>(raw);
+    std::shared_ptr<ExprBase> raw = add->lhs;                                           // down cast
+    std::shared_ptr<Variable> derived = std::dynamic_pointer_cast<Variable>(raw);       // up cast
     ASSERT_always_require(derived != nullptr);
     
     // What about smart pointers? It turns out that it's only possible to override dynamic casts for std::shared_ptr, and
@@ -486,7 +494,7 @@ static void test_upcast() {
 #if 0 // [Robb Matzke 2019-02-17]
     derived = std::dynamic_pointer_cast<Variable>(add->lhs); // doesn't compile although we'd like it to.
 #else
-    derived = std::dynamic_pointer_cast<Variable>(add->lhs.child());
+    derived = std::dynamic_pointer_cast<Variable>(add->lhs.shared());
 #endif
 }
 
@@ -503,8 +511,8 @@ static void test_downward_traversal() {
     auto diff = std::make_shared<BinaryExpr>(BinaryExpr::MINUS, sum, z);
 
     // Make a list of the traversal steps. Each step is an event and the affected node.
-    std::vector<std::pair<Tree::TraversalEvent, std::shared_ptr<Tree::Node> > > processed;
-    diff->traverse([&processed](const std::shared_ptr<Tree::Node> &node, Tree::TraversalEvent event) -> Tree::TraversalAction {
+    std::vector<std::pair<Tree::TraversalEvent, Tree::NodePtr > > processed;
+    diff->traverse([&processed](const Tree::NodePtr &node, Tree::TraversalEvent event) -> Tree::TraversalAction {
             processed.push_back(std::make_pair(event, node));
             return Tree::CONTINUE;
         });
@@ -535,8 +543,8 @@ static void test_upward_traversal() {
     auto diff = std::make_shared<BinaryExpr>(BinaryExpr::MINUS, sum, z);
 
     // Make a list of the traversal steps. Each step is an event and the affected node.
-    std::vector<std::pair<Tree::TraversalEvent, std::shared_ptr<Tree::Node> > > processed;
-    x->traverseParents([&processed](const std::shared_ptr<Tree::Node> &node, Tree::TraversalEvent event) {
+    std::vector<std::pair<Tree::TraversalEvent, Tree::NodePtr > > processed;
+    x->traverseParents([&processed](const Tree::NodePtr &node, Tree::TraversalEvent event) {
             processed.push_back(std::make_pair(event, node));
             return Tree::CONTINUE;
         });
@@ -562,7 +570,7 @@ static void test_find_downward() {
     auto diff = std::make_shared<BinaryExpr>(BinaryExpr::MINUS, sum, z);
 
     // Find first node that's a variable. TODO: demo this with C++03 functor classes and functions
-    std::shared_ptr<Tree::Node> found = diff->find([](const std::shared_ptr<Tree::Node> &node) {
+    Tree::NodePtr found = diff->find([](const Tree::NodePtr &node) {
             return std::dynamic_pointer_cast<Variable>(node);
         });
     ASSERT_always_require(found == x);
@@ -572,7 +580,7 @@ static void test_find_downward() {
     ASSERT_always_require(var == x);
 
     // Find first node that's a variable with the name "y". TODO: demo C++03
-    found = diff->find([](const std::shared_ptr<Tree::Node> &node) {
+    found = diff->find([](const Tree::NodePtr &node) {
             std::shared_ptr<Variable> v = std::dynamic_pointer_cast<Variable>(node);
             return v && v->name == "y";
         });
@@ -595,7 +603,7 @@ static void test_find_upward() {
     auto diff = std::make_shared<BinaryExpr>(BinaryExpr::MINUS, sum, z);
 
     // Find closest ancestor that's a BinaryExpr. TODO: demo this with C++03 functor classes and functions
-    std::shared_ptr<Tree::Node> found = x->findParent([](const std::shared_ptr<Tree::Node> &node) {
+    Tree::NodePtr found = x->findParent([](const Tree::NodePtr &node) {
             return std::dynamic_pointer_cast<BinaryExpr>(node); });
     ASSERT_always_require(found == sum);
 
@@ -604,7 +612,7 @@ static void test_find_upward() {
     ASSERT_always_require(bin == sum);
 
     // Find closest ancestor that's a BinaryExpr of type MINUS. TODO: demo C++03.
-    found = x->findParent([](const std::shared_ptr<Tree::Node> &node) {
+    found = x->findParent([](const Tree::NodePtr &node) {
             std::shared_ptr<BinaryExpr> bin = std::dynamic_pointer_cast<BinaryExpr>(node);
             return bin && bin->op == BinaryExpr::MINUS;
         });

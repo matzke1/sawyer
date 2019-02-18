@@ -13,10 +13,87 @@
 #endif
 
 namespace Sawyer {
+
+/** Tree data structure.
+ *
+ *  This name space contains the building blocks for relating heap-allocated objects (called nodes, base type @ref Node) in a
+ *  tree-like way. The children of a node are referenced either by name or iteratively. Each node of the tree has a single
+ *  parent pointer which is adjusted automatically to ensure consistency. A node can also point to another node without
+ *  creating a managed parent-child edge; such node pointers are not followed during traversals.
+ *
+ *  The primary purpose of these classes is to ensure consistency in the tree data structure:
+ *
+ *  @li Pointers from children to parents are maintained automatically.
+ *
+ *  @li Exceptions are thrown if the user attempts to link nodes together in a way that doesn't form a tree.
+ *
+ *  @li The infrastructure is exception safe.
+ *
+ *  @li Nodes are reference counted via std::shared_ptr.
+ *
+ *  Although this implementation is intended to be efficient in time and space, the primary goal is safety. When the two goals
+ *  are in conflict, safety takes precedence.
+ *
+ *  The basic usage is that the user defines some node types that inherit from @ref Tree::Node. If any of those types have
+ *  parent-child tree edges (parent-to-child pointers that are followed during traversals), then those edges are declared
+ *  as data members and initialized during construction:
+ *
+ * @code
+ *  class MyNode: public Tree::Node {
+ *  public:
+ *      // Define a tree edge called "first" that points to a user-defined type
+ *      // "First" (define elsewhere) that derives from Tree::Node.
+ *      Tree::ChildEdge<First> first;
+ *
+ *      // Define a tree edge called "second" that points to another "MyNode" node.
+ *      Tree::ChildEdge<MyNode> second;
+ *
+ *      // Define a final edge called "third" that points to any kind of tree node.
+ *      Tree::ChildEdge<Tree::Node> third;
+ *
+ *      // Initialize the nodes during construction. The first will point to a
+ *      // specified node, and the other two will be initialized to null.
+ *      explicit MyNode(const std::shared_ptr<First> first)
+ *          : first(this, first), second(this), third(this) {}
+ *  }
+ * @endcode
+ *
+ *  The data members can be the left hand side of assignment operators, in which case the parent pointers of the affected nodes
+ *  are updated automatically.
+ *
+ * @code
+ *  void test() {
+ *      auto a = std::make_shared<First>();
+ *      auto b = std::make_shared<First>();
+ *
+ *      auto root = std::make_shared<MyNode>(a);
+ *      assert(root->first == a);
+ *      assert(a->parent == root);     // set automatically by c'tor defined above
+ *
+ *      root->first = b;
+ *      assert(root->first == b);
+ *      assert(b->parent == root);     // set automatically
+ *      assert(a->parent == nullptr);  // cleared automatically
+ *  }
+ * @endcode
+ *
+ *  See also, @ref Sawyer::Container::Graph "Graph", which can store non-class values such as 'int', is optimized for performance,
+ *  and can easily handle cycles, self-edges, and parallel edges.
+ *
+ *  NOTICE: The @ref Tree API is experimental and still under development. Currently, each child pointer occupies twice the
+ *  space as a raw pointer. Dereferencing a child pointer takes constant time but includes one dynamic cast.  Besides the child
+ *  data member edges just described, each @ref Node object also has a @c parent data member that occupies as much space as a
+ *  raw pointer and can be dereferenced in constant time, and a @c children vector of pointers with one element per @ref
+ *  ChildEdge data member and one additional element. */
 namespace Tree {
 
 class Node;
 class Children;
+
+/** Short name for node pointers.
+ *
+ *  A shared-ownership pointer for nodes. */
+using NodePtr = std::shared_ptr<Node>;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                   ____            _                 _   _
@@ -65,9 +142,9 @@ public:
  *  @li Attempting to insert a node in such a way as to cause a cycle in the connectivity. */
 class ConsistencyException: public Exception {
 public:
-    std::shared_ptr<Node> child;                        /**< Child node that was being modified. */
+    NodePtr child;                        /**< Child node that was being modified. */
 
-    ConsistencyException(const std::shared_ptr<Node> &child,
+    ConsistencyException(const NodePtr &child,
                          const std::string &mesg = "attempt to attach child that already has a different parent")
         : Exception(mesg), child(child) {}
 };
@@ -76,7 +153,43 @@ public:
 // ChildEdge declaration
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** An edge from a parent to a child. */
+/** An edge from a parent to a child.
+ *
+ *  An edge is the inter-node link between a parent node and a child node. The @ref ChildEdge type is only allowed for
+ *  data members of a @ref Node and is how the node defines which data members participate as edges in the tree.
+ *
+ *  To create a node and define that it points to two child nodes, one must declare the two child pointers using the @ref
+ *  ChildEdge type, and then initialize the parent end of the edges during construction, as follows:
+ *
+ * @code
+ *  class Parent: public Tree::Node {
+ *  public:
+ *      Tree::ChildEdge<ChildType1> first;  // ChildType1 is userdefined, derived from Tree::Node
+ *      Tree::ChildEdge<ChildType2> second; // ditto for ChildType2
+ *
+ *      Parent()
+ *          : first(this), second(this) {}
+ *  };
+ * @endcode
+ *
+ *  It is also possible to give non-null values to the child ends of the edges during construction:
+ *
+ * @code
+ *  Parent::Parent(const std::shared_ptr<ChildType1> &c1, const std::shared_ptr<ChildType2> &c2)
+ *      : first(this, c1), second(this, c2) {}
+ * @endcode
+ *
+ *  The @ref ChildEdge members are used as if they were pointers:
+ *
+ * @code
+ *  auto parent = std::make_shared<Parent>();
+ *  assert(parent->first == nullptr);
+ *
+ *  auto child = std::make_shared<ChildType1>();
+ *  parent->first = child;
+ *  assert(parent->first == child);
+ *  assert(child->parent == parent);
+ * @endcode */
 template<class T>
 class ChildEdge final {
 private:
@@ -105,38 +218,42 @@ public:
 
     /** Obtain shared pointer. */
     std::shared_ptr<T> operator->() const {
-        return child();
+        return shared();
     }
 
     /** Obtain pointed-to node. */
     T& operator*() {
-        ASSERT_not_null(child());
-        return *child();
+        ASSERT_not_null(shared());
+        return *shared();
     }
 
     /** Conversion to bool. */
     explicit operator bool() const {
-        return child() != nullptr;
+        return shared() != nullptr;
     }
 
     /** Pointer to the child. */
-    std::shared_ptr<T> child() const;
+    std::shared_ptr<T> shared() const;
 
     /** Implicit conversion to shared pointer. */
     operator std::shared_ptr<T>() const {
-        return child();
+        return shared();
     }
 
 private:
     // Assign a new child to this edge.
-    void assign(const std::shared_ptr<Node> &child);
+    void assign(const NodePtr &child);
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ParentEdge
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Edge pointing from child to parent. */
+/** Edge pointing from child to parent.
+ *
+ *  This is a special pointer type that allows a child node to point to a parent node. Each tree @ref Node has a @p parent
+ *  pointer of this type. The value of the pointer is updated automatically when the node is inserted into or removed from a
+ *  tree. */
 class ParentEdge final {
 private:
     Node* parent_;
@@ -146,14 +263,14 @@ public:
         : parent_(nullptr) {}
 
     /** Obtain shared pointer. */
-    std::shared_ptr<Node> operator->() {
-        return parent();
+    NodePtr operator->() {
+        return shared();
     }
 
     /** Obtain pointed-to node. */
     Node& operator*() {
         ASSERT_not_null(parent_);
-        return *parent();
+        return *shared();
     }
 
     /** Conversion to bool. */
@@ -173,7 +290,7 @@ public:
     /** @} */
 
     /** Return the parent as a shared-ownership pointer. */
-    std::shared_ptr<Node> parent() const;
+    NodePtr shared() const;
 
 private:
     friend class Children;
@@ -195,11 +312,14 @@ private:
 
 /** Vector of parent-to-child pointers.
  *
- *  This object has an API similar to <tt>const std::vector<std::shared_ptr<Node>></tt>. */
+ *  Each @ref Node has a @c children data member that similar to a <tt>const std::vector<NodePtr></tt> and which points to all
+ *  the child nodes. This list has one element per @ref ChildEdge data member regardless of whether that @ref ChildEdge has a
+ *  null or non-null value.  Assigning a new node to a @ref ChildEdge pointer will automatically update the corresponding
+ *  element of this list. */
 class Children final {
 private:
     Node *container_;
-    std::vector<std::shared_ptr<Node> > children_;
+    std::vector<NodePtr > children_;
 
 public:
     Children(Node *container);
@@ -241,31 +361,31 @@ public:
     }
 
     /** Child pointer at index, checked. */
-    const std::shared_ptr<Node> at(size_t idx) const {
+    const NodePtr at(size_t idx) const {
         ASSERT_require(idx < children_.size());
         return children_.at(idx);
     }
 
     /** Child pointer at index, unchecked. */
-    const std::shared_ptr<Node> operator[](size_t idx) const {
+    const NodePtr operator[](size_t idx) const {
         ASSERT_require(idx < children_.size());
         return children_[idx];
     }
 
     /** First child pointer. */
-    const std::shared_ptr<Node> front() const {
+    const NodePtr front() const {
         ASSERT_forbid(empty());
         return children_.front();
     }
 
     /** Last child pointer. */
-    const std::shared_ptr<Node> back() const {
+    const NodePtr back() const {
         ASSERT_forbid(empty());
         return children_.back();
     }
 
     /** The actual underlying vector of child pointers. */
-    const std::vector<std::shared_ptr<Node> >& elmts() const {
+    const std::vector<NodePtr >& elmts() const {
         return children_;
     }
 
@@ -281,50 +401,60 @@ public:
     /** @} */
 
     //----------------------------------------
-    //              Modifying API
-    //----------------------------------------
-public:
-    /** Cause the indicated parent-child edge to point to a new child.
-     *
-     *  The old value, if any will be removed from the tree and its parent pointer reset. The new child will be added to the
-     *  tree at the specified parent-to-child edge and its parent pointer adjusted to point to the node that now owns it. As with
-     *  direct assignment of pointers to the parent-to-child edge data members, it is illegal to attach a node to a tree in such
-     *  a way that the structure would no longer be a tree, and in such cases no changes are made an an exception is thrown.
-     *
-     * @{ */
-    void setAt(size_t idx, const std::shared_ptr<Node> &newChild);
-    void setAt(size_t idx, nullptr_t) {
-        setAt(idx, std::shared_ptr<Node>());
-    }
-    /** @} */
-
-    //----------------------------------------
     //              Internal stuff
     //----------------------------------------
 private:
     template<class T> friend class ListNode;
     template<class T> friend class ChildEdge;
 
+    // Cause the indicated parent-child edge to point to a new child. The old value, if any will be removed from the tree and
+    // its parent pointer reset. The new child will be added to the tree at the specified parent-to-child edge and its parent
+    // pointer adjusted to point to the node that now owns it. As with direct assignment of pointers to the parent-to-child
+    // edge data members, it is illegal to attach a node to a tree in such a way that the structure would no longer be a tree,
+    // and in such cases no changes are made an an exception is thrown.
+    void setAt(size_t idx, const NodePtr &newChild);
+    void setAt(size_t idx, nullptr_t) {
+        setAt(idx, NodePtr());
+    }
+
     // Check that the newChild is able to be inserted replacing the oldChild. If not, throw exception. Either or both of the
     // children may be null pointers, but 'parent' must be non-null.
-    void checkInsertionConsistency(const std::shared_ptr<Node> &newChild, const std::shared_ptr<Node> &oldChild, Node *parent);
+    void checkInsertionConsistency(const NodePtr &newChild, const NodePtr &oldChild, Node *parent);
 
     // Insert a new child edge at the specified position in the list. Consistency checks are performed and the child's parent
     // pointer is adjusted.
-    void insertAt(size_t idx, const std::shared_ptr<Node> &child);
+    void insertAt(size_t idx, const NodePtr &child);
 
     // Remove one of the child edges. If the edge pointed to a non-null child node, then that child's parent pointer is reset.
     void eraseAt(size_t idx);
 
     // Add a new parent-child-edge and return its index
-    size_t appendEdge(const std::shared_ptr<Node> &child);
+    size_t appendEdge(const NodePtr &child);
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Node declaration
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/** Base class for @ref Tree nodes. */
+/** Base class for @ref Tree nodes.
+ *
+ *  All nodes of a tree inherit from this type. The main features that this class provides are:
+ *
+ *  @li When declaring a tree node, the parent-child edges are declared using the @ref ChildEdge type as described in that
+ *  type's documentation.
+ *
+ *  @li Every node has a @c children data member that enumerates the nodes pointed to by the @ref ChildEdge data members.
+ *  This list of all children is updated automatically as assignments are made to the @ref ChildEdge data members.
+ *
+ *  @li Every node has a @c parent data member that points to the parent node in the tree, or null if this node is the
+ *  root of a tree.  The parent pointers are updated automatically as nodes are inserted into and removed from the tree.
+ *
+ *  @li Node memory is managed using @c std::shared_ptr, and node memory is reclaimed automatically when there are no more
+ *  references to the node, either as parent-child edges or other shared pointers outside the tree's control. The pointers
+ *  from child to parent within the tree data structure itself are weak and do not count as references to the parent node.
+ *
+ *  @li a number of traversals are defined, the two most general being @ref traverse and @ref traverseParents. The other
+ *  traversals are more specialized and are built upon the first two. */
 class Node: public std::enable_shared_from_this<Node> {
 private:
     enum TraversalDirection { TRAVERSE_UPWARD, TRAVERSE_DOWNWARD };
@@ -334,7 +464,10 @@ public:
     Children children;                                  /**< Vector of pointers to children. */
 
 public:
+    /** Construct an empty node. */
     Node(): children(this) {}
+
+    /** Nodes are polymorphic. */
     virtual ~Node() {}
 
     // Nodes are not copyable since doing so would cause the children (which are not copied) to have two parents. Instead, we
@@ -372,7 +505,7 @@ public:
 
     /** Traverse an tree to find the first node satisfying the predicate. */
     template<class Predicate>
-    std::shared_ptr<Node> find(Predicate predicate) {
+    NodePtr find(Predicate predicate) {
         return findImpl<Node, Predicate>(TRAVERSE_DOWNWARD, predicate);
     }
 
@@ -390,7 +523,7 @@ public:
 
     /** Find closest ancestor that satifies the predicate. */
     template<class Predicate>
-    std::shared_ptr<Node> findParent(Predicate predicate) {
+    NodePtr findParent(Predicate predicate) {
         return findImpl<Node, Predicate>(TRAVERSE_UPWARD, predicate);
     }
 
@@ -407,9 +540,11 @@ public:
     }
 
 private:
+    // implementation for all the traversals
     template<class Functor>
     TraversalAction traverseImpl(TraversalDirection, Functor);
 
+    // implementation for traversals whose purpose is to find something
     template<class T, class Predicate>
     std::shared_ptr<T> findImpl(TraversalDirection, Predicate);
 };
@@ -427,7 +562,47 @@ private:
  *
  *  Although the @c children data member provides a read-only API for accessing the children, we also need to provde an API
  *  that can modify that list.  The entire @c children API is available also from this node directly so that the reading and
- *  writing APIs can be invoked consistently on this object. */
+ *  writing APIs can be invoked consistently on this object.
+ *
+ *  A parent node that points to a node containing a list as well as nodes that are not lists is declared as follows:
+ *
+ * @code
+ *  class ChildType1;    // some user-defined type derived from Tree::Node
+ *  class ChildType2;    // ditto
+ *  class ChildType3;    // ditto
+ *
+ *  class Parent: public Tree::Node {
+ *  public:
+ *      Tree::ChildEdge<ChildType1> first;                // a.k.a., children[0]
+ *      Tree::ChildEdge<Tree::ListNode<ChildType2> list;  // a.k.a., children[1]
+ *      Tree::ChildEdge<ChildType3> last;                 // a.k.a., children[2] regardless of list's size
+ *
+ *      Parent()
+ *          : first(this), list(this), last(this) {}
+ *  }
+ * @endcode
+ *
+ *  A common practice when creating a @ref ListNode is to allocate then node when the parent is constructed:
+ *
+ * @code
+ *  Parent::Parent()
+ *      : first(this), list(this, std::make_shared<Tree::ListNode<ChildType2> >()), last(this) {}
+ * @endcode
+ *
+ *  If you follow the recommendation of always allocating @ref ListNode data members, then the 10th child (index 9) of the
+ *  parent node's list can be accessed without worrying about whether <tt>parent->list</tt> is a null pointer:
+ *
+ * @code
+ *  std::shared_ptr<Parent> parent = ...;
+ *  std::shared_ptr<ChildType2> item = parent->list->at(9);
+ * @endcode
+ *
+ *  Since a @ref ListNode is a type of @ref Node, it has a @c children data member of type @ref Children. All the functions
+ *  defined for @ref Children are also defined in @ref ListNode itself, plus @ref ListNode has a number of additional member
+ *  functions for inserting and removing children--something that's not possible with other @ref Node types.
+ *
+ *  The @ref ListNode type is final because if users could derive subclasses from it, then those subclasses could add
+ *  @ref ChildEdge data members that would interfere with the child node counting. */
 template<class T>
 class ListNode final: public Node {
 public:
@@ -519,7 +694,7 @@ public:
      *
      *  The node must not already have a parent. The index must be greater than or equal to zero and less than or equal to the
      *  current number of nodes. Upon return, the node that was inserted will be found at index @p i. */
-    void insertAt(size_t i, std::shared_ptr<T> &newChild) {
+    void insertAt(size_t i, const std::shared_ptr<T> &newChild) {
         children.insertAt(i, newChild);
     }
 
@@ -548,92 +723,92 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ChildEdge<T> and ChildEdge<U>
-template<class T, class U> bool operator==(const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.child() == rhs.child(); }
-template<class T, class U> bool operator!=(const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.child() != rhs.child(); }
-template<class T, class U> bool operator< (const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.child() <  rhs.child(); }
-template<class T, class U> bool operator<=(const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.child() <= rhs.child(); }
-template<class T, class U> bool operator> (const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.child() >  rhs.child(); }
-template<class T, class U> bool operator>=(const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.child() >= rhs.child(); }
+template<class T, class U> bool operator==(const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.shared() == rhs.shared(); }
+template<class T, class U> bool operator!=(const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.shared() != rhs.shared(); }
+template<class T, class U> bool operator< (const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.shared() <  rhs.shared(); }
+template<class T, class U> bool operator<=(const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.shared() <= rhs.shared(); }
+template<class T, class U> bool operator> (const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.shared() >  rhs.shared(); }
+template<class T, class U> bool operator>=(const ChildEdge<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs.shared() >= rhs.shared(); }
 
 // ChildEdge<T> and nullptr
-template<class T> bool operator==(const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.child() == nullptr; }
-template<class T> bool operator!=(const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.child() != nullptr; }
-template<class T> bool operator< (const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.child() <  nullptr; }
-template<class T> bool operator<=(const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.child() <= nullptr; }
-template<class T> bool operator> (const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.child() >  nullptr; }
-template<class T> bool operator>=(const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.child() >= nullptr; }
+template<class T> bool operator==(const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.shared() == nullptr; }
+template<class T> bool operator!=(const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.shared() != nullptr; }
+template<class T> bool operator< (const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.shared() <  nullptr; }
+template<class T> bool operator<=(const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.shared() <= nullptr; }
+template<class T> bool operator> (const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.shared() >  nullptr; }
+template<class T> bool operator>=(const ChildEdge<T> &lhs, nullptr_t) noexcept { return lhs.shared() >= nullptr; }
 
 // nullptr and ChildEdge<T>
-template<class T> bool operator==(nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr == rhs.child(); }
-template<class T> bool operator!=(nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr != rhs.child(); }
-template<class T> bool operator< (nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr <  rhs.child(); }
-template<class T> bool operator<=(nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr <= rhs.child(); }
-template<class T> bool operator> (nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr >  rhs.child(); }
-template<class T> bool operator>=(nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr >= rhs.child(); }
+template<class T> bool operator==(nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr == rhs.shared(); }
+template<class T> bool operator!=(nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr != rhs.shared(); }
+template<class T> bool operator< (nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr <  rhs.shared(); }
+template<class T> bool operator<=(nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr <= rhs.shared(); }
+template<class T> bool operator> (nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr >  rhs.shared(); }
+template<class T> bool operator>=(nullptr_t, const ChildEdge<T> &rhs) noexcept { return nullptr >= rhs.shared(); }
 
 // ChildEdge<T> and std::shared_ptr<U>
-template<class T, class U> bool operator==(const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.child() == rhs; }
-template<class T, class U> bool operator!=(const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.child() != rhs; }
-template<class T, class U> bool operator< (const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.child() <  rhs; }
-template<class T, class U> bool operator<=(const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.child() <= rhs; }
-template<class T, class U> bool operator> (const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.child() >  rhs; }
-template<class T, class U> bool operator>=(const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.child() >= rhs; }
+template<class T, class U> bool operator==(const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.shared() == rhs; }
+template<class T, class U> bool operator!=(const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.shared() != rhs; }
+template<class T, class U> bool operator< (const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.shared() <  rhs; }
+template<class T, class U> bool operator<=(const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.shared() <= rhs; }
+template<class T, class U> bool operator> (const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.shared() >  rhs; }
+template<class T, class U> bool operator>=(const ChildEdge<T> &lhs, const std::shared_ptr<U> &rhs) noexcept { return lhs.shared() >= rhs; }
 
 // std::shared_ptr<T> and ChildEdge<U>
-template<class T, class U> bool operator==(const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs == rhs.child(); }
-template<class T, class U> bool operator!=(const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs != rhs.child(); }
-template<class T, class U> bool operator< (const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs <  rhs.child(); }
-template<class T, class U> bool operator<=(const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs <= rhs.child(); }
-template<class T, class U> bool operator> (const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs >  rhs.child(); }
-template<class T, class U> bool operator>=(const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs >= rhs.child(); }
+template<class T, class U> bool operator==(const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs == rhs.shared(); }
+template<class T, class U> bool operator!=(const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs != rhs.shared(); }
+template<class T, class U> bool operator< (const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs <  rhs.shared(); }
+template<class T, class U> bool operator<=(const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs <= rhs.shared(); }
+template<class T, class U> bool operator> (const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs >  rhs.shared(); }
+template<class T, class U> bool operator>=(const std::shared_ptr<T> &lhs, const ChildEdge<U> &rhs) noexcept { return lhs >= rhs.shared(); }
 
 // ParentEdge and nullptr
-inline bool operator==(const ParentEdge &lhs, nullptr_t) noexcept { return lhs.parent() == nullptr; }
-inline bool operator!=(const ParentEdge &lhs, nullptr_t) noexcept { return lhs.parent() != nullptr; }
-inline bool operator< (const ParentEdge &lhs, nullptr_t) noexcept { return lhs.parent() <  nullptr; }
-inline bool operator<=(const ParentEdge &lhs, nullptr_t) noexcept { return lhs.parent() <= nullptr; }
-inline bool operator> (const ParentEdge &lhs, nullptr_t) noexcept { return lhs.parent() >  nullptr; }
-inline bool operator>=(const ParentEdge &lhs, nullptr_t) noexcept { return lhs.parent() >= nullptr; }
+inline bool operator==(const ParentEdge &lhs, nullptr_t) noexcept { return lhs.shared() == nullptr; }
+inline bool operator!=(const ParentEdge &lhs, nullptr_t) noexcept { return lhs.shared() != nullptr; }
+inline bool operator< (const ParentEdge &lhs, nullptr_t) noexcept { return lhs.shared() <  nullptr; }
+inline bool operator<=(const ParentEdge &lhs, nullptr_t) noexcept { return lhs.shared() <= nullptr; }
+inline bool operator> (const ParentEdge &lhs, nullptr_t) noexcept { return lhs.shared() >  nullptr; }
+inline bool operator>=(const ParentEdge &lhs, nullptr_t) noexcept { return lhs.shared() >= nullptr; }
 
 // nullptr and ParentEdge
-inline bool operator==(nullptr_t, const ParentEdge &rhs) noexcept { return nullptr == rhs.parent(); }
-inline bool operator!=(nullptr_t, const ParentEdge &rhs) noexcept { return nullptr != rhs.parent(); }
-inline bool operator< (nullptr_t, const ParentEdge &rhs) noexcept { return nullptr <  rhs.parent(); }
-inline bool operator<=(nullptr_t, const ParentEdge &rhs) noexcept { return nullptr <= rhs.parent(); }
-inline bool operator> (nullptr_t, const ParentEdge &rhs) noexcept { return nullptr >  rhs.parent(); }
-inline bool operator>=(nullptr_t, const ParentEdge &rhs) noexcept { return nullptr >= rhs.parent(); }
+inline bool operator==(nullptr_t, const ParentEdge &rhs) noexcept { return nullptr == rhs.shared(); }
+inline bool operator!=(nullptr_t, const ParentEdge &rhs) noexcept { return nullptr != rhs.shared(); }
+inline bool operator< (nullptr_t, const ParentEdge &rhs) noexcept { return nullptr <  rhs.shared(); }
+inline bool operator<=(nullptr_t, const ParentEdge &rhs) noexcept { return nullptr <= rhs.shared(); }
+inline bool operator> (nullptr_t, const ParentEdge &rhs) noexcept { return nullptr >  rhs.shared(); }
+inline bool operator>=(nullptr_t, const ParentEdge &rhs) noexcept { return nullptr >= rhs.shared(); }
 
 // ParentEdge and std::shared_ptr<T>
-template<class T> bool operator==(const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.parent() == rhs; }
-template<class T> bool operator!=(const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.parent() != rhs; }
-template<class T> bool operator< (const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.parent() <  rhs; }
-template<class T> bool operator<=(const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.parent() <= rhs; }
-template<class T> bool operator> (const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.parent() >  rhs; }
-template<class T> bool operator>=(const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.parent() >= rhs; }
+template<class T> bool operator==(const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.shared() == rhs; }
+template<class T> bool operator!=(const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.shared() != rhs; }
+template<class T> bool operator< (const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.shared() <  rhs; }
+template<class T> bool operator<=(const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.shared() <= rhs; }
+template<class T> bool operator> (const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.shared() >  rhs; }
+template<class T> bool operator>=(const ParentEdge &lhs, const std::shared_ptr<T> &rhs) noexcept { return lhs.shared() >= rhs; }
 
 // std::shared_ptr<T> and ParentEdge
-template<class T> bool operator==(const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs == rhs.parent(); }
-template<class T> bool operator!=(const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs != rhs.parent(); }
-template<class T> bool operator< (const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs <  rhs.parent(); }
-template<class T> bool operator<=(const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs <= rhs.parent(); }
-template<class T> bool operator> (const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs >  rhs.parent(); }
-template<class T> bool operator>=(const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs >= rhs.parent(); }
+template<class T> bool operator==(const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs == rhs.shared(); }
+template<class T> bool operator!=(const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs != rhs.shared(); }
+template<class T> bool operator< (const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs <  rhs.shared(); }
+template<class T> bool operator<=(const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs <= rhs.shared(); }
+template<class T> bool operator> (const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs >  rhs.shared(); }
+template<class T> bool operator>=(const std::shared_ptr<T> &lhs, const ParentEdge &rhs) noexcept { return lhs >= rhs.shared(); }
 
 // ParentEdge and ChildEdge<T>
-template<class T> bool operator==(const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.parent() == rhs.child(); }
-template<class T> bool operator!=(const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.parent() != rhs.child(); }
-template<class T> bool operator< (const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.parent() <  rhs.child(); }
-template<class T> bool operator<=(const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.parent() <= rhs.child(); }
-template<class T> bool operator> (const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.parent() >  rhs.child(); }
-template<class T> bool operator>=(const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.parent() >= rhs.child(); }
+template<class T> bool operator==(const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.shared() == rhs.shared(); }
+template<class T> bool operator!=(const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.shared() != rhs.shared(); }
+template<class T> bool operator< (const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.shared() <  rhs.shared(); }
+template<class T> bool operator<=(const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.shared() <= rhs.shared(); }
+template<class T> bool operator> (const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.shared() >  rhs.shared(); }
+template<class T> bool operator>=(const ParentEdge &lhs, const ChildEdge<T> &rhs) noexcept { return lhs.shared() >= rhs.shared(); }
 
 // ChildEdge<T> and ParentEdge
-template<class T> bool operator==(const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.child() == rhs.parent(); }
-template<class T> bool operator!=(const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.child() != rhs.parent(); }
-template<class T> bool operator< (const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.child() <  rhs.parent(); }
-template<class T> bool operator<=(const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.child() <= rhs.parent(); }
-template<class T> bool operator> (const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.child() >  rhs.parent(); }
-template<class T> bool operator>=(const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.child() >= rhs.parent(); }
+template<class T> bool operator==(const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.shared() == rhs.shared(); }
+template<class T> bool operator!=(const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.shared() != rhs.shared(); }
+template<class T> bool operator< (const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.shared() <  rhs.shared(); }
+template<class T> bool operator<=(const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.shared() <= rhs.shared(); }
+template<class T> bool operator> (const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.shared() >  rhs.shared(); }
+template<class T> bool operator>=(const ChildEdge<T> &lhs, const ParentEdge &rhs) noexcept { return lhs.shared() >= rhs.shared(); }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                        ___                 _                           _        _   _
@@ -663,13 +838,13 @@ ChildEdge<T>::ChildEdge(Node *container, const std::shared_ptr<T> &child)
 
 template<class T>
 std::shared_ptr<T>
-ChildEdge<T>::child() const {
+ChildEdge<T>::shared() const {
     return std::dynamic_pointer_cast<T>(container_->children[this->idx_]);
 }
 
 template<class T>
 void
-ChildEdge<T>::assign(const std::shared_ptr<Node> &newChild) {
+ChildEdge<T>::assign(const NodePtr &newChild) {
     container_->children.setAt(idx_, newChild);
 }
 
@@ -677,9 +852,9 @@ ChildEdge<T>::assign(const std::shared_ptr<Node> &newChild) {
 // ParentEdge implementation
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::shared_ptr<Node>
-ParentEdge::parent() const {
-    return parent_ ? parent_->shared_from_this() : std::shared_ptr<Node>();
+NodePtr
+ParentEdge::shared() const {
+    return parent_ ? parent_->shared_from_this() : NodePtr();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -692,7 +867,7 @@ Children::Children(Node *container)
 }
 
 size_t
-Children::appendEdge(const std::shared_ptr<Node> &child) {
+Children::appendEdge(const NodePtr &child) {
     size_t idx = children_.size();
     children_.push_back(nullptr);
     setAt(idx, child);
@@ -700,19 +875,19 @@ Children::appendEdge(const std::shared_ptr<Node> &child) {
 }
 
 void
-Children::checkInsertionConsistency(const std::shared_ptr<Node> &newChild, const std::shared_ptr<Node> &oldChild, Node *parent) {
+Children::checkInsertionConsistency(const NodePtr &newChild, const NodePtr &oldChild, Node *parent) {
     ASSERT_not_null(parent);
 
     if (newChild && newChild != oldChild) {
         if (newChild->parent != nullptr) {
-            if (newChild->parent.parent().get() == parent) {
+            if (newChild->parent.shared().get() == parent) {
                 throw ConsistencyException(newChild, "node is already a child of the parent");
             } else {
                 throw ConsistencyException(newChild, "node is already attached to a tree");
             }
         }
 
-        for (Node *ancestor = parent; ancestor; ancestor = ancestor->parent.parent().get()) {
+        for (Node *ancestor = parent; ancestor; ancestor = ancestor->parent.shared().get()) {
             if (newChild.get() == ancestor)
                 throw ConsistencyException(newChild, "node insertion would introduce a cycle");
         }
@@ -720,9 +895,9 @@ Children::checkInsertionConsistency(const std::shared_ptr<Node> &newChild, const
 }
 
 void
-Children::setAt(size_t idx, const std::shared_ptr<Node> &newChild) {
+Children::setAt(size_t idx, const NodePtr &newChild) {
     ASSERT_require(idx < children_.size());
-    std::shared_ptr<Node> oldChild = children_[idx];
+    NodePtr oldChild = children_[idx];
     checkInsertionConsistency(newChild, oldChild, container_);
     if (oldChild)
         oldChild->parent.reset();
@@ -732,7 +907,7 @@ Children::setAt(size_t idx, const std::shared_ptr<Node> &newChild) {
 }
 
 void
-Children::insertAt(size_t idx, const std::shared_ptr<Node> &child) {
+Children::insertAt(size_t idx, const NodePtr &child) {
     ASSERT_require(idx <= children_.size());
     checkInsertionConsistency(child, nullptr, container_);
     children_.insert(children_.begin() + idx, child);
@@ -780,7 +955,7 @@ std::shared_ptr<T>
 Node::findImpl(TraversalDirection direction, Predicate predicate) {
     std::shared_ptr<T> found;
     traverseImpl(direction,
-                 [&predicate, &found](const std::shared_ptr<Node> &node, TraversalEvent event) {
+                 [&predicate, &found](const NodePtr &node, TraversalEvent event) {
                      if (ENTER == event) {
                          std::shared_ptr<T> typedNode = std::dynamic_pointer_cast<T>(node);
                          if (typedNode && predicate(typedNode)) {
@@ -802,7 +977,7 @@ std::vector<std::shared_ptr<T> >
 ListNode<T>::elmts() const {
     std::vector<std::shared_ptr<T> > retval;
     retval.reserve(children.size());
-    for (const std::shared_ptr<Node> &child: children)
+    for (const NodePtr &child: children)
         retval.push_back(child ? std::dynamic_pointer_cast<T>(child) : std::shared_ptr<T>());
     return retval;
 }
