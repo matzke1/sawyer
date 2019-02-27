@@ -92,8 +92,12 @@ class Children;
 
 /** Short name for node pointers.
  *
- *  A shared-ownership pointer for nodes. */
+ *  A shared-ownership pointer for nodes.
+ *
+ * @{ */
 using NodePtr = std::shared_ptr<Node>;
+using ConstNodePtr = std::shared_ptr<const Node>;
+/** @} */
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //                   ____            _                 _   _
@@ -222,11 +226,11 @@ public:
     }
 
     /** Obtain pointed-to node. */
-    T& operator*() {
+    T& operator*() const {
         ASSERT_not_null(shared());
         return *shared();
     }
-
+    
     /** Conversion to bool. */
     explicit operator bool() const {
         return shared() != nullptr;
@@ -263,21 +267,31 @@ public:
         : parent_(nullptr) {}
 
     /** Obtain shared pointer. */
-    NodePtr operator->() {
+    NodePtr operator->() const {
         return shared();
     }
 
     /** Obtain pointed-to node. */
-    Node& operator*() {
+    Node& operator*() const {
         ASSERT_not_null(parent_);
         return *shared();
     }
+
+    /** Return the parent as a shared-ownership pointer. */
+    NodePtr shared() const;
 
     /** Conversion to bool. */
     explicit operator bool() const {
         return parent_ != nullptr;
     }
 
+#if 0 // [Robb Matzke 2019-02-18]: Node is not declared yet?
+    /** Implicit conversion to shared pointer. */
+    operator std::shared_ptr<Node> const {
+        return shared();
+    }
+#endif
+    
     /** Relation.
      *
      * @{ */
@@ -288,9 +302,6 @@ public:
     bool operator> (const ParentEdge &other) const { return parent_ >  other.parent_; }
     bool operator>=(const ParentEdge &other) const { return parent_ >= other.parent_; }
     /** @} */
-
-    /** Return the parent as a shared-ownership pointer. */
-    NodePtr shared() const;
 
 private:
     friend class Children;
@@ -428,6 +439,9 @@ private:
     // Remove one of the child edges. If the edge pointed to a non-null child node, then that child's parent pointer is reset.
     void eraseAt(size_t idx);
 
+    // Remove all children.
+    void clear();
+
     // Add a new parent-child-edge and return its index
     size_t appendEdge(const NodePtr &child);
 };
@@ -488,65 +502,136 @@ public:
      *  If any call to the functor returns ABORT, then the traversal is immediately aborted.
      *
      *  If any functor returns ABORT, then the @ref traverse function also returns ABORT. Otherwise the @ref traverse function
-     *  returns CONTINUE. */
+     *  returns CONTINUE.
+     *
+     * @{ */
     template<class Functor>
     TraversalAction traverse(Functor functor) {
         return traverseImpl<Functor>(TRAVERSE_DOWNWARD, functor);
     }
+    template<class Functor>
+    TraversalAction traverse(Functor functor) const {
+        return traverseImpl<Functor>(TRAVERSE_DOWNWARD, functor);
+    }
+    /** @} */
+
+    /** Traverse the tree restricted by type.
+     *
+     *  Traverses the entire tree, but calls the functor only for nodes of the specified type (or subtype).
+     *
+     * @{ */
+    template<class T, class Functor>
+    TraversalAction traverseType(Functor functor);
+    template<class T, class Functor>
+    TraversalAction traverseType(Functor functor) const;
+    /** @} */
 
     /** Traverse the tree by following parent pointers.
      *
      *  Other than following pointers from children to parents, this traversal is identical to the downward @ref traverse
-     *  method. */
+     *  method.
+     *
+     * @{ */
     template<class Functor>
     TraversalAction traverseParents(Functor functor) {
         return traverseImpl<Functor>(TRAVERSE_UPWARD, functor);
     }
+    template<class Functor>
+    TraversalAction traverseParents(Functor functor) const {
+        return traverseImpl<Functor>(TRAVERSE_UPWARD, functor);
+    }
+    /** @} */
 
-    /** Traverse an tree to find the first node satisfying the predicate. */
+    /** Traverse an tree to find the first node satisfying the predicate.
+     *
+     * @{ */
     template<class Predicate>
     NodePtr find(Predicate predicate) {
         return findImpl<Node, Predicate>(TRAVERSE_DOWNWARD, predicate);
     }
+    template<class Predicate>
+    NodePtr find(Predicate predicate) const {
+        return findImpl<Node, Predicate>(TRAVERSE_DOWNWARD, predicate);
+    }
+    /** @} */
 
-    /** Find first child that's the specified type. */
+    /** Find first child that's the specified type.
+     *
+     * @{ */
     template<class T>
     std::shared_ptr<T> findType() {
         return findImpl<T>(TRAVERSE_DOWNWARD, [](const std::shared_ptr<T>&) { return true; });
     }
+    template<class T>
+    std::shared_ptr<T> findType() const {
+        return findImpl<T>(TRAVERSE_DOWNWARD, [](const std::shared_ptr<T>&) { return true; });
+    }
+    /** @} */
 
-    /** Find first child of specified type satisfying the predicate. */
+    /** Find first child of specified type satisfying the predicate.
+     *
+     * @{ */
     template<class T, class Predicate>
     std::shared_ptr<T> findType(Predicate predicate) {
         return findImpl<T, Predicate>(TRAVERSE_DOWNWARD, predicate);
     }
+    template<class T, class Predicate>
+    std::shared_ptr<T> findType(Predicate predicate) const {
+        return findImpl<T, Predicate>(TRAVERSE_DOWNWARD, predicate);
+    }
+    /** @} */
 
-    /** Find closest ancestor that satifies the predicate. */
+    /** Find closest ancestor that satifies the predicate.
+     *
+     * @{ */
     template<class Predicate>
     NodePtr findParent(Predicate predicate) {
         return findImpl<Node, Predicate>(TRAVERSE_UPWARD, predicate);
     }
+    template<class Predicate>
+    NodePtr findParent(Predicate predicate) const {
+        return findImpl<Node, Predicate>(TRAVERSE_UPWARD, predicate);
+    }
+    /** @} */
 
-    /** Find closest ancestor of specified type. */
+    /** Find closest ancestor of specified type.
+     *
+     * @{ */
     template<class T>
     std::shared_ptr<T> findParentType() {
         return findImpl<T>(TRAVERSE_UPWARD, [](const std::shared_ptr<T>&) { return true; });
     }
+    template<class T>
+    std::shared_ptr<T> findParentType() const {
+        return findImpl<T>(TRAVERSE_UPWARD, [](const std::shared_ptr<T>&) { return true; });
+    }
+    /** @} */
 
-    /** Find closest ancestor of specified type that satisfies the predicate. */
+    /** Find closest ancestor of specified type that satisfies the predicate.
+     *
+     * @{ */
     template<class T, class Predicate>
     std::shared_ptr<T> findParentType(Predicate predicate) {
         return findImpl<T, Predicate>(TRAVERSE_UPWARD, predicate);
     }
+    template<class T, class Predicate>
+    std::shared_ptr<T> findParentType(Predicate predicate) const {
+        return findImpl<T, Predicate>(TRAVERSE_UPWARD, predicate);
+    }
+    /** @} */
 
 private:
     // implementation for all the traversals
     template<class Functor>
     TraversalAction traverseImpl(TraversalDirection, Functor);
+    template<class Functor>
+    TraversalAction traverseImpl(TraversalDirection, Functor) const;
 
     // implementation for traversals whose purpose is to find something
     template<class T, class Predicate>
     std::shared_ptr<T> findImpl(TraversalDirection, Predicate);
+    template<class T, class Predicate>
+    std::shared_ptr<T> findImpl(TraversalDirection, Predicate) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -673,6 +758,11 @@ public:
     //              Modifying API
     //----------------------------------------
 
+    /** Remove all children. */
+    void clear() {
+        children.clear();
+    }
+    
     /** Append a child pointer. */
     void push_back(const std::shared_ptr<T> &newChild) {
         children.insertAt(children.size(), newChild);
@@ -681,7 +771,7 @@ public:
     /** Make child edge point to a different child.
      *
      * @{ */
-    void setAt(size_t i, std::shared_ptr<T> &child) {
+    void setAt(size_t i, const std::shared_ptr<T> &child) {
         children.setAt(i, child);
     }
     void setAt(size_t i, nullptr_t) {
@@ -887,7 +977,7 @@ Children::checkInsertionConsistency(const NodePtr &newChild, const NodePtr &oldC
             }
         }
 
-        for (Node *ancestor = parent; ancestor; ancestor = ancestor->parent.shared().get()) {
+        for (Node *ancestor = parent; ancestor; ancestor = ancestor->parent.parent_) {
             if (newChild.get() == ancestor)
                 throw ConsistencyException(newChild, "node insertion would introduce a cycle");
         }
@@ -923,10 +1013,22 @@ Children::eraseAt(size_t idx) {
     children_.erase(children_.begin() + idx);
 }
 
+void
+Children::clear() {
+    while (!children_.empty()) {
+        if (children_.back())
+            children_.back()->parent.reset();
+        children_.pop_back();
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Node implementation
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//----------------------------------------
+// traverseImpl
+//----------------------------------------
 template<class Functor>
 TraversalAction
 Node::traverseImpl(TraversalDirection direction, Functor functor) {
@@ -935,10 +1037,10 @@ Node::traverseImpl(TraversalDirection direction, Functor functor) {
             if (TRAVERSE_DOWNWARD == direction) {
                 for (size_t i=0; i<children.size() && CONTINUE==action; ++i) {
                     if (children[i])
-                        action = children[i]->traverseImpl(direction, functor);
+                        action = children[i]->traverseImpl<Functor>(direction, functor);
                 }
             } else if (parent) {
-                action = parent->traverseImpl(direction, functor);
+                action = parent->traverseImpl<Functor>(direction, functor);
             }
             // fall through
         case SKIP_CHILDREN:
@@ -950,6 +1052,64 @@ Node::traverseImpl(TraversalDirection direction, Functor functor) {
     }
 }
 
+template<class Functor>
+TraversalAction
+Node::traverseImpl(TraversalDirection direction, Functor functor) const {
+    switch (TraversalAction action = functor(this->shared_from_this(), ENTER)) {
+        case CONTINUE:
+            if (TRAVERSE_DOWNWARD == direction) {
+                for (size_t i=0; i<children.size() && CONTINUE==action; ++i) {
+                    if (children[i])
+                        action = children[i]->traverseImpl<Functor>(direction, functor);
+                }
+            } else if (parent) {
+                action = parent->traverseImpl<Functor>(direction, functor);
+            }
+            // fall through
+        case SKIP_CHILDREN:
+            if (ABORT != action && (action = functor(this->shared_from_this(), LEAVE)) == SKIP_CHILDREN)
+                action = CONTINUE;
+            // fall through
+        default:
+            return action;
+    }
+}
+
+//----------------------------------------
+// traverseType
+//----------------------------------------
+
+template<class T, class Functor>
+struct TraverseTypeHelper {
+    Functor functor;
+
+    TraverseTypeHelper(Functor functor)
+        : functor(functor) {}
+
+    TraversalAction operator()(const NodePtr &node, TraversalEvent event) {
+        if (std::shared_ptr<T> typed = std::dynamic_pointer_cast<T>(node)) {
+            return functor(typed, event);
+        } else {
+            return CONTINUE;
+        }
+    }
+};
+
+template<class T, class Functor>
+TraversalAction
+Node::traverseType(Functor functor) {
+    return traverseImpl(TRAVERSE_DOWNWARD, TraverseTypeHelper<T, Functor>(functor));
+}
+
+template<class T, class Functor>
+TraversalAction
+Node::traverseType(Functor functor) const {
+    return traverseImpl(TRAVERSE_DOWNWARD, TraverseTypeHelper<T, Functor>(functor));
+}
+
+//----------------------------------------
+// findImpl
+//----------------------------------------
 template<class T, class Predicate>
 std::shared_ptr<T>
 Node::findImpl(TraversalDirection direction, Predicate predicate) {
@@ -958,6 +1118,24 @@ Node::findImpl(TraversalDirection direction, Predicate predicate) {
                  [&predicate, &found](const NodePtr &node, TraversalEvent event) {
                      if (ENTER == event) {
                          std::shared_ptr<T> typedNode = std::dynamic_pointer_cast<T>(node);
+                         if (typedNode && predicate(typedNode)) {
+                             found = typedNode;
+                             return ABORT;
+                         }
+                     }
+                     return CONTINUE;
+                 });
+    return found;
+}
+
+template<class T, class Predicate>
+std::shared_ptr<T>
+Node::findImpl(TraversalDirection direction, Predicate predicate) const {
+    std::shared_ptr<T> found;
+    traverseImpl(direction,
+                 [&predicate, &found](const ConstNodePtr &node, TraversalEvent event) {
+                     if (ENTER == event) {
+                         std::shared_ptr<const T> typedNode = std::dynamic_pointer_cast<const T>(node);
                          if (typedNode && predicate(typedNode)) {
                              found = typedNode;
                              return ABORT;
@@ -977,8 +1155,8 @@ std::vector<std::shared_ptr<T> >
 ListNode<T>::elmts() const {
     std::vector<std::shared_ptr<T> > retval;
     retval.reserve(children.size());
-    for (const NodePtr &child: children)
-        retval.push_back(child ? std::dynamic_pointer_cast<T>(child) : std::shared_ptr<T>());
+    for (size_t i = 0; i < children.size(); ++i)
+        retval.push_back(std::dynamic_pointer_cast<T>(children[i]));
     return retval;
 }
 
