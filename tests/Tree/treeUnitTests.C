@@ -1,4 +1,6 @@
 // A single small header file defines the tree API.
+#if __cplusplus >= 201103L
+
 #include <Sawyer/Tree.h>
 
 #include <Sawyer/Assert.h>
@@ -781,3 +783,8 @@ int main() {
     test_iteration();
     test_node_list();
 }
+
+#else
+int main() {}
+
+#endif
