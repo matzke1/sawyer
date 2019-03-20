@@ -1,5 +1,5 @@
 add_executable(threadWorkerTests threadWorkerTests.C)
-target_link_libraries(threadWorkerTests libsawyer)
+target_link_libraries(threadWorkerTests sawyer)
 
 add_executable(cachableDemo cachableDemo.C)
-target_link_libraries(cachableDemo libsawyer)
+target_link_libraries(cachableDemo sawyer)
