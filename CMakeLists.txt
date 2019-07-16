@@ -130,10 +130,9 @@ set(lib_src
   Sawyer/SmallObject.C
   Sawyer/Stopwatch.C
   Sawyer/Synchronization.C)
-add_library(libsawyer SHARED ${lib_src})
-target_link_libraries(libsawyer ${Boost_LIBRARIES} ${Windows_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-set_target_properties(libsawyer PROPERTIES DEFINE_SYMBOL "SAWYER_DO_EXPORTS")
-set_target_properties(libsawyer PROPERTIES OUTPUT_NAME "sawyer")
+add_library(sawyer SHARED ${lib_src})
+target_link_libraries(sawyer ${Boost_LIBRARIES} ${Windows_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+set_target_properties(sawyer PROPERTIES DEFINE_SYMBOL "SAWYER_DO_EXPORTS")
 
 include_directories(
   ${CMAKE_SOURCE_DIR}
@@ -164,7 +163,7 @@ add_subdirectory(tools)
 #    |_| |_| |_|\__,_|_|\_\___|     |_|_| |_|___/\__\__,_|_|_|
 #
 #-------------------------------------------------------------------------------
-install(TARGETS libsawyer
+install(TARGETS sawyer
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib

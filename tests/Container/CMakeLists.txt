@@ -1,53 +1,53 @@
 add_executable(optionalUnitTests optionalUnitTests.C)
-target_link_libraries(optionalUnitTests libsawyer)
+target_link_libraries(optionalUnitTests sawyer)
 
 add_executable(mapUnitTests mapUnitTests.C)
-target_link_libraries(mapUnitTests libsawyer)
+target_link_libraries(mapUnitTests sawyer)
 
 add_executable(hashMapUnitTests hashMapUnitTests.C)
-target_link_libraries(hashMapUnitTests libsawyer)
+target_link_libraries(hashMapUnitTests sawyer)
 
 add_executable(listUnitTests listUnitTests.C)
-target_link_libraries(listUnitTests libsawyer)
+target_link_libraries(listUnitTests sawyer)
 
 add_executable(graphUnitTests graphUnitTests.C)
-target_link_libraries(graphUnitTests libsawyer)
+target_link_libraries(graphUnitTests sawyer)
 
 add_executable(graphBoost graphBoost.C)
-target_link_libraries(graphBoost libsawyer)
+target_link_libraries(graphBoost sawyer)
 
 add_executable(intervalUnitTests intervalUnitTests.C)
-target_link_libraries(intervalUnitTests libsawyer)
+target_link_libraries(intervalUnitTests sawyer)
 
 add_executable(addressMapUnitTests addressMapUnitTests.C)
-target_link_libraries(addressMapUnitTests libsawyer)
+target_link_libraries(addressMapUnitTests sawyer)
 
 add_executable(bitvecTests bitvecTests.C)
-target_link_libraries(bitvecTests libsawyer)
+target_link_libraries(bitvecTests sawyer)
 
 add_executable(distinctListUnitTests distinctListUnitTests.C)
-target_link_libraries(distinctListUnitTests libsawyer)
+target_link_libraries(distinctListUnitTests sawyer)
 
 add_executable(setUnitTests setUnitTests.C)
-target_link_libraries(setUnitTests libsawyer)
+target_link_libraries(setUnitTests sawyer)
 
 add_executable(intervalSetMapUnitTests intervalSetMapUnitTests.C)
-target_link_libraries(intervalSetMapUnitTests libsawyer)
+target_link_libraries(intervalSetMapUnitTests sawyer)
 
 add_executable(lineVectorUnitTests lineVectorUnitTests.C)
-target_link_libraries(lineVectorUnitTests libsawyer)
+target_link_libraries(lineVectorUnitTests sawyer)
 
 add_executable(indexedGraphDemo indexedGraphDemo.C)
-target_link_libraries(indexedGraphDemo libsawyer)
+target_link_libraries(indexedGraphDemo sawyer)
 
 add_executable(graphIsomorphismTests graphIsomorphismTests.C)
-target_link_libraries(graphIsomorphismTests libsawyer)
+target_link_libraries(graphIsomorphismTests sawyer)
 
 add_executable(denseIntegerSetUnitTests denseIntegerSetUnitTests.C)
-target_link_libraries(denseIntegerSetUnitTests libsawyer)
+target_link_libraries(denseIntegerSetUnitTests sawyer)
 
 add_executable(attributeUnitTests attributeUnitTests.C)
-target_link_libraries(attributeUnitTests libsawyer)
+target_link_libraries(attributeUnitTests sawyer)
 
 add_executable(traceUnitTests traceUnitTests.C)
-target_link_libraries(traceUnitTests libsawyer)
+target_link_libraries(traceUnitTests sawyer)

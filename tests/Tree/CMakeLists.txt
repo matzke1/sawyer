@@ -1,2 +1,2 @@
 add_executable(treeUnitTests treeUnitTests.C)
-target_link_libraries(treeUnitTests libsawyer)
+target_link_libraries(treeUnitTests sawyer)
