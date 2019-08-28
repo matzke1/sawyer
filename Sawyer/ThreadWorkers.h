@@ -1,5 +1,6 @@
 #include <Sawyer/Exception.h>
 #include <Sawyer/Graph.h>
+#include <Sawyer/Map.h>
 #include <Sawyer/Sawyer.h>
 #include <Sawyer/Stack.h>
 
@@ -230,12 +231,12 @@ private:
             runningTasks_.erase(workItemId);
 
             // Look for more work as we remove some dependency edges. Watch out for parallel edges (self edges not possible).
-            std::set<typename DependencyGraph::ConstVertexIterator> candidateWorkItems;
+            Container::Map<size_t, typename DependencyGraph::ConstVertexIterator> candidateWorkItems;
             BOOST_FOREACH (const typename DependencyGraph::Edge &edge, workVertex->inEdges())
-                candidateWorkItems.insert(edge.source());
+                candidateWorkItems.insert(edge.source()->id(), edge.source());
             dependencies_.clearInEdges(workVertex);
             size_t newWorkInserted = 0;
-            BOOST_FOREACH (const typename DependencyGraph::ConstVertexIterator &candidate, candidateWorkItems) {
+            BOOST_FOREACH (const typename DependencyGraph::ConstVertexIterator &candidate, candidateWorkItems.values()) {
                 if (candidate->nOutEdges() == 0) {
                     workQueue_.push(candidate->id());
                     ++newWorkInserted;

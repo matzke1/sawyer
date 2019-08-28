@@ -78,7 +78,7 @@ size_t
 graphBreakCycles(Graph &g) {
     std::vector<bool> visited(g.nVertices(), false);    // have we seen this vertex already?
     std::vector<unsigned char> onPath(g.nVertices(), false);  // is a vertex on the current path of edges? 0, 1, or 2
-    std::set<typename Graph::ConstEdgeIterator> edgesToErase;
+    Map<size_t, typename Graph::ConstEdgeIterator> edgesToErase;
 
     for (size_t rootId = 0; rootId < g.nVertices(); ++rootId) {
         if (visited[rootId])
@@ -90,7 +90,7 @@ graphBreakCycles(Graph &g) {
             size_t targetId = t.edge()->target()->id();
             if (t.event() == ENTER_EDGE) {
                 if (onPath[targetId]) {
-                    edgesToErase.insert(t.edge());
+                    edgesToErase.insert(t.edge()->id(), t.edge());
                     t.skipChildren();
                 }
                 ++onPath[targetId];
@@ -109,7 +109,7 @@ graphBreakCycles(Graph &g) {
         onPath[rootId] = 0;
     }
 
-    BOOST_FOREACH (const typename Graph::ConstEdgeIterator &edge, edgesToErase)
+    BOOST_FOREACH (const typename Graph::ConstEdgeIterator &edge, edgesToErase.values())
         g.eraseEdge(edge);
     return edgesToErase.size();
 }
