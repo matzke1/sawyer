@@ -1,5 +1,6 @@
 #include <Sawyer/Graph.h>
 #include <Sawyer/GraphAlgorithm.h>
+#include <Sawyer/GraphIteratorSet.h>
 #include <Sawyer/GraphTraversal.h>
 #include <Sawyer/Assert.h>
 #include <boost/foreach.hpp>
@@ -1468,10 +1469,9 @@ graphDominators03() {
     checkDominators(g, va, answer);
 }
 
-#if 0 // [Robb Matzke 2019-08-28]
 static void
-testVertexIteratorComparison() {
-    std::cout <<"graph vertex iterator comparison\n";
+vertexIteratorSet() {
+    std::cout <<"graph vertex iterator set\n";
 
     typedef Sawyer::Container::Graph<std::string> Graph;
     typedef Graph::VertexIterator Vertex;
@@ -1479,25 +1479,19 @@ testVertexIteratorComparison() {
     // Create a graph with three vertices
     Graph g;
     Vertex va = g.insertVertex("A");
-    ASSERT_always_require(va->id() == 0);
     Vertex vb = g.insertVertex("B");
-    ASSERT_always_require(vb->id() == 1);
     Vertex vc = g.insertVertex("C");
-    ASSERT_always_require(vc->id() == 2);
 
-    // Try to arrange the vertex IDs so that a vertex with a lower memory address has a higher ID. This will allow us to test
-    // that iterator comparisons use the IDs rather than the memory addresses.
-    if (&*vb < &*vc) {
-        g.eraseVertex(va);
-        ASSERT_always_require(vb->id() == 1);
-        ASSERT_always_require(vc->id() == 0);
-        ASSERT_always_require(&*vb < &*vc);             // didn't change the address
-        ASSERT_always_require(vc < vb);
-    } else {
-        ASSERT_always_require(vb < vc);
+    // Add vertices to a set
+    Sawyer::Container::GraphIteratorSet<Vertex> set;
+    set.insert(va);
+    set.insert(vb);
+    set.insert(vc);
+
+    BOOST_FOREACH (Vertex vertex, set.values()) {
+        std::cout <<"  vertex #" <<vertex->id() <<" \"" <<vertex->value() <<"\"\n";
     }
 }
-#endif
 
 int main() {
     Sawyer::initializeLibrary();
@@ -1524,7 +1518,6 @@ int main() {
     graphDominators01();
     graphDominators02();
     graphDominators03();
-#if 0 // [Robb Matzke 2019-08-28]
-    testVertexIteratorComparison();
-#endif
+    vertexIteratorSet();
+
 }
