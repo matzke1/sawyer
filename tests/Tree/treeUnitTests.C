@@ -34,8 +34,8 @@ public:
 
 class PairOfLeaves: public Tree::Node {
 public:
-    // The pointers to the children are declared with a special pointer type. You can only use these types for data members,
-    // and only in classes derived from Tree::Node.
+    // The pointers to the children are declared with a special pointer type. You can only use these types for data members
+    // whose types derive from Tree::Node, and only in classes derived from Tree::Node.
     Tree::ChildEdge<Leaf> first;
     Tree::ChildEdge<Leaf> second;
 
@@ -46,7 +46,8 @@ public:
     PairOfLeaves()
         : first(this), second(this) {}
     
-    // Additional constructors are permitted
+    // Additional constructors are permitted, such as this one that initializes 'first' and 'second' based on the constructor
+    // arguments.
     PairOfLeaves(const std::shared_ptr<Leaf> &first, const std::shared_ptr<Leaf> &second)
         : first(this, first), second(this, second) {}
 
@@ -84,7 +85,7 @@ static void test_parent_adjustment() {
     ASSERT_always_require(a->parent == pair);           // parent was set automatically
     ASSERT_always_require(b->parent == nullptr);
 
-    // Assign a different child adjusts the parent of the old and new child
+    // Assigning a different child adjusts the parent of the old and new child
     pair->first = b;
     ASSERT_always_require(pair->first == b);
     ASSERT_always_require(a->parent == nullptr);        // parent was cleared automatically
@@ -137,6 +138,7 @@ static void test_multi_parent() {
         pair->second = a;
         ASSERT_always_require(!"should not get here");
     } catch (const Tree::ConsistencyException &error) {
+        // Assignment is exception safe.
         ASSERT_always_require(pair->first == a);
         ASSERT_always_require(a->parent == pair);
         ASSERT_always_require(pair->second == nullptr);
@@ -144,12 +146,13 @@ static void test_multi_parent() {
     }
 
     // A node cannot be attached to a different tree. If node "a" were allowed to be attached to two different nodes, then it
-    // would need to parent pointers. Having two parent pointers violates the definition of "tree".
+    // would need two parent pointers. Having two parent pointers violates the definition of "tree".
     auto otherTree = std::make_shared<PairOfLeaves>();
     try {
         otherTree->first = a;
         ASSERT_always_require(!"should not get here");
     } catch (const Tree::ConsistencyException &error) {
+        // Assignment is exception safe
         ASSERT_always_require(pair->first == a);
         ASSERT_always_require(a->parent == pair);
         ASSERT_always_require(otherTree->first == nullptr);
@@ -166,7 +169,7 @@ static void test_parent_assignment() {
     auto pair = std::make_shared<PairOfLeaves>();
 
     // Assigning directly to the parent is prohibited because it is often ambiguous (as in this example, where we can't tell
-    // whether the intent is to make a the first or second child of the pair.
+    // whether the intent is to make 'a' the first or second child of the pair.
     COMPILE_ERROR(a->parent = pair); // Tree::ParentPtr::operator=(Tree::Node*) is private (could be a better message in C++11)
 
     // Setting a parent to null is also disallowed since implementing it would make the library significantly more complicated.
