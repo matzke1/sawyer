@@ -19,21 +19,24 @@ print(const Trace<T, IndexTag> &trace) {
 #endif
 }
 
+template<class Trace>
+struct Visitor {
+    typename Trace::ConstIterator iter;
+
+    Visitor(const typename Trace::ConstIterator &iter)
+        : iter(iter) {}
+
+    bool operator()(const typename Trace::Label &label) {
+        require(label == *iter);
+        ++iter;
+        return true;
+    }
+};
+
 // Test iteration and traversal by comparing them.
 template<class Trace>
 static void testIterationTraversal(const Trace &trace) {
-    struct Visitor {
-        typename Trace::ConstIterator iter;
-
-        Visitor(const typename Trace::ConstIterator &iter)
-            : iter(iter) {}
-
-        bool operator()(const typename Trace::Label &label) {
-            require(label == *iter);
-            ++iter;
-            return true;
-        }
-    } visitor(trace.begin());
+    Visitor<Trace> visitor(trace.begin());
     trace.traverse(visitor);
     require(visitor.iter == trace.end());
 }
