@@ -1,0 +1,20 @@
+.gitignore
+export BOOST_ROOT
+
+ROOT = $(TUP_CWD)
+INSTALL_STAGING = install-staging
+
+CXX            = c++
+CPPFLAGS       = -I$(ROOT) -I$BOOST_ROOT/include
+CXXFLAGS       = -fPIC -pthread -g -O3 -DNDEBUG -fomit-frame-pointer
+LDFLAGS_SHARED = -Wl,-rpath,`pwd` -Wl,-rpath,$BOOST_ROOT/lib -L$BOOST_ROOT/lib -lboost_thread -lboost_serialization -lboost_filesystem -lboost_iostreams -lboost_regex -lboost_chrono -lsqlite3
+LDFLAGS_STATIC = -L$BOOST_ROOT/lib -lboost_thread -lboost_serialization -lboost_filesystem -lboost_iostreams -lboost_regex -lboost_chrono -lsqlite3
+RPATH          = @(BOOST_LIBS)
+
+# commands
+compile_lib = $(ROOT)/tup-scripts/generate-compile-link-rules --linkage=@(LINKAGE) --rpath=$(RPATH)
+compile_tool = $(ROOT)/tup-scripts/generate-compile-link-rules --linkage=@(LINKAGE) --rpath=$(RPATH) $(ROOT)/Sawyer/libsawyer
+
+public_header = $(ROOT)/tup-scripts/generate-install-rules --language=c++ --output=include/Sawyer
+test = $(ROOT)/tup-scripts/generate-test-rules
+run_test = $(ROOT)/tup-scripts/run-test

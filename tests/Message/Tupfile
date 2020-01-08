@@ -1,0 +1,25 @@
+include_rules
+
+run $(compile_tool) mesgMultithreadTests.C
+run $(test) mesgMultithreadTests
+
+run $(compile_tool) mesgUnitTests.C
+run $(test) mesgUnitTests
+
+run $(compile_tool) test1.C
+#run $(test) test1 -- takes too long
+
+run $(compile_tool) test4.C
+run $(test) test4
+
+run $(compile_tool) test5.C
+run $(test) test5
+
+run $(compile_tool) test6.C
+run $(test) test6
+
+run $(compile_tool) test7.C
+run $(test) test7
+
+run $(compile_tool) test8.C
+#run $(test) test8 -- test intentionally fails

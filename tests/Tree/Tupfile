@@ -1,0 +1,4 @@
+include_rules
+
+run $(compile_tool) treeUnitTests.C
+run $(test) treeUnitTests

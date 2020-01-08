@@ -1,0 +1,3 @@
+[submodule "tup-scripts"]
+	path = tup-scripts
+	url = https://github.com/matzke1/tup-scripts

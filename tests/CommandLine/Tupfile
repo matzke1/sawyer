@@ -1,0 +1,13 @@
+include_rules
+
+run $(compile_tool) demo1.C
+run $(test) demo1
+
+run $(compile_tool) docTest.C
+run $(test) docTest
+
+run $(compile_tool) cmdUnitTests.C
+run $(test) cmdUnitTests
+
+run $(compile_tool) grepExample.C
+run $(test) grepExample

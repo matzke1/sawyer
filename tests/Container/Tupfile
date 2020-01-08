@@ -1,0 +1,55 @@
+include_rules
+
+run $(compile_tool) addressMapUnitTests.C
+run $(test) addressMapUnitTests
+
+run $(compile_tool) attributeUnitTests.C
+run $(test) attributeUnitTests
+
+run $(compile_tool) bitvecTests.C
+run $(test) bitvecTests
+
+run $(compile_tool) denseIntegerSetUnitTests.C
+run $(test) denseIntegerSetUnitTests
+
+run $(compile_tool) distinctListUnitTests.C
+run $(test) distinctListUnitTests
+
+run $(compile_tool) graphBoost.C
+run $(test) graphBoost
+
+run $(compile_tool) graphIsomorphismTests.C
+run $(test) graphIsomorphismTests
+
+run $(compile_tool) graphUnitTests.C
+run $(test) graphUnitTests
+
+run $(compile_tool) hashMapUnitTests.C
+run $(test) hashMapUnitTests
+
+run $(compile_tool) indexedGraphDemo.C
+run $(test) indexedGraphDemo
+
+run $(compile_tool) intervalSetMapUnitTests.C
+run $(test) intervalSetMapUnitTests
+
+run $(compile_tool) intervalUnitTests.C
+run $(test) intervalUnitTests
+
+run $(compile_tool) lineVectorUnitTests.C
+run $(test) lineVectorUnitTests
+
+run $(compile_tool) listUnitTests.C
+run $(test) listUnitTests
+
+run $(compile_tool) mapUnitTests.C
+run $(test) mapUnitTests
+
+run $(compile_tool) optionalUnitTests.C
+run $(test) optionalUnitTests
+
+run $(compile_tool) setUnitTests.C
+run $(test) setUnitTests
+
+run $(compile_tool) traceUnitTests.C
+run $(test) traceUnitTests

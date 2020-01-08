@@ -1,0 +1,10 @@
+include_rules
+
+run $(compile_tool) poolPerf.C
+run $(test) poolPerf
+
+run $(compile_tool) smallObjectPerf.C
+run $(test) smallObjectPerf
+
+run $(compile_tool) poolMultiThread.C
+#run $(test) poolMultiThread -- takes too long

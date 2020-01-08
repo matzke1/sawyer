@@ -1,0 +1,10 @@
+include_rules
+
+run $(compile_tool) basicTest1.C
+run $(test) basicTest1
+
+run $(compile_tool) basicTest2.C
+run $(test) basicTest2
+
+run $(compile_tool) geometryUnitTests.C
+run $(test) geometryUnitTests

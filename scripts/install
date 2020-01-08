@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+# Installation prefix
+PREFIX="$1"
+if [ "$PREFIX" = "" ]; then
+    echo "usage: $0 PREFIX" >&2
+    exit 1
+fi
+
+tup
+mkdir -p "$PREFIX"
+./tup-scripts/install-staged --remove "$(pwd)/Sawyer" --remove ../Sawyer --remove "$(pwd)/tools" "$PREFIX"

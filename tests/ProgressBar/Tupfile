@@ -1,0 +1,4 @@
+include_rules
+
+run $(compile_tool) demo1.C
+#run $(test) demo1 -- takes too long

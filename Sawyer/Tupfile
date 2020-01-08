@@ -1,0 +1,4 @@
+include_rules
+
+run $(compile_lib) --install -o libsawyer *.C
+run $(public_header) *.h

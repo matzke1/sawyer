@@ -1,0 +1,4 @@
+include_rules
+
+run $(compile_tool) markupUnitTests.C
+run $(test) markupUnitTests

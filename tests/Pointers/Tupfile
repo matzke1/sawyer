@@ -1,0 +1,7 @@
+include_rules
+
+run $(compile_tool) ptrMultiThread.C
+#run $(test) ptrMultiThread   -- takes way too long
+
+run $(compile_tool) ptrUnitTests.C
+run $(test) ptrUnitTests

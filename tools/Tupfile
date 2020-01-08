@@ -1,0 +1,6 @@
+include_rules
+
+run $(compile_tool) --install -o find-includes findIncludes.C
+run $(compile_tool) --install -o search-code searchCode.C
+run $(compile_tool) --install -o stringify-enums stringifyEnums.C
+run $(compile_tool) --install -o symbol-freq symbolFreq.C

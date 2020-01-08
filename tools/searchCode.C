@@ -26,7 +26,7 @@ parseCommandLine(int argc, char *argv[]) {
     parser.doc("Synopsis",
                "@prop{programName} @v{needle} @v{haystack}...");
     parser.doc("Description",
-               "Similar to Unix @man{grep}(1) in that it finds the proverbial needle in the haystack. The first argument is "
+               "Similar to Unix @man{grep}{1} in that it finds the proverbial needle in the haystack. The first argument is "
                "the \"needle\" for which to search and the remaining arguments are the names of source files that serve "
                "as the \"haystack\".  Unlike grep, this command searches using lexical analysis: it converts the first "
                "argument into a list of tokens and then tries to find matching tokens in the haystack. As such, white "

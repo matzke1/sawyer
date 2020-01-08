@@ -1,0 +1,4 @@
+include_rules
+
+run $(compile_tool) serializationUnitTests.C
+run $(test) serializationUnitTests
