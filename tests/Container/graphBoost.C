@@ -74,7 +74,7 @@ void example_adjacency_list_graph() {
     // We'll be creating a lookup table below, and we want to have O(1) lookup times. That means we need small, unique
     // ID numbers for each vertex.  There isn't a good way (i.e., fast and simple) to do this with the BGL interface when the
     // graph needs to support fast erasure of edges and/or vertices.
-    boost::property_map<Graph, vertex_data_t>::type vertexData = boost::get(vertex_data_t(), graph);
+    boost::property_map<Graph, vertex_data_t>::type vertexData __attribute__((unused)) = boost::get(vertex_data_t(), graph);
     boost::property_map<Graph, boost::vertex_index_t>::type vertexIds = boost::get(boost::vertex_index_t(), graph);
     VertexDesc a = boost::add_vertex(VertexData(1.0, 1.0, "vampire"), graph);
     boost::put(vertexIds, a, boost::num_vertices(graph)-1);
@@ -91,14 +91,14 @@ void example_adjacency_list_graph() {
     // vertices, adding edges requires three steps, although we are able to hoist the first step to the top in these examples
     // (not always convenient in real life).  The std::string c'tors are because there is no implicit conversion happening in
     // the add_edge function like what Sawyer allows.
-    boost::property_map<Graph, boost::edge_name_t>::type edgeData = boost::get(boost::edge_name_t(), graph);
-    EdgeDesc ab = boost::add_edge(a, b, std::string("elephant"), graph).first;
-    EdgeDesc ad = boost::add_edge(a, d, std::string("echidna"), graph).first;
-    EdgeDesc ca = boost::add_edge(c, a, std::string("emu"), graph).first;
-    EdgeDesc dc = boost::add_edge(d, c, std::string("eagle"), graph).first;
-    EdgeDesc ce = boost::add_edge(c, e, std::string("eel"), graph).first;
-    EdgeDesc bd = boost::add_edge(b, d, std::string("earwig"), graph).first;
-    EdgeDesc de = boost::add_edge(d, e, std::string("egret"), graph).first;
+    boost::property_map<Graph, boost::edge_name_t>::type edgeData __attribute__((unused)) = boost::get(boost::edge_name_t(), graph);
+    EdgeDesc ab __attribute__((unused)) = boost::add_edge(a, b, std::string("elephant"), graph).first;
+    EdgeDesc ad __attribute__((unused)) = boost::add_edge(a, d, std::string("echidna"), graph).first;
+    EdgeDesc ca __attribute__((unused)) = boost::add_edge(c, a, std::string("emu"), graph).first;
+    EdgeDesc dc __attribute__((unused)) = boost::add_edge(d, c, std::string("eagle"), graph).first;
+    EdgeDesc ce __attribute__((unused)) = boost::add_edge(c, e, std::string("eel"), graph).first;
+    EdgeDesc bd __attribute__((unused)) = boost::add_edge(b, d, std::string("earwig"), graph).first;
+    EdgeDesc de __attribute__((unused)) = boost::add_edge(d, e, std::string("egret"), graph).first;
 
     // Iterate over the edges of a graph manually and print their associated std::string values.  This is a two-step
     // process: first get the storage for the edge properties, then look up the particular data based on the edge.
@@ -319,7 +319,7 @@ void hybrid_example() {
 
     // Types.  Get types from boost rather than Sawyer.
     typedef boost::graph_traits<Graph>::vertex_descriptor VertexDesc;
-    typedef boost::graph_traits<Graph>::edge_descriptor EdgeDesc;
+    //typedef boost::graph_traits<Graph>::edge_descriptor EdgeDesc;
     typedef boost::graph_traits<Graph>::edge_iterator EdgeIter;
 
     // Construct an empty graph
@@ -330,7 +330,7 @@ void hybrid_example() {
     // associated internally with each vertex.  The Sawyer::Boost::edge_value_t is the tag for accessing the user-defined value
     // associated with each edge.
     typedef boost::property_map<Graph, Sawyer::Boost::vertex_value_t>::type VertexValueMap;
-    VertexValueMap vertexData = boost::get(Sawyer::Boost::vertex_value_t(), graph);
+    VertexValueMap vertexData __attribute__((unused)) = boost::get(Sawyer::Boost::vertex_value_t(), graph);
 
     // Add some vertices.  These functions need qualified names because graph's type is not in boost namespace, so Koenig
     // lookup fails.  We're mixing the BGL and Sawyer APIs here because we don't yet support BGL graph-internal properties on
@@ -345,7 +345,7 @@ void hybrid_example() {
     // Add some edges. Mixing BGL and Sawyer APIs for the internal properties like we did for vertices.  We use an internal
     // property map to access the std::string stored on each edge. Unlike the pure BGL example, implicit conversion from char
     // const* to std::string works here.
-    boost::property_map<Graph, Sawyer::Boost::edge_value_t>::type edgeData = boost::get(Sawyer::Boost::edge_value_t(), graph);
+    boost::property_map<Graph, Sawyer::Boost::edge_value_t>::type edgeData __attribute__((unused)) = boost::get(Sawyer::Boost::edge_value_t(), graph);
     boost::add_edge(a, b, "elephant", graph).first;
     boost::add_edge(a, d, "echidna", graph).first;
     boost::add_edge(c, a, "emu", graph).first;

@@ -13,7 +13,7 @@ std::ostream& operator<<(std::ostream &o, const Sawyer::Container::Graph<V, E> &
     typedef const typename Sawyer::Container::Graph<V, E> Graph;
     typedef typename Graph::ConstVertexIterator VertexIterator;
     typedef typename Graph::ConstEdgeIterator EdgeIterator;
-    typedef typename Graph::Vertex Vertex;
+    //typedef typename Graph::Vertex Vertex;
     typedef typename Graph::Edge Edge;
 
     o <<"    vertices:\n";
@@ -354,7 +354,7 @@ template<class Graph>
 void erase_vertex() {
     std::cout <<"erase vertices with edges:\n";
     typedef typename Graph::VertexIterator Vertex;
-    typedef typename Graph::EdgeIterator Edge;
+    //typedef typename Graph::EdgeIterator Edge;
 
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
@@ -414,7 +414,7 @@ template<class Graph>
 void copy_ctor() {
     std::cout <<"copy constructor:\n";
     typedef typename Graph::VertexIterator Vertex;
-    typedef typename Graph::EdgeIterator Edge;
+    //typedef typename Graph::EdgeIterator Edge;
 
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
@@ -452,7 +452,7 @@ template<class Graph>
 void assignment() {
     std::cout <<"assignment operator:\n";
     typedef typename Graph::VertexIterator Vertex;
-    typedef typename Graph::EdgeIterator Edge;
+    //typedef typename Graph::EdgeIterator Edge;
 
     Graph g2;
     Vertex v4 = g2.insertVertex("vertex to be clobbered");
@@ -525,7 +525,7 @@ template<class Graph>
 void conversion() {
     std::cout <<"conversion constructor:\n";
     typedef typename Graph::VertexIterator Vertex;
-    typedef typename Graph::EdgeIterator Edge;
+    //typedef typename Graph::EdgeIterator Edge;
 
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
@@ -566,7 +566,7 @@ template<class Graph>
 void assignment_conversion() {
     std::cout <<"assignment operator conversion:\n";
     typedef typename Graph::VertexIterator Vertex;
-    typedef typename Graph::EdgeIterator Edge;
+    //typedef typename Graph::EdgeIterator Edge;
 
     Graph graph;
     Vertex v0 = graph.insertVertex("vine");
