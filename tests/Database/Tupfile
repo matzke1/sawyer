@@ -1,0 +1,4 @@
+include_rules
+
+run $(compile_tool) test1.C
+run $(test) --extra x.db test1
