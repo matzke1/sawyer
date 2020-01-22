@@ -4,12 +4,10 @@
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/cast.hpp>
-#include <cctype>
 #include <memory.h>
 #include <Sawyer/Assert.h>
 #include <Sawyer/Map.h>
 #include <Sawyer/Optional.h>
-#include <sqlite3.h>
 #include <string>
 #include <vector>
 
@@ -165,8 +163,8 @@ class Row;
 class Iterator;
 
 namespace Detail {
-    class Connection;
-    class Statement;
+    class ConnectionBase;
+    class StatementBase;
 }
 
 class Exception: public std::runtime_error {
@@ -187,30 +185,22 @@ public:
  *  connection, but individuals can have their connection changed with member functions such as @ref open and @ref close. The
  *  connections are destroyed automatically only after no databases or executing statements reference them. */
 class Connection {
-    std::shared_ptr<Detail::Connection> pimpl_;
+    friend class ::Sawyer::Database::Statement;
+    friend class ::Sawyer::Database::Detail::ConnectionBase;
 
-public:
-    /** Construct an instance not connected to any RDBMS. */
-    Connection();
+    std::shared_ptr<Detail::ConnectionBase> pimpl_;
 
-    /** Construct an instance by opening a connection to a RDBMS. */
-    explicit Connection(const std::string&);
+protected:
+    Connection() {};
 
 private:
-    friend class Statement;
-    explicit Connection(const std::shared_ptr<Detail::Connection> &pimpl);
+    explicit Connection(const std::shared_ptr<Detail::ConnectionBase> &pimpl);
 
 public:
     /** Destructor.
      *
      *  The destructor calls @ref close before destroying this object. */
     ~Connection() = default;
-
-    /** Opens a connection to a RDBMS.
-     *
-     *  If this object has an open connection to a RDBMS then that connection is broken, possibly causing it to close, before
-     *  the new connection is established.  An exception is thrown if the new connection cannot be established. */
-    Connection& open(const std::string &url);
 
     /** Tests whether an underlying RDBMS connection is established. */
     bool isOpen() const;
@@ -243,15 +233,23 @@ public:
 
     /** Shortcut to execute a statement returning a single result.
      *
-     *  The SQL statement is expected to return at least one row, and the first column of that row becomes the return value of
-     *  this member function. The return type is a @ref Sawyer::Optional in order to represent database null values. */
+     *  Runs the query, which must not have any parameters, and returns the first column of the first row. If the query does not
+     *  result in any rows or the first column of the first row is null, then nothing is returned. The query is canceled after
+     *  returning the first row. */
     template<typename T>
-    Sawyer::Optional<T> get(const std::string &sql);
+    Optional<T> get(const std::string &sql);
 
-    /** Row number for the last SQL "insert".
-     *
-     *  This has all the same caveats as the sqlite3_last_insert_rowid function. */
+    // Undocumented: Row number for the last SQL "insert" (do not use).
+    //
+    // This method is available only if the underlying database driver supports it and it has lots of caveats. In other words,
+    // don't use this method. The most portable way to identify the rows that were just inserted is to insert a UUID as part of
+    // the data.
     size_t lastInsert() const;
+
+    // Set the pointer to implementation
+    void pimpl(const std::shared_ptr<Detail::ConnectionBase> &p) {
+        pimpl_ = p;
+    }
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -263,7 +261,9 @@ public:
  *  Statements are lightweight objects that can be copied and assigned. Statements in the EXECUTING state hold a reference
  *  the the underlying RDBMS connection. */
 class Statement {
-    std::shared_ptr<Detail::Statement> pimpl_;
+    friend class ::Sawyer::Database::Detail::ConnectionBase;
+
+    std::shared_ptr<Detail::StatementBase> pimpl_;
 
 public:
     /** A statement can be in one of many states. */
@@ -275,9 +275,12 @@ public:
         DEAD                                            /**< Synchronization with lower layer has been lost. */
     };
 
+public:
+    /** Construct a statement object not bound to any connection. */
+    Statement() {}
+
 private:
-    friend class Detail::Connection;
-    explicit Statement(const std::shared_ptr<Detail::Statement> &stmt)
+    explicit Statement(const std::shared_ptr<Detail::StatementBase> &stmt)
         : pimpl_(stmt) {}
 
 public:
@@ -325,7 +328,7 @@ public:
      *  The result that's returned is the first column of the first row. The statement must produce at least one row of result,
      *  although the first column of that row can be null. */
     template<typename T>
-    Sawyer::Optional<T> get();
+    Optional<T> get();
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -337,20 +340,21 @@ public:
  *  This is the type obtained by dereferencing an iterator. Rows are lightweight objects that can be copied. A row is
  *  automatically invalidated when the iterator is incremented. */
 class Row {
-    friend class Iterator;
-    std::shared_ptr<Detail::Statement> stmt_;
+    friend class ::Sawyer::Database::Iterator;
+
+    std::shared_ptr<Detail::StatementBase> stmt_;
     size_t sequence_;                                   // for checking validity
 
 private:
     Row()
         : sequence_(0) {}
 
-    explicit Row(const std::shared_ptr<Detail::Statement> &stmt);
+    explicit Row(const std::shared_ptr<Detail::StatementBase> &stmt);
 
 public:
     /** Get a particular column. */
     template<typename T>
-    Sawyer::Optional<T> get(size_t columnIdx) const;
+    Optional<T> get(size_t columnIdx) const;
 
     /** Get the row number.
      *
@@ -369,6 +373,8 @@ public:
  *  the statement or the end iterator. When the end iterator is reached the associated statement is is transitioned to
  *  the @ref Statement::FINISHED "FINISHED" state. */
 class Iterator: public boost::iterator_facade<Iterator, const Row, boost::forward_traversal_tag> {
+    friend class ::Sawyer::Database::Detail::StatementBase;
+
     Row row_;
 
 public:
@@ -376,8 +382,7 @@ public:
     Iterator() {}
 
 private:
-    friend class Detail::Statement;
-    explicit Iterator(const std::shared_ptr<Detail::Statement> &stmt);
+    explicit Iterator(const std::shared_ptr<Detail::StatementBase> &stmt);
 
 public:
     /** Test whether this is an end iterator. */
@@ -398,369 +403,381 @@ private:
 };
 
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//                                  Only implementation details beyond this point.
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Only implementation details beyond this point.
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace Detail {
 
-namespace Outer = ::Sawyer::Database;
+// Base class for connection details. The individual drivers (SQLite3, PostgreSQL) will be derived from this class.
+//
+// Connection detail objects are reference counted. References come from only two places:
+//   1. Each top-level Connection object that's in a connected state has a reference to this connection.
+//   2. Each low-level Statement object that's in an "executing" state has a reference to this connection.
+// Additionally, all low-level statement objects have a weak reference to a connection.
+//
+class ConnectionBase: public std::enable_shared_from_this<ConnectionBase> {
+    friend class ::Sawyer::Database::Connection;
 
-// Reference counted
-class Connection: public std::enable_shared_from_this<Connection> {
-    friend class Outer::Connection;
-    friend class Statement;
-
-    sqlite3 *connection = nullptr;
-
-private:
-    Connection() {}
-    explicit Connection(const std::string &url) {
-        open(url);
-    }
+protected:
+    ConnectionBase() {}
 
 public:
-    ~Connection() {
-        try {
-            close();
-        } catch (...) {
-        }
-    }
+    virtual ~ConnectionBase() {}
 
-private:
-    void open(const std::string &url) {
-        close();
-        if (strlen(url.c_str()) != url.size())
-            throw Exception("invalid database name");
-        int status = sqlite3_open(url.c_str(), &connection);
-        if (SQLITE_OK != status)
-            throw Exception(sqlite3_errstr(status));
-        sqlite3_busy_timeout(connection, 1000 /*milliseconds*/);
-    }
+protected:
+    // Close any low-level connection.
+    virtual void close() = 0;
 
-    void close() {
-        if (connection) {
-            int status = sqlite3_close(connection);
-            connection = nullptr;
-            if (SQLITE_OK != status)
-                throw Exception(sqlite3_errstr(status));
-        }
-    }
+    // Create a prepared statement from the specified high-level SQL. By "high-level" we mean the binding syntax used by this
+    // API such as "?name" (whereas low-level means the syntax passed to the driver such as "?").
+    virtual Statement prepareStatement(const std::string &sql) = 0;
 
-    Outer::Statement stmt(const std::string &sql);
+    // Row number for the last inserted row if supported by this driver.  It's better to use a table column that holds a value
+    // generated from a sequence.
+    virtual size_t lastInsert() const = 0;
 
-    size_t lastInsert() const {
-        ASSERT_not_null(connection);
-        return boost::numeric_cast<size_t>(sqlite3_last_insert_rowid(connection));
-    }
+    Statement makeStatement(const std::shared_ptr<Detail::StatementBase> &detail);
 };
 
+// Describes the location of "?name" parameters in high-level SQL by associating them with one or more "?" parameters in
+// low-level SQL. WARNIN: the low-level parameters are numbered starting at one instead of zero, which is inconsistent with how
+// the low-level APIs index other things like query result columns (not to mention being surprising for C and C++ developers).
 class Parameter {
-    friend class Statement;
+    friend class ::Sawyer::Database::Detail::StatementBase;
 
-    std::vector<size_t> locations;                      // 1-origin "?" indexes
+    std::vector<size_t> indexes;                        // "?" indexes
     bool isBound = true;
 
-    void append(int location) {
-        ASSERT_require(location > 0);
-        locations.push_back(location);
+    void append(size_t idx) {
+        indexes.push_back(idx);
     }
 };
 
-// Reference counted
-class Statement: public std::enable_shared_from_this<Statement> {
-    friend class Connection;
-    friend class Outer::Statement;
-    friend class Outer::Iterator;
-    friend class Outer::Row;
-    using Parameters = Sawyer::Container::Map<std::string, Parameter>;
+template<typename T>
+class ColumnReader {
+    friend class ::Sawyer::Database::Detail::StatementBase;
+    Optional<T> operator()(StatementBase *stmt, size_t idx);
+};
+
+//template<>
+//class ColumnReader<std::vector<uint8_t>> {
+//    friend class ::Sawyer::Database::Detail::StatementBase;
+//    Optional<std::vector<uint8_t>> operator()(StatementBase *stmt, size_t idx);
+//};
+
+// Reference counted prepared statement details. Objects of this class are referenced from the high-level Statement objects and
+// the query iterator rows.  This class is the base class for driver-specific statements.
+class StatementBase: public std::enable_shared_from_this<StatementBase> {
+    friend class ::Sawyer::Database::Iterator;
+    friend class ::Sawyer::Database::Row;
+    friend class ::Sawyer::Database::Statement;
+    template<class T> friend class ::Sawyer::Database::Detail::ColumnReader;
+
+    using Parameters = Container::Map<std::string, Parameter>;
     
-    std::shared_ptr<Connection> db;                     // non-null while statement is executing
-    std::weak_ptr<Connection> weakDb;                   // refers to the originating connection
-    sqlite3_stmt *stmt = nullptr;                       // underlying SQLite3 statement
-    Parameters params;                                  // mapping from param names to question marks
-    Outer::Statement::State state_ = Outer::Statement::DEAD; // don't set directly; use "state" member function
-    size_t sequence = 0;                                // sequence number for invalidating row iterators
-    size_t rowNumber = 0;                               // result row number
+    std::shared_ptr<ConnectionBase> connection_;        // non-null while statement is executing
+    std::weak_ptr<ConnectionBase> weakConnection_;      // refers to the originating connection
+    Parameters params_;                                 // mapping from param names to question marks
+    Statement::State state_ = Statement::DEAD;          // don't set directly; use "state" member function
+    size_t sequence_ = 0;                               // sequence number for invalidating row iterators
+    size_t rowNumber_ = 0;                              // result row number
 
-    // FIXME[Robb Matzke 2020-01-06]: use UTF-8 when parsing
-    explicit Statement(const std::shared_ptr<Connection> &db, const std::string &sql)
-        : weakDb(db) {                                  // save only a weak pointer, no shared pointer
-        ASSERT_not_null(db);
-        ASSERT_not_null(db->connection);
+public:
+    virtual ~StatementBase() {}
 
-        // Parse the input SQL to find named parameters and create the low-level SQL having only "?" parameters
+protected:
+    explicit StatementBase(const std::shared_ptr<ConnectionBase> &connection)
+        : weakConnection_(connection) {                 // save only a weak pointer, no shared pointer
+        ASSERT_not_null(connection);
+    }
+
+    // Parse the high-level SQL (with "?name" parameters) into low-level SQL (with "?" parameters). Returns the low-level SQL
+    // and the number of low-level "?" parameters and has the following side effects:
+    //   1. Re-initializes this object's parameter list
+    //   2. Sets this object's state to READY, UNBOUND, or DEAD.
+    std::pair<std::string, size_t> parseParameters(const std::string &highSql) {
+        params_.clear();
         std::string lowSql;
         bool inString = false;
-        state(Outer::Statement::READY);
-        for (size_t i=0; i<sql.size(); ++i) {
-            if ('\'' == sql[i]) {
+        size_t nLowParams = 0;
+        state(Statement::READY);                        // possibly reset below
+        for (size_t i = 0; i < highSql.size(); ++i) {
+            if ('\'' == highSql[i]) {
                 inString = !inString;                   // works for "''" escape too
-                lowSql += sql[i];
-            } else if ('?' == sql[i] && !inString) {
+                lowSql += highSql[i];
+            } else if ('?' == highSql[i] && !inString) {
                 lowSql += '?';
                 std::string paramName;
-                while (i+1 < sql.size() && (::isalnum(sql[i+1]) || '_' == sql[i+1]))
-                    paramName += sql[++i];
+                while (i+1 < highSql.size() && (::isalnum(highSql[i+1]) || '_' == highSql[i+1]))
+                    paramName += highSql[++i];
                 if (paramName.empty())
                     throw Exception("invalid parameter name at character position " + boost::lexical_cast<std::string>(i));
-                Parameter &param = params.insertMaybeDefault(paramName);
-                param.append(params.size());            // 1-origin parameter numbers
-                state(Outer::Statement::UNBOUND);
+                Parameter &param = params_.insertMaybeDefault(paramName);
+                param.append(nLowParams++);             // 0-origin low-level parameter numbers
+                state(Statement::UNBOUND);
             } else {
-                lowSql += sql[i];
+                lowSql += highSql[i];
             }
         }
         if (inString) {
-            state(Outer::Statement::DEAD);
+            state(Statement::DEAD);
             throw Exception("mismatched quotes in SQL statement");
         }
-
-        // Create the low-level prepared statement
-        const char *rest = nullptr;
-        int status = sqlite3_prepare_v2(db->connection, lowSql.c_str(), lowSql.size()+1, &stmt, &rest);
-        if (SQLITE_OK != status)
-            throw Exception(sqlite3_errstr(status));
-        while (rest && ::isspace(*rest))
-            ++rest;
-        if (rest && *rest) {
-            sqlite3_finalize(stmt);                     // clean up if possible; ignore error otherwise
-            throw Exception("extraneous text after end of SQL statement");
-        }
+        return std::make_pair(lowSql, nLowParams);
     }
 
+    // Invalidate all iterators and their rows by incrementing this statements sequence number.
     void invalidateIteratorsAndRows() {
-        ++sequence;
+        ++sequence_;
     }
 
-    bool lockDatabase() {
-        return (db = weakDb.lock()) != nullptr;
-    }
-
-    void unlockDatabase() {
-        db.reset();
-    }
-
-    bool isDatabaseLocked() const {
-        return db != nullptr;
-    }
-
-    std::shared_ptr<Connection> database() const {
-        return weakDb.lock();
+    // Sequence number used for checking iterator validity.
+    size_t sequence() const {
+        return sequence_;
     }
     
-    Outer::Statement::State state() const {
+    // Cause this statement to lock the database connection by maintaining a shared pointer to the low-level
+    // connection. Returns true if the connection could be locked, or false if unable.
+    bool lockConnection() {
+        return (connection_ = weakConnection_.lock()) != nullptr;
+    }
+
+    // Release the connection lock by throwing away the shared pointer to the connection. This statement will still maintain
+    // a weak reference to the connection.
+    void unlockConnection() {
+        connection_.reset();
+    }
+
+    // Returns an indication of whether this statement holds a lock on the low-level connection, preventing the connection from
+    // being destroyed.
+    bool isConnectionLocked() const {
+        return connection_ != nullptr;
+    }
+
+    // Returns the connection details associated with this statement.  The connection is not locked by querying this property.
+    std::shared_ptr<ConnectionBase> connection() const {
+        return weakConnection_.lock();
+    }
+
+    // Return the current statement state.
+    Statement::State state() const {
         return state_;
     }
-    
-    void state(Outer::Statement::State newState) {
+
+    // Change the statement state.  A statement in the EXECUTING state will lock the connection to prevent it from being
+    // destroyed, but a statement in any other state will unlock the connection causing the last reference to destroy the
+    // connection and will invalidate all iterators and rows.
+    void state(Statement::State newState) {
         switch (newState) {
-            case Outer::Statement::DEAD:
-            case Outer::Statement::FINISHED:
-            case Outer::Statement::UNBOUND:
-            case Outer::Statement::READY:
+            case Statement::DEAD:
+            case Statement::FINISHED:
+            case Statement::UNBOUND:
+            case Statement::READY:
                 invalidateIteratorsAndRows();
-                unlockDatabase();
+                unlockConnection();
                 break;
-            case Outer::Statement::EXECUTING:
-                ASSERT_require(isDatabaseLocked());
+            case Statement::EXECUTING:
+                ASSERT_require(isConnectionLocked());
                 break;
         }
         state_ = newState;
     }
 
+    // Returns true if this statement has parameters that have not been bound to a value.
     bool hasUnboundParameters() const {
-        ASSERT_forbid(state() == Outer::Statement::DEAD);
-        for (const Parameter &param: params.values()) {
+        ASSERT_forbid(state() == Statement::DEAD);
+        for (const Parameter &param: params_.values()) {
             if (!param.isBound)
                 return true;
         }
         return false;
     }
 
-    void unbindAllParams() {
-        ASSERT_forbid(state() == Outer::Statement::DEAD);
-        for (Parameter &param: params.values())
+    // Causes all parameters to become unbound and changes the state to either UNBOUND or READY (depending on whether there are
+    // any parameters or not, respectively).
+    virtual void unbindAllParams() {
+        ASSERT_forbid(state() == Statement::DEAD);
+        for (Parameter &param: params_.values())
             param.isBound = false;
-        state(params.isEmpty() ? Outer::Statement::READY : Outer::Statement::UNBOUND);
+        state(params_.isEmpty() ? Statement::READY : Statement::UNBOUND);
     }
-    
-    void reset(bool doUnbind) {
-        ASSERT_forbid(state() == Outer::Statement::DEAD);
-        int status = SQLITE_OK;
-        if (Outer::Statement::EXECUTING == state() || Outer::Statement::FINISHED == state())
-            status = sqlite3_reset(stmt);               // doesn't actually unbind parameters
 
+    // Reset the statement by invalidating all iterators, unbinding all parameters, and changing the state to either UNBOUND or
+    // READY depending on whether or not it has any parameters.
+    virtual void reset(bool doUnbind) {
+        ASSERT_forbid(state() == Statement::DEAD);
         invalidateIteratorsAndRows();
         if (doUnbind) {
             unbindAllParams();
         } else {
-            state(hasUnboundParameters() ? Outer::Statement::UNBOUND : Outer::Statement::READY);
-        }
-
-        if (SQLITE_OK != status) {
-            state(Outer::Statement::DEAD);              // we no longer know the SQLite3 state
-            throw Exception(sqlite3_errstr(status));
+            state(hasUnboundParameters() ? Statement::UNBOUND : Statement::READY);
         }
     }
 
-    // FIXME[Robb Matzke 2020-01-06]: check that we can bind null, perhaps using Sawyer::Nothing
+    // Bind a value to a parameter. If isRebind is set and the statement is in the EXECUTING state, then rewind back to the
+    // READY state, preserve all previous bindings, and adjust only the specified binding.
     template<typename T>
     void bind(const std::string &name, const T &value, bool isRebind) {
+        if (!connection())
+            throw Exception("connection is closed");
         switch (state()) {
-            case Outer::Statement::DEAD:
+            case Statement::DEAD:
                 throw Exception("statement is dead");
-            case Outer::Statement::FINISHED:
-            case Outer::Statement::EXECUTING:
+            case Statement::FINISHED:
+            case Statement::EXECUTING:
                 reset(!isRebind);
                 // fall through
-            case Outer::Statement::READY:
-            case Outer::Statement::UNBOUND: {
-                if (!params.exists(name))
+            case Statement::READY:
+            case Statement::UNBOUND: {
+                if (!params_.exists(name))
                     throw Exception("no such parameter \"" + name + "\" in statement");
-                Parameter &param = params[name];
+                Parameter &param = params_[name];
                 bool wasUnbound = param.isBound;
-                for (size_t location: param.locations) {
-                    int status = bind(location, value);
-                    if (SQLITE_OK != status) {
-                        if (param.locations.size() > 1)
-                            state(Outer::Statement::DEAD); // parameter might be only partly bound now
-                        throw Exception(sqlite3_errstr(status));
+                for (size_t idx: param.indexes) {
+                    try {
+                        bindLow(idx, value);
+                    } catch (const Exception &e) {
+                        if (param.indexes.size() > 1)
+                            state(Statement::DEAD); // might be only partly bound now
+                        throw e;
                     }
                 }
                 param.isBound = true;
 
                 if (wasUnbound && !hasUnboundParameters())
-                    state(Outer::Statement::READY); 
+                    state(Statement::READY); 
                 break;
             }
         }
     }
 
-    int bind(size_t location, int value) {
-        return sqlite3_bind_int(stmt, location, value);
-    }
+    // Driver-specific part of binding by specifying the 0-origin low-level "?" number and the value.
+    virtual void bindLow(size_t idx, int value) = 0;
+    virtual void bindLow(size_t idx, int64_t value) = 0;
+    virtual void bindLow(size_t idx, size_t value) = 0;
+    virtual void bindLow(size_t idx, double value) = 0;
+    virtual void bindLow(size_t idx, const std::string &value) = 0;
+    virtual void bindLow(size_t idx, const char *cstring) = 0;
+    virtual void bindLow(size_t idx, Nothing) = 0;
+    virtual void bindLow(size_t idx, const std::vector<uint8_t> &data) = 0;
 
-    int bind(size_t location, int64_t value) {
-        return sqlite3_bind_int64(stmt, location, value);
-    }
-
-    int bind(size_t location, size_t value) {
-        return bind(location, boost::numeric_cast<int64_t>(value));
+    Iterator makeIterator() {
+        return Iterator(shared_from_this());
     }
     
-    int bind(size_t location, double value) {
-        return sqlite3_bind_double(stmt, location, value);
-    }
-
-    int bind(size_t location, const std::string &value) {
-        return sqlite3_bind_text(stmt, location, value.c_str(), -1, SQLITE_TRANSIENT);
-    }
-
-    int bind(size_t location, const char *value) {
-        return value ? bind(location, std::string(value)) : bind_null(location);
-    }
-
-    int bind_null(size_t location) {
-        return sqlite3_bind_null(stmt, location);
-    }
-    
-    Outer::Iterator begin() {
+    // Begin execution of a statement in the READY state. If the statement is in the FINISHED or EXECUTING state it will be
+    // restarted.
+    Iterator begin() {
+        if (!connection())
+            throw Exception("connection is closed");
         switch (state()) {
-            case Outer::Statement::DEAD:
+            case Statement::DEAD:
                 throw Exception("statement is dead");
-            case Outer::Statement::UNBOUND: {
+            case Statement::UNBOUND: {
                 std::string s;
-                for (Parameters::Node &param: params.nodes()) {
+                for (Parameters::Node &param: params_.nodes()) {
                     if (!param.value().isBound)
                         s += (s.empty() ? "" : ", ") + param.key();
                 }
                 ASSERT_forbid(s.empty());
                 throw Exception("unbound parameters: " + s);
             }
-            case Outer::Statement::FINISHED:
-            case Outer::Statement::EXECUTING: {
-                invalidateIteratorsAndRows();
-                int status = sqlite3_reset(stmt);
-                if (SQLITE_OK != status) {
-                    state(Outer::Statement::DEAD);
-                    throw Exception(sqlite3_errstr(status));
-                }
-            }
+            case Statement::FINISHED:
+            case Statement::EXECUTING:
+                reset(false);
                 // fall through
-            case Outer::Statement::READY: {
-                if (!lockDatabase())
+            case Statement::READY: {
+                if (!lockConnection())
                     throw Exception("connection has been closed");
-                state(Outer::Statement::EXECUTING);
-                Outer::Iterator iter = next();
-                rowNumber = 0;
+                state(Statement::EXECUTING);
+                rowNumber_ = 0;
+                Iterator iter = beginLow();
+                rowNumber_ = 0;                         // in case beginLow changed it
                 return iter;
             }
         }
         ASSERT_not_reachable("invalid state");
     }
 
+    // The driver-specific component of "begin". The statement is guaranteed to be in the EXECUTING state when called,
+    // but could be in some other state after returning.
+    virtual Iterator beginLow() = 0;
+
     // Advance an executing statement to the next row
-    Outer::Iterator next() {
-        ASSERT_require(state() == Outer::Statement::EXECUTING); // no other way to get here
-        ++rowNumber;
-        int status = sqlite3_step(stmt);
-        if (SQLITE_ROW == status) {
-            invalidateIteratorsAndRows();
-            return Iterator(shared_from_this());
-        } else if (SQLITE_DONE == status) {
-            state(Outer::Statement::FINISHED);
-            return Iterator();
-        } else {
-            state(Outer::Statement::DEAD);
-            throw Exception(sqlite3_errstr(status));
-        }
+    Iterator next() {
+        if (!connection())
+            throw Exception("connection is closed");
+        ASSERT_require(state() == Statement::EXECUTING); // no other way to get here
+        invalidateIteratorsAndRows();
+        ++rowNumber_;
+        return nextLow();
     }
+
+    // Current row number
+    size_t rowNumber() const {
+        return rowNumber_;
+    }
+    
+    // The driver-specific component of "next". The statement is guaranteed to be in the EXECUTING state when called, but
+    // could be in some other state after returning.
+    virtual Iterator nextLow() = 0;
 
     // Get a column value from the current row of result
     template<typename T>
-    Sawyer::Optional<T> get(size_t columnIdx) {
-        ASSERT_require(state() == Outer::Statement::EXECUTING); // no other way to get here
-        size_t nCols = boost::numeric_cast<size_t>(sqlite3_column_count(stmt));
-        if (columnIdx >= nCols)
+    Optional<T> get(size_t columnIdx) {
+        if (!connection())
+            throw Exception("connection is closed");
+        ASSERT_require(state() == Statement::EXECUTING); // no other way to get here
+        if (columnIdx >= nColumns())
             throw Exception("column index " + boost::lexical_cast<std::string>(columnIdx) + " is out of range");
-        if (SQLITE_NULL == sqlite3_column_type(stmt, columnIdx))
-            return Sawyer::Nothing();
-        size_t nBytes = sqlite3_column_bytes(stmt, columnIdx);
-        const unsigned char *s = sqlite3_column_text(stmt, columnIdx);
-        ASSERT_not_null(s);
-        std::string str(s, s+nBytes);
-        return boost::lexical_cast<T>(str);
+        return ColumnReader<T>()(this, columnIdx);
     }
 
-    // FIXME[Robb Matzke 2020-01-07]: specialized cases of get for efficiency
-    // template<> Sawyer::Optional<int> get<int>(size_t columnIdx) ...
+    // Number of columns returned by a query.
+    virtual size_t nColumns() const = 0;
+
+    // Get the value of a particular column of the current row.
+    virtual Optional<std::string> getString(size_t idx) = 0;
+    virtual Optional<std::vector<std::uint8_t>> getBlob(size_t idx) = 0;
 };
 
-Outer::Statement
-Connection::stmt(const std::string &sql) {
-    auto detail = std::shared_ptr<Statement>(new Statement(shared_from_this(), sql));
-    return Outer::Statement(detail);
+template<typename T>
+Optional<T>
+ColumnReader<T>::operator()(StatementBase *stmt, size_t idx) {
+    std::string str;
+    if (!stmt->getString(idx).assignTo(str))
+        return Nothing();
+    return boost::lexical_cast<T>(str);
+}
+
+template<>
+Optional<std::vector<uint8_t>>
+ColumnReader<std::vector<uint8_t>>::operator()(StatementBase *stmt, size_t idx) {
+    return stmt->getBlob(idx);
+}
+
+inline Statement
+ConnectionBase::makeStatement(const std::shared_ptr<Detail::StatementBase> &detail) {
+    return Statement(detail);
 }
 
 } // namespace
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Implementations Connection
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-inline Connection::Connection()
-    : pimpl_(std::shared_ptr<Detail::Connection>(new Detail::Connection)) {}
 
-inline Connection::Connection(const std::string &url)
-    : pimpl_(std::shared_ptr<Detail::Connection>(new Detail::Connection(url))) {}
-
-inline Connection::Connection(const std::shared_ptr<Detail::Connection> &pimpl)
+inline Connection::Connection(const std::shared_ptr<Detail::ConnectionBase> &pimpl)
     : pimpl_(pimpl) {}
-
-inline Connection&
-Connection::open(const std::string &url) {
-    pimpl_ = std::shared_ptr<Detail::Connection>(new Detail::Connection(url));
-    return *this;
-}
 
 inline bool
 Connection::isOpen() const {
@@ -776,7 +793,7 @@ Connection::close() {
 inline Statement
 Connection::stmt(const std::string &sql) {
     if (pimpl_) {
-        return pimpl_->stmt(sql);
+        return pimpl_->prepareStatement(sql);
     } else {
         throw Exception("no active database connection");
     }
@@ -789,9 +806,11 @@ Connection::run(const std::string &sql) {
 }
 
 template<typename T>
-Sawyer::Optional<T>
+Optional<T>
 Connection::get(const std::string &sql) {
-    return stmt(sql).get<T>();
+    for (auto row: stmt(sql))
+        return row.get<T>(0);
+    return Nothing();
 }
 
 size_t
@@ -803,10 +822,14 @@ Connection::lastInsert() const {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Implementations for Statement
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 Connection
 Statement::connection() const {
     if (pimpl_) {
-        return Connection(pimpl_->database());
+        return Connection(pimpl_->connection());
     } else {
         return Connection();
     }
@@ -855,22 +878,26 @@ Statement::run() {
 }
 
 template<typename T>
-Sawyer::Optional<T> Statement::get() {
+Optional<T> Statement::get() {
     Iterator row = begin();
     if (row.isEnd())
         throw Exception("query did not return a row");
     return row->get<T>(0);
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Implementations for Iterator
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 inline
-Iterator::Iterator(const std::shared_ptr<Detail::Statement> &stmt)
+Iterator::Iterator(const std::shared_ptr<Detail::StatementBase> &stmt)
     : row_(stmt) {}
 
 inline const Row&
 Iterator::dereference() const {
     if (isEnd())
         throw Exception("dereferencing the end iterator");
-    if (row_.sequence_ != row_.stmt_->sequence)
+    if (row_.sequence_ != row_.stmt_->sequence())
         throw Exception("iterator has been invalidated");
     return row_;
 }
@@ -887,23 +914,27 @@ Iterator::increment() {
     *this = row_.stmt_->next();
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Implementations for Row
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 template<typename T>
-Sawyer::Optional<T> Row::get(size_t columnIdx) const {
+Optional<T> Row::get(size_t columnIdx) const {
     ASSERT_not_null(stmt_);
-    if (sequence_ != stmt_->sequence)
+    if (sequence_ != stmt_->sequence())
         throw Exception("row has been invalidated");
     return stmt_->get<T>(columnIdx);
 }
 
-Row::Row(const std::shared_ptr<Detail::Statement> &stmt)
-    : stmt_(stmt), sequence_(stmt ? stmt->sequence : 0) {}
+Row::Row(const std::shared_ptr<Detail::StatementBase> &stmt)
+    : stmt_(stmt), sequence_(stmt ? stmt->sequence() : 0) {}
 
 size_t
 Row::rowNumber() const {
     ASSERT_not_null(stmt_);
-    if (sequence_ != stmt_->sequence)
+    if (sequence_ != stmt_->sequence())
         throw Exception("row has been invalidated");
-    return stmt_->rowNumber;
+    return stmt_->rowNumber();
 }
 
 } // namespace

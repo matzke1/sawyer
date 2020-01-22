@@ -1,4 +1,7 @@
 include_rules
 
-run $(compile_tool) test1.C
-run $(test) --extra x.db test1
+run $(compile_tool) test01.C
+run $(test) --extra test01.db test01
+
+run $(compile_tool) test02.C
+run $(test) --extra test02.db test02
