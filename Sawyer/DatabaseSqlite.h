@@ -72,6 +72,10 @@ private:
         }
     }
 
+    std::string driverName() const override {
+        return "sqlite";
+    }
+    
     Statement prepareStatement(const std::string &sql);
 
     size_t lastInsert() const {

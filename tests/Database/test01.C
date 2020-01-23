@@ -1,4 +1,5 @@
 #include <Sawyer/DatabaseSqlite.h>
+#include <Sawyer/DatabasePostgresql.h>
 
 #include <boost/filesystem.hpp>
 #include <iostream>
@@ -7,8 +8,9 @@ using namespace Sawyer::Database;
 
 // Basic API
 static void test01(Connection db) {
+    db.run("drop table if exists table_a");
     db.run("create table table_a (id integer primary key, name text)");
-    db.run("insert into table_a (name) values ('alice')");
+    db.run("insert into table_a (id, name) values (1, 'alice')");
 }
 
 // Iteration
@@ -22,7 +24,8 @@ static void test02(Connection db) {
 
 // Binding
 static void test03(Connection db) {
-    Statement stmt = db.stmt("insert into table_a (name) values (?name)");
+    Statement stmt = db.stmt("insert into table_a (id, name) values (?id, ?name)");
+    stmt.bind("id", 2);
     stmt.bind("name", "betty");
     stmt.run();
 }
@@ -51,9 +54,10 @@ static void test04(Connection db) {
 // Special characters
 static void
 test05(Connection db) {
-    db.run("create table table_b (s varchar(256))");
+    db.run("drop table if exists table_b");
+    db.run("create table table_b (s bytea)");
 
-    std::string s = "\377\177";
+    std::string s = "\377\177"; // WARNING: not valid UTF-8
     db.stmt("insert into table_b (s) values (?s)").bind("s", s).run();
     Iterator iter = db.stmt("select s from table_b").begin();
     std::string answer = *iter->get<std::string>(0);
@@ -94,6 +98,7 @@ test07(Connection db) {
 // Tests that a parameter can appear more than once in a query
 static void
 test08(Connection db) {
+    db.run("drop table if exists table_c");
     db.run("create table table_c (firstname text, lastname text)");
     db.stmt("insert into table_c (firstname, lastname) values (?s, ?s)")
         .bind("s", "Morgan")
@@ -111,7 +116,8 @@ test08(Connection db) {
 // Tests that save large data objects
 static void
 test09(Connection db) {
-    db.run("create table table_d (name text, data blob)");
+    db.run("drop table if exists table_d");
+    db.run("create table table_d (name text, data bytea)");
 
     // Save some large data
     std::string name1(5000, 'a');
@@ -135,9 +141,23 @@ test09(Connection db) {
 int main() {
     boost::filesystem::path dbName = "test01.db";
 
+#if 1 // SQLite
     boost::system::error_code ec;
     boost::filesystem::remove(dbName, ec);
     Sqlite db(dbName.native());
+#else // Postgresql
+    // sudo su postgres
+    // psql
+    //    create database sawyer_testing;
+    //    create user sawyer with encrypted password 'the_password';
+    //    grant all privileges on database sawyer_testing to sawyer;
+    Postgresql::Locator where;
+    where.hostname = "localhost";
+    where.user = "sawyer";
+    where.password = "the_password";
+    where.database = "sawyer_testing";
+    Postgresql db(where);
+#endif
 
     test01(db);
     test02(db);

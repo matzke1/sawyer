@@ -8,8 +8,8 @@ INSTALL_STAGING = install-staging
 CXX            = c++
 CPPFLAGS       = -I$(ROOT) -I$BOOST_ROOT/include -I$SQLITE_ROOT/include
 CXXFLAGS       = -fPIC -pthread -g @(OPTIMIZATION) -Wall
-LDFLAGS_SHARED = -Wl,-rpath,`pwd` -Wl,-rpath,$BOOST_ROOT/lib -L$BOOST_ROOT/lib -lboost_thread -lboost_serialization -lboost_filesystem -lboost_iostreams -lboost_regex -lboost_chrono -Wl,-rpath,$SQLITE_ROOT/lib -L$SQLITE_ROOT/lib -lsqlite3
-LDFLAGS_STATIC = -L$BOOST_ROOT/lib -lboost_thread -lboost_serialization -lboost_filesystem -lboost_iostreams -lboost_regex -lboost_chrono -L$SQLITE_ROOT/lib -lsqlite3
+LDFLAGS_SHARED = -Wl,-rpath,`pwd` -Wl,-rpath,$BOOST_ROOT/lib -L$BOOST_ROOT/lib -lboost_thread -lboost_serialization -lboost_filesystem -lboost_iostreams -lboost_regex -lboost_chrono -Wl,-rpath,$SQLITE_ROOT/lib -L$SQLITE_ROOT/lib -lsqlite3 -lpqxx
+LDFLAGS_STATIC = -L$BOOST_ROOT/lib -lboost_thread -lboost_serialization -lboost_filesystem -lboost_iostreams -lboost_regex -lboost_chrono -L$SQLITE_ROOT/lib -lsqlite3 -lpqxx
 RPATH          = @(BOOST_LIBS)
 
 # commands

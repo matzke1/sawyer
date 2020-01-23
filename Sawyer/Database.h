@@ -190,7 +190,8 @@ class Connection {
 
     std::shared_ptr<Detail::ConnectionBase> pimpl_;
 
-protected:
+public:
+    /** Construct a connection not attached to any driver. */
     Connection() {};
 
 private:
@@ -238,6 +239,11 @@ public:
      *  returning the first row. */
     template<typename T>
     Optional<T> get(const std::string &sql);
+
+    /** Name of the underlying driver.
+     *
+     *  Returns "sqlite", "postgresql" or an empty string if not connected. */
+    std::string driverName() const;
 
     // Undocumented: Row number for the last SQL "insert" (do not use).
     //
@@ -445,6 +451,8 @@ protected:
     virtual size_t lastInsert() const = 0;
 
     Statement makeStatement(const std::shared_ptr<Detail::StatementBase> &detail);
+
+    virtual std::string driverName() const = 0;
 };
 
 // Describes the location of "?name" parameters in high-level SQL by associating them with one or more "?" parameters in
@@ -788,6 +796,15 @@ inline Connection&
 Connection::close() {
     pimpl_ = nullptr;
     return *this;
+}
+
+inline std::string
+Connection::driverName() const {
+    if (pimpl_) {
+        return pimpl_->driverName();
+    } else {
+        return "";
+    }
 }
 
 inline Statement
