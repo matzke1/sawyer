@@ -1,6 +1,8 @@
 #ifndef Sawyer_Database_H
 #define Sawyer_Database_H
 
+#if __cplusplus >= 201103L
+
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/cast.hpp>
@@ -957,4 +959,5 @@ Row::rowNumber() const {
 } // namespace
 } // namespace
 
+#endif
 #endif

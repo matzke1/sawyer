@@ -1,6 +1,8 @@
 #ifndef Sawyer_DatabasePostgresql_H
 #define Sawyer_DatabasePostgresql_H
 
+#if __cplusplus >= 201103L
+
 #include <Sawyer/Database.h>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -279,4 +281,5 @@ Postgresql::open(const Postgresql::Locator &where) {
 } // namespace
 } // namespace
 
+#endif
 #endif

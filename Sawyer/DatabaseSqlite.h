@@ -1,6 +1,8 @@
 #ifndef Sawyer_DatabaseSqlite_H
 #define Sawyer_DatabaseSqlite_H
 
+#if __cplusplus >= 201103L
+
 #include <Sawyer/Database.h>
 
 #include <boost/filesystem.hpp>
@@ -253,4 +255,5 @@ Sqlite::open(const boost::filesystem::path &fileName) {
 } // namespace
 } // namespace
 
+#endif
 #endif
