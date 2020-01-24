@@ -1,10 +1,27 @@
-#include <Sawyer/DatabaseSqlite.h>
-#include <Sawyer/DatabasePostgresql.h>
+#ifndef DRIVER
+#define DRIVER 1
+#endif
+
+#if DRIVER == 1
+    #include <Sawyer/DatabaseSqlite.h>
+#elif DRIVER == 2
+    #include <Sawyer/DatabasePostgresql.h>
+#else
+    #error "invalid database driver number"
+#endif
 
 #include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
 #include <iostream>
 
 using namespace Sawyer::Database;
+
+Statement globalStmt;
+
+// Initialize the global statement but never run it.
+static void initGlobalStmt(Connection db) {
+    globalStmt = db.stmt("create table table_z (name text)");
+}
 
 // Basic API
 static void test01(Connection db) {
@@ -139,26 +156,30 @@ test09(Connection db) {
 }
 
 int main() {
-    boost::filesystem::path dbName = "test01.db";
 
-#if 1 // SQLite
+#if DRIVER == 1
+    boost::filesystem::path dbName = "test" + boost::lexical_cast<std::string>(DRIVER) + ".db";
     boost::system::error_code ec;
     boost::filesystem::remove(dbName, ec);
     Sqlite db(dbName.native());
-#else // Postgresql
-    // sudo su postgres
-    // psql
-    //    create database sawyer_testing;
-    //    create user sawyer with encrypted password 'the_password';
-    //    grant all privileges on database sawyer_testing to sawyer;
+#elif DRIVER == 2
+    // Set up the test with these commands:
+    //   sudo su postgres
+    //   psql
+    //     create database sawyer_testing;
+    //     create user sawyer with encrypted password 'the_password';
+    //     grant all privileges on database sawyer_testing to sawyer;
     Postgresql::Locator where;
     where.hostname = "localhost";
     where.user = "sawyer";
     where.password = "the_password";
     where.database = "sawyer_testing";
     Postgresql db(where);
+#else
+    #error "invalid database driver number"
 #endif
 
+    initGlobalStmt(db);
     test01(db);
     test02(db);
     test03(db);

@@ -1,7 +1,7 @@
 include_rules
 
-run $(compile_tool) test01.C
-run $(test) --extra test01.db test01
+run $(compile_tool) -DDRIVER=1 -o test1 databaseUnitTests.C
+run $(test) --extra test1.db test1
 
-run $(compile_tool) test02.C
-run $(test) --extra test02.db test02
+run $(compile_tool) -DDRIVER=2 -o test2 databaseUnitTests.C
+run $(test) test2
