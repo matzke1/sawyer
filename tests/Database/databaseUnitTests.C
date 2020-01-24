@@ -1,3 +1,5 @@
+#if __cplusplus >= 201103L
+
 #ifndef DRIVER
 #define DRIVER 1
 #endif
@@ -190,3 +192,12 @@ int main() {
     test08(db);
     test09(db);
 }
+
+#else
+
+#include <iostram>
+int main() {
+    std::cerr <<"not tested; needs C++11 or later\n";
+}
+
+#endif
