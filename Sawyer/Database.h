@@ -669,6 +669,16 @@ protected:
         }
     }
 
+    // Bind a value to an optional parameter.
+    template<typename T>
+    void bind(const std::string &name, const Sawyer::Optional<T> &value, bool isRebind) {
+        if (value) {
+            bind(name, *value, isRebind);
+        } else {
+            bind(name, Nothing(), isRebind);
+        }
+    }
+
     // Driver-specific part of binding by specifying the 0-origin low-level "?" number and the value.
     virtual void bindLow(size_t idx, int value) = 0;
     virtual void bindLow(size_t idx, int64_t value) = 0;

@@ -90,6 +90,9 @@ test06(Connection db) {
     stmt.bind("s", Sawyer::Nothing());
     stmt.run();
 
+    const Sawyer::Optional<std::string> nothing;
+    stmt.bind("s", nothing);
+
     stmt = db.stmt("select s from table_b where s is null");
     for (auto row: stmt) {
         auto s = row.get<std::string>(0);
