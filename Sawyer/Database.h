@@ -770,7 +770,7 @@ protected:
 };
 
 template<typename T>
-Optional<T>
+inline Optional<T>
 ColumnReader<T>::operator()(StatementBase *stmt, size_t idx) {
     std::string str;
     if (!stmt->getString(idx).assignTo(str))
@@ -779,7 +779,7 @@ ColumnReader<T>::operator()(StatementBase *stmt, size_t idx) {
 }
 
 template<>
-Optional<std::vector<uint8_t>>
+inline Optional<std::vector<uint8_t>>
 ColumnReader<std::vector<uint8_t>>::operator()(StatementBase *stmt, size_t idx) {
     return stmt->getBlob(idx);
 }
@@ -835,14 +835,14 @@ Connection::run(const std::string &sql) {
 }
 
 template<typename T>
-Optional<T>
+inline Optional<T>
 Connection::get(const std::string &sql) {
     for (auto row: stmt(sql))
         return row.get<T>(0);
     return Nothing();
 }
 
-size_t
+inline size_t
 Connection::lastInsert() const {
     if (pimpl_) {
         return pimpl_->lastInsert();
@@ -855,7 +855,7 @@ Connection::lastInsert() const {
 // Implementations for Statement
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Connection
+inline Connection
 Statement::connection() const {
     if (pimpl_) {
         return Connection(pimpl_->connection());
@@ -865,7 +865,7 @@ Statement::connection() const {
 }
 
 template<typename T>
-Statement&
+inline Statement&
 Statement::bind(const std::string &name, const T &value) {
     if (pimpl_) {
         pimpl_->bind(name, value, false);
@@ -876,7 +876,7 @@ Statement::bind(const std::string &name, const T &value) {
 }
 
 template<typename T>
-Statement&
+inline Statement&
 Statement::rebind(const std::string &name, const T &value) {
     if (pimpl_) {
         pimpl_->bind(name, value, true);
@@ -907,7 +907,8 @@ Statement::run() {
 }
 
 template<typename T>
-Optional<T> Statement::get() {
+inline Optional<T>
+Statement::get() {
     Iterator row = begin();
     if (row.isEnd())
         throw Exception("query did not return a row");
@@ -947,18 +948,20 @@ Iterator::increment() {
 // Implementations for Row
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+inline
+Row::Row(const std::shared_ptr<Detail::StatementBase> &stmt)
+    : stmt_(stmt), sequence_(stmt ? stmt->sequence() : 0) {}
+
 template<typename T>
-Optional<T> Row::get(size_t columnIdx) const {
+inline Optional<T>
+Row::get(size_t columnIdx) const {
     ASSERT_not_null(stmt_);
     if (sequence_ != stmt_->sequence())
         throw Exception("row has been invalidated");
     return stmt_->get<T>(columnIdx);
 }
 
-Row::Row(const std::shared_ptr<Detail::StatementBase> &stmt)
-    : stmt_(stmt), sequence_(stmt ? stmt->sequence() : 0) {}
-
-size_t
+inline size_t
 Row::rowNumber() const {
     ASSERT_not_null(stmt_);
     if (sequence_ != stmt_->sequence())
