@@ -54,8 +54,8 @@ findIncludeFile(const std::string &includeName, IncludeMap &includeMap) {
     BOOST_FOREACH (const std::string &dirName, includeSearchDirs) {
         boost::filesystem::path check = boost::filesystem::path(dirName) / includeName;
         if (boost::filesystem::exists(check)) {
-            includeMap.insert(includeName, check.native());
-            return check.native();
+            includeMap.insert(includeName, check.string());
+            return check.string();
         }
     }
 
