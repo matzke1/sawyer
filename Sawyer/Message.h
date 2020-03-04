@@ -1572,12 +1572,16 @@ public:
  *  This forms a collection of message streams for a software component and contains one stream per message importance level.
  *  A facility is intended to be used by a software component at whatever granularity is desired by the author (program, name
  *  space, class, method, etc.) and is usually given a string name that is related to the software component which it serves.
- *  The string name becomes part of messages and is also the default name used by Facilities::control.  All message streams
- *  created for the facility are given the same name, message prefix generator, and message sink, but they can be adjusted
- *  later on a per-stream basis.
+ *  The string name becomes part of messages and is also the default name used by Facilities::control. The name follows a
+ *  particular syntax described below. All message streams created for the facility are given the same name, message prefix
+ *  generator, and message sink, but they can be adjusted later on a per-stream basis.
  *
  *  The C++ name for the facility is often just "mlog" or "logger" (appropriately scoped) so that code to emit messages is self
  *  documenting. The name "log" is sometimes used, but can be ambiguous with the <code>\::log</code> function in math.h.
+ *
+ *  The string name for the facility follows a particular syntax: the name is composed of one or more components separated from
+ *  one another by separators. Each component contains one or more letters, digits, and underscores. A separator is a dot
+ *  ("."), one or two colons (":" or "::"), or a hyphen ("-").
  *
  * @code
  *  mlog[ERROR] <<"I got an error\n";
@@ -1656,6 +1660,11 @@ public:
     }
     /** @} */
 
+    /** Tests whether a name is valie.
+     *
+     *  Returns true if the specified string satisfies the requirements for being a valid facility name. */
+    static bool isValidName(const std::string&);
+
     /** Return the name of the facility.
      *
      *  This is a read-only field initialized at construction time.
@@ -1690,6 +1699,18 @@ public:
      *
      *  Thread safety: This method is thread-safe. */
     Facility& initStreams(const DestinationPtr&);
+
+    /** Test whether this facilitiy name matches the specified name.
+     *
+     *  Returns true if the specified name matches this facility's name. If the specified string ends with a period then the
+     *  match is exact (excluding the period), otherwise the names match if the components of the specified name are a prefix
+     *  of the components of this facility's name. */
+    bool nameMatchesNS(std::string) const;
+
+protected:
+    // Parse a name into a vector of components. Returns an empty vector if the name is not valid.
+    static std::vector<std::string> parseName(const std::string&);
+
 };
 
 /** Collection of facilities.
@@ -1940,6 +1961,8 @@ private:
     // Remove Facility objects that have apparently been destroyed
     void eraseDestroyedNS();
 
+    // Return the list of facilities whose name matches the pattern.
+    std::vector<Facility*> matchingFacilitiesNS(const std::string &namePattern) const;
 };
 
 

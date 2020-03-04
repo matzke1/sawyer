@@ -6,6 +6,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/config.hpp>
 #include <boost/foreach.hpp>
+#include <boost/regex.hpp>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -1437,6 +1438,8 @@ Facility::operator=(const Facility &other) {
 SAWYER_EXPORT Facility&
 Facility::initialize(const std::string &name) {
     assert(isConstructed());
+    if (!name.empty() && !isValidName(name))
+        throw std::runtime_error("invalid facility name \"" + name + "\"");
     constructed_ = CONSTRUCTED_MAGIC;
     name_ = name;
     initStreams(FdSink::instance(2));
@@ -1446,6 +1449,8 @@ Facility::initialize(const std::string &name) {
 SAWYER_EXPORT Facility&
 Facility::initialize(const std::string &name, const DestinationPtr &destination) {
     assert(isConstructed());
+    if (!name.empty() && !isValidName(name))
+        throw std::runtime_error("invalid facility name \"" + name + "\"");
     constructed_ = CONSTRUCTED_MAGIC;
     name_ = name;
     initStreams(destination);
@@ -1527,6 +1532,41 @@ Facility::get(Importance imp) {
     return *streams_[imp];
 }
 
+// class method, thread-safe
+bool
+Facility::isValidName(const std::string &name) {
+    return !parseName(name).empty();
+}
+
+// class method, thread-safe
+std::vector<std::string>
+Facility::parseName(const std::string &name) {
+    static const std::vector<std::string> nothing;
+    std::vector<std::string> components;
+    const char *s = name.c_str();
+    while (*s) {
+        // Look for a component
+        const char *compStart = s;
+        while (::isalnum(*s) || '_' == *s)
+            ++s;
+        if (s == compStart)
+            return nothing;                             // expected a component
+        components.push_back(std::string(compStart, s));
+
+        // Look for a separator or end of string.
+        if (*s) {
+            if (':' == s[0] && ':' == s[1]) {
+                s += 2;
+            } else if ('.' == *s || ':' == *s || '-' == *s) {
+                ++s;
+            }
+            if (!*s)
+                return nothing;                         // separator cannot be at end of string
+        }
+    }
+    return components;
+}
+
 // thread-safe
 SAWYER_EXPORT std::string
 Facility::name() const {
@@ -1551,6 +1591,26 @@ Facility::comment(const std::string &s) {
     comment_ = s;
     return *this;
 }
+
+bool
+Facility::nameMatchesNS(std::string pattern) const {
+    // Empty pattern doesn't match anything; default-constructed facilities are never matched.
+    if (pattern.empty() || name_.empty())
+        return false;
+
+    // If the pattern ends with "." then it's an exact match (without the ".")
+    if ('.' == pattern[pattern.size()-1])
+        return pattern.substr(0, pattern.size()-1) == name_;
+
+    // Partial matching
+    std::vector<std::string> patternParts = parseName(pattern);
+    if (patternParts.empty())
+        return false;                                   // invalid pattern
+    std::vector<std::string> nameParts = parseName(name_);
+    ASSERT_forbid(nameParts.empty());
+    return patternParts.size() <= nameParts.size() && std::equal(patternParts.begin(), patternParts.end(), nameParts.begin());
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1819,6 +1879,13 @@ Facilities::parseFacilityName(const char *&str) {
             s += 2;
         }
     }
+
+    // The name can be followed by a ".", signifying exact matching
+    if (!name.empty() && '.' == *s) {
+        name += ".";
+        ++s;
+    }
+
     if (!name.empty())
         str = s;
     return name;
@@ -1979,6 +2046,18 @@ Facilities::parseImportanceList(const std::string &facilityName, const char *&st
     return retval;
 }
 
+std::vector<Facility*>
+Facilities::matchingFacilitiesNS(const std::string &namePattern) const {
+    // This could be improved. It currently parses both the namePattern and the facility name each time through the loop. I'm
+    // leaving it this way for now because I don't expect this to be called too often.
+    std::vector<Facility*> retval;
+    BOOST_FOREACH (Facility *facility, facilities_.values()) {
+        if (facility->nameMatchesNS(namePattern))
+            retval.push_back(facility);
+    }
+    return retval;
+}
+
 // thread-safe
 SAWYER_EXPORT std::string
 Facilities::control(const std::string &ss) {
@@ -1998,8 +2077,8 @@ Facilities::control(const std::string &ss) {
                 std::string facilityName = parseFacilityName(s);
                 if (facilityName.empty())
                     break;
-                if (!facilities_.exists(facilityName))
-                    throw ControlError("no such message facility '"+facilityName+"'", facilityNameStart);
+                if (matchingFacilitiesNS(facilityName).empty())
+                    throw ControlError("no facility matching '"+facilityName+"'", facilityNameStart);
 
                 // stream control list in parentheses
                 while (isspace(*s)) ++s;
@@ -2046,10 +2125,12 @@ Facilities::control(const std::string &ss) {
             for (Importance imp=term.lo; imp<=term.hi; imp=(Importance)(imp+1))
                 enableNS(imp, term.enable);
         } else {
-            FacilityMap::NodeIterator found = facilities_.find(term.facilityName);
-            assert(found!=facilities_.nodes().end() && found->value()!=NULL);
-            for (Importance imp=term.lo; imp<=term.hi; imp=(Importance)(imp+1))
-                found->value()->get(imp).enable(term.enable);
+            std::vector<Facility*> found = matchingFacilitiesNS(term.facilityName);
+            ASSERT_forbid(found.empty());
+            BOOST_FOREACH (Facility *facility, found) {
+                for (Importance imp = term.lo; imp <= term.hi; imp = (Importance)(imp+1))
+                    facility->get(imp).enable(term.enable);
+            }
         }
     }
 
