@@ -8,6 +8,9 @@ if [ "$PREFIX" = "" ]; then
     exit 1
 fi
 
-tup
+cp tup.config tup.config~
+./tup-scripts/merge-configs BOOST=$BOOST_ROOT SQLITE=$SQLITE_ROOT LIBPQXX=$LIBPQXX_ROOT <tup.config~ >tup.config
+
+tup --verbose
 mkdir -p "$PREFIX"
 ./tup-scripts/install-staged --remove "$(pwd)/Sawyer" --remove ../Sawyer --remove "$(pwd)/tools" "$PREFIX"

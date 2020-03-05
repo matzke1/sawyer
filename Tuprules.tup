@@ -1,20 +1,29 @@
 .gitignore
-export BOOST_ROOT
-export SQLITE_ROOT
 
 ROOT = $(TUP_CWD)
 INSTALL_STAGING = install-staging
 
 CXX            = c++
-CPPFLAGS       = -I$(ROOT) -I$BOOST_ROOT/include -I$SQLITE_ROOT/include
+CPPFLAGS       = -I$(ROOT) -I@(BOOST)/include
 CXXFLAGS       = -fPIC -pthread -g @(OPTIMIZATION) -Wall
-LDFLAGS_SHARED = -Wl,-rpath,`pwd` -Wl,-rpath,$BOOST_ROOT/lib -L$BOOST_ROOT/lib -lboost_thread -lboost_serialization -lboost_filesystem -lboost_iostreams -lboost_regex -lboost_chrono -Wl,-rpath,$SQLITE_ROOT/lib -L$SQLITE_ROOT/lib -lsqlite3 -lpqxx
-LDFLAGS_STATIC = -L$BOOST_ROOT/lib -lboost_thread -lboost_serialization -lboost_filesystem -lboost_iostreams -lboost_regex -lboost_chrono -L$SQLITE_ROOT/lib -lsqlite3 -lpqxx
-RPATH          = @(BOOST_LIBS)
+LDFLAGS_SHARED = -Wl,-rpath,`pwd` -Wl,-rpath,@(BOOST)/lib -L@(BOOST)/lib -lboost_thread -lboost_serialization -lboost_filesystem -lboost_iostreams -lboost_regex -lboost_chrono
+LDFLAGS_STATIC = -L@(BOOST)/lib -lboost_thread -lboost_serialization -lboost_filesystem -lboost_iostreams -lboost_regex -lboost_chrono
+
+ifneq (@(SQLITE),)
+    CPPFLAGS       += -I@(SQLITE)/include
+    LDFLAGS_SHARED += -Wl,-rpath,@(SQLITE)/lib -L@(SQLITE)/lib -lsqlite3
+    LDFLAGS_STATIC += -L@(SQLITE)/lib -lsqlite3
+endif
+
+ifneq (@(LIBPQXX),)
+    CPPFLAGS       += -I@(LIBPQXX)/include
+    LDFLAGS_SHARED += -Wl,-rpath,@(LIBPQXX)/lib -L@(LIBPQXX)/lib -lpqxx
+    LDFLAGS_STATIC += -L@(LIBPQXX)/lib -lpqxx
+endif
 
 # commands
-compile_lib = $(ROOT)/tup-scripts/generate-compile-link-rules --linkage=@(LINKAGE) --rpath=$(RPATH)
-compile_tool = $(ROOT)/tup-scripts/generate-compile-link-rules --linkage=@(LINKAGE) --rpath=$(RPATH) $(ROOT)/Sawyer/libsawyer
+compile_lib = $(ROOT)/tup-scripts/generate-compile-link-rules --linkage=@(LINKAGE)
+compile_tool = $(ROOT)/tup-scripts/generate-compile-link-rules --linkage=@(LINKAGE) $(ROOT)/Sawyer/libsawyer
 
 public_header = $(ROOT)/tup-scripts/generate-install-rules --language=c++ --output=include/Sawyer
 test = $(ROOT)/tup-scripts/generate-test-rules

@@ -1,7 +1,11 @@
 include_rules
 
-run $(compile_tool) -DDRIVER=1 -o test1 databaseUnitTests.C
-run $(test) --extra test1.db test1
+ifneq (@(SQLITE),)
+    run $(compile_tool) -DDRIVER=1 -o test1 databaseUnitTests.C
+    run $(test) --extra test1.db test1
+endif
 
-run $(compile_tool) -DDRIVER=2 -o test2 databaseUnitTests.C
-run $(test) test2
+ifneq (@(LIBPQXX),)
+    run $(compile_tool) -DDRIVER=2 -o test2 databaseUnitTests.C
+    run $(test) test2
+endif
