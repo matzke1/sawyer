@@ -9,6 +9,7 @@
 
 #include <boost/config.hpp>
 #include <boost/logic/tribool.hpp>
+#include <boost/regex.hpp>
 #include <cassert>
 #include <cstring>
 #include <list>
@@ -1700,13 +1701,6 @@ public:
      *  Thread safety: This method is thread-safe. */
     Facility& initStreams(const DestinationPtr&);
 
-    /** Test whether this facilitiy name matches the specified name.
-     *
-     *  Returns true if the specified name matches this facility's name. If the specified string ends with a period then the
-     *  match is exact (excluding the period), otherwise the names match if the components of the specified name are a prefix
-     *  of the components of this facility's name. */
-    bool nameMatchesNS(std::string) const;
-
 protected:
     // Parse a name into a vector of components. Returns an empty vector if the name is not valid.
     static std::vector<std::string> parseName(const std::string&);
@@ -1932,10 +1926,10 @@ public:
 private:
     /** @internal Private info used by control() to indicate what should be adjusted. */
     struct ControlTerm {
-        ControlTerm(const std::string &facilityName, bool enable)
-            : facilityName(facilityName), lo(DEBUG), hi(DEBUG), enable(enable) {}
+        ControlTerm(const boost::regex &facilityNamePattern, bool enable)
+            : facilityNamePattern(facilityNamePattern), lo(DEBUG), hi(DEBUG), enable(enable) {}
         std::string toString() const;                   /**< String representation of this struct for debugging. */
-        std::string facilityName;                       /**< %Optional facility name. Empty implies all facilities. */
+        boost::regex facilityNamePattern;               /**< Facility name pattern. Empty implies all facilities. */
         Importance lo, hi;                              /**< Inclusive range of importances. */
         bool enable;                                    /**< New state. */
     };
@@ -1951,18 +1945,18 @@ private:
     };
 
     // Functions used by the control() method
-    static std::string parseFacilityName(const char* &input);
+    static boost::regex parseFacilityNamePattern(const char* &input);
     static std::string parseEnablement(const char* &input);
     static std::string parseRelation(const char* &input);
     static std::string parseImportanceName(const char* &input);
     static Importance importanceFromString(const std::string&);
-    static std::list<ControlTerm> parseImportanceList(const std::string &facilityName, const char* &input, bool isGlobal);
+    static std::list<ControlTerm> parseImportanceList(const boost::regex &facilityNamePattern, const char* &input, bool isGlobal);
 
     // Remove Facility objects that have apparently been destroyed
     void eraseDestroyedNS();
 
     // Return the list of facilities whose name matches the pattern.
-    std::vector<Facility*> matchingFacilitiesNS(const std::string &namePattern) const;
+    std::vector<Facility*> matchingFacilitiesNS(const boost::regex &namePattern) const;
 };
 
 

@@ -6,7 +6,6 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/config.hpp>
 #include <boost/foreach.hpp>
-#include <boost/regex.hpp>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -1533,13 +1532,13 @@ Facility::get(Importance imp) {
 }
 
 // class method, thread-safe
-bool
+SAWYER_EXPORT bool
 Facility::isValidName(const std::string &name) {
     return !parseName(name).empty();
 }
 
 // class method, thread-safe
-std::vector<std::string>
+SAWYER_EXPORT std::vector<std::string>
 Facility::parseName(const std::string &name) {
     static const std::vector<std::string> nothing;
     std::vector<std::string> components;
@@ -1591,26 +1590,6 @@ Facility::comment(const std::string &s) {
     comment_ = s;
     return *this;
 }
-
-bool
-Facility::nameMatchesNS(std::string pattern) const {
-    // Empty pattern doesn't match anything; default-constructed facilities are never matched.
-    if (pattern.empty() || name_.empty())
-        return false;
-
-    // If the pattern ends with "." then it's an exact match (without the ".")
-    if ('.' == pattern[pattern.size()-1])
-        return pattern.substr(0, pattern.size()-1) == name_;
-
-    // Partial matching
-    std::vector<std::string> patternParts = parseName(pattern);
-    if (patternParts.empty())
-        return false;                                   // invalid pattern
-    std::vector<std::string> nameParts = parseName(name_);
-    ASSERT_forbid(nameParts.empty());
-    return patternParts.size() <= nameParts.size() && std::equal(patternParts.begin(), patternParts.end(), nameParts.begin());
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1688,9 +1667,8 @@ Facilities::insertNS(Facility &facility, std::string name) {
         name = facility.name();
     if (name.empty())
         throw std::logic_error("facility name is empty and no name was supplied");
-    const char *s = name.c_str();
-    if (0!=name.compare(parseFacilityName(s)))
-        throw std::logic_error("name '"+name+"' is not valid for the Facilities::control language");
+    if (!Facility::isValidName(name))
+        throw std::logic_error("name '"+name+"' is not valid");
     FacilityMap::NodeIterator found = facilities_.find(name);
     if (found!=facilities_.nodes().end()) {
         if (found->value()!= &facility)
@@ -1848,47 +1826,51 @@ Facilities::enable(bool b) {
     return *this;
 }
 
-std::string
-Facilities::ControlTerm::toString() const {
-    std::string s = enable ? "enable" : "disable";
-    if (lo==hi) {
-        s += " level " + stringifyImportance(lo);
-    } else {
-        s += " levels " + stringifyImportance(lo) + " through " + stringifyImportance(hi);
-    }
-    s += " for " + (facilityName.empty() ? "all registered facilities" : facilityName);
-    return s;
-}
-
 // class method; thread-safe
-// Matches the Perl regular expression /^\s*([a-zA-Z]\w*((\.|::)[a-zA-Z]\w*)*/
-// On match, returns $1 and str points to the next character after the regular expression
-// When not matched, returns "" and str is unchanged
-SAWYER_EXPORT std::string
-Facilities::parseFacilityName(const char *&str) {
-    std::string name;
-    const char *s = str;
-    while (isspace(*s)) ++s;
-    while (isalpha(*s)) {
-        while (isalnum(*s) || '_'==*s) name += *s++;
-        if ('.'==s[0] && (isalpha(s[1]) || '_'==s[1])) {
-            name += ".";
-            ++s;
-        } else if (':'==s[0] && ':'==s[1] && (isalpha(s[2]) || '_'==s[2])) {
-            name += "::";
-            s += 2;
+SAWYER_EXPORT boost::regex
+Facilities::parseFacilityNamePattern(const char *&str) {
+#if 0 // strict: '*' can only be a complete name component
+    boost::regex firstComponent("^(\\w+|\\*)");
+    boost::regex nextComponent("^(\\.|::?)(\\w+|\\*)");
+    boost::cmatch matched;
+    std::string re;
+
+    if (boost::regex_search(str, matched, firstComponent)) {
+        if (matched.str() == "*") {
+            re = ".*";
+        } else {
+            re = matched.str();
         }
     }
+    str += matched.length();
 
-    // The name can be followed by a ".", signifying exact matching
-    if (!name.empty() && '.' == *s) {
-        name += ".";
-        ++s;
+    while (boost::regex_search(str, matched, nextComponent)) {
+        std::string separator = matched.str(0);
+        std::string component = matched.str(1);
+        if ("." == separator) {
+            re += "\\.";
+        } else {
+            re += separator;
+        }
+        if ("*" == component) {
+            re += ".*";
+        } else {
+            re += component;
+        }
+        str += matched.length();
     }
+#else // relaxed: '*' can appear anywhere
+    std::string re;
+    for (/*void*/; isalnum(*str) || strchr("_.:*", *str); ++str) {
+        if ('*' == *str) {
+            re += ".*";
+        } else {
+            re += *str;
+        }
+    }
+#endif
 
-    if (!name.empty())
-        str = s;
-    return name;
+    return boost::regex(re);
 }
 
 // class method; thread-safe
@@ -1970,7 +1952,7 @@ Facilities::importanceFromString(const std::string &str) {
 // Parses a StreamControlList. On success, returns a non-empty vector and adjust 'str' to point to the next character after the
 // list.  On failure, throw a ControlError.
 SAWYER_EXPORT std::list<Facilities::ControlTerm>
-Facilities::parseImportanceList(const std::string &facilityName, const char *&str, bool isGlobal) {
+Facilities::parseImportanceList(const boost::regex &facilityNamePattern, const char *&str, bool isGlobal) {
     const char *s = str;
     std::list<ControlTerm> retval;
 
@@ -2005,7 +1987,7 @@ Facilities::parseImportanceList(const std::string &facilityName, const char *&st
             break;
         }
 
-        ControlTerm term(facilityName, enablement.compare("!")!=0);
+        ControlTerm term(facilityNamePattern, enablement.compare("!")!=0);
         if (boost::iequals(importance, "all") || boost::iequals(importance, "none")) {
             if (!enablement.empty())
                 throw ControlError("'"+importance+"' cannot be preceded by '"+enablement+"'", enablementStart);
@@ -2047,13 +2029,11 @@ Facilities::parseImportanceList(const std::string &facilityName, const char *&st
 }
 
 std::vector<Facility*>
-Facilities::matchingFacilitiesNS(const std::string &namePattern) const {
-    // This could be improved. It currently parses both the namePattern and the facility name each time through the loop. I'm
-    // leaving it this way for now because I don't expect this to be called too often.
+Facilities::matchingFacilitiesNS(const boost::regex &namePattern) const {
     std::vector<Facility*> retval;
-    BOOST_FOREACH (Facility *facility, facilities_.values()) {
-        if (facility->nameMatchesNS(namePattern))
-            retval.push_back(facility);
+    BOOST_FOREACH (const FacilityMap::Node &node, facilities_.nodes()) {
+        if (boost::regex_match(node.key(), namePattern))
+            retval.push_back(node.value());
     }
     return retval;
 }
@@ -2069,15 +2049,16 @@ Facilities::control(const std::string &ss) {
 
     try {
         while (1) {
-            std::list<ControlTerm> t2 = parseImportanceList("", s, true);
+            std::list<ControlTerm> t2 = parseImportanceList(boost::regex(), s, true);
             if (t2.empty()) {
                 // facility name
                 while (isspace(*s)) ++s;
                 const char *facilityNameStart = s;
-                std::string facilityName = parseFacilityName(s);
-                if (facilityName.empty())
+                boost::regex facilityNamePattern = parseFacilityNamePattern(s);
+                if (facilityNamePattern.empty())
                     break;
-                if (matchingFacilitiesNS(facilityName).empty())
+                std::string facilityName(facilityNameStart, s);
+                if (matchingFacilitiesNS(facilityNamePattern).empty())
                     throw ControlError("no facility matching '"+facilityName+"'", facilityNameStart);
 
                 // stream control list in parentheses
@@ -2085,7 +2066,7 @@ Facilities::control(const std::string &ss) {
                 if ('('!=*s)
                     throw ControlError("expected '(' after message facility name '"+facilityName+"'", s);
                 ++s;
-                t2 = parseImportanceList(facilityName, s, false);
+                t2 = parseImportanceList(facilityNamePattern, s, false);
                 if (t2.empty())
                     throw ControlError("expected stream control list after '('", s);
                 while (isspace(*s)) ++s;
@@ -2105,9 +2086,9 @@ Facilities::control(const std::string &ss) {
         if (*s) {
             if (terms.empty())
                 throw ControlError("syntax error", s);
-            if (terms.back().facilityName.empty())
+            if (terms.back().facilityNamePattern.empty())
                 throw ControlError("syntax error in global list", s);
-            throw ControlError("syntax error after '"+terms.back().facilityName+"' list", s);
+            throw ControlError("syntax error", s);
         }
     } catch (const ControlError &error) {
         std::string s = error.mesg + "\n";
@@ -2121,11 +2102,11 @@ Facilities::control(const std::string &ss) {
 
     for (std::list<ControlTerm>::iterator ti=terms.begin(); ti!=terms.end(); ++ti) {
         const ControlTerm &term = *ti;
-        if (term.facilityName.empty()) {
+        if (term.facilityNamePattern.empty()) {
             for (Importance imp=term.lo; imp<=term.hi; imp=(Importance)(imp+1))
                 enableNS(imp, term.enable);
         } else {
-            std::vector<Facility*> found = matchingFacilitiesNS(term.facilityName);
+            std::vector<Facility*> found = matchingFacilitiesNS(term.facilityNamePattern);
             ASSERT_forbid(found.empty());
             BOOST_FOREACH (Facility *facility, found) {
                 for (Importance imp = term.lo; imp <= term.hi; imp = (Importance)(imp+1))
