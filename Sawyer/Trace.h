@@ -70,6 +70,8 @@ class VectorIndex {
     std::vector<Value> vector_;
 
 public:
+    VectorIndex() {}
+
     void clear() {
         vector_.clear(0);
     }
