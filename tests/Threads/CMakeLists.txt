@@ -3,3 +3,6 @@ target_link_libraries(threadWorkerTests sawyer)
 
 add_executable(cachableDemo cachableDemo.C)
 target_link_libraries(cachableDemo sawyer)
+
+add_executable(producerConsumerTests producerConsumerTests.C)
+target_link_libraries(producerConsumerTests sawyer)
