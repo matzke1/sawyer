@@ -6,5 +6,5 @@ run $(test) cachableDemo
 run $(compile_tool) threadWorkerTests.C
 run $(test) threadWorkerTests
 
-run $(compile_tool) producerConsumerTests.C
-run $(test) producerConsumerTests
+run $(compile_tool) workListTests.C
+run $(test) workListTests
