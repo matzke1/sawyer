@@ -2,6 +2,7 @@
 #define Sawyer_WorkList_H
 
 #include <Sawyer/Synchronization.h>
+#include <deque>
 
 namespace Sawyer {
 
@@ -34,7 +35,12 @@ public:
 
     /** Remove and return the next item of work.
      *
-     *  This is only called when @ref isEmpty returns true. */
+     *  This is only called when @ref isEmpty returns true.
+     *
+     *  This function is allowed to block to wait for other work to complete, which can be useful when the work list has more work
+     *  to do but all that work depends on the completion of work that's already underway.  Determining when the other work
+     *  completes can be done by having the @ref processWorkList functor signal a condition variable on which this function is
+     *  waiting. */
     Item next() {
         SAWYER_THREAD_TRAITS::LockGuard lock(mutex_);
         ASSERT_forbid(items_.empty());
@@ -54,6 +60,7 @@ public:
  *  list, such as adding additional work items. */
 template<class WorkItems, class Functor>
 void processWorkList(WorkItems &workList, size_t maxWorkers, Functor f) {
+#if SAWYER_MULTI_THREADED
     boost::mutex mutex;
     boost::condition_variable cond;
     size_t nActiveWorkers = 0;
@@ -90,6 +97,10 @@ void processWorkList(WorkItems &workList, size_t maxWorkers, Functor f) {
         if (workList.isEmpty() && 0 == nActiveWorkers)
             break;
     }
+#else
+    while (!workList.isEmpty())
+        f(workList.next(), workList);
+#endif
 }
 
 } // namespace
