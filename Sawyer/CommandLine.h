@@ -3,6 +3,7 @@
 #define Sawyer_CommandLine_H
 
 #include <Sawyer/Assert.h>
+#include <Sawyer/BitFlags.h>
 #include <Sawyer/DocumentMarkup.h>
 #include <Sawyer/IntervalSet.h>
 #include <Sawyer/Map.h>
@@ -478,6 +479,7 @@ SAWYER_COMMANDLINE_SEQUENCE_SAVER(std::list, push_back);
 SAWYER_COMMANDLINE_SEQUENCE_SAVER(std::set, insert);
 SAWYER_COMMANDLINE_SEQUENCE_SAVER(Sawyer::Container::Set, insert);
 SAWYER_COMMANDLINE_SEQUENCE_SAVER(Optional, operator=);
+SAWYER_COMMANDLINE_SEQUENCE_SAVER(BitFlags, set);
 SAWYER_COMMANDLINE_MAP_PAIR_SAVER(std::map, insert);
 SAWYER_COMMANDLINE_MAP_SAVER(Sawyer::Container::Map, insert);
 SAWYER_COMMANDLINE_INTERVALSET_SAVER(Sawyer::Container::IntervalSet, insert);
@@ -1473,6 +1475,10 @@ typename EnumParser<T>::Ptr enumParser(std::vector<T> &storage) {
 template<typename T>
 typename EnumParser<T>::Ptr enumParser(Optional<T> &storage) {
     return EnumParser<T>::instance(TypedSaver<Optional<T> >::instance(storage));
+}
+template<typename T>
+typename EnumParser<T>::Ptr enumParser(BitFlags<T> &storage) {
+    return EnumParser<T>::instance(TypedSaver<BitFlags<T> >::instance(storage));
 }
 template<typename T>
 typename EnumParser<T>::Ptr enumParser() {
