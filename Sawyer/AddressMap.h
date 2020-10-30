@@ -19,7 +19,10 @@
 #include <boost/serialization/access.hpp>
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/nvp.hpp>
+
+#if __cplusplus >= 201103L
 #include <type_traits>
+#endif
 
 namespace Sawyer {
 namespace Container {
