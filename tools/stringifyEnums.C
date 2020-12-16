@@ -327,7 +327,7 @@ parseTermExpr(TokenStream &tokens) {
     int64_t retval = 0;
     if (tokens[0].type() == TOK_NUMBER) {
         retval = parseIntegralConstant(tokens);
-    } else if (auto v = currentEnumMembers.getOptional(tokens.lexeme(tokens[0]))) {
+    } else if (Sawyer::Optional<EnumValue> v = currentEnumMembers.getOptional(tokens.lexeme(tokens[0]))) {
         retval = v->value;
         tokens.consume();
     } else if (globalSymbols.getOptional(tokens.lexeme(tokens[0])).assignTo(retval)) {
@@ -886,7 +886,7 @@ checkBackwardCompatibility(const std::string &fileName, const Location &loc,
     BOOST_FOREACH (const EnumMembers::Node &member, members.nodes()) {
         if (member.value().flags.isClear(NO_CHECK)) {
             std::string memberName = enumName + "::" + member.key();
-            if (auto old = oldEnumMembers.getOptional(memberName)) {
+            if (Sawyer::Optional<EnumValue> old = oldEnumMembers.getOptional(memberName)) {
                 if (old->value != member.value().value) {
                     std::cerr <<where(fileName, loc) <<": error: '" <<memberName <<"'"
                               <<" value changed from " <<old->value <<" to " <<member.value().value <<"\n";
@@ -1244,7 +1244,7 @@ main(int argc, char *argv[]) {
             std::cerr <<checkCompatibility.string() <<": not updating database due to previous compatibility errors\n";
         } else {
             std::ofstream out(checkCompatibility.c_str());
-            for (const auto &old: oldEnumMembers.nodes()) {
+            BOOST_FOREACH (const EnumMembers::Node &old, oldEnumMembers.nodes()) {
                 if (old.value().flags.isClear(NO_CHECK))
                     out <<old.key() <<"\t" <<old.value().value <<"\n";
             }
