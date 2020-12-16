@@ -1044,14 +1044,18 @@ parseEnum(TokenStream &tokens, Scopes &scopes) {
 
     switch (generate) {
         case GENERATE_DECLARATIONS:
-            generateDeclaration(tokens.fileName(), enumLocation, scopes);
-            if (emitCompatible)
-                generateCompatibleDeclaration(scopes);
+            if (enumFlags.isClear(NO_STRINGIFY)) {
+                generateDeclaration(tokens.fileName(), enumLocation, scopes);
+                if (emitCompatible)
+                    generateCompatibleDeclaration(scopes);
+            }
             break;
         case GENERATE_DEFINITIONS:
-            generateImplementation(tokens.fileName(), enumLocation, scopes, members);
-            if (emitCompatible)
-                generateCompatibleImplementation(scopes);
+            if (enumFlags.isClear(NO_STRINGIFY)) {
+                generateImplementation(tokens.fileName(), enumLocation, scopes, members);
+                if (emitCompatible)
+                    generateCompatibleImplementation(scopes);
+            }
             break;
         case GENERATE_NOTHING:
             break;
