@@ -141,6 +141,7 @@ include_directories(
 
 add_subdirectory(docs/examples)
 add_subdirectory(tests/Basic)
+add_subdirectory(tests/BitOps)
 add_subdirectory(tests/Allocation)
 add_subdirectory(tests/Pointers)
 add_subdirectory(tests/Container)

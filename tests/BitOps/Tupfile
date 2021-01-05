@@ -1,0 +1,4 @@
+include_rules
+
+run $(compile_tool) testBitOps.C
+run $(test) testBitOps
