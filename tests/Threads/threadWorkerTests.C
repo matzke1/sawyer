@@ -21,19 +21,36 @@ public:
 class WorkFunctor {
 public:
     void operator()(size_t workItemId, const WorkItem &workItem) {
-        showProgress(workItemId);                       // these are vertex ID numbers of the lattice, 0 through |V|-1
+        showStartProgress(workItemId);                  // these are vertex ID numbers of the lattice, 0 through |V|-1
         boost::this_thread::sleep(workItem.duration);   // this is the "work" done on the work item.
+        showEndProgress(workItemId);
     }
 private:
-    void showProgress(size_t workItemId) {              // use std::cerr because it's line buffered
+    void showStartProgress(size_t workItemId) {              // use std::cerr because it's line buffered
         boost::lock_guard<boost::mutex> lock(outputMutex);
-        std::cerr <<"thread " <<boost::this_thread::get_id() <<" working on " <<workItemId <<"\n";
+        std::cerr <<"thread " <<boost::this_thread::get_id() <<" starting work on " <<workItemId <<"\n";
+    }
+    void showEndProgress(size_t workItemId) {              // use std::cerr because it's line buffered
+        boost::lock_guard<boost::mutex> lock(outputMutex);
+        std::cerr <<"thread " <<boost::this_thread::get_id() <<" finished work on " <<workItemId <<"\n";
     }
 };
 
 // Define a dependency lattice to hold all the work items.  Graph is a superset of lattice, so we use that (the thread system
 // verifies that the graph forms a forest of lattices).  An edge from vertex A to B means work A depends on work B.
 typedef Sawyer::Container::Graph<WorkItem> Work;
+
+// Optionally define a functor to report status. The inProgress argument is the set of vertices of the "work" graph that are
+// currently running (although they might finish running during this call).
+class ReportStatus {
+public:
+    void operator()(const Work &work, size_t nFinished, const std::set<size_t> inProgress) {
+        boost::lock_guard<boost::mutex> lock(outputMutex);
+        std::cerr <<"*** Still working: "
+                  <<(100.0 * nFinished / work.nVertices()) <<"% completed, "
+                  <<inProgress.size() <<" workers busy\n";
+    }
+};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // testing...
@@ -64,9 +81,12 @@ main() {
     // Perform the work. This doesn't return until the work is finished.
     Sawyer::workInParallel(work, nThreads, WorkFunctor());
     std::cerr <<"All done (work item #0 should have been the final output)!\n";
-#endif
 
-#if 1 // [Robb Matzke 2015-11-11]
+#elif 1 // [Robb Matzke 2021-03-15]
+    // Perform the work. This doesn't return until the work is finished.
+    Sawyer::workInParallel(work, nThreads, WorkFunctor(), ReportStatus(), boost::chrono::seconds(3));
+
+#elif 1 // [Robb Matzke 2015-11-11]
     // Run the work asynchronously so we can report on its progress
     {
         Sawyer::ThreadWorkers<Work, WorkFunctor> workers;
@@ -85,9 +105,8 @@ main() {
         }
         workers.wait();
     }
-#endif
 
-#if 0 // [Robb Matzke 2015-11-12]
+#elif 0 // [Robb Matzke 2015-11-12]
     // Make sure destructor works
     {
         Sawyer::ThreadWorkers<Work, WorkFunctor> workers;
