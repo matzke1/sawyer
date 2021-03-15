@@ -81,6 +81,9 @@ public:
     BitFlags(Vector v) /*implicit*/
         : vector_(v) {}
 
+    BitFlags(E e) /*implicit*/
+        : vector_(Vector(e)) {}
+
     /** Current value of the bit vector. */
     Vector vector() const {
         return vector_;
