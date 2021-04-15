@@ -1517,7 +1517,7 @@ public:
     #define SAWYER_MESG(message_stream) (message_stream) && (message_stream)
     #define SAWYER_MSG(message_stream)  (message_stream) && (message_stream)
 
-    #define SAWYER_MESG_FIRST(args...) Sawyer::Message::firstEnabled(args) && Sawyer::Message::firstEnabled(args)
+    #define SAWYER_MESG_FIRST(...) Sawyer::Message::firstEnabled(__VA_ARGS__) && Sawyer::Message::firstEnabled(__VA_ARGS__)
     #define SAWYER_MESG_OR(s1, s2) SAWYER_MESG_FIRST(s1, s2)
     #define SAWYER_MSG_OR(s1, s2)  SAWYER_MESG_FIRST(s1, s2)
 
